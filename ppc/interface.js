@@ -51,20 +51,69 @@ module.exports = (function() {
         this.analyze = function(data) {
             data.ops = this.preprocess(data.ops);
             var fcn = new utils.conditional.Function(data.name);
+            var args = [];
             fcn.array = data.ops;
-            //searching for FOR(;;){} flows
+            // searching for *(((uint[64|32]_t*) r1) - N) = r1;
+            if (fcn.get(0).opcode && fcn.get(0).opcode.match(/\*\(\(\(uint[36][24]_t\*\)\sr1\)\s[-+]\s\d+\)\s=\sr1/)) {
+                var e = fcn.get(0);
+                e.comments.push(e.opcode);
+                e.opcode = null;
+                for (var i = 1; i < fcn.size(); i++) {
+                    e = fcn.get(i);
+                    if (e.opcode && (e.opcode.indexOf('mflr') > 0 ||
+                        e.opcode.match(/\*\(\(\(u?int[36][24]_t\*\)\sr1\)\s[-+]\s\d+\)\s=\sr\d/))) {
+                        e.comments.push(e.opcode);
+                        if (e.opcode.indexOf('mflr') > 0 || e.opcode.indexOf(' = r0;') > 0) {
+                            e.opcode = null;
+                        } else {
+                            var type = e.opcode.match(/u?int[36][24]_t/)[0];
+                            e.opcode = type + ' ' + e.opcode.match(/r\d\d/)[0] + ";"
+                        }
+                    }
+                    if (e.opcode && (e.opcode.indexOf('mtlr') > 0 ||
+                        e.opcode.indexOf('r0 = *(((') == 0 ||
+                        e.opcode.match(/r1\s\+=\s[x\da-f]+;/) ||
+                        e.opcode.match(/r\d\d\s=\s\*\(\(\(u?int[36][24]_t\*\)\sr1\)\s[-+]\s\d+\);/))) {
+                        e.comments.push(e.opcode);
+                        e.opcode = null;
+                    }
+                }
+            }
+
+            //searching calls and for flows
             for (var i = 0; i < fcn.size(); i++) {
                 var e = fcn.get(i);
                 if (e.type == 'call') {
-                    var next = fcn.get(i + 2);
+                    var next = fcn.get(i + 1);
                     if (next.opcode && next.opcode.match(/r\d+\s\=\sr3;/)) {
                         var reg = next.opcode.match(/r\d+\s\=\s/);
                         next.opcode = null;
                         e.opcode = reg + e.opcode;
+                        next = fcn.get(i + 2);
+                        var regex = next.cond ? next.cond.a.match(/r\d+/) : null;
+                        if (regex && regex[0] == 'r3') {
+                            reg = reg.replace(/\s=\s/, '');
+                            next.cond.a = next.cond.a.replace(/r3/, reg);
+                        }
+                        next = fcn.get(i + 1);
+                    } else {
+                        next = fcn.get(i + 2);
+                        if (next.opcode && next.opcode.match(/r\d+\s\=\sr3;/)) {
+                            var reg = next.opcode.match(/r\d+\s\=\s/)[0];
+                            next.opcode = null;
+                            e.opcode = reg + e.opcode;
+                            next = fcn.get(i + 3);
+                            var regex = next.cond ? next.cond.a.match(/r\d+/) : null;
+                            if (regex && regex[0] == 'r3') {
+                                reg = reg.replace(/\s=\s/, '');
+                                next.cond.a = next.cond.a.replace(/r3/, reg);
+                            }
+                        }
+                        next = fcn.get(i + 2);
                     }
                     var regs = [];
                     var found = [];
-                    for (var j = i - 10; j < i; j++) {
+                    for (var j = i - 1; j > i - 10; j--) {
                         if (j < 0) continue;
                         var next = fcn.get(j);
                         if (next.opcode && next.opcode.match(/r[3-9]\s\=/)) {
@@ -98,6 +147,7 @@ module.exports = (function() {
                         e.opcode = e.opcode.substr(0, e.opcode.length - 2) + ');';
                     }
                 }
+                    //searching for FOR(;;){} flows
                 var regex = e.opcode ? e.opcode.match(/r\d+\s=\s\d+;/) : null;
                 if (regex && regex.length == 1) {
                     // found rXX = N;
@@ -148,7 +198,7 @@ module.exports = (function() {
                     utils.controlflow(fcn.array, i, utils.conditional);
                 }
                 /*else if (e.jump < e.offset && e.opcode && e.opcode.indexOf('goto') == 0) {
-                    var start = utils.controlflow.find(fcn.array, e.offset, e.jump);
+                    var start = utils.controlflow.find(fcn.array, i, e.jump);
                     fcn.get(start).label = null;
                     e.opcode = null;
                     utils.controlflow.while(fcn.array, start, i, utils.conditional, {

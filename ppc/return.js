@@ -99,11 +99,19 @@ module.exports = (function() {
         'mtlr': function(l, start) {
             var e = l[start].opcode;
             var reg = e[1];
-            l[start].opcode = "void (*p)(void) = " + reg + ";";
+            if (reg != 'r0') {
+                l[start].opcode = "void (*p)(void) = " + reg + ";";
+            } else {
+                l[start].opcode = null;
+            }
             for (var i = start + 1; i < l.length; ++i) {
                 e = l[i].opcode;
                 if (e[0] == 'blr' || e[0] == 'blrl') {
-                    l[i].opcode = "p (" + (reg != 'r3' ? "r3" : "") + ");";
+                    if (reg != 'r0') {
+                        l[i].opcode = "p (" + (reg != 'r3' ? "r3" : "") + ");";
+                    } else {
+                        l[i].opcode = 'return' + (reg != 'r3' ? " r3;" : ";");
+                    }
                     break;
                 }
             }

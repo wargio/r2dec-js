@@ -26,12 +26,12 @@
 
 module.exports = (function() {
     var find = function(array, current, search) {
-        if (search < current) {
-            for (var i = 0; i < array.length; i++) {
+        if (search > array[current].offset) {
+            for (var i = current; i < array.length; i++) {
                 if (array[i].offset == search) return i;
             };
         } else {
-            for (var i = array.length - 1; i >= 0; i--) {
+            for (var i = 0; i < current; i++) {
                 if (array[i].offset == search) return i;
             };
         }
@@ -42,7 +42,7 @@ module.exports = (function() {
         var e = array[start];
         var last = array[start - 1];
         if (e.jump > e.offset) {
-            var end = find(array, e.offset, e.jump);
+            var end = find(array, start, e.jump);
             var cond = e.cond;
             if (last && last.type && last.type.indexOf('if') == 0) {
                 flow = new conditional.Else(start, end, e.cond.a, e.cond.b, e.cond.cmp);
@@ -50,7 +50,7 @@ module.exports = (function() {
                 flow = new conditional.If(start, end, e.cond.a, e.cond.b, e.cond.cmp);
             }
             e.cond = null;
-            var removed = array.splice(start, end - start, flow);
+            var removed = array.splice(start, start - end, flow);
             for (var i = 0; i < removed.length; ++i) {
                 e = removed[i];
                 if (e && e.cond) {
@@ -59,6 +59,7 @@ module.exports = (function() {
                 flow.add(e);
             }
             if (flow.size() == 0) {
+                //                console.log(array);
                 if (flow.type == 'if') {
                     flow = new conditional.IfBreak(start, end, cond.a, cond.b, cond.cmp);
                 } else {
@@ -69,7 +70,7 @@ module.exports = (function() {
         } else if (e.jump < e.offset) {
             var end = start;
             var cond = e.cond;
-            start = find(array, e.offset, e.jump);
+            start = find(array, start, e.jump);
             flow = new conditional.DoWhile(start, end, e.cond.a, e.cond.b, e.cond.cmp);
             e.cond = null;
             var removed = array.splice(start, end - start, flow);
