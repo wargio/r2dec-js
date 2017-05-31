@@ -1,0 +1,11 @@
+{
+    "name": "r2dec",
+    "version": "1.0.0",
+    "keywords": [
+        "util",
+    ],
+    "author": "Giovanni Dante Grazioli <deroad@libero.it>",
+    "contributors": [],
+    "dependencies": {
+    }
+}
