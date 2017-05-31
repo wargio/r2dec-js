@@ -62,6 +62,29 @@ module.exports = (function() {
                         next.opcode = null;
                         e.opcode = reg + e.opcode;
                     }
+                    var regs = [];
+                    for (var j = i - 6; j < i; j++) {
+                        if (j < 0) continue;
+                        var next = fcn.get(j);
+                        if (next.opcode && next.opcode.match(/r[3-9]\s\=\s[r\d]+;/)) {
+                            regs.push(next.opcode.match(/[r\d]+/g));
+                            next.comments.push(next.opcode);
+                            next.opcode = null;
+                        }
+                    }
+                    if (regs.length > 0) {
+                        e.opcode = e.opcode.substr(0, e.opcode.length - 2);
+                        regs.sort(function(a, b) {
+                            return parseInt(a[0].charAt(1)) - parseInt(b[0].charAt(1));
+                        });
+                        for (var i = 0, j = 3; i < regs.length; i++) {
+                            if (('r' + j) == regs[i][0]) {
+                                j++;
+                                e.opcode += regs[i][1] + ', ';
+                            }
+                        }
+                        e.opcode = e.opcode.substr(0, e.opcode.length - 2) + ');';
+                    }
                 }
                 var regex = e.opcode ? e.opcode.match(/r\d+\s=\s\d+;/) : null;
                 if (regex && regex.length == 1) {

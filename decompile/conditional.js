@@ -63,9 +63,10 @@ module.exports = (function() {
                     } else {
                         p(ident + '    ' + array[i].opcode + '\n');
                     }
-                }/* else {
-                    p(ident + '    // empty\n');
-                }*/
+                }
+                //else {
+                //    p(ident + '    // empty\n');
+                //}
             }
         }
     }
