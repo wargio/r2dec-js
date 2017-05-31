@@ -182,9 +182,33 @@ rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
             var mb = 0;
             var me = parseInt(e[4]);
             var mask = mask64(mb, me);
-            
+
 
             return res + ';';
+        },
+        'clrlwi': function(e) {
+            var res = e[1];
+            var rs = e[2];
+            var sh = parseInt(e[3]);
+            var mask = 0xFFFFFFFF >>> sh;
+            if (e[1] == rs)
+                return res + ' &= 0x' + mask.toString(16) + ';';
+            return res + ' = ' + rs + ' & 0x' + mask.toString(16) + ';';
+        },
+        'clrldi': function(e) {
+            var res = e[1];
+            var rs = e[2];
+            var sh = parseInt(e[3]) - 1;
+            var mask = [0xFFFFFFFF, 0xFFFFFFFF];
+            if (sh >= 31) {
+                mask[0] = '';
+                mask[1] >>>= (sh - 31);
+            } else {
+                mask[0] >>>= (sh - 31);
+            }
+            if (e[1] == rs)
+                return res + ' &= 0x' + mask[0].toString(16) + mask[1].toString(16) + 'll;';
+            return res + ' = ' + rs + ' & 0x' + mask[0].toString(16) + mask[1].toString(16) + 'll;';
         },
     };
 
@@ -207,7 +231,7 @@ rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
         if (mb < me + 1) {
             var mask = [0, 0];
             for (var i = mb; i <= me; ++i) {
-                if(i > 31)
+                if (i > 31)
                     mask[1] |= 1 << (31 - i);
                 else
                     mask[0] |= 1 << (31 - i);

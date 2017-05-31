@@ -63,12 +63,21 @@ module.exports = (function() {
                         e.opcode = reg + e.opcode;
                     }
                     var regs = [];
-                    for (var j = i - 6; j < i; j++) {
+                    var found = [];
+                    for (var j = i - 10; j < i; j++) {
                         if (j < 0) continue;
                         var next = fcn.get(j);
-                        if (next.opcode && next.opcode.match(/r[3-9]\s\=\s[r\d]+;/)) {
-                            regs.push(next.opcode.match(/[r\d]+/g));
+                        if (next.opcode && next.opcode.match(/r[3-9]\s\=/)) {
                             next.comments.push(next.opcode);
+                            var reg = next.opcode.match(/r[3-9]/)[0];
+                            if (found.indexOf(reg) < 0) {
+                                found.push(reg);
+                                next.opcode = next.opcode.replace(/r[3-9]\s\=|;/g, '').trim();
+                                regs.push([reg, next.opcode]);
+                            } else {
+                                next.opcode = next.opcode.replace(/r[3-9]\s\=|;/g, '').trim();
+                                regs[found.indexOf(reg)] = [reg, next.opcode];
+                            }
                             next.opcode = null;
                         }
                     }
@@ -77,6 +86,9 @@ module.exports = (function() {
                         regs.sort(function(a, b) {
                             return parseInt(a[0].charAt(1)) - parseInt(b[0].charAt(1));
                         });
+                        if (regs[0][0] == 'r4') {
+                            regs.splice(0, 0, ['r3', 'r3']);
+                        }
                         for (var i = 0, j = 3; i < regs.length; i++) {
                             if (('r' + j) == regs[i][0]) {
                                 j++;
@@ -135,6 +147,16 @@ module.exports = (function() {
                 if (e.cond && e.jump < e.offset) {
                     utils.controlflow(fcn.array, i, utils.conditional);
                 }
+                /*else if (e.jump < e.offset && e.opcode && e.opcode.indexOf('goto') == 0) {
+                    var start = utils.controlflow.find(fcn.array, e.offset, e.jump);
+                    fcn.get(start).label = null;
+                    e.opcode = null;
+                    utils.controlflow.while(fcn.array, start, i, utils.conditional, {
+                        a: 'true',
+                        b: '',
+                        cmp: 'INF'
+                    });
+                }*/
             }
             //searching for top down control flows
             for (var i = 0; i < fcn.size(); i++) {

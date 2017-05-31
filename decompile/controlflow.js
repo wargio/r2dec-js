@@ -90,11 +90,27 @@ module.exports = (function() {
         }
         return flow;
     };
+    controlflow.find = find;
     controlflow.for = function(array, start, end, conditional, init, sum) {
         var e = array[end];
         var flow = new conditional.For(start, end, e.cond.a, e.cond.b, e.cond.cmp, init, sum);
         if (e.jump < e.offset) {
             e.cond = null;
+            var removed = array.splice(start, end - start, flow);
+            for (var i = 0; i < removed.length; ++i) {
+                e = removed[i];
+                if (e && e.cond) {
+                    e = controlflow(removed, i, conditional);
+                }
+                flow.add(e);
+            }
+        }
+        return flow;
+    };
+    controlflow.while = function(array, start, end, conditional, cond) {
+        var e = array[end];
+        var flow = new conditional.While(start, end, cond.a, cond.b, cond.cmp);
+        if (e.jump < e.offset) {
             var removed = array.splice(start, end - start, flow);
             for (var i = 0; i < removed.length; ++i) {
                 e = removed[i];

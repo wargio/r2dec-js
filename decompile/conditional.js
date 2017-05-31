@@ -186,7 +186,7 @@ module.exports = (function() {
         };
     };
     var While = function(start, end, a, b, cmp) {
-        if (!cmp || !a || !b || !get_cmp(cmp)) {
+        if (!cmp || a == null || b == null || get_cmp(cmp) == null) {
             throw new Error('Invalid input While (' + a + ', ' + b + ', ' + cmp + ')');
         }
         this.type = 'while';
