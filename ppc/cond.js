@@ -196,6 +196,7 @@ module.exports = (function() {
             } else if (e[0].indexOf('.') > 0) {
                 l[i].opcode = ['', e[1], '0'];
                 l = compare(l, i);
+                l[i].opcode = e;
             }
         }
         return l;
