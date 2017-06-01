@@ -255,10 +255,12 @@ rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
             if (!e || typeof e != 'object') {
                 continue;
             }
-            var op = e[0].replace(/\./, '');
-            if (math[op]) {
-                //l[i].comments.push(to_asm(e));
-                l[i].opcode = math[op](e);
+            if (e.length > 0) {
+                var op = e[0].replace(/\./, '');
+                if (math[op]) {
+                    //l[i].comments.push(to_asm(e));
+                    l[i].opcode = math[op](e);
+                }
             }
         }
         return l;

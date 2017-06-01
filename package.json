@@ -2,10 +2,12 @@
     "name": "r2dec",
     "version": "1.0.0",
     "keywords": [
-        "util",
+        "util"
     ],
     "author": "Giovanni Dante Grazioli <deroad@libero.it>",
     "contributors": [],
-    "dependencies": {
+    "dependencies": {},
+    "scripts": {
+        "test": "r2 -qi inr2.js /bin/ls"
     }
 }
