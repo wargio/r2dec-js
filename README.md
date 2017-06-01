@@ -201,7 +201,7 @@ label_100b51c0:
             }
 label_100b51d4:
             r3 = fcn_100c9ef8 (r27);
-            __asm("r28, 0");
+            r28 |= r3;
         } while ((r27) == 0);
 
 label_100b51e4:
