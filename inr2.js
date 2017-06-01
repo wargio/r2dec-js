@@ -53,10 +53,7 @@ async function asyncMain(err, r2) {
   const pdfj = await cmdj('pdfj');
   const decompiler = new r2dec(arch);
   var buffer = '';
-  decompiler.work(pdfj).print(m => {
-    if (m) buffer += m;
-  });
-  console.log(buffer);
+  decompiler.work(pdfj).print(console.log);
   await r2.quit();
   return true;
 }
