@@ -111,7 +111,7 @@ module.exports = (function() {
         else if (addr.length == 10)
             o += "(uint32_t) " + addr + ";";
         else
-            o += "(uint16_t) " + addr + ";";
+            o += "(uint32_t) " + addr + "0000;";
         list[start].opcode = o;
         return list;
     };

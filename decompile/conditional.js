@@ -49,7 +49,7 @@ module.exports = (function() {
     var print_content = function(p, ident, caller, array, type) {
         for (var i = 0; i < array.length; i++) {
             if (array[i].label) {
-                p(ident + '    ' + array[i].label + ':\n');
+                p(/*ident + '    ' + */array[i].label + ':\n\n');
             }
             if (array[i].print) {
                 array[i].print(p, ident + '    ', type);
@@ -61,11 +61,10 @@ module.exports = (function() {
                     if (array[i].opcode.indexOf('goto') == 0 && caller.indexOf('while') >= 0) {
                         p(ident + '    break;\n');
                     } else {
-                        p(ident + '    ' + array[i].opcode + '\n');
+                        p(ident + '    ' + array[i].opcode + '\n'); // + ' // ' + array[i].offset.toString(16) + '\n');
                     }
-                }
-                //else {
-                //    p(ident + '    // empty\n');
+                } // else {
+                //    p(ident + '    // empty: ' + array[i].offset.toString(16) + '\n');
                 //}
             }
         }
@@ -96,6 +95,7 @@ module.exports = (function() {
             return this.array[i];
         };
         this.print = function(p, ident, caller) {
+            //p(ident + '// start: ' + this.start.toString(16) + '\n');
             p(ident + 'if (' + this.cmp + ') {\n');
             print_content(p, ident, caller, this.array, this.type);
             if (this.else) {
@@ -103,6 +103,7 @@ module.exports = (function() {
             } else {
                 p(ident + '}\n');
             }
+            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
     var Else = function(start, end, a, b, cmp) {
@@ -132,6 +133,7 @@ module.exports = (function() {
             return this.array[i];
         };
         this.print = function(p, ident, caller) {
+            //p(ident + '// start: ' + this.start.toString(16) + '\n');
             if (this.cmp) {
                 p(' else if (' + this.cmp + ') {\n');
             } else {
@@ -143,6 +145,7 @@ module.exports = (function() {
             } else {
                 p(ident + '}\n');
             }
+            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
     var ElseBreak = function(start, end, a, b, cmp) {
@@ -172,6 +175,7 @@ module.exports = (function() {
             return this.array[i];
         };
         this.print = function(p, ident, caller) {
+            //p(ident + '// start: ' + this.start.toString(16) + '\n');
             if (this.cmp) {
                 p(' else if (' + this.cmp + ') {\n');
             } else {
@@ -183,6 +187,7 @@ module.exports = (function() {
             } else {
                 p(ident + '}\n');
             }
+            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
     var While = function(start, end, a, b, cmp) {
@@ -210,9 +215,11 @@ module.exports = (function() {
             return this.array[i];
         };
         this.print = function(p, ident) {
+            //p(ident + '// start: ' + this.start.toString(16) + '\n');
             p(ident + 'while (' + this.cmp + ') {\n');
             print_content(p, ident, '', this.array, this.type);
-            p(ident + '}\n');
+            p(ident + '}\n\n');
+            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
     var IfContinue = function(start, end, a, b, cmp) {
@@ -240,9 +247,11 @@ module.exports = (function() {
             return this.array[i];
         };
         this.print = function(p, ident) {
+            //p(ident + '// start: ' + this.start.toString(16) + '\n');
             p(ident + 'if (' + this.cmp + ') {\n');
             p(ident + '    continue;\n');
             p(ident + '}\n');
+            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
     var IfBreak = function(start, end, a, b, cmp) {
@@ -270,9 +279,44 @@ module.exports = (function() {
             return this.array[i];
         };
         this.print = function(p, ident) {
+            //p(ident + '// start: ' + this.start.toString(16) + '\n');
             p(ident + 'if (' + this.cmp + ') {\n');
             p(ident + '    break;\n');
             p(ident + '}\n');
+            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
+        };
+    };
+    var IfGoto = function(start, end, a, b, cmp) {
+        if (!cmp || !a || !b || !get_cmp(cmp)) {
+            throw new Error('Invalid input IfGoto (' + a + ', ' + b + ', ' + cmp + ')');
+        }
+        this.type = 'ifgoto';
+        this.cmp = a.toString() + get_cmp(cmp) + b.toString();
+        this.start = start;
+        this.end = start;
+        this.goto = end;
+        this.array = [];
+        this.add = function(x) {
+            if (!x) {
+                throw new Error('Invalid input IfGoto:add null');
+            }
+            this.array.push(x);
+        };
+        this.size = function() {
+            return this.array.length;
+        };
+        this.get = function(i) {
+            if (typeof i == 'undefined' || i < 0) {
+                i = this.array.length - 1;
+            }
+            return this.array[i];
+        };
+        this.print = function(p, ident) {
+            //p(ident + '// start: ' + this.start.toString(16) + '\n');
+            p(ident + 'if (' + this.cmp + ') {\n');
+            p(ident + '    goto label_' + this.goto.toString(16) + ';\n');
+            p(ident + '}\n');
+            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
     var DoWhile = function(start, end, a, b, cmp) {
@@ -300,9 +344,11 @@ module.exports = (function() {
             return this.array[i];
         };
         this.print = function(p, ident) {
+            //p(ident + '// start: ' + this.start.toString(16) + '\n');
             p(ident + 'do {\n');
             print_content(p, ident, '', this.array, this.type);
-            p(ident + '} while (' + this.cmp + ');\n');
+            p(ident + '} while (' + this.cmp + ');\n\n');
+            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
     var For = function(start, end, a, b, cmp, init, sum) {
@@ -332,17 +378,25 @@ module.exports = (function() {
             return this.array[i];
         };
         this.print = function(p, ident) {
+            //p(ident + '// start: ' + this.start.toString(16) + '\n');
             p(ident + 'for (' + this.init + '; ' + this.cmp + '; ' + this.sum + ') {\n');
             print_content(p, ident, '', this.array, this.type);
-            p(ident + '}\n');
+            p(ident + '}\n\n');
+            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
     var _Function = function(name) {
         this.name = name;
         this.returntype = 'void';
-        this.args = '';
+        this.args = [];
         this.type = 'function';
         this.array = [];
+        this.arg = function(x) {
+            if (this.args.indexOf(x) < 0) {
+                this.args.push(x);
+                this.args.sort();
+            }
+        };
         this.add = function(x) {
             if (!x) {
                 throw new Error('Invalid input Function:add null');
@@ -359,7 +413,13 @@ module.exports = (function() {
             return this.array[i];
         };
         this.print = function(p) {
-            p(this.returntype + ' ' + this.name + '(' + this.args + ') {\n');
+            var args = '';
+            for (var i = 0; i < this.args.length; i++) {
+                args += this.args[i];
+                if (i < this.args.length - 1)
+                    args += ', ';
+            }
+            p(this.returntype + ' ' + this.name + '(' + args + ') {\n');
             print_content(p, '', '', this.array, this.type);
             p('}\n');
         };
@@ -372,6 +432,7 @@ module.exports = (function() {
         If: If,
         IfContinue: IfContinue,
         IfBreak: IfBreak,
+        IfGoto: IfGoto,
         ElseBreak: ElseBreak,
         For: For
     };
