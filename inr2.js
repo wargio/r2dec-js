@@ -28,11 +28,17 @@ var r2dec = require('./r2dec.js');
 var r2pipe = require('r2pipe');
 var util = require('util');
 
-r2pipe.open(async (err, r2) => {
-  main(err, r2).then(console.log).catch(console.error);
-});
+if (process.argv.length > 2) {
+  r2pipe.open(process.argv[2], main);
+} else {
+  r2pipe.open(main);
+}
 
-async function main(err, r2) {
+function main(err, r2) {
+  asyncMain(err, r2).then(console.log).catch(console.error);
+}
+
+async function asyncMain(err, r2) {
   const cmd = util.promisify(r2.cmd).bind(r2);
   const cmdj = util.promisify(r2.cmdj).bind(r2);
   if (err) {
