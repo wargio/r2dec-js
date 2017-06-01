@@ -25,38 +25,30 @@
  */
 
 module.exports = (function() {
-    var utils = {};
-    utils.conditional = require('./decompile/conditional.js');
-    utils.controlflow = require('./decompile/controlflow.js');
-    var supported_archs = {};
-    supported_archs.ppc = require('./ppc/interface.js');
-    supported_archs.x86intel = require('./x86-intel/interface.js');
-    var r2dec = function(arch) {
-        if (!supported_archs[arch]) {
-            throw new Error("Unsupported architecture: '" + arch + "'");
-        }
-        this.arch = arch;
-        this.dec = new supported_archs[arch](utils);
-        this.work = function(data) {
-            for (var i = 0; i < data.ops.length; i++) {
-                data.ops[i].comments = [];
-                //data.ops[i].comments.push(data.ops[i].opcode)
-                data.ops[i].opcode = this.dec.prepare(data.ops[i].opcode);
+    var opcodes = {
+        'call': function(l, start) {
+            var fcn = l[start].opcode[1].replace(/\./g, '_');
+            if (fcn.indexOf('0x') == 0) {
+                fcn = fcn.replace(/0x/, 'fcn_');
             }
-            return this.dec.analyze(data);
-        }
-    }
-    r2dec.exists = function(arch) {
-        return supported_archs[arch] != null;
-    };
-    r2dec.supported = function(ident) {
-        if (!ident) {
-            ident = '';
-        }
-        console.log(ident + 'Supported architectures:')
-        for (var arch in supported_archs) {
-            console.log(ident + '    ' + arch);
+            l[start].opcode = fcn + " ();";
+            return l;
+        },
+        'ret': function(l, start) {
+            l[start].opcode = "return;";
+            return l;
         }
     };
-    return r2dec;
+    return function(l) {
+        for (var i = 0; i < l.length; ++i) {
+            var e = l[i].opcode;
+            if (!e || typeof e != 'object') {
+                continue;
+            }
+            if (opcodes[e[0]] != null) {
+                l = opcodes[e[0]](l, i);
+            }
+        }
+        return l;
+    };
 })();

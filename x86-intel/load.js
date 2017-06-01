@@ -25,38 +25,39 @@
  */
 
 module.exports = (function() {
-    var utils = {};
-    utils.conditional = require('./decompile/conditional.js');
-    utils.controlflow = require('./decompile/controlflow.js');
-    var supported_archs = {};
-    supported_archs.ppc = require('./ppc/interface.js');
-    supported_archs.x86intel = require('./x86-intel/interface.js');
-    var r2dec = function(arch) {
-        if (!supported_archs[arch]) {
-            throw new Error("Unsupported architecture: '" + arch + "'");
-        }
-        this.arch = arch;
-        this.dec = new supported_archs[arch](utils);
-        this.work = function(data) {
-            for (var i = 0; i < data.ops.length; i++) {
-                data.ops[i].comments = [];
-                //data.ops[i].comments.push(data.ops[i].opcode)
-                data.ops[i].opcode = this.dec.prepare(data.ops[i].opcode);
-            }
-            return this.dec.analyze(data);
-        }
+
+    var types = {
+        'byte': 'int8_t',
+        'word': 'int16_t',
+        'dword': 'int32_t',
+        'qword': 'int64_t'
     }
-    r2dec.exists = function(arch) {
-        return supported_archs[arch] != null;
+
+    var mem = {
+        'leave': function(e) {
+            return null; //"pop();";
+        },
+        'push': function(e) {
+            return "*stack = " + e[1] + "; stack--;";
+        },
+        'mov': function(e) {
+            if (e.length == 3) {
+                return e[1] + " = " + e[2] + ";";
+            }
+            return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ") = " + e[3] + ";"
+        },
     };
-    r2dec.supported = function(ident) {
-        if (!ident) {
-            ident = '';
+
+    return function(l) {
+        for (var i = 0; i < l.length; ++i) {
+            var e = l[i].opcode;
+            if (!e || typeof e != 'object') {
+                continue;
+            }
+            if (mem[e[0]]) {
+                l[i].opcode = mem[e[0]](e);
+            }
         }
-        console.log(ident + 'Supported architectures:')
-        for (var arch in supported_archs) {
-            console.log(ident + '    ' + arch);
-        }
+        return l;
     };
-    return r2dec;
 })();

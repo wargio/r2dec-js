@@ -24,39 +24,28 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-module.exports = (function() {
-    var utils = {};
-    utils.conditional = require('./decompile/conditional.js');
-    utils.controlflow = require('./decompile/controlflow.js');
-    var supported_archs = {};
-    supported_archs.ppc = require('./ppc/interface.js');
-    supported_archs.x86intel = require('./x86-intel/interface.js');
-    var r2dec = function(arch) {
-        if (!supported_archs[arch]) {
-            throw new Error("Unsupported architecture: '" + arch + "'");
+
+
+module.exports = (function () {
+    var to_asm = function (e) {
+        var j;
+        var asm = e[0] + " ";
+        for (j = 1; j < e.length - 1; ++j) {
+            asm += e[j] + ", ";
         }
-        this.arch = arch;
-        this.dec = new supported_archs[arch](utils);
-        this.work = function(data) {
-            for (var i = 0; i < data.ops.length; i++) {
-                data.ops[i].comments = [];
-                //data.ops[i].comments.push(data.ops[i].opcode)
-                data.ops[i].opcode = this.dec.prepare(data.ops[i].opcode);
+        if (j < e.length)
+            asm += e[j];
+        return asm.trim();
+    };
+
+    return function (l) {
+        for (var i = 0; i < l.length; ++i) {
+            var e = l[i].opcode;
+            if (!e || typeof e != 'object') {
+                continue;
             }
-            return this.dec.analyze(data);
+            l[i].opcode = "__asm(\"" + to_asm(e) + "\");";
         }
-    }
-    r2dec.exists = function(arch) {
-        return supported_archs[arch] != null;
+        return l;
     };
-    r2dec.supported = function(ident) {
-        if (!ident) {
-            ident = '';
-        }
-        console.log(ident + 'Supported architectures:')
-        for (var arch in supported_archs) {
-            console.log(ident + '    ' + arch);
-        }
-    };
-    return r2dec;
 })();
