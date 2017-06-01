@@ -148,9 +148,14 @@ module.exports = (function() {
                 e.used = true;
                 for (var j = i + 1; j < i + 4; j++) {
                     next = array[j];
-                    if (next && next.opcode && next.opcode.match(/r\d\d\s=\sr3;/)) {
-                        e.opcode = 'r3 = ' + e.opcode;
-                        break;
+                    if (next) {
+                        if (next.opcode && next.opcode.match(/r\d\d\s=\sr3;/)) {
+                            e.opcode = 'r3 = ' + e.opcode;
+                            break;
+                        } else if (next.cond || (next.cmp && next.cmp.indexOf('r3'))) {
+                            e.opcode = 'r3 = ' + e.opcode;
+                            break;
+                        }
                     }
                 }
                 var regs = [];

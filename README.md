@@ -144,7 +144,7 @@ void fcn.100b50a4() {
     r28 = r4;
     uint32_t r12;
     r26 = r3;
-    fcn_100c802c (r3, r1 + 8);
+    r3 = fcn_100c802c (r3, r1 + 8);
     if (((int32_t) r3) == 0) {
         r31 = 0;
         __asm("rlwinm r0, r0, 0, 0x10, 0x13");
@@ -153,26 +153,26 @@ void fcn.100b50a4() {
         }
         r3 = (uint32_t) 0x10110000;
         r4 = (uint32_t) 0x10110000;
-        fcn_100c9d08 (r3 + 0x56fc, r4 - 0x3eec);
+        r3 = fcn_100c9d08 (r3 + 0x56fc, r4 - 0x3eec);
         if ((r27) != 0) {
             goto label_100b51f0;
         }
         goto label_0x100b51c0;
         do {
             r31 = *((uint32_t*) r28);
-            fcn_100d6568 (r31, r24);
+            r3 = fcn_100d6568 (r31, r24);
             if (((int32_t) r3) != 0) {
-                fcn_100d6568 (r26, *(((uint32_t*) r28) + 1));
+                r3 = fcn_100d6568 (r26, *(((uint32_t*) r28) + 1));
                 if (((int32_t) r3) != 0) {
                     goto label_100b51e4;
                 }
-                fcn_100d6568 (r26, r31);
+                r3 = fcn_100d6568 (r26, r31);
                 if (((int32_t) r3) != 0) {
                     goto label_100b51e4;
                 }
                 __asm("bne cr3, 0x100b5164");
                 __asm("beq cr4, 0x100b51d4");
-                fcn_100c802c (r31, r25);
+                r3 = fcn_100c802c (r31, r25);
                 if (((int32_t) r3) == 0) {
                     if (((int32_t) r0) == ((int32_t) r29)) {
                         goto label_100b5190;
@@ -182,7 +182,7 @@ void fcn.100b50a4() {
                     }
                 }
 label_100b5190:
-                fcn_100c802c (*(((uint32_t*) r28) + 1), r25);
+                r3 = fcn_100c802c (*(((uint32_t*) r28) + 1), r25);
                 if (((int32_t) r3) == 0) {
                     goto label_100b51d4;
                 }
@@ -200,7 +200,7 @@ label_100b51c0:
                 r25 = r1 + 8;
             }
 label_100b51d4:
-            fcn_100c9ef8 (r27);
+            r3 = fcn_100c9ef8 (r27);
             __asm("r28, 0");
         } while ((r27) == 0);
 
