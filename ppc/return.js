@@ -40,11 +40,7 @@ module.exports = (function() {
     var mem = {
         'b': function(l, start) {
             var i;
-            var offset = l[start].opcode[1];
-            if (offset.length < 10) {
-                offset = parseInt(offset).toString(16);
-                offset = 'label_' + '00000000'.substr(offset.length, 8) + offset;
-            }
+            var offset = 'label_' + l[start].opcode[1].toString(16);
             for (var i = 0; i < l.length; i++) {
                 if (start == i) continue;
                 if (l[i].offset == l[start].jump) {
@@ -61,12 +57,6 @@ module.exports = (function() {
             return l;
         },
         'bdnz': function(l, start) {
-            var i;
-            var offset = l[start].opcode[1];
-            if (offset.length < 10) {
-                offset = parseInt(offset).toString(16);
-                offset = '0x' + '00000000'.substr(offset.length, 8) + offset;
-            }
             l[start].opcode = null;
             l[start].cond = {
                 a: '(--ctr)',

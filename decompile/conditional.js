@@ -49,7 +49,7 @@ module.exports = (function() {
     var print_content = function(p, ident, caller, array, type) {
         for (var i = 0; i < array.length; i++) {
             if (array[i].label) {
-                p(/*ident + '    ' + */array[i].label + ':\n\n');
+                p(/*ident + '    ' + */array[i].label.replace(/0x/, '') + ':\n');
             }
             if (array[i].print) {
                 array[i].print(p, ident + '    ', type);
@@ -415,11 +415,9 @@ module.exports = (function() {
         this.print = function(p) {
             var args = '';
             for (var i = 0; i < this.args.length; i++) {
-                args += this.args[i];
-                if (i < this.args.length - 1)
-                    args += ', ';
+                args += ', ' + this.args[i];
             }
-            p(this.returntype + ' ' + this.name + '(' + args + ') {\n');
+            p(this.returntype + ' ' + this.name + '(' + args.substr(2, args.length) + ') {\n');
             print_content(p, '', '', this.array, this.type);
             p('}\n');
         };

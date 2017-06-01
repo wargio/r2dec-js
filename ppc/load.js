@@ -93,6 +93,9 @@ module.exports = (function() {
         'lwz': function(e) {
             return load_bits(e, 32, true);
         },
+        'lmw': function(e) {
+            return load_bits(e, 32, true);
+        },
         'lwzx': function(e) {
             return load_idx_bits(e, 32, true);
         },
@@ -114,7 +117,13 @@ module.exports = (function() {
         'stdu': function(e) {
             return store_bits(e, 64, true);
         },
+        'stwu': function(e) {
+            return store_bits(e, 32, true);
+        },
         'stw': function(e) {
+            return store_bits(e, 32, true);
+        },
+        'stmw': function(e) {
             return store_bits(e, 32, true);
         },
         'sth': function(e) {

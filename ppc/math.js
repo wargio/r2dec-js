@@ -45,7 +45,7 @@ module.exports = (function() {
         return e[1] + " = " + (bits ? '(uint' + bits + '_t) ' : '') + e[a] + " " + op + " " + e[b] + ";";
     };
 
-    var mem = {
+    var math = {
         'mr': function(e) {
             return e[1] + " = " + e[2] + ";";
         },
@@ -255,9 +255,10 @@ rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
             if (!e || typeof e != 'object') {
                 continue;
             }
-            if (mem[e[0]]) {
+            var op = e[0].replace(/\./, '');
+            if (math[op]) {
                 //l[i].comments.push(to_asm(e));
-                l[i].opcode = mem[e[0]](e);
+                l[i].opcode = math[op](e);
             }
         }
         return l;

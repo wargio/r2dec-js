@@ -368,6 +368,9 @@ module.exports = (function() {
         'mfctr': function(e) {
             return e[1] + ' = ctr;';
         },
+        'mtcrf': function(e) {
+            return '_mtcrf (' + e[1] + ', ' + e[2] + ');';
+        },
         'mflr': function(e) {
             return e[1] + ' = _mflr ();';
         },

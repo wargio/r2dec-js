@@ -37,14 +37,15 @@ module.exports = (function() {
 
     var function_stack = function(fcn, utils) {
         var vars = [];
+        var count = 0;
         // searching for *(((uint[64|32]_t*) r1) - N) = r1;
         if (fcn.get(0).opcode && fcn.get(0).opcode.match(/\*\(\(\(uint[36][24]_t\*\)\sr1\)\s[-+]\s\d+\)\s=\sr1/)) {
             var e = fcn.get(0);
             //e.comments.push(e.opcode);
             e.opcode = null;
-            for (var i = 1; i < fcn.size(); i++) {
+            for (var i = 1; i < fcn.size(); i++, count++) {
                 e = fcn.get(i);
-                if (e.opcode && (e.opcode.indexOf('mflr') > 0 ||
+                if (count < 5 && e.opcode && (e.opcode.indexOf('mflr') > 0 ||
                     e.opcode.match(/\*\(\(\(u?int[36][24]_t\*\)\sr1\)\s[-+]\s\d+\)\s=\sr\d/))) {
                     //e.comments.push(e.opcode);
                     if (e.opcode.indexOf('mflr') > 0 || e.opcode.indexOf(' = r0;') > 0) {
@@ -55,6 +56,7 @@ module.exports = (function() {
                         var reg = e.opcode.match(/r\d\d/)[0];
                         vars.push(reg);
                     };
+                    count = 0;
                 } else if (e.opcode && (e.opcode.indexOf('mtlr') > 0 ||
                     e.opcode.indexOf('r0 = *(((') == 0 ||
                     e.opcode.match(/r1\s\+=\s[x\da-f]+;/) ||
@@ -97,7 +99,7 @@ module.exports = (function() {
                 // found rXX = N;
                 var reginit = e.opcode.match(/r\d+/)[0];
                 var jmp = array[i + 1];
-                if (jmp.jump > jmp.offset && jmp.opcode && jmp.opcode.indexOf('goto') == 0) {
+                if (jmp && jmp.jump > jmp.offset && jmp.opcode && jmp.opcode.indexOf('goto') == 0) {
                     for (var j = i + 2; j < array.length; j++) {
                         var next = array[j];
                         if (next.offset > jmp.jump) break;
@@ -141,7 +143,7 @@ module.exports = (function() {
         //searching calls and for flows
         for (var i = 0; i < array.length; i++) {
             var e = array[i];
-            if (e.type == 'call') {
+            if (e.type == 'call' && e.opcode.indexOf('r3 = ') < 0) {
                 var next = null;
                 for (var j = i + 1; j < i + 4; j++) {
                     next = array[j];
@@ -169,6 +171,10 @@ module.exports = (function() {
                             var arg = next.opcode.replace(/r[3-9]\s.?\=|;/g, '').trim();
                             if (next.opcode.match(/r[3-9]\s.\=/)) {
                                 var op = next.opcode.match(/r[3-9]\s.\=/)[0].replace(/r[3-9]\s|\=/g, '').trim();
+                                if (arg.charAt(0) == '-') {
+                                    op = '-';
+                                    arg = arg.substr(1, arg.length);
+                                }
                                 arg = reg + ' ' + op + ' ' + arg;
                             }
                             regs.push([reg, arg]);
@@ -191,9 +197,9 @@ module.exports = (function() {
                                 e.opcode += regs[k][1] + ', ';
                             }
                         }
-                        e.opcode = e.opcode.substr(0, e.opcode.length - 2) + ');';
+                        e.opcode = e.opcode.substr(0, e.opcode.length - 2);
                     }
-
+                    e.opcode += ');'
                 }
             }
         }
@@ -203,7 +209,7 @@ module.exports = (function() {
         //searching for bottom up control flows
         for (var i = array.length - 1; i >= 0; i--) {
             var e = array[i];
-            if (e.cond && e.jump < e.offset) {
+            if (e && e.cond && e.jump < e.offset) {
                 utils.controlflow(array, i, utils.conditional, -1);
             }
             /*else if (e.jump < e.offset && e.opcode && e.opcode.indexOf('goto') == 0) {

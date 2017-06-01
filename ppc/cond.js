@@ -193,6 +193,9 @@ module.exports = (function() {
             }
             if (cmps[e[0]]) {
                 l = cmps[e[0]](l, i);
+            } else if (e[0].indexOf('.') > 0) {
+                l[i].opcode = ['', e[1], '0'];
+                l = compare(l, i);
             }
         }
         return l;
