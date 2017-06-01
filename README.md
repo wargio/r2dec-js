@@ -145,7 +145,9 @@ void fcn.100b50a4() {
         if (((int32_t) r0) == 0x6000) {
             r31 = 1;
         }
-        fcn_100c9d08 (r3 + 0x56fc, r4 - 0x3eec(uint32_t) 0x10110000, (uint32_t) 0x10110000);
+        r3 = (uint32_t) 0x10110000;
+        r4 = (uint32_t) 0x10110000;
+        fcn_100c9d08 (r3 + 0x56fc, r4 - 0x3eec);
         if ((r27) != 0) {
             goto label_100b51f0;
         }
@@ -186,11 +188,14 @@ label_100b5190:
                 }
                 break;
 label_100b51c0:
+                __asm("cmpwi cr3, r28, 0");
+                __asm("cmpwi cr4, r31, 0");
                 r24 = r9 + 0xa48;
                 r25 = r1 + 8;
             }
 label_100b51d4:
             fcn_100c9ef8 (r27);
+            __asm("r28, 0");
         } while ((r27) == 0);
 
 label_100b51e4:

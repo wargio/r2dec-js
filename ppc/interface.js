@@ -143,8 +143,9 @@ module.exports = (function() {
         //searching calls and for flows
         for (var i = 0; i < array.length; i++) {
             var e = array[i];
-            if (e.type == 'call' && e.opcode.indexOf('r3 = ') < 0) {
+            if (e.type == 'call' && !e.used && e.opcode.indexOf('r3 = ') < 0) {
                 var next = null;
+                e.used = true;
                 for (var j = i + 1; j < i + 4; j++) {
                     next = array[j];
                     if (next && next.opcode && next.opcode.match(/r\d\d\s=\sr3;/)) {
@@ -160,11 +161,11 @@ module.exports = (function() {
                         break;
                     }
                     next = array[j];
-                    if (next.opcode && (next.opcode.indexOf('goto') == 0 || next.type == 'call')) {
+                    if ((next.opcode && next.opcode.indexOf('goto') == 0) || next.type == 'call') {
                         break;
                     }
                     if (next.opcode && next.opcode.match(/r[3-9]\s.?\=/)) {
-                        var reg = next.opcode.match(/r[3-9]/)[0];
+                        var reg = next.opcode.match(/r[3-9]/)[0].trim();
                         if (found.indexOf(reg) < 0) {
                             //next.comments.push(next.opcode);
                             found.push(reg);
@@ -199,7 +200,7 @@ module.exports = (function() {
                         }
                         e.opcode = e.opcode.substr(0, e.opcode.length - 2);
                     }
-                    e.opcode += ');'
+                    e.opcode += ');';
                 }
             }
         }

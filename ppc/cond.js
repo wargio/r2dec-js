@@ -78,7 +78,6 @@ module.exports = (function() {
             a = "(" + bits + e[2] + ")";
             b = e[3].charAt(0) == 'r' ? "(" + bits + e[3] + ")" : e[3];
         }
-        l[start].opcode = null;
         //l[start].comments.push(cr + ' = cmp(' + a + ', ' + b + ')');
         for (var i = start + 1; i < l.length; ++i) {
             var e = l[i].opcode;
@@ -105,6 +104,7 @@ module.exports = (function() {
                     b: b,
                     cmp: branch[e[0]]
                 };
+                l[start].opcode = null;
             }
         }
         return l;
