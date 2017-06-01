@@ -152,7 +152,7 @@ module.exports = (function() {
                         if (next.opcode && next.opcode.match(/r\d\d\s=\sr3;/)) {
                             e.opcode = 'r3 = ' + e.opcode;
                             break;
-                        } else if (next.cond || (next.cmp && next.cmp.indexOf('r3'))) {
+                        } else if (next.cond || (next.cmp && next.cmp.indexOf('r3') >= 0)) {
                             e.opcode = 'r3 = ' + e.opcode;
                             break;
                         }
