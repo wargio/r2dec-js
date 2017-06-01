@@ -24,9 +24,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-var r2dec = require('./r2dec.js');
-var r2pipe = require('r2pipe');
-var util = require('util');
+const r2dec = require('./r2dec.js');
+const r2pipe = require('r2pipe');
+const util = require('util');
 
 if (process.argv.length > 2) {
   r2pipe.open(process.argv[2], main);
@@ -51,7 +51,7 @@ async function asyncMain(err, r2) {
   // analyze entrypoint function
   await cmd('af');
   const pdfj = await cmdj('pdfj');
-  var decompiler = new r2dec(arch);
+  const decompiler = new r2dec(arch);
   var buffer = '';
   decompiler.work(pdfj).print(m => {
     if (m) buffer += m;
