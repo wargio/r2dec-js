@@ -1,23 +1,13 @@
-r2dec.
-======
+ppc
+===
 
-decompiles stuff..
 
-* open with radare2 your file
-* analize the function you want to disassemble (`af`)
-* give the data to the plugin `pdfj @ fcn.xxxxxxxx > dump.json`
-* done.
+# Example of pseudo-decompilation
 
-# Supported Arch
-
-    ppc
-    x86intel
-
-## Example
 Converts this
 
 ```
-┌ (fcn) sym.make_funcname_visible 47
+┌ (fcn) make_funcname_visible 47
 │   sym.make_funcname_visible ();
 │              ; CALL XREF from 0x00434c58 (sub.free_b50)
 │              ; CALL XREF from 0x0043513a (sub.free_b50)
@@ -36,12 +26,13 @@ Converts this
 │     │││      ; JMP XREF from 0x004378c7 (sym.make_funcname_visible)
 │     │└└─> 0x004378d4      5b             pop rbx
 │     │     0x004378d5      c3             ret
-│     │     0x004378d6      662e0f1f8400.  nop word cs:[rax + rax]
+      │     0x004378d6      662e0f1f8400.  nop word cs:[rax + rax]
 │     │        ; JMP XREF from 0x004378cb (sym.make_funcname_visible)
 │     └───> 0x004378e0      816028ffefff.  and dword [rax + 0x28], 0xffffefff
 │           0x004378e7      5b             pop rbx
 └           0x004378e8      c3             ret
 ```
+
 
 to this:
 

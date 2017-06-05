@@ -25,6 +25,12 @@
  */
 
 module.exports = (function() {
+    var memtypes = {
+        'byte': 'int8_t',
+        'word': 'int16_t',
+        'dword': 'int32_t',
+        'qword': 'int64_t'
+    }
     var opcodes = {
         'call': function(l, start) {
             var fcn = l[start].opcode[1].replace(/\./g, '_');
@@ -36,6 +42,48 @@ module.exports = (function() {
         },
         'ret': function(l, start) {
             l[start].opcode = "return;";
+            for (var i = start - 1; i >= 0 && i >= start - 4; i--) {
+                var e = l[i].opcode;
+                if (!e) {
+                    continue;
+                }
+                var regex = e[1].match(/[er]?ax/);
+                if (regex) {
+                    console.log(e);
+                    l[start].opcode = "return " + regex[0] + ";";
+                    break;
+                }
+            };
+            return l;
+        },
+        jmp: function(l, start) {
+            var jump = l[start].jump;
+            var offset = l[start].offset;
+            if (jump == offset) {
+                l[start].opcode = "while (true);";
+                delete(l[start].jump);
+            } else {
+                l[start].opcode = "goto label_" + offset.toString(16);
+                if (jump > offset) {
+                    for (var i = start + 1; i < l.length; i++) {
+                        if (l[i].offset == jump) {
+                            l[i].label = "label_" + offset.toString(16);
+                            break;
+                        }
+                    }
+                } else {
+                    for (var i = 0; i < offset; i++) {
+                        if (l[i].offset == jump) {
+                            l[i].label = "label_" + offset.toString(16);
+                            break;
+                        }
+                    }
+                }
+            }
+            return l;
+        },
+        hlt: function(l, start) {
+            l[start].opcode = "_hlt();";
             return l;
         }
     };

@@ -24,39 +24,27 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-module.exports = (function() {
 
-    var types = {
-        'byte': 'int8_t',
-        'word': 'int16_t',
-        'dword': 'int32_t',
-        'qword': 'int64_t'
-    }
 
-    var mem = {
-        'leave': function(e) {
-            return null; //"pop();";
-        },
-        'push': function(e) {
-            return "*stack = " + e[1] + "; stack--;";
-        },
-        'mov': function(e) {
-            if (e.length == 3) {
-                return e[1] + " = " + e[2] + ";";
-            }
-            return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ") = " + e[3] + ";"
-        },
+module.exports = (function () {
+    var to_asm = function (e) {
+        var j;
+        var asm = e[0] + " ";
+        for (j = 1; j < e.length - 1; ++j) {
+            asm += e[j] + ", ";
+        }
+        if (j < e.length)
+            asm += e[j];
+        return asm.trim();
     };
 
-    return function(l) {
+    return function (l) {
         for (var i = 0; i < l.length; ++i) {
             var e = l[i].opcode;
-            if (!e || typeof e != 'object') {
+            if (!e || typeof e != 'object' || e.length == 0) {
                 continue;
             }
-            if (mem[e[0]]) {
-                l[i].opcode = mem[e[0]](e);
-            }
+            l[i].opcode = "__asm(\"" + to_asm(e) + "\");";
         }
         return l;
     };

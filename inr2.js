@@ -29,31 +29,31 @@ const r2pipe = require('r2pipe');
 const util = require('util');
 
 if (process.argv.length > 2) {
-  r2pipe.open(process.argv[2], main);
+    r2pipe.open(process.argv[2], main);
 } else {
-  r2pipe.open(main);
+    r2pipe.open(main);
 }
 
 function main(err, r2) {
-  asyncMain(err, r2).then(console.log).catch(console.error);
+    asyncMain(err, r2).then(console.log).catch(console.error);
 }
 
 async function asyncMain(err, r2) {
-  const cmd = util.promisify(r2.cmd).bind(r2);
-  const cmdj = util.promisify(r2.cmdj).bind(r2);
-  if (err) {
-    throw err;
-  }
+    const cmd = util.promisify(r2.cmd).bind(r2);
+    const cmdj = util.promisify(r2.cmdj).bind(r2);
+    if (err) {
+        throw err;
+    }
 
-  // const arch = await r2.cmd('e asm.arch');
-  const arch = 'ppc';
+    // const arch = await r2.cmd('e asm.arch');
+    const arch = 'ppc';
 
-  // analyze entrypoint function
-  await cmd('af');
-  const pdfj = await cmdj('pdfj');
-  const decompiler = new r2dec(arch);
-  var buffer = '';
-  decompiler.work(pdfj).print(console.log);
-  await r2.quit();
-  return true;
+    // analyze entrypoint function
+    await cmd('af');
+    const pdfj = await cmdj('pdfj');
+    const decompiler = new r2dec(arch);
+    var buffer = '';
+    decompiler.work(pdfj).print(process.stdout.write);
+    await r2.quit();
+    return true;
 }
