@@ -57,17 +57,18 @@ module.exports = (function() {
             if (!e || typeof e != 'object') {
                 continue;
             }
-            if (branches[e[0]]) {
-                l[i].comments.push(to_asm(e));
+            if (cmps[e[0]]) {
+                break;
+            } else if (branches[e[0]]) {
+                //l[i].comments.push(to_asm(e));
                 l[i].cond = {
                     a: a,
                     b: b,
                     cmp: branches[e[0]]
                 };
+                //l[i].comments.push(to_asm(l[start]));
                 l[start].opcode = null;
                 l[i].opcode = null;
-            } else if (cmps[e]) {
-                break;
             }
         }
         return l;
@@ -118,7 +119,6 @@ module.exports = (function() {
                 continue;
             }
             if (cmps[e[0]]) {
-                l[i].comments.push(to_asm(e));
                 l = cmps[e[0]](l, i);
             }
         }

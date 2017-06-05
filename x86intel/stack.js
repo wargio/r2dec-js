@@ -26,21 +26,6 @@
 
 module.exports = (function() {
 
-    var memoryload = function(e) {
-        var types = {
-            'byte': 'int8_t',
-            'word': 'int16_t',
-            'dword': 'int32_t',
-            'qword': 'int64_t'
-        }
-        if (types[e[1]]) {
-            return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ") = " + e[3] + ";"
-        } else if (types[e[2]]) {
-            return e[1] + " = *((" + types[e[2]] + "*) " + e[3].replace(/\[|\]/g, '') + ");"
-        }
-        return null;
-    }
-
     var mem = {
         'leave': function(e) {
             return null; //"pop();";
@@ -50,16 +35,6 @@ module.exports = (function() {
         },
         'pop': function(e) {
             return e[1] + " = *esp++;"
-        },
-        'mov': function(e) {
-            if (e.length == 3) {
-                return e[1] + " = " + e[2] + ";";
-            }
-            var m = memoryload(e);
-            if (m) {
-                return m;
-            }
-            return e[1] + " = " + e[2] + ";";
         },
     };
 

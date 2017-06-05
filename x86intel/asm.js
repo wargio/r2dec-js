@@ -41,7 +41,7 @@ module.exports = (function () {
     return function (l) {
         for (var i = 0; i < l.length; ++i) {
             var e = l[i].opcode;
-            if (!e || typeof e != 'object') {
+            if (!e || typeof e != 'object' || e.length == 0) {
                 continue;
             }
             l[i].opcode = "__asm(\"" + to_asm(e) + "\");";

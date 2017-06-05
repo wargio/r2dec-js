@@ -36,21 +36,60 @@ module.exports = (function() {
         return asm;
     };
 
-    var op_bits3 = function(e, op, bits) {
-        return e[1] + " " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[2] + ";";
+    var memoryload = function(e) {
+        var types = {
+            'byte': 'int8_t',
+            'word': 'int16_t',
+            'dword': 'int32_t',
+            'qword': 'int64_t'
+        }
+        if (types[e[1]]) {
+            return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ") = " + e[3] + ";"
+        } else if (types[e[2]]) {
+            return e[1] + " = *((" + types[e[2]] + "*) " + e[3].replace(/\[|\]/g, '') + ");"
+        }
+        return null;
     };
+
+    var commonmath = function(e, op, bits) {
+        var types = {
+            'byte': 'int8_t',
+            'word': 'int16_t',
+            'dword': 'int32_t',
+            'qword': 'int64_t'
+        }
+        if (types[e[1]]) {
+            return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ") " + op + "= " + e[3] + ";"
+        } else if (types[e[2]]) {
+            return e[1] + " " + op + "= *((" + types[e[2]] + "*) " + e[3].replace(/\[|\]/g, '') + ");"
+        }
+        return e[1] + " " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[2] + ";";
+    }
 
     var math = {
         add: function(e) {
-            return op_bits3(e, '+');
+            return commonmath(e, '+');
         },
         and: function(e) {
-            return op_bits3(e, '&');
+            return commonmath(e, '&');
         },
         lea: function(e) {
             return e[1] + " = " + e[2] + ";";
         },
+        'mov': function(e) {
+            if (e.length == 3) {
+                return e[1] + " = " + e[2] + ";";
+            }
+            var m = memoryload(e);
+            if (m) {
+                return m;
+            }
+            return e[1] + " = " + e[2] + ";";
+        },
         neg: function(e) {
+            if (e[2].charAt(0) == '-') {
+                return e[1] + " = " + e[2].substr(1, e[2].length) + ";";
+            }
             return e[1] + " = -" + e[2] + ";";
         },
         nop: function(e) {
@@ -60,13 +99,13 @@ module.exports = (function() {
             return e[1] + " = !" + e[2] + ";";
         },
         or: function(e) {
-            return op_bits3(e, '|');
+            return commonmath(e, '|');
         },
         sub: function(e) {
-            return op_bits3(e, '-');
+            return memoryload(e, '-');
         },
         xor: function(e) {
-            return op_bits3(e, '^');
+            return memoryload(e, '^');
         },
     };
     return function(l) {

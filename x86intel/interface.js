@@ -26,8 +26,8 @@
 
 module.exports = (function() {
     var assembly = [];
+    assembly.push(require("./stack.js"));
     assembly.push(require("./return.js"));
-    assembly.push(require("./load.js"));
     assembly.push(require("./cond.js"));
     assembly.push(require("./math.js"));
     assembly.push(require("./asm.js"));
@@ -36,7 +36,7 @@ module.exports = (function() {
         var vars = [];
         var count = 0;
         var stack = false;
-        if (fcn.get(0).opcode == '*--esp = rbp;') {
+        if (fcn.get(0).opcode.indexOf('*--esp = rb') == 0) {
             var e = fcn.get(0);
             //e.comments.push(e.opcode);
             e.opcode = null;
@@ -48,7 +48,7 @@ module.exports = (function() {
                 if (e.opcode == 'rbp = rsp;') {
                     //e.comments.push(e.opcode);
                     e.opcode = null;
-                } else if (e.opcode == 'rbp = *esp++;') {
+                } else if (e.opcode.indexOf(' = *esp++;') > 0) {
                     //e.comments.push(e.opcode);
                     e.opcode = null;
                 } else if (e.opcode.indexOf('rsp -= ') == 0 && !stack) {
@@ -85,9 +85,118 @@ module.exports = (function() {
         return labels;
     }
 
+    var subroutines_return_args = function(array, utils) {
+        //searching for calls
+        for (var i = 0; i < array.length; i++) {
+            var e = array[i];
+            if (e.type == 'call' && !e.used) {
+                var args = [];
+                // searching for return addr
+                for (var j = i + 1; j < array.length && j < i + 6; j++) {
+                    var n = array[j];
+                    if (!n.opcode && !n.print && !n.cond) {
+                        continue;
+                    } else if (n.print) {
+                        n = n.cmp;
+                    } else if (n.cond) {
+                        n = n.cond.a;
+                        if (n.match(/[er]?ax[\);\s]?/)) {
+                            // if /[er]?ax/ found then [er]?ax = fcn();
+                            var reg = n.match(/[er]?ax/)[0];
+                            e.opcode = reg + " = " + e.opcode;
+                            break;
+                        }
+                        n = n.cond.b;
+                    } else {
+                        n = n.opcode;
+                    }
+                    if (n.match(/[er]?ax[\);\s]?/)) {
+                        // if /[er]?ax/ found then [er]?ax = fcn();
+                        var reg = n.match(/[er]?ax/)[0];
+                        e.opcode = reg + " = " + e.opcode;
+                        break;
+                    }
+                };
+                // searching for args: edi, esi, edx, ecx, r8, r9, r10, r11
+                for (var j = i - 1; j >= 0 && j >= i - 10; j--) {
+                    var o = array[j].opcode;
+                    if (!o) {
+                        continue;
+                    }
+                    //searching for rdx, edx, edi, etc..
+                    var regex = o.match(/[er][dscd][ix]\s=\s/);
+                    if (regex) {
+                        regex = regex[0].replace(/\s=\s/, '');
+                        if (args.indexOf(regex) >= 0) {
+                            break;
+                        }
+                        args.push(regex);
+                    }
+                    //searching for r9, r10d, r11b, etc..
+                    regex = o.match(/r[189][01]?[bdw]?\s=\s/);
+                    if (regex) {
+                        regex = regex[0].replace(/\s=\s/, '');
+                        if (args.indexOf(regex) >= 0) {
+                            break;
+                        }
+                        args.push(regex);
+                    }
+                }
+                if (args.length == 0) {
+                    var push = [];
+                    for (var j = i - 1; j >= 0 && j >= i - 10; j--) {
+                        var o = array[j].opcode;
+                        if (!o) {
+                            continue;
+                        }
+                        //searching for push (the nearest to the function is first arg)...
+                        // f(a, b, c)
+                        //push c
+                        //push b
+                        //push a
+                        //call f
+                        if (o.indexOf('*--esp = ') == 0) {
+                            //array[j].comments.push(o);
+                            push.push(o.replace(/\*--esp\s=\s|;/g, ''));
+                            array[j].opcode = null;
+                        }
+                    }
+                    if (push.length > 0) {
+                        e.opcode = e.opcode.substr(0, e.opcode.length - 2);
+                        for (var k = 0; k < push.length; k++) {
+                            e.opcode += push[k] + ', ';
+                        }
+                        e.opcode = e.opcode.substr(0, e.opcode.length - 2);
+                        e.opcode += ');';
+                    }
+                } else if (args.length > 0) {
+                    var sorted = [/di/, /si/, /dx/, /cx/, /r8/, /r9/, /r10/, /r11/];
+                    var found = [];
+                    for (var i = 0; i < sorted.length; i++) {
+                        var failed = true;
+                        for (var j = 0; j < args.length; j++) {
+                            var regex = args[j].match(sorted[i]);
+                            if (regex) {
+                                found.push(args[j]);
+                            }
+                        };
+                    };
+                    e.opcode = e.opcode.substr(0, e.opcode.length - 2);
+                    if (found.length > 0) {
+                        for (var k = 0; k < found.length; k++) {
+                            e.opcode += found[k] + ', ';
+                        }
+                        e.opcode = e.opcode.substr(0, e.opcode.length - 2);
+                    }
+                    e.opcode += ');';
+                }
+            }
+        }
+    }
+
     var recursive_anal = function(array, utils) {
         var labels = [];
-        //subroutines_return_args(array, utils);
+        subroutines_return_args(array, utils);
         //function_for(array, utils);
         labels = labels.concat(function_if_else(array, utils));
         //function_loops(array, utils);
@@ -124,7 +233,16 @@ module.exports = (function() {
             if (!asm) {
                 return [];
             }
-            return asm.replace(/,/g, ' ').replace(/\s+/g, ' ').trim().split(' ');
+            var mem = '';
+            if (asm.match(/\[.+\]/)) {
+                mem = asm.match(/\[.+\]/)[0];
+            }
+            var ret = asm.replace(/\[.+\]/g, '#').replace(/,/g, ' ').replace(/\s+/g, ' ').trim().split(' ');
+            for (var i = 0; i < ret.length; i++) {
+                if (ret[i] == '#')
+                    ret[i] = mem;
+            };
+            return ret;
         }
         this.preprocess = function(array) {
             for (var i = 0; i < assembly.length; i++) {
@@ -134,7 +252,7 @@ module.exports = (function() {
         }
         this.analyze = function(data) {
             data.ops = this.preprocess(data.ops);
-            var fcn = new utils.conditional.Function(data.name);
+            var fcn = new utils.conditional.Function(data.name.replace(/sym\./, ''));
             fcn.array = data.ops;
             function_stack(fcn, utils);
             var labels = recursive_anal(fcn.array, utils);

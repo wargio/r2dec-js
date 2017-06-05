@@ -43,6 +43,9 @@ module.exports = (function() {
                 //data.ops[i].comments.push(data.ops[i].opcode)
                 data.ops[i].opcode = this.dec.prepare(data.ops[i].opcode);
             }
+            if (!data.name) {
+                data.name = 'function_name';
+            }
             return this.dec.analyze(data);
         }
     }

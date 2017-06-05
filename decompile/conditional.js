@@ -63,7 +63,8 @@ module.exports = (function() {
                     } else {
                         p(ident + '    ' + array[i].opcode + '\n'); // + ' // ' + array[i].offset.toString(16) + '\n');
                     }
-                } // else {
+                } 
+                //else {
                 //    p(ident + '    // empty: ' + array[i].offset.toString(16) + '\n');
                 //}
             }
@@ -291,7 +292,8 @@ module.exports = (function() {
             throw new Error('Invalid input IfGoto (' + a + ', ' + b + ', ' + cmp + ')');
         }
         this.type = 'ifgoto';
-        this.cmp = a.toString() + get_cmp(cmp) + b.toString();
+        // TODO: check if for ppc this was wrong too (probably was).
+        this.cmp = a.toString() + get_cmp(cmp, true) + b.toString();
         this.start = start;
         this.end = start;
         this.goto = end;

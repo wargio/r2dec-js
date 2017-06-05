@@ -280,7 +280,7 @@ module.exports = (function() {
         }
         this.analyze = function(data) {
             data.ops = this.preprocess(data.ops);
-            var fcn = new utils.conditional.Function(data.name);
+            var fcn = new utils.conditional.Function(data.name.replace(/sym\./, ''));
             fcn.array = data.ops;
             function_stack(fcn, utils);
             var labels = recursive_anal(fcn.array, utils);
