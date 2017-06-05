@@ -28,29 +28,68 @@ module.exports = (function() {
     var assembly = [];
     assembly.push(require("./return.js"));
     assembly.push(require("./load.js"));
+    assembly.push(require("./cond.js"));
     assembly.push(require("./math.js"));
     assembly.push(require("./asm.js"));
 
     var function_stack = function(fcn, utils) {
         var vars = [];
         var count = 0;
-        // searching for *(((uint[64|32]_t*) r1) - N) = r1;
-        console.log(fcn.get(0).opcode);
-        if (fcn.get(0).opcode && fcn.get(0).opcode == 'push rbp') {
+        var stack = false;
+        if (fcn.get(0).opcode == '*--esp = rbp;') {
             var e = fcn.get(0);
-            e.comments.push(e.opcode);
+            //e.comments.push(e.opcode);
             e.opcode = null;
             for (var i = 1; i < fcn.size(); i++, count++) {
                 e = fcn.get(i);
+                if (!e.opcode) {
+                    continue;
+                }
+                if (e.opcode == 'rbp = rsp;') {
+                    //e.comments.push(e.opcode);
+                    e.opcode = null;
+                } else if (e.opcode == 'rbp = *esp++;') {
+                    //e.comments.push(e.opcode);
+                    e.opcode = null;
+                } else if (e.opcode.indexOf('rsp -= ') == 0 && !stack) {
+                    //e.comments.push(e.opcode);
+                    stack = true;
+                    e.opcode = null;
+                }
+            }
+            for (var i = fcn.size() - 1; i >= 0; i--) {
+                var e = fcn.get(i);
+                if (!e.opcode) {
+                    continue;
+                }
+                if (e.opcode.indexOf('rsp += ') == 0 && !stack) {
+                    //e.comments.push(e.opcode);
+                    break;
+                }
             }
         }
     };
+
+    var function_if_else = function(array, utils) {
+        var labels = [];
+        //searching for top down control flows
+        for (var i = 0; i < array.length; i++) {
+            var e = array[i];
+            if (e.cond && e.jump >= e.offset) {
+                var flow = utils.controlflow(array, i, utils.conditional);
+                if (flow.type == 'ifgoto') {
+                    labels.push(flow.goto);
+                }
+            }
+        }
+        return labels;
+    }
 
     var recursive_anal = function(array, utils) {
         var labels = [];
         //subroutines_return_args(array, utils);
         //function_for(array, utils);
-        //labels = labels.concat(function_if_else(array, utils));
+        labels = labels.concat(function_if_else(array, utils));
         //function_loops(array, utils);
         for (var i = 0; i < array.length; i++) {
             if (array[i].print) {

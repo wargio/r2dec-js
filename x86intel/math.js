@@ -25,37 +25,59 @@
  */
 
 module.exports = (function() {
-
-    var types = {
-        'byte': 'int8_t',
-        'word': 'int16_t',
-        'dword': 'int32_t',
-        'qword': 'int64_t'
-    }
-
-    var mem = {
-        'leave': function(e) {
-            return null; //"pop();";
-        },
-        'push': function(e) {
-            return "*stack = " + e[1] + "; stack--;";
-        },
-        'mov': function(e) {
-            if (e.length == 3) {
-                return e[1] + " = " + e[2] + ";";
-            }
-            return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ") = " + e[3] + ";"
-        },
+    var to_asm = function(e) {
+        var j;
+        var asm = e[0] + " ";
+        for (j = 1; j < e.length - 1; ++j) {
+            asm += e[j] + ", ";
+        }
+        if (j < e.length)
+            asm += e[j];
+        return asm;
     };
 
+    var op_bits3 = function(e, op, bits) {
+        return e[1] + " " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[2] + ";";
+    };
+
+    var math = {
+        add: function(e) {
+            return op_bits3(e, '+');
+        },
+        and: function(e) {
+            return op_bits3(e, '&');
+        },
+        lea: function(e) {
+            return e[1] + " = " + e[2] + ";";
+        },
+        neg: function(e) {
+            return e[1] + " = -" + e[2] + ";";
+        },
+        nop: function(e) {
+            return null;
+        },
+        neg: function(e) {
+            return e[1] + " = !" + e[2] + ";";
+        },
+        or: function(e) {
+            return op_bits3(e, '|');
+        },
+        sub: function(e) {
+            return op_bits3(e, '-');
+        },
+        xor: function(e) {
+            return op_bits3(e, '^');
+        },
+    };
     return function(l) {
         for (var i = 0; i < l.length; ++i) {
             var e = l[i].opcode;
             if (!e || typeof e != 'object') {
                 continue;
             }
-            if (mem[e[0]]) {
-                l[i].opcode = mem[e[0]](e);
+            if (math[e[0]]) {
+                //l[i].comments.push(to_asm(e));
+                l[i].opcode = math[e[0]](e);
             }
         }
         return l;

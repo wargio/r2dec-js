@@ -25,35 +25,52 @@
  */
 
 module.exports = (function() {
-    var to_asm = function(e) {
-        var j;
-        var asm = e[0] + " ";
-        for (j = 1; j < e.length - 1; ++j) {
-            asm += e[j] + ", ";
+
+    var memoryload = function(e) {
+        var types = {
+            'byte': 'int8_t',
+            'word': 'int16_t',
+            'dword': 'int32_t',
+            'qword': 'int64_t'
         }
-        if (j < e.length)
-            asm += e[j];
-        return asm;
-    };
+        if (types[e[1]]) {
+            return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ") = " + e[3] + ";"
+        } else if (types[e[2]]) {
+            return e[1] + " = *((" + types[e[2]] + "*) " + e[3].replace(/\[|\]/g, '') + ");"
+        }
+        return null;
+    }
 
-    var op_bits3 = function(e, op, bits) {
-        return e[1] + " " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[2] + ";";
-    };
-
-    var math = {
-        sub: function(e) {
-            return op_bits3(e, '-');
+    var mem = {
+        'leave': function(e) {
+            return null; //"pop();";
+        },
+        'push': function(e) {
+            return "*--esp = " + e[1] + ";";
+        },
+        'pop': function(e) {
+            return e[1] + " = *esp++;"
+        },
+        'mov': function(e) {
+            if (e.length == 3) {
+                return e[1] + " = " + e[2] + ";";
+            }
+            var m = memoryload(e);
+            if (m) {
+                return m;
+            }
+            return e[1] + " = " + e[2] + ";";
         },
     };
+
     return function(l) {
         for (var i = 0; i < l.length; ++i) {
             var e = l[i].opcode;
             if (!e || typeof e != 'object') {
                 continue;
             }
-            if (math[e[0]]) {
-                //l[i].comments.push(to_asm(e));
-                l[i].opcode = math[e[0]](e);
+            if (mem[e[0]]) {
+                l[i].opcode = mem[e[0]](e);
             }
         }
         return l;

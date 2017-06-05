@@ -30,7 +30,7 @@ module.exports = (function() {
     utils.controlflow = require('./decompile/controlflow.js');
     var supported_archs = {};
     supported_archs.ppc = require('./ppc/interface.js');
-    supported_archs.x86intel = require('./x86-intel/interface.js');
+    supported_archs.x86intel = require('./x86intel/interface.js');
     var r2dec = function(arch) {
         if (!supported_archs[arch]) {
             throw new Error("Unsupported architecture: '" + arch + "'");

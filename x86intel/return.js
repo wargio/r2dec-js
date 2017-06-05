@@ -37,7 +37,33 @@ module.exports = (function() {
         'ret': function(l, start) {
             l[start].opcode = "return;";
             return l;
-        }
+        },
+        jmp: function(l, start) {
+            var jump = l[start].jump;
+            var offset = l[start].offset;
+            if (jump == offset) {
+                l[start].opcode = "while (true);";
+                delete(l[start].jump);
+            } else {
+                l[start].opcode = "goto label_" + offset.toString(16);
+                if(jump > offset) {
+                    for (var i = start + 1; i < l.length; i++) {
+                        if(l[i].offset == jump) {
+                            l[i].label = "label_" + offset.toString(16);
+                            break;
+                        }
+                    }
+                } else {
+                    for (var i = 0; i < offset; i++) {
+                        if(l[i].offset == jump) {
+                            l[i].label = "label_" + offset.toString(16);
+                            break;
+                        }
+                    }
+                }
+            }
+            return l;
+        },
     };
     return function(l) {
         for (var i = 0; i < l.length; ++i) {
