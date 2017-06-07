@@ -28,10 +28,11 @@ module.exports = (function() {
 	var _dec = null;
     var Instruction = require('./instruction.js');
     var Metadata = function(data) {
+        //Instruction.debug();
         if (!data.name) {
             data.name = 'function_name';
         } else {
-            this.name = "" + data.name.replace(/sym\./, '');
+            this.name = "" + data.name.replace(/sym\./, '').replace(/[^\w]/, '_');
         }
         this.opcodes = data.ops.map(function(o) {
             return new Instruction(o);
@@ -46,7 +47,7 @@ module.exports = (function() {
         };
         _dec = dec;
         Instruction.setDecompiler(dec);
-    }
+    };
     Metadata.Function = function(data) {
         this.name = data.name;
         this.returntype = 'void';

@@ -39,7 +39,7 @@ module.exports = (function() {
         if (fcn.get(0).opcode.indexOf('*--esp = rb') == 0) {
             var e = fcn.get(0);
             //e.comments.push(e.opcode);
-            e.opcode = null;
+            e.invalidate();
             for (var i = 1; i < fcn.size(); i++, count++) {
                 e = fcn.get(i);
                 if (!e.opcode) {
@@ -47,14 +47,14 @@ module.exports = (function() {
                 }
                 if (e.opcode == 'rbp = rsp;') {
                     //e.comments.push(e.opcode);
-                    e.opcode = null;
+                    e.invalidate();
                 } else if (e.opcode.indexOf(' = *esp++;') > 0) {
                     //e.comments.push(e.opcode);
-                    e.opcode = null;
+                    e.invalidate();
                 } else if (e.opcode.indexOf('rsp -= ') == 0 && !stack) {
                     //e.comments.push(e.opcode);
                     stack = true;
-                    e.opcode = null;
+                    e.invalidate();
                 }
             }
             for (var i = fcn.size() - 1; i >= 0; i--) {
@@ -159,7 +159,7 @@ module.exports = (function() {
                         if (o.indexOf('*--esp = ') == 0) {
                             //array[j].comments.push(o);
                             push.push(o.replace(/\*--esp\s=\s|;/g, ''));
-                            array[j].opcode = null;
+                            array[j].invalidate();
                         }
                     }
                     if (push.length > 0) {

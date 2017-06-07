@@ -47,28 +47,13 @@ module.exports = (function() {
         return inv ? CMPinv[cmp] : CMP[cmp];
     }
     var print_content = function(p, ident, caller, array, type) {
-        for (var i = 0; i < array.length; i++) {
-            if (array[i].label) {
-                p( /*ident + '    ' + */ array[i].label.replace(/0x/, '') + ':\n');
-            }
-            if (array[i].print) {
-                array[i].print(p, ident + '    ', type);
+        array.forEach(function(o) {
+            if (o.opcode && o.opcode.indexOf('goto') == 0 && caller && caller.indexOf('while') >= 0) {
+                p(ident + '    break;\n');
             } else {
-                for (var j = 0; j < array[i].comments.length; j++) {
-                    p(ident + '    // ' + array[i].comments[j] + '\n');
-                }
-                if (array[i].opcode) {
-                    if (array[i].opcode.indexOf('goto') == 0 && caller.indexOf('while') >= 0) {
-                        p(ident + '    break;\n');
-                    } else {
-                        p(ident + '    ' + array[i].opcode + '\n'); // + ' // ' + array[i].offset.toString(16) + '\n');
-                    }
-                }
-                //else {
-                //    p(ident + '    // empty: ' + array[i].offset.toString(16) + '\n');
-                //}
+                o.print(p, ident + '    ', type);
             }
-        }
+        });
     }
     var If = function(start, end, cond) {
         if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {

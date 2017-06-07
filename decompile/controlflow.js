@@ -28,11 +28,11 @@ module.exports = (function() {
     var find = function(array, current, search) {
         if (search.gt(array[current].offset)) {
             for (var i = current; i < array.length; i++) {
-                if (array[i].offset.eq(search) || (!array[i].isAt && search.le(array[i].end) && array[i].start.ge(search))) return i;
+                if (search.eq(array[i].offset) || (!array[i].isAt && search.le(array[i].end) && array[i].start.ge(search))) return i;
             };
         } else {
             for (var i = 0; i < current; i++) {
-                if (array[i].offset.eq(search) || (!array[i].isAt && search.le(array[i].end) && array[i].start.ge(search))) return i;
+                if (search.eq(array[i].offset) || (!array[i].isAt && search.le(array[i].end) && array[i].start.ge(search))) return i;
             };
         }
         return -1;

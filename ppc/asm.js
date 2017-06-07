@@ -27,25 +27,10 @@
 
 
 module.exports = (function () {
-    var to_asm = function (e) {
-        var j;
-        var asm = e[0] + " ";
-        for (j = 1; j < e.length - 1; ++j) {
-            asm += e[j] + ", ";
-        }
-        if (j < e.length)
-            asm += e[j];
-        return asm.trim();
-    };
-
-    return function (l) {
-        for (var i = 0; i < l.length; ++i) {
-            var e = l[i].opcode;
-            if (!e || typeof e != 'object') {
-                continue;
-            }
-            l[i].opcode = "__asm(\"" + to_asm(e) + "\");";
-        }
+    return function(l) {
+        l.forEach(function(o) {
+            o.toAsm();
+        });
         return l;
     };
 })();

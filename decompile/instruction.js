@@ -64,10 +64,10 @@ module.exports = (function() {
                 p(ident + "// " + comment + "\n");
             });
             if (this.label) p(this.label + "\n");
-            if (this.opcode) p(ident + this.opcode + "\n");
             if (this._debug) {
                 p(ident + "// " + this.opcode + " at " + this.offset + "\n");
             }
+            if (this.opcode) p(ident + this.opcode + "\n");
         };
         this.setConditional = function(a, b, cmp) {
             this.cond = {
