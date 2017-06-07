@@ -24,35 +24,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-module.exports = (function() {
-    var Metadata = require('./decompile/metadata.js');
-    var supported_archs = {};
-    supported_archs.ppc = require('./ppc/interface.js');
-    supported_archs.x86intel = require('./x86intel/interface.js');
-    supported_archs.mips = require('./mips/interface.js');
-    var r2dec = function(arch) {
-        if (!supported_archs[arch]) {
-            throw new Error("Unsupported architecture: '" + arch + "'");
-        }
-        this.arch = arch;
-        this.dec = new supported_archs[arch]();
-        Metadata.setDecompiler(this.dec);
-        this.work = function(data) {
-            var meta = new Metadata(data);
-            return this.dec.analyze(meta);
-        }
-    }
-    r2dec.exists = function(arch) {
-        return supported_archs[arch] != null;
+
+
+module.exports = (function () {
+    return function(l) {
+        l.forEach(function(o) {
+            o.toAsm();
+        });
+        return l;
     };
-    r2dec.supported = function(ident) {
-        if (!ident) {
-            ident = '';
-        }
-        console.log(ident + 'Supported architectures:')
-        for (var arch in supported_archs) {
-            console.log(ident + '    ' + arch);
-        }
-    };
-    return r2dec;
 })();

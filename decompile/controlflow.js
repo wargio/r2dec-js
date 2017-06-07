@@ -50,6 +50,7 @@ module.exports = (function() {
                 flow = new conditional.IfGoto(e.offset, e.jump, e.cond);
             } else if (last && last.type && last.type.indexOf('if') == 0) {
                 flow = new conditional.Else(e.offset, e.jump.sub(e.size), e.cond);
+                last.else = true;
             } else {
                 flow = new conditional.If(e.offset, e.jump.sub(e.size), e.cond);
             }
