@@ -25,8 +25,55 @@
  */
 
 module.exports = (function() {
-    var Metadata = function() {
-
+	var _dec = null;
+    var Instruction = require('./instruction.js');
+    var Metadata = function(data) {
+        if (!data.name) {
+            data.name = 'function_name';
+        } else {
+            this.name = "" + data.name.replace(/sym\./, '');
+        }
+        this.opcodes = data.ops.map(function(o) {
+            return new Instruction(o);
+        });
+        this.opcodes = _dec.preprocess(this.opcodes);
+    };
+    Metadata.setDecompiler = function(dec) {
+        dec.utils = {
+            conditional: require('./conditional.js'),
+            controlflow: require('./controlflow.js'),
+            Function: Metadata.Function
+        };
+        _dec = dec;
+        Instruction.setDecompiler(dec);
+    }
+    Metadata.Function = function(data) {
+        this.name = data.name;
+        this.returntype = 'void';
+        this.args = [];
+        this.type = 'function';
+        this.opcodes = data.opcodes;
+        this.setArg = function(x) {
+            if (this.args.indexOf(x) < 0) {
+                this.args.push(x);
+            }
+        };
+        this.size = function() {
+            return this.opcodes.length;
+        };
+        this.get = function(i) {
+            if (typeof i == 'undefined' || i < 0) {
+                throw new Error('Invalid input Function:get ' + i);
+            }
+            return this.opcodes[i];
+        };
+        this.print = function(p) {
+            p(this.returntype + ' ' + this.name + '(' + this.args.join(', ') + ') {\n');
+            this.opcodes.forEach(function(instr) {
+                instr.print(p, '    ', this.type);
+            });
+            p('}\n');
+        };
     };
     return Metadata;
 })();

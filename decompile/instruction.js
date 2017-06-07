@@ -25,6 +25,7 @@
  */
 
 module.exports = (function() {
+    var uint64 = require('./uint64.js');
     var _notstring = "the argument is not a string";
     var _dec = null;
     var _debug = false;
@@ -35,35 +36,37 @@ module.exports = (function() {
     }
     var Instruction = function(obj) {
         this.comments = [];
-        this.opcode = dec.prepare(obj.opcode);
+        this.opcode = _dec.prepare(obj.opcode);
         this.type = "" + obj.type;
         this.offset = new uint64(obj.offset);
+        this.jump = obj.jump ? new uint64(obj.jump) : null;
+        this.size = new uint64(obj.size);
         this.cond = null;
         this.label = null;
+        this.used = false;
         if (_debug) {
             this._debug = "" + obj.opcode;
         }
         this.isAt = function(offset) {
             return this.offset.eq(offset);
         };
+        this.setUsed = function() {
+            this.used = true;
+        }
         this.addComment = function(comment) {
             _check_string(comment);
             this.comment.push(comment);
         };
-        this.printComments = function(p, ident) {
-            if (!p) p = console.log;
-            if (!ident) ident = "";
-            this.comments.forEach(function(comment) {
-                p(ident + "// " + comment);
-            });
-        };
         this.print = function(p, ident) {
             if (!p) p = console.log;
             if (!ident) ident = "";
-            if (this.label) p(this.label);
-            if (this.opcode) p(ident + this.opcode);
+            this.comments.forEach(function(comment) {
+                p(ident + "// " + comment + "\n");
+            });
+            if (this.label) p(this.label + "\n");
+            if (this.opcode) p(ident + this.opcode + "\n");
             if (this._debug) {
-                p(ident + "// " + this.opcode + " at " + this.offset);
+                p(ident + "// " + this.opcode + " at " + this.offset + "\n");
             }
         };
         this.setConditional = function(a, b, cmp) {
@@ -72,6 +75,9 @@ module.exports = (function() {
                 b: b,
                 cmp
             };
+        };
+        this.setLabel = function(enable) {
+            this.label = enable ? "label_" + this.offset + ":" : null;
         };
         this.invalidate = function() {
             this.opcode = null;

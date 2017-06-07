@@ -75,7 +75,7 @@ module.exports = (function() {
         //searching for top down control flows
         for (var i = 0; i < array.length; i++) {
             var e = array[i];
-            if (e.cond && e.jump >= e.offset) {
+            if (e.cond && e.jump.ge(e.offset)) {
                 var flow = utils.controlflow(array, i, utils.conditional);
                 if (flow.type == 'ifgoto') {
                     labels.push(flow.goto);
@@ -94,9 +94,9 @@ module.exports = (function() {
                 // searching for return addr
                 for (var j = i + 1; j < array.length && j < i + 6; j++) {
                     var n = array[j];
-                    if (!n.opcode && !n.print && !n.cond) {
+                    if (!n.opcode && n.isAt && !n.cond) {
                         continue;
-                    } else if (n.print) {
+                    } else if (!n.isAt) {
                         n = n.cmp;
                     } else if (n.cond) {
                         n = n.cond.a;
@@ -110,6 +110,7 @@ module.exports = (function() {
                     } else {
                         n = n.opcode;
                     }
+                    if (!n) console.log(JSON.parse(JSON.stringify(array[j])));
                     if (n.match(/[er]?ax[\);\s]?/)) {
                         // if /[er]?ax/ found then [er]?ax = fcn();
                         var reg = n.match(/[er]?ax/)[0];
@@ -201,7 +202,7 @@ module.exports = (function() {
         labels = labels.concat(function_if_else(array, utils));
         //function_loops(array, utils);
         for (var i = 0; i < array.length; i++) {
-            if (array[i].print) {
+            if (!array[i].isAt) {
                 labels = labels.concat(recursive_anal(array[i].array, utils));
             }
         }
@@ -210,25 +211,25 @@ module.exports = (function() {
 
     var recursive_label = function(array, offset) {
         for (var i = 0; i < array.length; i++) {
-            if (offset >= array[i].start && offset <= array[i].end) {
+            if (offset.ge(array[i].start) && offset.le(array[i].end)) {
                 // console.log(i + ": ");
                 // console.log(array[i]);
                 recursive_label(array[i].array, offset);
                 return;
-            } else if (array[i].offset == offset) {
+            } else if (offset.eq(array[i].offset)) {
                 // console.log(i + ": ");
                 // console.log(array[i]);
-                array[i].label = 'label_' + offset.toString(16);
+                array[i].setLabel(true);
                 return;
-            } else if (array[i].end > offset || array[i].offset > offset) {
+            } else if (offset.le(array[i].end) || offset.le(array[i].offset)) {
                 break;
             }
         }
-        console.log('failed to find: ' + offset.toString(16))
+        console.log('failed to find: ' + offset)
     };
 
-    return function(utils) {
-        this.utils = utils;
+    return function() {
+        this.utils = null;
         this.prepare = function(asm) {
             if (!asm) {
                 return [];
@@ -243,22 +244,20 @@ module.exports = (function() {
                     ret[i] = mem;
             };
             return ret;
-        }
+        };
         this.preprocess = function(array) {
-            for (var i = 0; i < assembly.length; i++) {
-                array = assembly[i](array);
-            }
+            assembly.forEach(function(fcn) {
+                array = fcn(array);
+            });
             return array;
-        }
+        };
         this.analyze = function(data) {
-            data.ops = this.preprocess(data.ops);
-            var fcn = new utils.conditional.Function(data.name.replace(/sym\./, ''));
-            fcn.array = data.ops;
-            function_stack(fcn, utils);
-            var labels = recursive_anal(fcn.array, utils);
+            var fcn = new this.utils.Function(data);
+            function_stack(fcn, this.utils);
+            var labels = recursive_anal(fcn.opcodes, this.utils);
             for (var i = 0; i < labels.length; i++) {
                 //console.log(labels[i].toString(16));
-                recursive_label(fcn.array, labels[i]);
+                recursive_label(fcn.opcodes, labels[i]);
             }
             return fcn;
         };

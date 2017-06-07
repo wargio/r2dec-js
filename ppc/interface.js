@@ -46,7 +46,7 @@ module.exports = (function() {
             for (var i = 1; i < fcn.size(); i++, count++) {
                 e = fcn.get(i);
                 if (count < 5 && e.opcode && (e.opcode.indexOf('mflr') > 0 ||
-                    e.opcode.match(/\*\(\(\(u?int[36][24]_t\*\)\sr1\)\s[-+]\s\d+\)\s=\sr\d/))) {
+                        e.opcode.match(/\*\(\(\(u?int[36][24]_t\*\)\sr1\)\s[-+]\s\d+\)\s=\sr\d/))) {
                     //e.comments.push(e.opcode);
                     if (e.opcode.indexOf('mflr') > 0 || e.opcode.indexOf(' = r0;') > 0) {
                         e.opcode = null;
@@ -58,9 +58,9 @@ module.exports = (function() {
                     };
                     count = 0;
                 } else if (e.opcode && (e.opcode.indexOf('mtlr') > 0 ||
-                    e.opcode.indexOf('r0 = *(((') == 0 ||
-                    e.opcode.match(/r1\s\+=\s[x\da-f]+;/) ||
-                    e.opcode.match(/r\d\d\s=\s\*\(\(\(u?int[36][24]_t\*\)\sr1\)\s[-+]\s\d+\);/))) {
+                        e.opcode.indexOf('r0 = *(((') == 0 ||
+                        e.opcode.match(/r1\s\+=\s[x\da-f]+;/) ||
+                        e.opcode.match(/r\d\d\s=\s\*\(\(\(u?int[36][24]_t\*\)\sr1\)\s[-+]\s\d+\);/))) {
                     //e.comments.push(e.opcode);
                     e.opcode = null;;
                 } else if (e.opcode && e.opcode.match(/r\d+\s=\sr[3-9];/)) {
@@ -264,29 +264,27 @@ module.exports = (function() {
         console.log('failed to find: ' + offset.toString(16))
     };
 
-    return function(utils) {
-        this.utils = utils;
+    return function() {
+        this.utils = null;
         this.prepare = function(asm) {
             if (!asm) {
                 return [];
             }
             return asm.replace(/,/g, ' ').replace(/\s+/g, ' ').trim().split(' ');
-        }
+        };
         this.preprocess = function(array) {
-            for (var i = 0; i < assembly.length; i++) {
-                array = assembly[i](array);
-            }
+            assembly.forEach(function(fcn) {
+                array = fcn(array);
+            });
             return array;
-        }
+        };
         this.analyze = function(data) {
-            data.ops = this.preprocess(data.ops);
-            var fcn = new utils.conditional.Function(data.name.replace(/sym\./, ''));
-            fcn.array = data.ops;
-            function_stack(fcn, utils);
-            var labels = recursive_anal(fcn.array, utils);
+            var fcn = new this.utils.Function(data);
+            function_stack(fcn, this.utils);
+            var labels = recursive_anal(fcn.opcodes, this.utils);
             for (var i = 0; i < labels.length; i++) {
                 //console.log(labels[i].toString(16));
-                recursive_label(fcn.array, labels[i]);
+                recursive_label(fcn.opcodes, labels[i]);
             }
             return fcn;
         };

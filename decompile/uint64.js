@@ -29,8 +29,8 @@ module.exports = (function() {
     var notinstance = "the argument not instance of uint64.";
     var notnumber = "the argument not Number.";
     var limitsreached = "the argument out of limits.";
-    var _check_instanceof = function(x) {
-        if (!b instanceof int64) {
+    var _check_instanceof = function(b) {
+        if (!b instanceof uint64) {
             throw new Error(notinstance);
         }
     }
@@ -197,10 +197,12 @@ module.exports = (function() {
             return uint64.create(hi, lo);
         };
         this.eq = function(b) {
+            if (!b) return false;
             _check_instanceof(b);
             return this._value[_HI] == b._value[_HI] && this._value[_LO] == b._value[_LO];
         };
         this.lt = function(b) {
+            if (!b) return false;
             _check_instanceof(b);
             if (this._value[_HI] == b._value[_HI]) {
                 return this._value[_LO] < b._value[_LO];
@@ -208,6 +210,7 @@ module.exports = (function() {
             return this._value[_HI] < b._value[_HI];
         };
         this.gt = function(b) {
+            if (!b) return false;
             _check_instanceof(b);
             if (this._value[_HI] == b._value[_HI]) {
                 return this._value[_LO] > b._value[_LO];
@@ -215,6 +218,7 @@ module.exports = (function() {
             return this._value[_HI] > b._value[_HI];
         };
         this.ge = function(b) {
+            if (!b) return false;
             _check_instanceof(b);
             if (this._value[_HI] == b._value[_HI]) {
                 return this._value[_LO] >= b._value[_LO];
@@ -222,6 +226,7 @@ module.exports = (function() {
             return this._value[_HI] > b._value[_HI];
         };
         this.le = function(b) {
+            if (!b) return false;
             _check_instanceof(b);
             if (this._value[_HI] == b._value[_HI]) {
                 return this._value[_LO] <= b._value[_LO];
@@ -235,6 +240,9 @@ module.exports = (function() {
             }
             return this._value[_HI].toString(16) + '00000000'.substr(lo.length, 8) + lo;
         }
+        if (typeof value === "number") {
+            value = '0x' + value.toString(16);
+        }
         if (typeof value === "string") {
             var n = _from_base10(value);
             if (!n) {
@@ -244,15 +252,22 @@ module.exports = (function() {
                 this._value = n;
             }
         } else {
-            this._value = new Array(2);
+            this._value = [0, 0];
         }
     };
     uint64.create = function(hi, lo) {
-        var r = new int64();
+        var r = new uint64();
         hi &= 0xFFFFFFFF;
         lo &= 0xFFFFFFFF;
         r._value[_HI] = hi >>> 0;
         r._value[_LO] = lo >>> 0;
+        return r;
+    };
+    uint64.copy = function(b) {
+        _check_instanceof(b);
+        var r = new uint64();
+        r._value[_HI] = b._value[_HI] >>> 0;
+        r._value[_LO] = b._value[_LO] >>> 0;
         return r;
     };
     return uint64;
