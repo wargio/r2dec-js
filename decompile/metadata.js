@@ -25,4 +25,8 @@
  */
 
 module.exports = (function() {
+    var Metadata = function() {
+
+    };
+    return Metadata;
 })();

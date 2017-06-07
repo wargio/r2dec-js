@@ -25,10 +25,10 @@
  */
 
 module.exports = (function() {
-    var not64bit = "argument not a 64 bit number.";
-    var notinstance = "argument not instance of uint64.";
-    var notnumber = "argument not Number.";
-    var limitsreached = "argument out of limits.";
+    var not64bit = "the argument not a 64 bit number.";
+    var notinstance = "the argument not instance of uint64.";
+    var notnumber = "the argument not Number.";
+    var limitsreached = "the argument out of limits.";
     var _check_instanceof = function(x) {
         if (!b instanceof int64) {
             throw new Error(notinstance);
@@ -109,7 +109,7 @@ module.exports = (function() {
             var lo = this._value[_LO] ^ b._value[_LO];
             return uint64.create(hi, lo);
         };
-        this.shiftleft = function(b) {
+        this.lshift = function(b) {
             // <<<<<<
             _check_numeric(b, 0, 64)
             var hi = this._value[_HI];
@@ -124,7 +124,7 @@ module.exports = (function() {
             }
             return uint64.create(hi, lo);
         };
-        this.shiftright = function(b) {
+        this.rshift = function(b) {
             // >>>>>>
             _check_numeric(b, 0, 64)
             var hi = this._value[_HI];
@@ -148,7 +148,17 @@ module.exports = (function() {
             }
             return uint64.create(hi, lo);
         };
+        this.add = function(b) {
+            _check_instanceof(b);
+            var hi = this._value[_HI] - b._value[_HI];
+            var lo = this._value[_LO] - b._value[_LO];
+            if (lo > 0x100000000) {
+                hi += 1;
+            }
+            return uint64.create(hi, lo);
+        };
         this.mul = function(b) {
+            _check_instanceof(b);
             var ah = this._value[_HI];
             var al = this._value[_LO];
             var bh = b._value[_HI];
@@ -186,10 +196,45 @@ module.exports = (function() {
 
             return uint64.create(hi, lo);
         };
-        this.cmp = function(b) {
+        this.eq = function(b) {
             _check_instanceof(b);
-            return b._value[_HI] == this._value[_HI] && b._value[_LO] == this._value[_LO];
+            return this._value[_HI] == b._value[_HI] && this._value[_LO] == b._value[_LO];
         };
+        this.lt = function(b) {
+            _check_instanceof(b);
+            if (this._value[_HI] == b._value[_HI]) {
+                return this._value[_LO] < b._value[_LO];
+            }
+            return this._value[_HI] < b._value[_HI];
+        };
+        this.gt = function(b) {
+            _check_instanceof(b);
+            if (this._value[_HI] == b._value[_HI]) {
+                return this._value[_LO] > b._value[_LO];
+            }
+            return this._value[_HI] > b._value[_HI];
+        };
+        this.ge = function(b) {
+            _check_instanceof(b);
+            if (this._value[_HI] == b._value[_HI]) {
+                return this._value[_LO] >= b._value[_LO];
+            }
+            return this._value[_HI] > b._value[_HI];
+        };
+        this.le = function(b) {
+            _check_instanceof(b);
+            if (this._value[_HI] == b._value[_HI]) {
+                return this._value[_LO] <= b._value[_LO];
+            }
+            return this._value[_HI] < b._value[_HI];
+        };
+        this.toString = function() {
+            var lo = this._value[_LO].toString(16);
+            if (this._value[_HI] == 0) {
+                return lo;
+            }
+            return this._value[_HI].toString(16) + '00000000'.substr(lo.length, 8) + lo;
+        }
         if (typeof value === "string") {
             var n = _from_base10(value);
             if (!n) {

@@ -25,12 +25,72 @@
  */
 
 module.exports = (function() {
-    
-    
-    return function(obj, dec) {
-        this.opcode = dec.prepare(obj.opcode);
+    var _notstring = "the argument is not a string";
+    var _dec = null;
+    var _debug = false;
+    var _check_string = function(s) {
+        if (typeof s != 'string') {
+            throw new Error(_notstring);
+        }
+    }
+    var Instruction = function(obj) {
         this.comments = [];
-        this.type = "" obj.type;
-        this.offset = 
+        this.opcode = dec.prepare(obj.opcode);
+        this.type = "" + obj.type;
+        this.offset = new uint64(obj.offset);
+        this.cond = null;
+        this.label = null;
+        if (_debug) {
+            this._debug = "" + obj.opcode;
+        }
+        this.isAt = function(offset) {
+            return this.offset.eq(offset);
+        };
+        this.addComment = function(comment) {
+            _check_string(comment);
+            this.comment.push(comment);
+        };
+        this.printComments = function(p, ident) {
+            if (!p) p = console.log;
+            if (!ident) ident = "";
+            this.comments.forEach(function(comment) {
+                p(ident + "// " + comment);
+            });
+        };
+        this.print = function(p, ident) {
+            if (!p) p = console.log;
+            if (!ident) ident = "";
+            if (this.label) p(this.label);
+            if (this.opcode) p(ident + this.opcode);
+            if (this._debug) {
+                p(ident + "// " + this.opcode + " at " + this.offset);
+            }
+        };
+        this.setConditional = function(a, b, cmp) {
+            this.cond = {
+                a: a,
+                b: b,
+                cmp
+            };
+        };
+        this.invalidate = function() {
+            this.opcode = null;
+        };
+        this.toAsm = function(divider) {
+            this.opcode = Instruction.toAsm(this.opcode, divider);
+        };
     };
+    Instruction.toAsm = function(opcode, divider) {
+        if (!Array.isArray(opcode)) {
+            return opcode;
+        }
+        return "__asm(\"" + opcode.join(typeof divider === 'string' ? divider : ', ') + "\");";
+    };
+    Instruction.debug = function() {
+        _debug = true;
+    }
+    Instruction.setDecompiler = function(dec) {
+        _dec = dec;
+    }
+    return Instruction;
 })();
