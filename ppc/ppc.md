@@ -127,7 +127,7 @@ Converts this
 to this:
 
 ```c
-void fcn_0800fe00(r4, r5, r6, r3) {
+void fcn_0800fe00(r3, r4, r5, r6) {
     int64_t r29;
     int64_t r31;
     r29 = r4;

@@ -66,6 +66,7 @@ module.exports = (function() {
                     if (index >= 0) {
                         vars.splice(index, 1);
                         fcn.setArg(regs[1]);
+                        fcn.args.sort();
                     }
                 }
             }
