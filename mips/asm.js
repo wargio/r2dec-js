@@ -24,35 +24,28 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-module.exports = (function() {
-    var Metadata = require('./decompile/metadata.js');
-    var supported_archs = {};
-    supported_archs.ppc = require('./ppc/interface.js');
-    supported_archs.x86intel = require('./x86intel/interface.js');
-    supported_archs.mips = require('./mips/interface.js');
-    var r2dec = function(arch) {
-        if (!supported_archs[arch]) {
-            throw new Error("Unsupported architecture: '" + arch + "'");
+
+
+module.exports = (function () {
+    var to_asm = function (e) {
+        var j;
+        var asm = e[0] + " ";
+        for (j = 1; j < e.length - 1; ++j) {
+            asm += e[j] + ", ";
         }
-        this.arch = arch;
-        this.dec = new supported_archs[arch]();
-        Metadata.setDecompiler(this.dec);
-        this.work = function(data) {
-            var meta = new Metadata(data);
-            return this.dec.analyze(meta);
-        }
-    }
-    r2dec.exists = function(arch) {
-        return supported_archs[arch] != null;
+        if (j < e.length)
+            asm += e[j];
+        return asm.trim();
     };
-    r2dec.supported = function(ident) {
-        if (!ident) {
-            ident = '';
+
+    return function (l) {
+        for (var i = 0; i < l.length; ++i) {
+            var e = l[i].opcode;
+            if (!e || typeof e != 'object' || e.length == 0) {
+                continue;
+            }
+            l[i].opcode = "__asm(\"" + to_asm(e) + "\");";
         }
-        console.log(ident + 'Supported architectures:')
-        for (var arch in supported_archs) {
-            console.log(ident + '    ' + arch);
-        }
+        return l;
     };
-    return r2dec;
 })();
