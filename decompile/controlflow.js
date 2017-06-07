@@ -26,13 +26,13 @@
 
 module.exports = (function() {
     var find = function(array, current, search) {
-        if (search > array[current].offset) {
+        if (search.gt(array[current].offset)) {
             for (var i = current; i < array.length; i++) {
-                if (array[i].offset == search || (array[i].print && search <= array[i].end && array[i].start >= search)) return i;
+                if (search.eq(array[i].offset) || (!array[i].isAt && search.le(array[i].end) && array[i].start.ge(search))) return i;
             };
         } else {
             for (var i = 0; i < current; i++) {
-                if (array[i].offset == search || (array[i].print && search <= array[i].end && array[i].start >= search)) return i;
+                if (search.eq(array[i].offset) || (!array[i].isAt && search.le(array[i].end) && array[i].start.ge(search))) return i;
             };
         }
         return -1;
@@ -41,17 +41,17 @@ module.exports = (function() {
         var flow = null;
         var e = array[start];
         var last = array[start - 1];
-        if (e.jump > e.offset) {
+        if (e.jump.gt(e.offset)) {
             var end = find(array, start, e.jump);
             var cond = e.cond;
             if (end < 0) {
                 end = start;
                 // do not add e.jump - 4 since it's added in a different way.
-                flow = new conditional.IfGoto(e.offset, e.jump, e.cond.a, e.cond.b, e.cond.cmp);
+                flow = new conditional.IfGoto(e.offset, e.jump, e.cond);
             } else if (last && last.type && last.type.indexOf('if') == 0) {
-                flow = new conditional.Else(e.offset, e.jump - 4, e.cond.a, e.cond.b, e.cond.cmp);
+                flow = new conditional.Else(e.offset, e.jump.sub(e.size), e.cond);
             } else {
-                flow = new conditional.If(e.offset, e.jump - 4, e.cond.a, e.cond.b, e.cond.cmp);
+                flow = new conditional.If(e.offset, e.jump.sub(e.size), e.cond);
             }
             e.cond = null;
             var removed = array.splice(start, end - start, flow);
@@ -64,23 +64,23 @@ module.exports = (function() {
             }
             if (flow.size() == 0) {
                 if (flow.type == 'if') {
-                    flow = new conditional.IfBreak(e.offset, e.jump - 4, cond.a, cond.b, cond.cmp);
+                    flow = new conditional.IfBreak(e.offset, e.jump.sub(e.size), cond);
                     array.splice(start, 1, flow);
                 } else if (flow.type == 'else') {
-                    flow = new conditional.ElseBreak(e.offset, e.jump - 4, cond.a, cond.b, cond.cmp);
+                    flow = new conditional.ElseBreak(e.offset, e.jump.sub(e.size), cond);
                     array.splice(start, 1, flow);
                 }
             }
-        } else if (e.jump < e.offset) {
+        } else if (e.jump.lt(e.offset)) {
             var end = start;
             var cond = e.cond;
             start = find(array, start, e.jump);
             if (start < 0) {
                 start = end;
                 // do not add e.jump - 4 since it's added in a different way.
-                flow = new conditional.IfGoto(e.offset, e.jump, e.cond.a, e.cond.b, e.cond.cmp);
+                flow = new conditional.IfGoto(e.offset, e.jump, e.cond);
             } else {
-                flow = new conditional.DoWhile(array[start].offset, array[end].offset, e.cond.a, e.cond.b, e.cond.cmp);
+                flow = new conditional.DoWhile(array[start].offset, array[end].offset, e.cond);
             }
             e.cond = null;
             var removed = array.splice(start, end - start, flow);
@@ -92,7 +92,7 @@ module.exports = (function() {
                 flow.add(e);
             }
             if (false && flow.size() == 0) {
-                flow = new conditional.IfContinue(array[start].offset, array[end].offset, cond.a, cond.b, cond.cmp);
+                flow = new conditional.IfContinue(array[start].offset, array[end].offset, cond);
                 array.splice(start, 1, flow);
             }
         } else {
@@ -104,7 +104,7 @@ module.exports = (function() {
     controlflow.find = find;
     controlflow.for = function(array, start, end, conditional, init, sum) {
         var e = array[end];
-        var flow = new conditional.For(array[start].offset, e.offset, e.cond.a, e.cond.b, e.cond.cmp, init, sum);
+        var flow = new conditional.For(array[start].offset, e.offset, e.cond, init, sum);
         if (e.jump < e.offset) {
             e.cond = null;
             var removed = array.splice(start, end - start, flow);
@@ -120,7 +120,7 @@ module.exports = (function() {
     };
     controlflow.while = function(array, start, end, conditional, cond) {
         var e = array[end];
-        var flow = new conditional.While(start, end, cond.a, cond.b, cond.cmp);
+        var flow = new conditional.While(start, end, cond);
         if (e.jump < e.offset) {
             var removed = array.splice(start, end - start, flow);
             for (var i = 0; i < removed.length; ++i) {

@@ -25,16 +25,6 @@
  */
 
 module.exports = (function() {
-    var to_asm = function(e) {
-        var j;
-        var asm = e[0] + " ";
-        for (j = 1; j < e.length - 1; ++j) {
-            asm += e[j] + ", ";
-        }
-        if (j < e.length)
-            asm += e[j];
-        return asm;
-    };
 
     var memoryload = function(e) {
         var types = {
@@ -60,13 +50,11 @@ module.exports = (function() {
             if (cmps[e[0]]) {
                 break;
             } else if (branches[e[0]]) {
-                //l[i].comments.push(to_asm(e));
                 l[i].cond = {
                     a: a,
                     b: b,
                     cmp: branches[e[0]]
                 };
-                //l[i].comments.push(to_asm(l[start]));
                 l[start].opcode = null;
                 l[i].opcode = null;
             }

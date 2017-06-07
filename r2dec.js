@@ -25,9 +25,7 @@
  */
 
 module.exports = (function() {
-    var utils = {};
-    utils.conditional = require('./decompile/conditional.js');
-    utils.controlflow = require('./decompile/controlflow.js');
+    var Metadata = require('./decompile/metadata.js');
     var supported_archs = {};
     supported_archs.ppc = require('./ppc/interface.js');
     supported_archs.x86intel = require('./x86intel/interface.js');
@@ -36,17 +34,11 @@ module.exports = (function() {
             throw new Error("Unsupported architecture: '" + arch + "'");
         }
         this.arch = arch;
-        this.dec = new supported_archs[arch](utils);
+        this.dec = new supported_archs[arch]();
+        Metadata.setDecompiler(this.dec);
         this.work = function(data) {
-            for (var i = 0; i < data.ops.length; i++) {
-                data.ops[i].comments = [];
-                //data.ops[i].comments.push(data.ops[i].opcode)
-                data.ops[i].opcode = this.dec.prepare(data.ops[i].opcode);
-            }
-            if (!data.name) {
-                data.name = 'function_name';
-            }
-            return this.dec.analyze(data);
+            var meta = new Metadata(data);
+            return this.dec.analyze(meta);
         }
     }
     r2dec.exists = function(arch) {

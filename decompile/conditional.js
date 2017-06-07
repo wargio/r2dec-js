@@ -47,35 +47,20 @@ module.exports = (function() {
         return inv ? CMPinv[cmp] : CMP[cmp];
     }
     var print_content = function(p, ident, caller, array, type) {
-        for (var i = 0; i < array.length; i++) {
-            if (array[i].label) {
-                p(/*ident + '    ' + */array[i].label.replace(/0x/, '') + ':\n');
-            }
-            if (array[i].print) {
-                array[i].print(p, ident + '    ', type);
+        array.forEach(function(o) {
+            if (o.opcode && o.opcode.indexOf('goto') == 0 && caller && caller.indexOf('while') >= 0) {
+                p(ident + '    break;\n');
             } else {
-                for (var j = 0; j < array[i].comments.length; j++) {
-                    p(ident + '    // ' + array[i].comments[j] + '\n');
-                }
-                if (array[i].opcode) {
-                    if (array[i].opcode.indexOf('goto') == 0 && caller.indexOf('while') >= 0) {
-                        p(ident + '    break;\n');
-                    } else {
-                        p(ident + '    ' + array[i].opcode + '\n'); // + ' // ' + array[i].offset.toString(16) + '\n');
-                    }
-                } 
-                //else {
-                //    p(ident + '    // empty: ' + array[i].offset.toString(16) + '\n');
-                //}
+                o.print(p, ident + '    ', type);
             }
-        }
+        });
     }
-    var If = function(start, end, a, b, cmp) {
-        if (!cmp || !a || !b || !get_cmp(cmp)) {
-            throw new Error('Invalid input If (' + a + ', ' + b + ', ' + cmp + ')');
+    var If = function(start, end, cond) {
+        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
+            throw new Error('Invalid input If (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
         }
         this.type = 'if';
-        this.cmp = a.toString() + get_cmp(cmp) + b.toString();
+        this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
         this.start = start;
         this.end = end;
         this.array = [];
@@ -107,10 +92,10 @@ module.exports = (function() {
             //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
-    var Else = function(start, end, a, b, cmp) {
+    var Else = function(start, end, cond) {
         this.cmp = null;
-        if (a && b && cmp && get_cmp(cmp)) {
-            this.cmp = a.toString() + get_cmp(cmp) + b.toString();
+        if (cond && cond.a && cond.b && cond.cmp && get_cmp(cond.cmp)) {
+            this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
             this.type = 'elseif';
         }
         this.type = 'else';
@@ -149,11 +134,11 @@ module.exports = (function() {
             //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
-    var ElseBreak = function(start, end, a, b, cmp) {
+    var ElseBreak = function(start, end, cond) {
         this.cmp = null;
-        if (a && b && cmp && get_cmp(cmp)) {
-            this.cmp = a.toString() + get_cmp(cmp) + b.toString();
-            this.type = 'elseif';
+        if (cond && cond.a && cond.b && cond.cmp && get_cmp(cond.cmp)) {
+            this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
+            this.type = 'elsebreak';
         }
         this.type = 'else';
         this.start = start;
@@ -191,12 +176,12 @@ module.exports = (function() {
             //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
-    var While = function(start, end, a, b, cmp) {
-        if (!cmp || a == null || b == null || get_cmp(cmp) == null) {
-            throw new Error('Invalid input While (' + a + ', ' + b + ', ' + cmp + ')');
+    var While = function(start, end, cond) {
+        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
+            throw new Error('Invalid input While (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
         }
         this.type = 'while';
-        this.cmp = a.toString() + get_cmp(cmp) + b.toString();
+        this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
         this.start = start;
         this.end = end;
         this.array = [];
@@ -223,12 +208,12 @@ module.exports = (function() {
             //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
-    var IfContinue = function(start, end, a, b, cmp) {
-        if (!cmp || !a || !b || !get_cmp(cmp)) {
-            throw new Error('Invalid input IfContinue (' + a + ', ' + b + ', ' + cmp + ')');
+    var IfContinue = function(start, end, cond) {
+        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
+            throw new Error('Invalid input IfContinue (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
         }
         this.type = 'ifcontinue';
-        this.cmp = a.toString() + get_cmp(cmp) + b.toString();
+        this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
         this.start = start;
         this.end = end;
         this.array = [];
@@ -255,12 +240,12 @@ module.exports = (function() {
             //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
-    var IfBreak = function(start, end, a, b, cmp) {
-        if (!cmp || !a || !b || !get_cmp(cmp)) {
-            throw new Error('Invalid input IfBreak (' + a + ', ' + b + ', ' + cmp + ')');
+    var IfBreak = function(start, end, cond) {
+        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
+            throw new Error('Invalid input IfBreak (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
         }
         this.type = 'ifbreak';
-        this.cmp = a.toString() + get_cmp(cmp) + b.toString();
+        this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
         this.start = start;
         this.end = end;
         this.array = [];
@@ -287,13 +272,13 @@ module.exports = (function() {
             //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
-    var IfGoto = function(start, end, a, b, cmp) {
-        if (!cmp || !a || !b || !get_cmp(cmp)) {
-            throw new Error('Invalid input IfGoto (' + a + ', ' + b + ', ' + cmp + ')');
+    var IfGoto = function(start, end, cond) {
+        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
+            throw new Error('Invalid input IfGoto (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
         }
         this.type = 'ifgoto';
         // TODO: check if for ppc this was wrong too (probably was).
-        this.cmp = a.toString() + get_cmp(cmp, true) + b.toString();
+        this.cmp = cond.a.toString() + get_cmp(cond.cmp, true) + cond.b.toString();
         this.start = start;
         this.end = start;
         this.goto = end;
@@ -321,12 +306,12 @@ module.exports = (function() {
             //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
-    var DoWhile = function(start, end, a, b, cmp) {
-        if (!cmp || !a || !b || !get_cmp(cmp)) {
-            throw new Error('Invalid input DoWhile (' + a + ', ' + b + ', ' + cmp + ')');
+    var DoWhile = function(start, end, cond) {
+        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
+            throw new Error('Invalid input DoWhile (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
         }
         this.type = 'dowhile';
-        this.cmp = a.toString() + get_cmp(cmp) + b.toString();
+        this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
         this.start = start;
         this.end = end;
         this.array = [];
@@ -353,12 +338,12 @@ module.exports = (function() {
             //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
-    var For = function(start, end, a, b, cmp, init, sum) {
-        if (!cmp || !a || !b || !init || !sum || !get_cmp(cmp, true)) {
-            throw new Error('Invalid input For (' + a + ', ' + b + ', ' + cmp + ')');
+    var For = function(start, end, cond, init, sum) {
+        if (!cond || !cond.cmp || !cond.a || !cond.b || !init || !sum || !get_cmp(cond.cmp, true)) {
+            throw new Error('Invalid input For (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
         }
         this.type = 'for';
-        this.cmp = a.toString() + get_cmp(cmp, true) + b.toString();
+        this.cmp = cond.a.toString() + get_cmp(cond.cmp, true) + cond.b.toString();
         this.init = init;
         this.sum = sum;
         this.start = start;
@@ -387,45 +372,7 @@ module.exports = (function() {
             //p(ident + '//   end: ' + this.end.toString(16) + '\n');
         };
     };
-    var _Function = function(name) {
-        this.name = name;
-        this.returntype = 'void';
-        this.args = [];
-        this.type = 'function';
-        this.array = [];
-        this.arg = function(x) {
-            if (this.args.indexOf(x) < 0) {
-                this.args.push(x);
-                this.args.sort();
-            }
-        };
-        this.add = function(x) {
-            if (!x) {
-                throw new Error('Invalid input Function:add null');
-            }
-            this.array.push(x);
-        };
-        this.size = function() {
-            return this.array.length;
-        };
-        this.get = function(i) {
-            if (typeof i == 'undefined' || i < 0) {
-                i = this.array.length - 1;
-            }
-            return this.array[i];
-        };
-        this.print = function(p) {
-            var args = '';
-            for (var i = 0; i < this.args.length; i++) {
-                args += ', ' + this.args[i];
-            }
-            p(this.returntype + ' ' + this.name + '(' + args.substr(2, args.length) + ') {\n');
-            print_content(p, '', '', this.array, this.type);
-            p('}\n');
-        };
-    };
     return {
-        Function: _Function,
         DoWhile: DoWhile,
         While: While,
         Else: Else,
