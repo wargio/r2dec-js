@@ -11,6 +11,7 @@ decompiles stuff..
 # Supported Arch
 
     ppc
+    mips
     x86intel
 
 ## Example

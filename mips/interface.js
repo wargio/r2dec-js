@@ -33,7 +33,50 @@ module.exports = (function() {
     assembly.push(require("./asm.js"));
 
     var function_stack = function(fcn, utils) {
-        
+        var vars = [];
+        // searching for *(((uint[64|32|16|8]_t*) sp) - N) = regs;
+        for (var i = 1; i < fcn.size(); i++) {
+            var e = fcn.get(i);
+            if (!e.opcode) {
+                continue;
+            }
+            //should be better to have a limit..
+            if (e.opcode.match(/a[0-3]\s=\s/)) {
+                var regs = e.opcode.match(/a\d/);
+                var index = vars.indexOf(regs[0]);
+                if (index < 0) {
+                    vars.push(regs[0]);
+                }
+            } else if (e.opcode.indexOf('sp') >= 0) {
+                //e.comments.push(e.opcode);
+                if (e.opcode.indexOf(' sp)') > 0 && e.opcode.indexOf('s') > 0 && e.opcode.match(/s[0-7]/)) {
+                    var type = e.opcode.match(/u?int[1368][624]?_t/)[0];
+                    e.opcode = type + ' ' + e.opcode.match(/s[0-7]/)[0] + ";";
+                } else if (e.opcode.indexOf('sp') == 0) {
+                    e.opcode = null;
+                }
+            }
+        }
+        if (vars.length > 0) {
+            vars.sort();
+            if (vars[0] == 'a0') {
+                for (var i = 0; i < vars.length; i++) {
+                    fcn.arg(vars[i]);
+                }
+            }
+        }
+        // searching for regs = *(((uint[64|32|16|8]_t*) sp) - N);
+        for (var i = fcn.size() - 1; i >= 0; i--) {
+            var e = fcn.get(i);
+            if (!e.opcode || e.opcode.indexOf("return") == 0) {
+                continue;
+            }
+            if (e.opcode.indexOf(' sp)') < 0 && !e.opcode.match(/[frs][ap0-7]\s=\s/)) {
+                break;
+            }
+            //e.comments.push(e.opcode);
+            e.opcode = null;
+        }
     };
 
     var function_if_else = function(array, utils) {
@@ -51,11 +94,9 @@ module.exports = (function() {
         return labels;
     }
 
-    var function_for = function(array, utils) {
-    };
+    var function_for = function(array, utils) {};
 
-    var subroutines_return_args = function(array, utils) {
-    };
+    var subroutines_return_args = function(array, utils) {};
 
     var function_loops = function(array, utils) {
         //searching for bottom up control flows

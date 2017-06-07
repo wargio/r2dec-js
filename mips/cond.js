@@ -60,15 +60,20 @@ sw
             b: zero ? "0" : e[2],
             cmp: cmp
         };
+        /*
         // delayed branch, so the next instr is still executed.
         var e = l[start];
         l[start] = l[start + 1];
         if (l[start]) {
             l[start + 1] = e;
+            //e = l[start + 1].offset;
+            //l[start + 1].offset = l[start].offset;
+            //l[start].offset = e;
         } else {
             //this should never happen, but let's add it anyway..
             l[start] = e;
         }
+        */
         return l;
     };
 

@@ -95,7 +95,7 @@ module.exports = (function() {
                 continue;
             }
             if (mem[e[0]] != null) {
-                l[i].comments.push(to_asm(e));
+                //l[i].comments.push(to_asm(e));
                 l = mem[e[0]](l, i);
             }
         }

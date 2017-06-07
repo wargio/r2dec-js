@@ -120,7 +120,12 @@ module.exports = (function() {
                 continue;
             }
             if (mem[e[0]]) {
-                l[i].comments.push(to_asm(e));
+                //l[i].comments.push(to_asm(e));
+                for (var j = 0; j < e.length; j++) {
+                    if (e[j] == 'zero') {
+                        e[j] = '0';
+                    }
+                }
                 l[i].opcode = mem[e[0]](e);
             }
         }
