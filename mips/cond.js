@@ -25,41 +25,10 @@
  */
 
 module.exports = (function() {
-    var label_cond_cnt = 0;
-    var to_asm = function(e) {
-        var j;
-        var asm = e[0] + " ";
-        for (j = 1; j < e.length - 1; ++j) {
-            asm += e[j] + ", ";
-        }
-        if (j < e.length)
-            asm += e[j];
-        return asm;
-    };
-    /*
-beqz
-bgez
-bltz
-bne
-bnez
-jr
-lbu
-lui
-lw
-move
-nop
-sb
-sw
-*/
-
     var compare = function(l, start, cmp, zero) {
         var e = l[start].opcode;
-        l[start].opcode = null;
-        l[start].cond = {
-            a: e[1],
-            b: zero ? "0" : e[2],
-            cmp: cmp
-        };
+        l[start].invalidate();
+        l[start].setConditional(e[1], zero ? "0" : e[2], cmp);
         /*
         // delayed branch, so the next instr is still executed.
         var e = l[start];

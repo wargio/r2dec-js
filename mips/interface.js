@@ -61,7 +61,7 @@ module.exports = (function() {
             vars.sort();
             if (vars[0] == 'a0') {
                 for (var i = 0; i < vars.length; i++) {
-                    fcn.arg(vars[i]);
+                    fcn.setArg(vars[i]);
                 }
             }
         }
@@ -84,7 +84,7 @@ module.exports = (function() {
         //searching for top down control flows
         for (var i = 0; i < array.length; i++) {
             var e = array[i];
-            if (e.cond && e.jump >= e.offset) {
+            if (e.cond && e.offset.lt(e.jump)) {
                 var flow = utils.controlflow(array, i, utils.conditional);
                 if (flow.type == 'ifgoto') {
                     labels.push(flow.goto);
@@ -102,10 +102,10 @@ module.exports = (function() {
         //searching for bottom up control flows
         for (var i = array.length - 1; i >= 0; i--) {
             var e = array[i];
-            if (e && e.cond && e.jump < e.offset) {
+            if (e && e.cond && e.offset.ge(e.jump)) {
                 utils.controlflow(array, i, utils.conditional, -1);
             }
-            /*else if (e.jump < e.offset && e.opcode && e.opcode.indexOf('goto') == 0) {
+            /*else if (e.jump.lt(e.offset) && e.opcode && e.opcode.indexOf('goto') == 0) {
                     var start = utils.controlflow.find(array, i, e.jump);
                     array[start].label = null;
                     e.opcode = null;
@@ -125,7 +125,7 @@ module.exports = (function() {
         labels = labels.concat(function_if_else(array, utils));
         function_loops(array, utils);
         for (var i = 0; i < array.length; i++) {
-            if (array[i].print) {
+            if (!array[i].isAt) {
                 labels = labels.concat(recursive_anal(array[i].array, utils));
             }
         }
@@ -134,17 +134,17 @@ module.exports = (function() {
 
     var recursive_label = function(array, offset) {
         for (var i = 0; i < array.length; i++) {
-            if (offset >= array[i].start && offset <= array[i].end) {
+            if (offset.ge(array[i].start) && offset.le(array[i].end)) {
                 recursive_label(array[i].array, offset);
                 return;
-            } else if (array[i].offset == offset) {
-                array[i].label = 'label_' + offset.toString(16);
+            } else if (offset.eq(array[i].offset)) {
+                array[i].label = 'label_' + offset;
                 return;
-            } else if (array[i].end > offset || array[i].offset > offset) {
+            } else if (offset.le(array[i].end) || offset.le(array[i].offset)) {
                 break;
             }
         }
-        console.log('failed to find: ' + offset.toString(16))
+        console.log('failed to find: ' + offset);
     };
 
     return function(utils) {
@@ -162,14 +162,12 @@ module.exports = (function() {
             return array;
         }
         this.analyze = function(data) {
-            data.ops = this.preprocess(data.ops);
-            var fcn = new utils.conditional.Function(data.name.replace(/sym\./, ''));
-            fcn.array = data.ops;
-            function_stack(fcn, utils);
-            var labels = recursive_anal(fcn.array, utils);
+            var fcn = new this.utils.Function(data);
+            function_stack(fcn, this.utils);
+            var labels = recursive_anal(fcn.opcodes, this.utils);
             for (var i = 0; i < labels.length; i++) {
                 //console.log(labels[i].toString(16));
-                recursive_label(fcn.array, labels[i]);
+                recursive_label(fcn.opcodes, labels[i]);
             }
             return fcn;
         };

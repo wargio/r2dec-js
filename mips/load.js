@@ -25,16 +25,6 @@
  */
 
 module.exports = (function() {
-    var to_asm = function(e) {
-        var j;
-        var asm = e[0] + " ";
-        for (j = 1; j < e.length - 1; ++j) {
-            asm += e[j] + ", ";
-        }
-        if (j < e.length)
-            asm += e[j];
-        return asm;
-    };
 
     var load_bits = function(e, bits, unsigned) {
         var s = unsigned ? "u" : "";
@@ -120,7 +110,6 @@ module.exports = (function() {
                 continue;
             }
             if (mem[e[0]]) {
-                //l[i].comments.push(to_asm(e));
                 for (var j = 0; j < e.length; j++) {
                     if (e[j] == 'zero') {
                         e[j] = '0';

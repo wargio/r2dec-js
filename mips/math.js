@@ -25,17 +25,6 @@
  */
 
 module.exports = (function() {
-    var to_asm = function(e) {
-        var j;
-        var asm = e[0] + " ";
-        for (j = 1; j < e.length - 1; ++j) {
-            asm += e[j] + ", ";
-        }
-        if (j < e.length)
-            asm += e[j];
-        return asm;
-    };
-
     var op_bits4 = function(e, op, bits, unsigned, swap) {
         var a = swap ? 3 : 2;
         var b = swap ? 2 : 3;
@@ -165,7 +154,6 @@ module.exports = (function() {
             if (e.length > 0) {
                 var op = e[0].replace(/\./, '');
                 if (math[op]) {
-                    //l[i].comments.push(to_asm(e));
                     l[i].opcode = math[op](e);
                 }
             }

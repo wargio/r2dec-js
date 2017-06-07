@@ -25,34 +25,18 @@
  */
 
 module.exports = (function() {
-    var to_asm = function(e) {
-        var j;
-        var asm = e[0] + " ";
-        for (j = 1; j < e.length - 1; ++j) {
-            asm += e[j] + ", ";
-        }
-        if (j < e.length)
-            asm += e[j];
-        return asm;
-    };
-
     var mem = {
         'b': function(l, start) {
             var i;
             var offset = 'label_' + l[start].opcode[1].toString(16);
             for (var i = 0; i < l.length; i++) {
                 if (start == i) continue;
-                if (l[i].offset == l[start].jump) {
-                    if (!l[i].label) {
-                        l[i].label = offset;
-                    } else {
-                        offset = l[i].label;
-                    }
+                if (l[i].offset.eq(l[start].jump)) {
+                    l[i].setLabel();
                     break;
                 }
             };
-            l[start].opcode = 'goto ' + offset + ';';
-            l[start].fail = null;
+            l[start].opcode = 'goto ' + l[start].jump + ';';
             return l;
         },
         'jr': function(l, start) {
