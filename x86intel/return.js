@@ -73,7 +73,7 @@ module.exports = (function() {
                     }
                 } else {
                     for (var i = 0; i < offset; i++) {
-                        if (l[i].offset == jump) {
+                        if (l[i] && l[i].offset == jump) {
                             l[i].label = "label_" + offset.toString(16);
                             break;
                         }
