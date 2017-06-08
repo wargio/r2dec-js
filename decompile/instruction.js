@@ -35,6 +35,9 @@ module.exports = (function() {
         }
     }
     var Instruction = function(obj) {
+        if (!obj.opcode) {
+            throw new Error("Invalid opcode: " + obj.opcode);
+        }
         this.comments = [];
         this.opcode = _dec.prepare(obj.opcode);
         this.type = "" + obj.type;
@@ -65,7 +68,7 @@ module.exports = (function() {
             });
             if (this.label) p(this.label + "\n");
             if (this._debug) {
-                p(ident + "// " + this.opcode + " at " + this.offset + "\n");
+                p(ident + "// " + this.offset + ": " + this._debug + "\n");
             }
             if (this.opcode) p(ident + this.opcode + "\n");
         };

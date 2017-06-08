@@ -36,8 +36,8 @@ module.exports = (function() {
         var vars = [];
         var count = 0;
         var stack = false;
-        if (fcn.get(0).opcode.indexOf('*--esp = rb') == 0) {
-            var e = fcn.get(0);
+        var e = fcn.get(0);
+        if (e.opcode && e.opcode.indexOf('*--esp = r') == 0) {
             //e.comments.push(e.opcode);
             e.invalidate();
             for (var i = 1; i < fcn.size(); i++, count++) {
@@ -45,7 +45,9 @@ module.exports = (function() {
                 if (!e.opcode) {
                     continue;
                 }
-                if (e.opcode == 'rbp = rsp;') {
+                if (e.opcode.indexOf('*--esp = r') == 0) {
+                    e.invalidate();
+                } else if (e.opcode == 'rbp = rsp;') {
                     //e.comments.push(e.opcode);
                     e.invalidate();
                 } else if (e.opcode.indexOf(' = *esp++;') > 0) {
@@ -87,8 +89,8 @@ module.exports = (function() {
 
     var subroutines_return_args = function(array, utils) {
         //searching for calls
-        for (var i = 0; i < array.length; i++) {
-            var e = array[i];
+        //        for (var i = 0; i < array.length; i++) {
+        array.forEach(function(e, i) {
             if (e.type == 'call' && !e.used) {
                 var args = [];
                 // searching for return addr
@@ -105,12 +107,12 @@ module.exports = (function() {
                             var reg = n.match(/[er]?ax/)[0];
                             e.opcode = reg + " = " + e.opcode;
                             break;
+                        } else {
+                            n = array[j].cond.b;
                         }
-                        n = n.cond.b;
                     } else {
                         n = n.opcode;
                     }
-                    if (!n) console.log(JSON.parse(JSON.stringify(array[j])));
                     if (n.match(/[er]?ax[\);\s]?/)) {
                         // if /[er]?ax/ found then [er]?ax = fcn();
                         var reg = n.match(/[er]?ax/)[0];
@@ -173,15 +175,15 @@ module.exports = (function() {
                 } else if (args.length > 0) {
                     var sorted = [/di/, /si/, /dx/, /cx/, /r8/, /r9/, /r10/, /r11/];
                     var found = [];
-                    for (var i = 0; i < sorted.length; i++) {
+                    sorted.forEach(function(argcmp) {
                         var failed = true;
-                        for (var j = 0; j < args.length; j++) {
-                            var regex = args[j].match(sorted[i]);
+                        args.forEach(function(argv) {
+                            var regex = argv.match(argcmp);
                             if (regex) {
-                                found.push(args[j]);
+                                found.push(argv);
                             }
-                        };
-                    };
+                        });
+                    });
                     e.opcode = e.opcode.substr(0, e.opcode.length - 2);
                     if (found.length > 0) {
                         for (var k = 0; k < found.length; k++) {
@@ -192,7 +194,7 @@ module.exports = (function() {
                     e.opcode += ');';
                 }
             }
-        }
+        });
     }
 
     var recursive_anal = function(array, utils) {

@@ -25,17 +25,6 @@
  */
 
 module.exports = (function() {
-    var to_asm = function(e) {
-        var j;
-        var asm = e[0] + " ";
-        for (j = 1; j < e.length - 1; ++j) {
-            asm += e[j] + ", ";
-        }
-        if (j < e.length)
-            asm += e[j];
-        return asm;
-    };
-
     var memoryload = function(e) {
         var types = {
             'byte': 'int8_t',
@@ -107,6 +96,9 @@ module.exports = (function() {
         xor: function(e) {
             return memoryload(e, '^');
         },
+        std: function(e) {
+            return null;
+        }
     };
     return function(l) {
         for (var i = 0; i < l.length; ++i) {
@@ -115,7 +107,7 @@ module.exports = (function() {
                 continue;
             }
             if (math[e[0]]) {
-                //l[i].comments.push(to_asm(e));
+                //l[i].comments.push(e.join(' '));
                 l[i].opcode = math[e[0]](e);
             }
         }

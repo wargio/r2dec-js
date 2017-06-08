@@ -49,7 +49,6 @@ module.exports = (function() {
                 }
                 var regex = e[1].match(/[er]?ax/);
                 if (regex) {
-                    console.log(e);
                     l[start].opcode = "return " + regex[0] + ";";
                     break;
                 }

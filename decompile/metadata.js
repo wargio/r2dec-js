@@ -25,7 +25,7 @@
  */
 
 module.exports = (function() {
-	var _dec = null;
+    var _dec = null;
     var Instruction = require('./instruction.js');
     var Metadata = function(data) {
         //Instruction.debug();
@@ -34,7 +34,9 @@ module.exports = (function() {
         } else {
             this.name = "" + data.name.replace(/sym\./, '').replace(/[^\w]/, '_');
         }
-        this.opcodes = data.ops.map(function(o) {
+        this.opcodes = data.ops.filter(function(o){
+            return o.opcode != null;
+        }).map(function(o) {
             return new Instruction(o);
         });
         this.opcodes = _dec.preprocess(this.opcodes);
