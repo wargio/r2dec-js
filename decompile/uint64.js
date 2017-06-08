@@ -52,9 +52,13 @@ module.exports = (function() {
         var dec = str.toString().split(''),
             sum = [],
             num = [],
-            i, s;
+            i, s, neg = false;
+        if (dec[0] == '-') {
+            dec.shift();
+            neg = true;
+        }
         while (dec.length) {
-            s = 1 * dec.shift()
+            s = parseInt(dec.shift())
             for (i = 0; s || i < sum.length; i++) {
                 s += (sum[i] || 0) * 10
                 sum[i] = s % 16
@@ -65,7 +69,7 @@ module.exports = (function() {
         while (sum.length && hex.length < 8) {
             hex.push(sum.pop().toString(16))
         }
-        num[1] = parseInt(hex.join(''), 16);
+        num[0] = parseInt(hex.join(''), 16);
         hex = [];
         while (sum.length && hex.length < 8) {
             hex.push(sum.pop().toString(16))
@@ -73,11 +77,15 @@ module.exports = (function() {
         if (hex.length == 0) {
             hex.push('00');
         }
-        num[0] = parseInt(hex.join(''), 16);
+        num[1] = parseInt(hex.join(''), 16);
+        if (neg) {
+            num[1] = ((-num[1]) >>> 0);
+            num[0] = (num[0] + 1) >>> 0;
+        }
         return num;
     };
     var _from_base16 = function(s) {
-        if (!s.match(/^0x[\dA-Fa-f]+$/)) {
+        if (!s.match(/^[0x]?[\dA-Fa-f]+$/)) {
             return null;
         }
         s = s.replace(/0x/, '');
