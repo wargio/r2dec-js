@@ -6,7 +6,12 @@
     ],
     "author": "Giovanni Dante Grazioli <deroad@libero.it>",
     "contributors": [],
-    "dependencies": {},
+    "dependencies": {
+        "r2pipe": "2.5.0"
+    },
+    "devDependencies": {
+        "semistandard": "11.0.0"
+    },
     "scripts": {
         "test": "r2 -qi inr2.js /bin/ls"
     }

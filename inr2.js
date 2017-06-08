@@ -41,12 +41,16 @@ function main(err, r2) {
 async function asyncMain(err, r2) {
     const cmd = util.promisify(r2.cmd).bind(r2);
     const cmdj = util.promisify(r2.cmdj).bind(r2);
+    const r2quit = util.promisify(r2.quit).bind(r2);
     if (err) {
         throw err;
     }
 
-    // const arch = await r2.cmd('e asm.arch');
-    const arch = 'ppc';
+    let arch = (await cmd('e asm.arch')).trim();
+    let bits = (await cmd('e asm.bits')).trim();
+    if (arch === 'x86') {
+      arch = 'x86intel';
+    }
 
     // analyze entrypoint function
     await cmd('af');
@@ -54,6 +58,6 @@ async function asyncMain(err, r2) {
     const decompiler = new r2dec(arch);
     var buffer = '';
     decompiler.work(pdfj).print(process.stdout.write);
-    await r2.quit();
+    await r2quit();
     return true;
 }
