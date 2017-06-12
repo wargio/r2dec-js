@@ -1,18 +1,38 @@
 {
     "name": "r2dec",
     "version": "1.0.0",
+    "description": "experimental pseudo-C decompiler for radare2",
+    "main": "main.js",
     "keywords": [
+        "radare2",
         "util"
     ],
     "author": "Giovanni Dante Grazioli <deroad@libero.it>",
-    "contributors": [],
+    "contributors": [
+        {
+            "name": "pancake",
+            "email": "pancake@nopcode.org"
+        }
+    ],
+    "license": "MIT",
     "dependencies": {
-        "r2pipe": "2.5.0"
+        "long": "^3.2.0",
+        "promisify": "0.0.3",
+        "promisify-node": "^0.4.0",
+        "r2pipe": "^2.5.0",
+        "util": "^0.10.3"
     },
     "devDependencies": {
         "semistandard": "11.0.0"
     },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/wargio/r2dec-js.git"
+    },
     "scripts": {
         "test": "r2 -qi inr2.js /bin/ls"
+    },
+    "bugs": {
+        "url": "https://github.com/wargio/r2dec-js/issues"
     }
 }

@@ -55,8 +55,8 @@ module.exports = (function() {
                     b: b,
                     cmp: branches[e[0]]
                 };
-                l[start].opcode = null;
-                l[i].opcode = null;
+                l[start].invalidate();
+                l[i].invalidate();
             }
         }
         return l;

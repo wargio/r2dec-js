@@ -25,7 +25,6 @@
  */
 
 module.exports = (function() {
-    var uint64 = require('./uint64.js');
     var _notstring = "the argument is not a string";
     var _dec = null;
     var _debug = false;
@@ -41,9 +40,9 @@ module.exports = (function() {
         this.comments = [];
         this.opcode = _dec.prepare(obj.opcode);
         this.type = "" + obj.type;
-        this.offset = new uint64(obj.offset);
-        this.jump = obj.jump ? new uint64(obj.jump) : null;
-        this.size = new uint64(obj.size);
+        this.offset = obj.offset.toUnsigned();
+        this.jump = obj.jump ? obj.jump.toUnsigned() : null;
+        this.size = obj.size;
         this.cond = null;
         this.label = null;
         this.used = false;
@@ -68,7 +67,7 @@ module.exports = (function() {
             });
             if (this.label) p(this.label + "\n");
             if (this._debug) {
-                p(ident + "// " + this.offset + ": " + this._debug + "\n");
+                p(ident + "// " + this.offset.toString(16) + ": " + this._debug + "\n");
             }
             if (this.opcode) p(ident + this.opcode + "\n");
         };
@@ -80,7 +79,7 @@ module.exports = (function() {
             };
         };
         this.setLabel = function(enable) {
-            this.label = enable ? "label_" + this.offset + ":" : null;
+            this.label = enable ? "label_" + this.offset.toString(16) + ":" : null;
         };
         this.invalidate = function() {
             this.opcode = null;

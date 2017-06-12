@@ -59,7 +59,9 @@ module.exports = (function() {
                         e.opcode.indexOf('r0 = *(((') == 0 ||
                         e.opcode.match(/r1\s\+=\s[x\da-f]+;/) ||
                         e.opcode.match(/r\d\d\s=\s\*\(\(\(u?int[36][24]_t\*\)\sr1\)\s[-+]\s\d+\);/))) {
-                    e.invalidate();
+                    if (e.opcode && e.opcode.indexOf('r0')) {
+                        e.invalidate();
+                    }
                 } else if (e.opcode && e.opcode.match(/r\d+\s=\sr[3-9];/)) {
                     var regs = e.opcode.match(/r\d+/g);
                     var index = vars.indexOf(regs[0]);
@@ -78,7 +80,7 @@ module.exports = (function() {
         //searching for top down control flows
         for (var i = 0; i < array.length; i++) {
             var e = array[i];
-            if (e.cond && e.jump.ge(e.offset)) {
+            if (e.cond && e.jump.gte(e.offset)) {
                 var flow = utils.controlflow(array, i, utils.conditional);
                 if (flow.type == 'ifgoto') {
                     labels.push(flow.goto);
@@ -97,7 +99,7 @@ module.exports = (function() {
                 // found rXX = N;
                 var reginit = e.opcode.match(/r\d+/)[0];
                 var jmp = array[i + 1];
-                if (jmp && jmp.offset.le(jmp.jump) && jmp.opcode && jmp.opcode.indexOf('goto') == 0) {
+                if (jmp && jmp.jump && jmp.offset.lte(jmp.jump) && jmp.opcode && jmp.opcode.indexOf('goto') == 0) {
                     for (var j = i + 2; j < array.length; j++) {
                         var next = array[j];
                         if (next.offset.gt(jmp.jump)) break;
@@ -213,10 +215,10 @@ module.exports = (function() {
         //searching for bottom up control flows
         for (var i = array.length - 1; i >= 0; i--) {
             var e = array[i];
-            if (e && e.cond && e.offset.ge(e.jump)) {
+            if (e && e.cond && e.offset.gte(e.jump)) {
                 utils.controlflow(array, i, utils.conditional, -1);
             }
-            /*else if (e.offset && e.offset.ge(e.jump) && e.opcode && e.opcode.indexOf('goto') == 0) {
+            /*else if (e.offset && e.offset.gte(e.jump) && e.opcode && e.opcode.indexOf('goto') == 0) {
                     var start = utils.controlflow.find(array, i, e.jump);
                     array[start].label = null;
                     e.invalidate();
@@ -245,17 +247,17 @@ module.exports = (function() {
 
     var recursive_label = function(array, offset) {
         for (var i = 0; i < array.length; i++) {
-            if (offset.ge(array[i].start) && offset.le(array[i].end)) {
+            if (array[i].start && offset.gte(array[i].start) && offset.lte(array[i].end)) {
                 // console.log(i + ": ");
                 // console.log(array[i]);
                 recursive_label(array[i].array, offset);
                 return;
-            } else if (offset.eq(array[i].offset)) {
+            } else if (array[i].offset && offset.eq(array[i].offset)) {
                 // console.log(i + ": ");
                 // console.log(array[i]);
-                array[i].label = 'label_' + offset;
+                array[i].setLabel(true);
                 return;
-            } else if (offset.le(array[i].end) || offset.le(array[i].offset)) {
+            } else if ((array[i].end && offset.lte(array[i].end)) || (array[i].offset && offset.lte(array[i].offset))) {
                 break;
             }
         }

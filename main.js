@@ -28,9 +28,9 @@ var r2dec = require('./r2dec.js');
 var fs = require('fs');
 
 
-function load_json(filename) {
+function load_text(filename) {
     try {
-        return JSON.parse(fs.readFileSync(filename, 'utf8'));
+        return fs.readFileSync(filename, 'utf8');
     } catch (e) {
         console.log(e.message);
         return null;
@@ -47,7 +47,7 @@ if (!filename || !arch || !r2dec.exists(arch)) {
 }
 
 var decompiler = new r2dec(arch);
-var json = load_json(filename);
+var json = load_text(filename);
 var fcn1 = decompiler.work(json);
 var buffer = '';
 fcn1.print(function(m) {

@@ -26,6 +26,7 @@
 
 module.exports = (function() {
     var Metadata = require('./decompile/metadata.js');
+    var Json64 = require('./decompile/json64.js');
     var supported_archs = {};
     supported_archs.ppc = require('./ppc/interface.js');
     supported_archs.x86intel = require('./x86intel/interface.js');
@@ -38,6 +39,9 @@ module.exports = (function() {
         this.dec = new supported_archs[arch]();
         Metadata.setDecompiler(this.dec);
         this.work = function(data) {
+            if (typeof data === 'string') {
+                data = Json64.parse(data);
+            }
             var meta = new Metadata(data);
             return this.dec.analyze(meta);
         }
