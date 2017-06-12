@@ -98,13 +98,13 @@ module.exports = (function() {
                     continue;
                 }
                 //l[i].comments.push(to_asm(e));
-                l[i].opcode = null;
+                l[i].invalidate();
                 l[i].cond = {
                     a: a,
                     b: b,
                     cmp: branch[e[0]]
                 };
-                l[start].opcode = null;
+                l[start].invalidate();
             }
         }
         return l;

@@ -10,7 +10,7 @@ var json_parse = function(options) {
     var _options = {
         "strict": false, // not being strict means do not generate syntax errors for "duplicate key"
     };
-    var uint64 = require('./uint64.js');
+    var Long = require('long');
     // If there are options, then use them to override the default _options
     if (options !== undefined && options !== null) {
         if (options.strict === true) {
@@ -84,10 +84,11 @@ var json_parse = function(options) {
             if (!isFinite(number)) {
                 error("Bad number");
             } else {
-                if (string.length > 15) {
+                if (string.indexOf('.') < 0) {
                     try {
-                        return new uint64(string);
+                        return Long.fromString(string);
                     } catch (e) {
+                        console.log(e)
                         return string;
                     }
                 }

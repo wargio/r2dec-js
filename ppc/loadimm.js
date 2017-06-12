@@ -100,7 +100,7 @@ module.exports = (function() {
             if (check[step](elem, reg)) {
                 addr += address[step](elem);
                 step++;
-                list[i].opcode = null;
+                list[i].invalidate();
             }
             if (step >= check.length) {
                 break;

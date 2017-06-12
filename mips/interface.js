@@ -53,7 +53,7 @@ module.exports = (function() {
                     var type = e.opcode.match(/u?int[1368][624]?_t/)[0];
                     e.opcode = type + ' ' + e.opcode.match(/s[0-7]/)[0] + ";";
                 } else if (e.opcode.indexOf('sp') == 0) {
-                    e.opcode = null;
+                    e.invalidate();
                 }
             }
         }
@@ -75,7 +75,7 @@ module.exports = (function() {
                 break;
             }
             //e.comments.push(e.opcode);
-            e.opcode = null;
+            e.invalidate();
         }
     };
 
@@ -102,13 +102,13 @@ module.exports = (function() {
         //searching for bottom up control flows
         for (var i = array.length - 1; i >= 0; i--) {
             var e = array[i];
-            if (e && e.cond && e.offset.ge(e.jump)) {
+            if (e && e.cond && e.offset.gte(e.jump)) {
                 utils.controlflow(array, i, utils.conditional, -1);
             }
             /*else if (e.jump.lt(e.offset) && e.opcode && e.opcode.indexOf('goto') == 0) {
                     var start = utils.controlflow.find(array, i, e.jump);
                     array[start].label = null;
-                    e.opcode = null;
+                    e.invalidate();
                     utils.controlflow.while(array, start, i, utils.conditional, {
                         a: 'true',
                         b: '',
@@ -134,13 +134,13 @@ module.exports = (function() {
 
     var recursive_label = function(array, offset) {
         for (var i = 0; i < array.length; i++) {
-            if (offset.ge(array[i].start) && offset.le(array[i].end)) {
+            if (array[i].start && offset.gte(array[i].start) && offset.lte(array[i].end)) {
                 recursive_label(array[i].array, offset);
                 return;
-            } else if (offset.eq(array[i].offset)) {
+            } else if (array[i].isAt && offset.eq(array[i].offset)) {
                 array[i].label = 'label_' + offset;
                 return;
-            } else if (offset.le(array[i].end) || offset.le(array[i].offset)) {
+            } else if ((array[i].end && offset.lte(array[i].end)) || (array[i].offset && offset.lte(array[i].offset))) {
                 break;
             }
         }

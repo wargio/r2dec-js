@@ -40,24 +40,19 @@ module.exports = (function() {
     var mem = {
         'b': function(l, start) {
             var i;
-            var offset = 'label_' + l[start].opcode[1].toString(16);
+            var offset = 'label_' + l[start].jump.toString(16).replace(/0x/, '');
             for (var i = 0; i < l.length; i++) {
                 if (start == i) continue;
-                if (l[i].offset == l[start].jump) {
-                    if (!l[i].label) {
-                        l[i].label = offset;
-                    } else {
-                        offset = l[i].label;
-                    }
+                if (l[i].offset.eq(l[start].jump)) {
+                    l[i].setLabel(true);
                     break;
                 }
             };
             l[start].opcode = 'goto ' + offset + ';';
-            l[start].fail = null;
             return l;
         },
         'bdnz': function(l, start) {
-            l[start].opcode = null;
+            l[start].invalidate();
             l[start].cond = {
                 a: '(--ctr)',
                 b: '0',
@@ -92,7 +87,7 @@ module.exports = (function() {
             if (reg != 'r0') {
                 l[start].opcode = "void (*p)(void) = " + reg + ";";
             } else {
-                l[start].opcode = null;
+                l[start].invalidate();
             }
             for (var i = start + 1; i < l.length; ++i) {
                 e = l[i].opcode;

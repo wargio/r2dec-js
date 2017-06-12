@@ -77,7 +77,7 @@ module.exports = (function() {
         //searching for top down control flows
         for (var i = 0; i < array.length; i++) {
             var e = array[i];
-            if (e.cond && e.jump.ge(e.offset)) {
+            if (e.cond && e.jump.gte(e.offset)) {
                 var flow = utils.controlflow(array, i, utils.conditional);
                 if (flow.type == 'ifgoto') {
                     labels.push(flow.goto);
@@ -213,17 +213,17 @@ module.exports = (function() {
 
     var recursive_label = function(array, offset) {
         for (var i = 0; i < array.length; i++) {
-            if (offset.ge(array[i].start) && offset.le(array[i].end)) {
+            if (array[i].start && offset.gte(array[i].start) && offset.lte(array[i].end)) {
                 // console.log(i + ": ");
                 // console.log(array[i]);
                 recursive_label(array[i].array, offset);
                 return;
-            } else if (offset.eq(array[i].offset)) {
+            } else if (array[i].offset && offset.eq(array[i].offset)) {
                 // console.log(i + ": ");
                 // console.log(array[i]);
                 array[i].setLabel(true);
                 return;
-            } else if (offset.le(array[i].end) || offset.le(array[i].offset)) {
+            } else if ((array[i].end && offset.lte(array[i].end)) || (array[i].offset && offset.lte(array[i].offset))) {
                 break;
             }
         }

@@ -8,13 +8,19 @@
         "util"
     ],
     "author": "Giovanni Dante Grazioli <deroad@libero.it>",
-    "contributors": [{
-        "name": "pancake",
-        "email": "pancake@nopcode.org",
-    }],
+    "contributors": [
+        {
+            "name": "pancake",
+            "email": "pancake@nopcode.org"
+        }
+    ],
     "license": "MIT",
     "dependencies": {
-        "r2pipe": "2.5.0"
+        "long": "^3.2.0",
+        "promisify": "0.0.3",
+        "promisify-node": "^0.4.0",
+        "r2pipe": "^2.5.0",
+        "util": "^0.10.3"
     },
     "devDependencies": {
         "semistandard": "11.0.0"

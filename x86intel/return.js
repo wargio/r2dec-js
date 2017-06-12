@@ -58,22 +58,22 @@ module.exports = (function() {
         jmp: function(l, start) {
             var jump = l[start].jump;
             var offset = l[start].offset;
-            if (jump == offset) {
+            if (offset.eq(jump)) {
                 l[start].opcode = "while (true);";
                 delete(l[start].jump);
             } else {
                 l[start].opcode = "goto label_" + offset.toString(16);
-                if (jump > offset) {
+                if (jump.gt(offset)) {
                     for (var i = start + 1; i < l.length; i++) {
-                        if (l[i].offset == jump) {
-                            l[i].label = "label_" + offset.toString(16);
+                        if (l[i].offset.eq(jump)) {
+                            l[i].setLabel(true);
                             break;
                         }
                     }
                 } else {
                     for (var i = 0; i < offset; i++) {
-                        if (l[i] && l[i].offset == jump) {
-                            l[i].label = "label_" + offset.toString(16);
+                        if (l[i] && l[i].offset.eq(jump)) {
+                            l[i].setLabel(true);
                             break;
                         }
                     }
