@@ -25,6 +25,8 @@
  */
 
 module.exports = (function() {
+    var ControlFlows = null;
+    var Metadata = null;
     var assembly = [];
     assembly.push(require("./return.js"));
     assembly.push(require('./loadimm.js'));
@@ -35,7 +37,7 @@ module.exports = (function() {
     assembly.push(require('./math.js'));
     assembly.push(require("./asm.js"));
 
-    var function_stack = function(fcn, utils) {
+    var function_stack = function(fcn) {
         var vars = [];
         var count = 0;
         // searching for *(((uint[64|32]_t*) r1) - N) = r1;
@@ -75,22 +77,22 @@ module.exports = (function() {
         }
     };
 
-    var function_if_else = function(array, utils) {
+    var function_if_else = function(array) {
         var labels = [];
         //searching for top down control flows
         for (var i = 0; i < array.length; i++) {
             var e = array[i];
-            if (e.cond && e.jump.gte(e.offset)) {
-                var flow = utils.controlflow(array, i, utils.conditional);
-                if (flow.type == 'ifgoto') {
-                    labels.push(flow.goto);
+            if (e && e.cond && e.jump.gte(e.offset)) {
+                var flow = ControlFlows(array, i);
+                if (flow.type.indexOf('_GOTO') > 0) {
+                    labels.push(flow.get(0).jump);
                 }
             }
         }
         return labels;
     }
 
-    var function_for = function(array, utils) {
+    var function_for = function(array) {
         //searching for FOR(;;){} flows
         for (var i = 0; i < array.length; i++) {
             var e = array[i];
@@ -102,8 +104,9 @@ module.exports = (function() {
                 if (jmp && jmp.jump && jmp.offset.lte(jmp.jump) && jmp.opcode && jmp.opcode.indexOf('goto') == 0) {
                     for (var j = i + 2; j < array.length; j++) {
                         var next = array[j];
+                        var cond = array[j + 1];
                         if (next.offset.gt(jmp.jump)) break;
-                        if (next.offset.eq(jmp.jump) && array[j + 1].cond) {
+                        if (next.offset.eq(jmp.jump) && cond) {
                             var sum = array[j - 1];
                             var regsum = null;
                             regex = sum.opcode.match(/r\d+\s\+=\s\d+;/);
@@ -119,18 +122,21 @@ module.exports = (function() {
                                 // found: rXX = rYY + K;
                                 regsum = sum.opcode.match(/r\d+/)[0];
                                 if (regsum == reginit) {
-                                    regsum = sum.opcode.match(/r\d+\s=\sr\d+\s\+\s\d+/)[0];
+                                    regsum = sum.opcode;
                                 } else {
                                     regsum = null;
                                 }
                             }
                             if (regsum) {
-                                reginit = e.opcode.match(/r\d+\s=\s\d+/)[0];
+                                reginit = e.opcode;
+                                var flow = ControlFlows.For(e.offset, cond.offset, cond.cond, reginit, regsum);
+                                var removed = array.splice(i, j + 1, flow);
+                                flow.addElements(removed);
+                                sum.setConditional();
                                 jmp.invalidate();
                                 sum.invalidate();
-                                next.label = null;
+                                next.setLabel(false);
                                 e.invalidate();
-                                utils.controlflow.for(array, i, j + 1, utils.conditional, reginit, regsum);
                             }
                         }
                     }
@@ -139,7 +145,7 @@ module.exports = (function() {
         }
     };
 
-    var subroutines_return_args = function(array, utils) {
+    var subroutines_return_args = function(array) {
         //searching calls and for flows
         for (var i = 0; i < array.length; i++) {
             var e = array[i];
@@ -211,35 +217,30 @@ module.exports = (function() {
         }
     };
 
-    var function_loops = function(array, utils) {
+    var function_loops = function(array) {
+        var labels = [];
         //searching for bottom up control flows
         for (var i = array.length - 1; i >= 0; i--) {
             var e = array[i];
-            if (e && e.cond && e.offset.gte(e.jump)) {
-                utils.controlflow(array, i, utils.conditional, -1);
+            if (e && e.cond) {
+                var flow = ControlFlows(array, i);
+                if (flow.type.indexOf('_GOTO') > 0) {
+                    labels.push(flow.get(0).jump);
+                }
             }
-            /*else if (e.offset && e.offset.gte(e.jump) && e.opcode && e.opcode.indexOf('goto') == 0) {
-                    var start = utils.controlflow.find(array, i, e.jump);
-                    array[start].label = null;
-                    e.invalidate();
-                    utils.controlflow.while(array, start, i, utils.conditional, {
-                        a: 'true',
-                        b: '',
-                        cmp: 'INF'
-                    });
-                }*/
         }
+        return labels;
     };
 
-    var recursive_anal = function(array, utils) {
+    var recursive_anal = function(array) {
         var labels = [];
-        subroutines_return_args(array, utils);
-        function_for(array, utils);
-        labels = labels.concat(function_if_else(array, utils));
-        function_loops(array, utils);
+        subroutines_return_args(array);
+        function_for(array);
+        labels = labels.concat(function_if_else(array));
+        labels = labels.concat(function_loops(array));
         for (var i = 0; i < array.length; i++) {
-            if (!array[i].isAt) {
-                labels = labels.concat(recursive_anal(array[i].array, utils));
+            if (array[i].isControlFlow()) {
+                labels = labels.concat(recursive_anal(array[i].instructions));
             }
         }
         return labels;
@@ -247,25 +248,20 @@ module.exports = (function() {
 
     var recursive_label = function(array, offset) {
         for (var i = 0; i < array.length; i++) {
-            if (array[i].start && offset.gte(array[i].start) && offset.lte(array[i].end)) {
-                // console.log(i + ": ");
-                // console.log(array[i]);
-                recursive_label(array[i].array, offset);
+            var e = array[i];
+            if (e.isAt(offset)) {
+                if (e.isInstruction()) {
+                    e.setLabel(true);
+                } else {
+                    recursive_label(e.instructions, offset);
+                }
                 return;
-            } else if (array[i].offset && offset.eq(array[i].offset)) {
-                // console.log(i + ": ");
-                // console.log(array[i]);
-                array[i].setLabel(true);
-                return;
-            } else if ((array[i].end && offset.lte(array[i].end)) || (array[i].offset && offset.lte(array[i].offset))) {
-                break;
             }
         }
-        console.log('failed to find: ' + offset);
+        console.log('failed to find: ' + offset.toString(16));
     };
 
-    return function() {
-        this.utils = null;
+    var Interface = function() {
         this.prepare = function(asm) {
             if (!asm) {
                 return [];
@@ -279,9 +275,9 @@ module.exports = (function() {
             return array;
         };
         this.analyze = function(data) {
-            var fcn = new this.utils.Function(data);
-            function_stack(fcn, this.utils);
-            var labels = recursive_anal(fcn.opcodes, this.utils);
+            var fcn = new Metadata.Function(data);
+            function_stack(fcn);
+            var labels = recursive_anal(fcn.opcodes);
             for (var i = 0; i < labels.length; i++) {
                 //console.log(labels[i].toString(16));
                 recursive_label(fcn.opcodes, labels[i]);
@@ -289,4 +285,11 @@ module.exports = (function() {
             return fcn;
         };
     };
+    Interface.setControlFlows = function(cf) {
+        ControlFlows = cf;
+    };
+    Interface.setMetadata = function(md) {
+        Metadata = md;
+    };
+    return Interface;
 })();

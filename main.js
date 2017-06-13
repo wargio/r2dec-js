@@ -40,6 +40,14 @@ function load_text(filename) {
 var arch = process.argv[2];
 var filename = process.argv[3];
 
+if (!arch) {
+    console.log("missing architecture name!");
+}
+
+if (!filename) {
+    console.log("missing filename!");
+}
+
 if (!filename || !arch || !r2dec.exists(arch)) {
     console.log('node ' + process.argv[1] + ' <arch> <pdfj_filename.json>');
     r2dec.supported('    ');

@@ -25,6 +25,8 @@
  */
 
 module.exports = (function() {
+    var ControlFlows = null;
+    var Metadata = null;
     var assembly = [];
     assembly.push(require("./return.js"));
     assembly.push(require('./load.js'));
@@ -32,7 +34,7 @@ module.exports = (function() {
     assembly.push(require('./math.js'));
     assembly.push(require("./asm.js"));
 
-    var function_stack = function(fcn, utils) {
+    var function_stack = function(fcn) {
         var vars = [];
         // searching for *(((uint[64|32|16|8]_t*) sp) - N) = regs;
         for (var i = 1; i < fcn.size(); i++) {
@@ -78,55 +80,49 @@ module.exports = (function() {
             e.invalidate();
         }
     };
-
-    var function_if_else = function(array, utils) {
+    var function_if_else = function(array) {
         var labels = [];
         //searching for top down control flows
         for (var i = 0; i < array.length; i++) {
             var e = array[i];
-            if (e.cond && e.offset.lt(e.jump)) {
-                var flow = utils.controlflow(array, i, utils.conditional);
-                if (flow.type == 'ifgoto') {
-                    labels.push(flow.goto);
+            if (e && e.cond && e.jump.gte(e.offset)) {
+                var flow = ControlFlows(array, i);
+                if (flow.type.indexOf('_GOTO') > 0) {
+                    labels.push(flow.get(0).jump);
                 }
             }
         }
         return labels;
     }
 
-    var function_for = function(array, utils) {};
+    var function_for = function(array) {};
 
-    var subroutines_return_args = function(array, utils) {};
+    var subroutines_return_args = function(array) {};
 
-    var function_loops = function(array, utils) {
+    var function_loops = function(array) {
+        var labels = [];
         //searching for bottom up control flows
         for (var i = array.length - 1; i >= 0; i--) {
             var e = array[i];
-            if (e && e.cond && e.offset.gte(e.jump)) {
-                utils.controlflow(array, i, utils.conditional, -1);
+            if (e && e.cond) {
+                var flow = ControlFlows(array, i);
+                if (flow.type.indexOf('_GOTO') > 0) {
+                    labels.push(flow.get(0).jump);
+                }
             }
-            /*else if (e.jump.lt(e.offset) && e.opcode && e.opcode.indexOf('goto') == 0) {
-                    var start = utils.controlflow.find(array, i, e.jump);
-                    array[start].label = null;
-                    e.invalidate();
-                    utils.controlflow.while(array, start, i, utils.conditional, {
-                        a: 'true',
-                        b: '',
-                        cmp: 'INF'
-                    });
-                }*/
         }
+        return labels;
     };
 
-    var recursive_anal = function(array, utils) {
+    var recursive_anal = function(array) {
         var labels = [];
-        subroutines_return_args(array, utils);
-        function_for(array, utils);
-        labels = labels.concat(function_if_else(array, utils));
-        function_loops(array, utils);
+        subroutines_return_args(array);
+        function_for(array);
+        labels = labels.concat(function_if_else(array));
+        labels = labels.concat(function_loops(array));
         for (var i = 0; i < array.length; i++) {
-            if (!array[i].isAt) {
-                labels = labels.concat(recursive_anal(array[i].array, utils));
+            if (array[i].isControlFlow()) {
+                labels = labels.concat(recursive_anal(array[i].instructions));
             }
         }
         return labels;
@@ -134,21 +130,20 @@ module.exports = (function() {
 
     var recursive_label = function(array, offset) {
         for (var i = 0; i < array.length; i++) {
-            if (array[i].start && offset.gte(array[i].start) && offset.lte(array[i].end)) {
-                recursive_label(array[i].array, offset);
+            var e = array[i];
+            if (e.isAt(offset)) {
+                if (e.isInstruction()) {
+                    e.setLabel(true);
+                } else {
+                    recursive_label(e.instructions, offset);
+                }
                 return;
-            } else if (array[i].isAt && offset.eq(array[i].offset)) {
-                array[i].label = 'label_' + offset;
-                return;
-            } else if ((array[i].end && offset.lte(array[i].end)) || (array[i].offset && offset.lte(array[i].offset))) {
-                break;
             }
         }
-        console.log('failed to find: ' + offset);
+        console.log('failed to find: ' + offset.toString(16));
     };
 
-    return function(utils) {
-        this.utils = utils;
+    var Interface = function() {
         this.prepare = function(asm) {
             if (!asm) {
                 return [];
@@ -162,9 +157,9 @@ module.exports = (function() {
             return array;
         }
         this.analyze = function(data) {
-            var fcn = new this.utils.Function(data);
-            function_stack(fcn, this.utils);
-            var labels = recursive_anal(fcn.opcodes, this.utils);
+            var fcn = new Metadata.Function(data);
+            function_stack(fcn);
+            var labels = recursive_anal(fcn.opcodes);
             for (var i = 0; i < labels.length; i++) {
                 //console.log(labels[i].toString(16));
                 recursive_label(fcn.opcodes, labels[i]);
@@ -172,4 +167,11 @@ module.exports = (function() {
             return fcn;
         };
     };
+    Interface.setControlFlows = function(cf) {
+        ControlFlows = cf;
+    };
+    Interface.setMetadata = function(md) {
+        Metadata = md;
+    };
+    return Interface;
 })();
