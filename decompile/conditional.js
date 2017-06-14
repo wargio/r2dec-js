@@ -25,362 +25,118 @@
  */
 
 module.exports = (function() {
-    var get_cmp = function(cmp, inv) {
-        var CMP = {
-            INF: '',
-            EQ: ' == ',
-            NE: ' != ',
-            LT: ' < ',
-            LE: ' <= ',
-            GT: ' > ',
-            GE: ' >= '
+    var _debug = false;
+    var _notanarray = "the argument is not an array.";
+    var _notstring = "the argument is not a string";
+    var _notanobject = "the argument is not an object";
+    var _check_array = function(a) {
+        if (!Array.isArray(a)) {
+            throw new Error(_notanarray);
+        }
+    };
+    var _check_string = function(s) {
+        if (typeof s !== 'string') {
+            throw new Error(_notstring);
+        }
+    };
+    var _check_object = function(cond) {
+        if (typeof cond !== 'object') {
+            throw new Error(_notanobject);
+        }
+    };
+    var _cmps = {
+        INF: '',
+        EQ: ' == ',
+        NE: ' != ',
+        LT: ' < ',
+        LE: ' <= ',
+        GT: ' > ',
+        GE: ' >= '
+    };
+    var _cmps_inv = {
+        INF: '',
+        EQ: ' != ',
+        NE: ' == ',
+        LT: ' >= ',
+        LE: ' > ',
+        GT: ' <= ',
+        GE: ' < '
+    };
+    var Conditional = function(name, start, end, cond, invert) {
+        this.instructions = [];
+        this.type = name;
+        this.offset = start.toUnsigned();
+        this.end = end.toUnsigned();
+        this.conditional = cond;
+        this.used = false;
+        this.invert = invert ? true : false;
+        this.header = '{';
+        this.trailer = '}';
+        if (_debug) {
+            this._debug = this.offset.toString(16) + " - " + this.end.toString(16);
+        }
+        this.isAt = function(offset) {
+            return this.offset.gte(offset) && this.end.lte(offset);
         };
-        var CMPinv = {
-            INF: '',
-            EQ: ' != ',
-            NE: ' == ',
-            LT: ' >= ',
-            LE: ' > ',
-            GT: ' <= ',
-            GE: ' < '
+        this.find = function(offset) {
+            if (this.offset.gte(offset) && this.end.lte(offset)) {
+                return null;
+            }
+            for (var i = 0; i < this.instructions.length; i++) {
+                if (this.instructions[i].isAt(offset)) {
+                    return this.instructions[i];
+                }
+            };
+            return null;
         };
-        return inv ? CMPinv[cmp] : CMP[cmp];
+        this.get = function(index) {
+            if (index < 0 || index >= this.instructions.length) {
+                return null;
+            }
+            return this.instructions[index];
+        };
+        this.setUsed = function() {
+            this.used = true;
+        }
+        this.addElements = function(elements) {
+            _check_array(elements);
+            this.instructions = this.instructions.concat(elements);
+        };
+        this.print = function(p, ident) {
+            if (!p) p = console.log;
+            if (!ident) ident = "";
+            if (this._debug) {
+                p(ident + "// " + this._debug + "\n");
+            }
+            var comp = '';
+            if (this.conditional) {
+                comp = this.conditional.a.toString();
+                comp += (this.invert ? _cmps_inv[this.conditional.cmp] : _cmps[this.conditional.cmp]);
+                comp += this.conditional.b.toString();
+            }
+            p(ident + this.header.replace(/#/g, comp) + '\n');
+            this.instructions.forEach(function(op) {
+                op.print(p, ident + '    ', this.type);
+            });
+            p(ident + this.trailer.replace(/#/g, comp) + '\n');
+        };
+        this.setHeader = function(x) {
+            _check_string(x);
+            this.header = x;
+        };
+        this.setTrailer = function(x) {
+            _check_string(x);
+            this.trailer = x;
+        };
+        this.isControlFlow = function() {
+            return true;
+        };
+        this.isInstruction = function() {
+            return false;
+        };
+    };
+    Conditional.debug = function() {
+        _debug = true;
     }
-    var print_content = function(p, ident, caller, array, type) {
-        array.forEach(function(o) {
-            if (o.opcode && o.opcode.indexOf('goto') == 0 && caller && caller.indexOf('while') >= 0) {
-                p(ident + '    break;\n');
-            } else {
-                o.print(p, ident + '    ', type);
-            }
-        });
-    }
-    var If = function(start, end, cond) {
-        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
-            throw new Error('Invalid input If (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
-        }
-        this.type = 'if';
-        this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
-        this.start = start;
-        this.end = end;
-        this.array = [];
-        this.else = false;
-        this.add = function(x) {
-            if (!x) {
-                throw new Error('Invalid input If:add null');
-            }
-            this.array.push(x);
-        };
-        this.size = function() {
-            return this.array.length;
-        };
-        this.get = function(i) {
-            if (typeof i == 'undefined' || i < 0) {
-                i = this.array.length - 1;
-            }
-            return this.array[i];
-        };
-        this.print = function(p, ident, caller) {
-            //p(ident + '// start: ' + this.start.toString(16) + '\n');
-            p(ident + 'if (' + this.cmp + ') {\n');
-            print_content(p, ident, caller, this.array, this.type);
-            if (this.else) {
-                p(ident + '}');
-            } else {
-                p(ident + '}\n');
-            }
-            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
-        };
-    };
-    var Else = function(start, end, cond) {
-        this.cmp = null;
-        if (cond && cond.a && cond.b && cond.cmp && get_cmp(cond.cmp)) {
-            this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
-            this.type = 'elseif';
-        }
-        this.type = 'else';
-        this.start = start;
-        this.end = end;
-        this.array = [];
-        this.else = false;
-        this.add = function(x) {
-            if (!x) {
-                throw new Error('Invalid input Else:add null');
-            }
-            this.array.push(x);
-        };
-        this.size = function() {
-            return this.array.length;
-        };
-        this.get = function(i) {
-            if (typeof i == 'undefined' || i < 0) {
-                i = this.array.length - 1;
-            }
-            return this.array[i];
-        };
-        this.print = function(p, ident, caller) {
-            //p(ident + '// start: ' + this.start.toString(16) + '\n');
-            if (this.cmp) {
-                p(' else if (' + this.cmp + ') {\n');
-            } else {
-                p(' else {\n');
-            }
-            print_content(p, ident, caller, this.array, this.type);
-            if (this.else) {
-                p(ident + '}');
-            } else {
-                p(ident + '}\n');
-            }
-            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
-        };
-    };
-    var ElseBreak = function(start, end, cond) {
-        this.cmp = null;
-        if (cond && cond.a && cond.b && cond.cmp && get_cmp(cond.cmp)) {
-            this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
-            this.type = 'elsebreak';
-        }
-        this.type = 'else';
-        this.start = start;
-        this.end = end;
-        this.array = [];
-        this.else = false;
-        this.add = function(x) {
-            if (!x) {
-                throw new Error('Invalid input ElseBreak:add null');
-            }
-            this.array.push(x);
-        };
-        this.size = function() {
-            return this.array.length;
-        };
-        this.get = function(i) {
-            if (typeof i == 'undefined' || i < 0) {
-                i = this.array.length - 1;
-            }
-            return this.array[i];
-        };
-        this.print = function(p, ident, caller) {
-            //p(ident + '// start: ' + this.start.toString(16) + '\n');
-            if (this.cmp) {
-                p(' else if (' + this.cmp + ') {\n');
-            } else {
-                p(' else {\n');
-            }
-            p(ident + '    break');
-            if (this.else) {
-                p(ident + '}');
-            } else {
-                p(ident + '}\n');
-            }
-            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
-        };
-    };
-    var While = function(start, end, cond) {
-        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
-            throw new Error('Invalid input While (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
-        }
-        this.type = 'while';
-        this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
-        this.start = start;
-        this.end = end;
-        this.array = [];
-        this.add = function(x) {
-            if (!x) {
-                throw new Error('Invalid input While:add null');
-            }
-            this.array.push(x);
-        };
-        this.size = function() {
-            return this.array.length;
-        };
-        this.get = function(i) {
-            if (typeof i == 'undefined' || i < 0) {
-                i = this.array.length - 1;
-            }
-            return this.array[i];
-        };
-        this.print = function(p, ident) {
-            //p(ident + '// start: ' + this.start.toString(16) + '\n');
-            p(ident + 'while (' + this.cmp + ') {\n');
-            print_content(p, ident, '', this.array, this.type);
-            p(ident + '}\n\n');
-            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
-        };
-    };
-    var IfContinue = function(start, end, cond) {
-        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
-            throw new Error('Invalid input IfContinue (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
-        }
-        this.type = 'ifcontinue';
-        this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
-        this.start = start;
-        this.end = end;
-        this.array = [];
-        this.add = function(x) {
-            if (!x) {
-                throw new Error('Invalid input IfContinue:add null');
-            }
-            this.array.push(x);
-        };
-        this.size = function() {
-            return this.array.length;
-        };
-        this.get = function(i) {
-            if (typeof i == 'undefined' || i < 0) {
-                i = this.array.length - 1;
-            }
-            return this.array[i];
-        };
-        this.print = function(p, ident) {
-            //p(ident + '// start: ' + this.start.toString(16) + '\n');
-            p(ident + 'if (' + this.cmp + ') {\n');
-            p(ident + '    continue;\n');
-            p(ident + '}\n');
-            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
-        };
-    };
-    var IfBreak = function(start, end, cond) {
-        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
-            throw new Error('Invalid input IfBreak (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
-        }
-        this.type = 'ifbreak';
-        this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
-        this.start = start;
-        this.end = end;
-        this.array = [];
-        this.add = function(x) {
-            if (!x) {
-                throw new Error('Invalid input IfBreak:add null');
-            }
-            this.array.push(x);
-        };
-        this.size = function() {
-            return this.array.length;
-        };
-        this.get = function(i) {
-            if (typeof i == 'undefined' || i < 0) {
-                i = this.array.length - 1;
-            }
-            return this.array[i];
-        };
-        this.print = function(p, ident) {
-            //p(ident + '// start: ' + this.start.toString(16) + '\n');
-            p(ident + 'if (' + this.cmp + ') {\n');
-            p(ident + '    break;\n');
-            p(ident + '}\n');
-            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
-        };
-    };
-    var IfGoto = function(start, end, cond) {
-        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
-            throw new Error('Invalid input IfGoto (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
-        }
-        this.type = 'ifgoto';
-        // TODO: check if for ppc this was wrong too (probably was).
-        this.cmp = cond.a.toString() + get_cmp(cond.cmp, true) + cond.b.toString();
-        this.start = start;
-        this.end = start;
-        this.goto = end;
-        this.array = [];
-        this.add = function(x) {
-            if (!x) {
-                throw new Error('Invalid input IfGoto:add null');
-            }
-            this.array.push(x);
-        };
-        this.size = function() {
-            return this.array.length;
-        };
-        this.get = function(i) {
-            if (typeof i == 'undefined' || i < 0) {
-                i = this.array.length - 1;
-            }
-            return this.array[i];
-        };
-        this.print = function(p, ident) {
-            //p(ident + '// start: ' + this.start.toString(16) + '\n');
-            p(ident + 'if (' + this.cmp + ') {\n');
-            p(ident + '    goto label_' + this.goto.toString(16) + ';\n');
-            p(ident + '}\n');
-            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
-        };
-    };
-    var DoWhile = function(start, end, cond) {
-        if (!cond || !cond.cmp || !cond.a || !cond.b || !get_cmp(cond.cmp)) {
-            throw new Error('Invalid input DoWhile (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
-        }
-        this.type = 'dowhile';
-        this.cmp = cond.a.toString() + get_cmp(cond.cmp) + cond.b.toString();
-        this.start = start;
-        this.end = end;
-        this.array = [];
-        this.add = function(x) {
-            if (!x) {
-                throw new Error('Invalid input DoWhile:add null');
-            }
-            this.array.push(x);
-        };
-        this.size = function() {
-            return this.array.length;
-        };
-        this.get = function(i) {
-            if (typeof i == 'undefined' || i < 0) {
-                i = this.array.length - 1;
-            }
-            return this.array[i];
-        };
-        this.print = function(p, ident) {
-            //p(ident + '// start: ' + this.start.toString(16) + '\n');
-            p(ident + 'do {\n');
-            print_content(p, ident, '', this.array, this.type);
-            p(ident + '} while (' + this.cmp + ');\n\n');
-            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
-        };
-    };
-    var For = function(start, end, cond, init, sum) {
-        if (!cond || !cond.cmp || !cond.a || !cond.b || !init || !sum || !get_cmp(cond.cmp, true)) {
-            throw new Error('Invalid input For (' + (cond ? (cond.a + ', ' + cond.b + ', ' + cond.cmp) : 'cond:null') + ')');
-        }
-        this.type = 'for';
-        this.cmp = cond.a.toString() + get_cmp(cond.cmp, true) + cond.b.toString();
-        this.init = init;
-        this.sum = sum;
-        this.start = start;
-        this.end = end;
-        this.array = [];
-        this.add = function(x) {
-            if (!x) {
-                throw new Error('Invalid input For:add null');
-            }
-            this.array.push(x);
-        };
-        this.size = function() {
-            return this.array.length;
-        };
-        this.get = function(i) {
-            if (typeof i == 'undefined' || i < 0) {
-                i = this.array.length - 1;
-            }
-            return this.array[i];
-        };
-        this.print = function(p, ident) {
-            //p(ident + '// start: ' + this.start.toString(16) + '\n');
-            p(ident + 'for (' + this.init + '; ' + this.cmp + '; ' + this.sum + ') {\n');
-            print_content(p, ident, '', this.array, this.type);
-            p(ident + '}\n\n');
-            //p(ident + '//   end: ' + this.end.toString(16) + '\n');
-        };
-    };
-    return {
-        DoWhile: DoWhile,
-        While: While,
-        Else: Else,
-        If: If,
-        IfContinue: IfContinue,
-        IfBreak: IfBreak,
-        IfGoto: IfGoto,
-        ElseBreak: ElseBreak,
-        For: For
-    };
+    return Conditional;
 })();

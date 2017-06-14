@@ -26,6 +26,7 @@
 
 module.exports = (function() {
     var Metadata = require('./decompile/metadata.js');
+    var ControlFlows = require('./decompile/controlflows.js');
     var Json64 = require('./decompile/json64.js');
     var supported_archs = {};
     supported_archs.ppc = require('./ppc/interface.js');
@@ -35,8 +36,10 @@ module.exports = (function() {
         if (!supported_archs[arch]) {
             throw new Error("Unsupported architecture: '" + arch + "'");
         }
-        this.arch = arch;
-        this.dec = new supported_archs[arch]();
+        this.arch = supported_archs[arch];
+        this.dec = new this.arch();
+        this.arch.setControlFlows(ControlFlows);
+        this.arch.setMetadata(Metadata);
         Metadata.setDecompiler(this.dec);
         this.work = function(data) {
             if (typeof data === 'string') {

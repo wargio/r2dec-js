@@ -57,7 +57,7 @@ module.exports = (function() {
         }
         this.addComment = function(comment) {
             _check_string(comment);
-            this.comment.push(comment);
+            this.comments.push(comment);
         };
         this.print = function(p, ident) {
             if (!p) p = console.log;
@@ -72,17 +72,32 @@ module.exports = (function() {
             if (this.opcode) p(ident + this.opcode + "\n");
         };
         this.setConditional = function(a, b, cmp) {
-            this.cond = {
-                a: a,
-                b: b,
-                cmp
-            };
+            if (a && b && cmp) {
+                this.cond = {
+                    a: a,
+                    b: b,
+                    cmp
+                };
+            } else {
+                this.cond = null;
+            }
         };
         this.setLabel = function(enable) {
-            this.label = enable ? "label_" + this.offset.toString(16) + ":" : null;
+            this.label = enable ? "label_" + this.offset.toString(16).replace(/0x/, '') + ":" : null;
         };
         this.invalidate = function() {
             this.opcode = null;
+        };
+        this.isControlFlow = function() {
+            return false;
+        };
+        this.isInstruction = function() {
+            return true;
+        };
+        this.setGoto = function() {
+            if (this.jump) {
+                this.opcode = 'goto label_' + this.jump.toString(16).replace(/0x/, '');
+            }
         };
         this.toAsm = function(divider) {
             this.opcode = Instruction.toAsm(this.opcode, divider);

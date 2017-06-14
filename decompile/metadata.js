@@ -42,11 +42,6 @@ module.exports = (function() {
         this.opcodes = _dec.preprocess(this.opcodes);
     };
     Metadata.setDecompiler = function(dec) {
-        dec.utils = {
-            conditional: require('./conditional.js'),
-            controlflow: require('./controlflow.js'),
-            Function: Metadata.Function
-        };
         _dec = dec;
         Instruction.setDecompiler(dec);
     };
