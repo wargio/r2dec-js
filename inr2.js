@@ -25,8 +25,11 @@
  */
 
 const r2dec = require('./r2dec.js');
+const Json64 = require('./decompile/json64.js');
 const r2pipe = require('r2pipe');
 const util = require('util');
+
+r2pipe.jsonParse = Json64.parse;
 
 if (process.argv.length > 2) {
     r2pipe.open(process.argv[2], main);
