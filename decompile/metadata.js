@@ -26,7 +26,9 @@
 
 module.exports = (function() {
     var _dec = null;
+    var XRef = require('./xref.js');
     var Instruction = require('./instruction.js');
+
     var Metadata = function(data) {
         //Instruction.debug();
         if (!data.name) {
@@ -34,12 +36,56 @@ module.exports = (function() {
         } else {
             this.name = "" + data.name.replace(/sym\./, '').replace(/[^\w]/, '_');
         }
-        this.opcodes = data.ops.filter(function(o){
+        this.functions = [];
+        this.others = [];
+
+        this.add = function(obj) {
+            for (var key in obj) {
+                var array = obj[key];
+                if (!Array.isArray(array)) continue;
+                var fixed = array.map(function(elem) {
+                    return new XRef(elem);
+                });
+                this.others = this.others.concat(fixed.filter(function(x) {
+                    return x.type != 'func';
+                }));
+                this.functions = this.functions.concat(fixed.filter(function(x) {
+                    return x.type == 'func';
+                }));
+            }
+        };
+
+        this.preprocess = function() {
+            var self = this;
+            this.opcodes.forEach(function(instr) {
+                if (instr.needsXRef()) {
+                    if (instr.type.indexOf('call') >= 0) {
+                        for (var i = 0; i < self.functions.length; i++) {
+                            if (self.functions[i].isAt(instr.pointer)) {
+                                instr.setXRef(self.functions[i]);
+                                return;
+                            }
+                        };
+                    } else {
+                        for (var i = 0; i < self.others.length; i++) {
+                            if (self.others[i].isAt(instr.pointer)) {
+                                instr.setXRef(self.others[i]);
+                                return;
+                            }
+                        };
+                    }
+                }
+            });
+            this.opcodes = _dec.preprocess(this.opcodes);
+        };
+        this.analyze = function() {
+            return _dec.analyze(this);
+        };
+        this.opcodes = data.ops.filter(function(o) {
             return o.opcode != null;
         }).map(function(o) {
             return new Instruction(o);
         });
-        this.opcodes = _dec.preprocess(this.opcodes);
     };
     Metadata.setDecompiler = function(dec) {
         _dec = dec;

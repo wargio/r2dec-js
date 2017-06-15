@@ -24,7 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-const r2dec = require('./r2dec.js');
+const r2dec = require('./libr2dec.js');
 const Json64 = require('./decompile/json64.js');
 const r2pipe = require('r2pipe');
 const util = require('util');
@@ -39,6 +39,12 @@ if (process.argv.length > 2) {
 
 function main(err, r2) {
     asyncMain(err, r2).then(console.log).catch(console.error);
+}
+
+function printer(msg) {
+    if (msg) {
+        console.log(msg.replace(/\n/, ''));
+    }
 }
 
 async function asyncMain(err, r2) {
@@ -57,13 +63,13 @@ async function asyncMain(err, r2) {
 
     // analyze entrypoint function
     await cmd('af');
+    const xrefs = await cmdj('isj');
+    const strings = await cmdj('izj');
     const pdfj = await cmdj('pdfj');
     const decompiler = new r2dec(arch);
-    decompiler.work(pdfj).print(function(msg) {
-        if (msg) {
-            console.log(msg.replace(/\n/, ''));
-        }
-    });
+    decompiler.addMetadata(xrefs);
+    decompiler.addMetadata(strings);
+    decompiler.work(pdfj).print(printer);
     await r2quit();
     return true;
 }

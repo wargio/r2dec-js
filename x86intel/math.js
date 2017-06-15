@@ -47,7 +47,14 @@ module.exports = (function() {
             'dword': 'int32_t',
             'qword': 'int64_t'
         }
-        if (types[e[1]]) {
+        if (e.length == 2) {
+            if (e[1].match(/r\wx/)) {
+                return "rax " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[1] + ";";
+            } else if (e[1].match(/r\wx/)) {
+                return "edx:eax " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[1] + ";";
+            }
+            return "dx:ax " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[1] + ";";
+        } else if (types[e[1]]) {
             return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ") " + op + "= " + e[3] + ";"
         } else if (types[e[2]]) {
             return e[1] + " " + op + "= *((" + types[e[2]] + "*) " + e[3].replace(/\[|\]/g, '') + ");"
@@ -55,13 +62,18 @@ module.exports = (function() {
         return e[1] + " " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[2] + ";";
     }
 
-    var commonmove = function(e) {
+    var commonmove = function(e, xref) {
         if (e.length == 3) {
+            if (xref) {
+                return e[1] + " = " + xref + ";";
+            }
             return e[1] + " = " + e[2] + ";";
         }
         var m = memoryload(e);
         if (m) {
             return m;
+        } else if (xref) {
+            return e[1] + " = " + xref + ";";
         }
         return e[1] + " = " + e[2] + ";";
     };
@@ -84,13 +96,32 @@ module.exports = (function() {
             return extendsign('eax', 'ax', 32);
         },
         cdqe: function(e) {
-            return  extendsign('rax', 'eax', 64);
+            return extendsign('rax', 'eax', 64);
         },
-        lea: function(e) {
-            return e[1] + " = " + e[2] + ";";
+        div: function(e) {
+            return commonmath(e, '/');
+        },
+        idiv: function(e) {
+            return commonmath(e, '/');
+        },
+        imul: function(e) {
+            return commonmath(e, '*');
+        },
+        lea: function(e, xref) {
+            if (xref) {
+                return e[1] + " = " + xref + ";";
+            }
+            return e[1] + " = " + e[2].replace(/\[|\]/g, '') + ";";
+        },
+        mod: function(e) {
+            return commonmath(e, '%');
         },
         mov: commonmove,
         movabs: commonmove,
+        movzx: commonmove,
+        mul: function(e) {
+            return commonmath(e, '*');
+        },
         neg: function(e) {
             if (e[2].charAt(0) == '-') {
                 return e[1] + " = " + e[2].substr(1, e[2].length) + ";";
@@ -106,6 +137,18 @@ module.exports = (function() {
         or: function(e) {
             return commonmath(e, '|');
         },
+        sal: function(e) {
+            return memoryload(e, '<<');
+        },
+        shl: function(e) {
+            return memoryload(e, '<<');
+        },
+        sar: function(e) {
+            return memoryload(e, '>>');
+        },
+        shr: function(e) {
+            return memoryload(e, '>>');
+        },
         sub: function(e) {
             return memoryload(e, '-');
         },
@@ -119,12 +162,13 @@ module.exports = (function() {
     return function(l) {
         for (var i = 0; i < l.length; ++i) {
             var e = l[i].opcode;
+            var xref = l[i].getXRef();
             if (!e || typeof e != 'object') {
                 continue;
             }
             if (math[e[0]]) {
                 //l[i].comments.push(e.join(' '));
-                l[i].opcode = math[e[0]](e);
+                l[i].opcode = math[e[0]](e, xref);
             }
         }
         return l;

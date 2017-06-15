@@ -26,13 +26,19 @@
 
 module.exports = (function() {
     var _notstring = "the argument is not a string";
+    var _notobject = "the argument is not an object";
     var _dec = null;
     var _debug = false;
     var _check_string = function(s) {
         if (typeof s != 'string') {
             throw new Error(_notstring);
         }
-    }
+    };
+    var _check_object = function(s) {
+        if (typeof s != 'object') {
+            throw new Error(_notobject);
+        }
+    };
     var Instruction = function(obj) {
         if (!obj.opcode) {
             throw new Error("Invalid opcode: " + obj.opcode);
@@ -42,10 +48,15 @@ module.exports = (function() {
         this.type = "" + obj.type;
         this.offset = obj.offset.toUnsigned();
         this.jump = obj.jump ? obj.jump.toUnsigned() : null;
+        this.pointer = obj.ptr ? obj.ptr.toUnsigned() : null;
+        if (this.type.indexOf('call') >= 0 && !this.pointer && obj.jump) {
+            this.pointer = obj.jump.toUnsigned();
+        }
         this.size = obj.size;
         this.cond = null;
         this.label = null;
         this.used = false;
+        this.xref = null;
         if (_debug) {
             this._debug = "" + obj.opcode;
         }
@@ -54,10 +65,21 @@ module.exports = (function() {
         };
         this.setUsed = function() {
             this.used = true;
-        }
+        };
         this.addComment = function(comment) {
             _check_string(comment);
             this.comments.push(comment);
+        };
+        this.needsXRef = function() {
+            return this.pointer ? true : false;
+        };
+        this.setXRef = function(xref) {
+            _check_object(xref);
+            this.xref = xref;
+            this.pointer = null;
+        };
+        this.getXRef = function() {
+            return this.xref;
         };
         this.print = function(p, ident) {
             if (!p) p = console.log;
@@ -67,6 +89,7 @@ module.exports = (function() {
             });
             if (this.label) p(this.label + "\n");
             if (this._debug) {
+                if (this.xref) this.xref.print(p, ident);
                 p(ident + "// " + this.offset.toString(16) + ": " + this._debug + "\n");
             }
             if (this.opcode) p(ident + this.opcode + "\n");

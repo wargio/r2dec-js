@@ -24,7 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-var r2dec = require('./r2dec.js');
+var r2dec = require('./libr2dec.js');
 var fs = require('fs');
 
 

@@ -36,17 +36,25 @@ module.exports = (function() {
         if (!supported_archs[arch]) {
             throw new Error("Unsupported architecture: '" + arch + "'");
         }
+        this.todo = [];
         this.arch = supported_archs[arch];
         this.dec = new this.arch();
         this.arch.setControlFlows(ControlFlows);
         this.arch.setMetadata(Metadata);
         Metadata.setDecompiler(this.dec);
+        this.addMetadata = function() {
+            this.todo = this.todo.concat(arguments);
+        };
         this.work = function(data) {
             if (typeof data === 'string') {
                 data = Json64.parse(data);
             }
             var meta = new Metadata(data);
-            return this.dec.analyze(meta);
+            this.todo.forEach(function(o) {
+                meta.add(o);
+            });
+            meta.preprocess();
+            return meta.analyze();
         }
     }
     r2dec.exists = function(arch) {
