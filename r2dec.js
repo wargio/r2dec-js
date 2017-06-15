@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2017, Giovanni Dante Grazioli <deroad@libero.it>
+ * Copyright (c) 2017, pancake <pancake@nopcode.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,42 +24,52 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-module.exports = (function() {
-    var Metadata = require('./decompile/metadata.js');
-    var ControlFlows = require('./decompile/controlflows.js');
-    var Json64 = require('./decompile/json64.js');
-    var supported_archs = {};
-    supported_archs.ppc = require('./ppc/interface.js');
-    supported_archs.x86intel = require('./x86intel/interface.js');
-    supported_archs.mips = require('./mips/interface.js');
-    var r2dec = function(arch) {
-        if (!supported_archs[arch]) {
-            throw new Error("Unsupported architecture: '" + arch + "'");
-        }
-        this.arch = supported_archs[arch];
-        this.dec = new this.arch();
-        this.arch.setControlFlows(ControlFlows);
-        this.arch.setMetadata(Metadata);
-        Metadata.setDecompiler(this.dec);
-        this.work = function(data) {
-            if (typeof data === 'string') {
-                data = Json64.parse(data);
-            }
-            var meta = new Metadata(data);
-            return this.dec.analyze(meta);
-        }
+const r2dec = require('./libr2dec.js');
+const Json64 = require('./decompile/json64.js');
+const r2pipe = require('r2pipe');
+const util = require('util');
+
+r2pipe.jsonParse = Json64.parse;
+
+if (process.argv.length > 2) {
+    r2pipe.open(process.argv[2], main);
+} else {
+    r2pipe.open(main);
+}
+
+function main(err, r2) {
+    asyncMain(err, r2).then(console.log).catch(console.error);
+}
+
+function printer(msg) {
+    if (msg) {
+        console.log(msg.replace(/\n/, ''));
     }
-    r2dec.exists = function(arch) {
-        return supported_archs[arch] != null;
-    };
-    r2dec.supported = function(ident) {
-        if (!ident) {
-            ident = '';
-        }
-        console.log(ident + 'Supported architectures:')
-        for (var arch in supported_archs) {
-            console.log(ident + '    ' + arch);
-        }
-    };
-    return r2dec;
-})();
+}
+
+async function asyncMain(err, r2) {
+    const cmd = util.promisify(r2.cmd).bind(r2);
+    const cmdj = util.promisify(r2.cmdj).bind(r2);
+    const r2quit = util.promisify(r2.quit).bind(r2);
+    if (err) {
+        throw err;
+    }
+
+    let arch = (await cmd('e asm.arch')).trim();
+    let bits = (await cmd('e asm.bits')).trim();
+    if (arch === 'x86') {
+        arch = 'x86intel';
+    }
+
+    // analyze entrypoint function
+    await cmd('af');
+    const xrefs = await cmdj('isj');
+    const strings = await cmdj('izj');
+    const pdfj = await cmdj('pdfj');
+    const decompiler = new r2dec(arch);
+    decompiler.addMetadata(xrefs);
+    decompiler.addMetadata(strings);
+    decompiler.work(pdfj).print(printer);
+    await r2quit();
+    return true;
+}

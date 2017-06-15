@@ -36,7 +36,7 @@ module.exports = (function() {
                     break;
                 }
             };
-            l[start].opcode = 'goto ' + l[start].jump + ';';
+            l[start].opcode = 'goto label_' + l[start].jump.toString(16) + ';';
             return l;
         },
         'jr': function(l, start) {
@@ -69,6 +69,14 @@ module.exports = (function() {
                 }
             }*/
             l[start].opcode = "((void (*)(void)) " + l[start].opcode[1] + ") ();";
+            return l;
+        },
+        'bal': function(l, start) {
+            var fcn = l[start].opcode[1].replace(/\./g, '_');
+            if (fcn.indexOf('0x') == 0) {
+                fcn = fcn.replace(/0x/, 'fcn_');
+            }
+            l[start].opcode = fcn + " ();";
             return l;
         },
     };

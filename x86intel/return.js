@@ -25,25 +25,35 @@
  */
 
 module.exports = (function() {
-    var memoryjump = function(e) {
+    var memoryjump = function(e, xref) {
         var types = {
-            'byte': 'int8_t',
-            'word': 'int16_t',
-            'dword': 'int32_t',
-            'qword': 'int64_t'
+            'byte': 'uint8_t',
+            'word': 'uint16_t',
+            'dword': 'uint32_t',
+            'qword': 'uint64_t'
         }
         if (types[e[1]]) {
-            return "goto *((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ");"
+            if (xref) {
+                return "*((" + types[e[1]] + "*) " + xref + ")"
+            }
+            return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ")"
         }
         return null;
     };
     var opcodes = {
         'call': function(l, start) {
-            var fcn = l[start].opcode[1].replace(/\./g, '_');
-            if (fcn.indexOf('0x') == 0) {
-                fcn = fcn.replace(/0x/, 'fcn_');
+            var res = memoryjump(l[start].opcode, l[start].getXRef());
+            if (res) {
+                l[start].opcode = "((void (*)(void)) " + res + ") ();";
+            } else if (l[start].getXRef()) {
+                l[start].opcode = l[start].getXRef() + " ();";
+            } else {
+                var fcn = l[start].opcode[1].replace(/\./g, '_');
+                if (fcn.indexOf('0x') == 0) {
+                    fcn = fcn.replace(/0x/, 'fcn_');
+                }
+                l[start].opcode = fcn + " ();";
             }
-            l[start].opcode = fcn + " ();";
             return l;
         },
         'ret': function(l, start) {
@@ -66,9 +76,9 @@ module.exports = (function() {
             var offset = l[start].offset;
             if (!jump) {
                 if (l[start].opcode.length == 3) {
-                    var res = memoryjump(l[start].opcode);
+                    var res = memoryjump(l[start].opcode, l[start].getXRef());
                     if (res) {
-                        l[start].opcode = res;
+                        l[start].opcode = "goto " + res + ";";
                     } else {
                         l[start].toAsm(' ');
                     }
