@@ -5,7 +5,7 @@ decompiles stuff..
 
 * open with radare2 your file
 * analize the function you want to disassemble (`af`)
-* give the data to the plugin `. ./inr2.js`
+* give the data to the plugin `. ./r2dec.js`
 * done.
 
 or 
