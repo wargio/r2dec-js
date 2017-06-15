@@ -25,12 +25,18 @@
  */
 
 module.exports = (function() {
-    var memtypes = {
-        'byte': 'int8_t',
-        'word': 'int16_t',
-        'dword': 'int32_t',
-        'qword': 'int64_t'
-    }
+    var memoryjump = function(e) {
+        var types = {
+            'byte': 'int8_t',
+            'word': 'int16_t',
+            'dword': 'int32_t',
+            'qword': 'int64_t'
+        }
+        if (types[e[1]]) {
+            return "goto *((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ");"
+        }
+        return null;
+    };
     var opcodes = {
         'call': function(l, start) {
             var fcn = l[start].opcode[1].replace(/\./g, '_');
@@ -58,7 +64,16 @@ module.exports = (function() {
         jmp: function(l, start) {
             var jump = l[start].jump;
             var offset = l[start].offset;
-            if (offset.eq(jump)) {
+            if (!jump) {
+                if (l[start].opcode.length == 3) {
+                    var res = memoryjump(l[start].opcode);
+                    if (res) {
+                        l[start].opcode = res;
+                    } else {
+                        l[start].toAsm(' ');
+                    }
+                }
+            } else if (offset.eq(jump)) {
                 l[start].opcode = "while (true);";
                 delete(l[start].jump);
             } else {

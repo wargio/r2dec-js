@@ -98,6 +98,7 @@ module.exports = (function() {
         'jge': 'LT',
         'jle': 'GT',
         'jl': 'GE',
+        'js': 'LT',
     };
 
     return function(l) {
