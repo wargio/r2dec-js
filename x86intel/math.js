@@ -55,6 +55,21 @@ module.exports = (function() {
         return e[1] + " " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[2] + ";";
     }
 
+    var commonmove = function(e) {
+        if (e.length == 3) {
+            return e[1] + " = " + e[2] + ";";
+        }
+        var m = memoryload(e);
+        if (m) {
+            return m;
+        }
+        return e[1] + " = " + e[2] + ";";
+    };
+
+    var extendsign = function(target, source, bits) {
+        return target + " = " + '(int' + bits + '_t) ' + source + ";";
+    };
+
     var math = {
         add: function(e) {
             return commonmath(e, '+');
@@ -62,19 +77,20 @@ module.exports = (function() {
         and: function(e) {
             return commonmath(e, '&');
         },
+        cbw: function(e) {
+            return extendsign('ax', 'al', 16);
+        },
+        cwde: function(e) {
+            return extendsign('eax', 'ax', 32);
+        },
+        cdqe: function(e) {
+            return  extendsign('rax', 'eax', 64);
+        },
         lea: function(e) {
             return e[1] + " = " + e[2] + ";";
         },
-        'mov': function(e) {
-            if (e.length == 3) {
-                return e[1] + " = " + e[2] + ";";
-            }
-            var m = memoryload(e);
-            if (m) {
-                return m;
-            }
-            return e[1] + " = " + e[2] + ";";
-        },
+        mov: commonmove,
+        movabs: commonmove,
         neg: function(e) {
             if (e[2].charAt(0) == '-') {
                 return e[1] + " = " + e[2].substr(1, e[2].length) + ";";

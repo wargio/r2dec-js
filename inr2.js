@@ -52,15 +52,18 @@ async function asyncMain(err, r2) {
     let arch = (await cmd('e asm.arch')).trim();
     let bits = (await cmd('e asm.bits')).trim();
     if (arch === 'x86') {
-      arch = 'x86intel';
+        arch = 'x86intel';
     }
 
     // analyze entrypoint function
     await cmd('af');
     const pdfj = await cmdj('pdfj');
     const decompiler = new r2dec(arch);
-    var buffer = '';
-    decompiler.work(pdfj).print(process.stdout.write);
+    decompiler.work(pdfj).print(function(msg) {
+        if (msg) {
+            console.log(msg.replace(/\n/, ''));
+        }
+    });
     await r2quit();
     return true;
 }
