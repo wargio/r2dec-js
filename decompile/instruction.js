@@ -46,7 +46,11 @@ module.exports = (function() {
         this.comments = [];
         this.opcode = _dec.prepare(obj.opcode);
         this.type = "" + obj.type;
-        this.offset = obj.offset.toUnsigned();
+        try {
+            this.offset = obj.offset.toUnsigned();
+        } catch (e) {
+            this.offset = obj.offset;
+        }
         this.jump = obj.jump ? obj.jump.toUnsigned() : null;
         this.pointer = obj.ptr ? obj.ptr.toUnsigned() : null;
         if (this.type.indexOf('call') >= 0 && !this.pointer && obj.jump) {
