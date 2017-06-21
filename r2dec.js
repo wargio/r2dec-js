@@ -29,7 +29,7 @@ const Json64 = require('./decompile/json64.js');
 const r2pipe = require('r2pipe');
 const util = require('util');
 
-if (!r2pipe.jsonParse) {
+if (!r2pipe.hasOwnProperty('jsonParse')) {
     throw new Error("Update your r2pipe version to use r2dec from radare2");
 }
 
