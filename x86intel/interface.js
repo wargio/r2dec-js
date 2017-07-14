@@ -39,7 +39,10 @@ module.exports = (function() {
         var count = 0;
         var stack = false;
         var e = fcn.get(0);
-        if (e.opcode && e.opcode.indexOf('*--esp = r') == 0) {
+        if (!e.opcode) {
+            return;
+        }
+        if (e.opcode.indexOf('*--esp = r') == 0) {
             //e.comments.push(e.opcode);
             e.invalidate();
             for (var i = 1; i < fcn.size(); i++, count++) {
@@ -61,14 +64,19 @@ module.exports = (function() {
                     e.invalidate();
                 }
             }
-            for (var i = fcn.size() - 1; i >= 0; i--) {
+            for (var i = 0; i < fcn.size() && i < 6; i++) {
                 var e = fcn.get(i);
                 if (!e.opcode) {
                     continue;
                 }
-                if (e.opcode.indexOf('rsp += ') == 0 && !stack) {
-                    //e.comments.push(e.opcode);
-                    break;
+                if (e.opcode.indexOf('*((int32_t*) local_4h) = edi') >= 0) {
+                    fcn.setArg("int local_4h");
+                    e.invalidate();
+                    e.addComment("local_4h = argc");
+                } else if (e.opcode.indexOf('*((int64_t*) local_10h) = rsi') >= 0) {
+                    fcn.setArg("const char* local_10h");
+                    e.invalidate();
+                    e.addComment("local_10h = argv");
                 }
             }
         }
@@ -146,6 +154,7 @@ module.exports = (function() {
                         }
                         args.push(regex);
                     }
+
                 }
                 if (args.length == 0) {
                     var push = [];
@@ -200,8 +209,6 @@ module.exports = (function() {
     };
 
     var function_for = function(array) {};
-
-    var subroutines_return_args = function(array) {};
 
     var function_loops = function(array) {
         var labels = [];
