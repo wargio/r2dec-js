@@ -34,19 +34,25 @@ module.exports = (function() {
         }
         if (types[e[1]]) {
             if (xref) {
-                return "*((" + types[e[1]] + "*) " + xref + ")"
+                return "*((" + types[e[1]] + "*) " + xref + ")";
             }
-            return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ")"
+            if (e[2].indexOf("[reloc.") == 0) {
+                return null;
+            }
+            return "*((" + types[e[1]] + "*) " + e[2].replace(/\[|\]/g, "") + ")";
         }
         return null;
     };
     var opcodes = {
         'call': function(l, start) {
-            var res = memoryjump(l[start].opcode, l[start].getXRef());
+            var ref = l[start].getXRef();
+            var res = memoryjump(l[start].opcode, ref);
             if (res) {
                 l[start].opcode = "((void (*)(void)) " + res + ") ();";
             } else if (l[start].getXRef()) {
-                l[start].opcode = l[start].getXRef() + " ();";
+                l[start].opcode = ref + " ();";
+            } else if(l[start].opcode[2] && l[start].opcode[2].indexOf("[reloc.") == 0) {
+                l[start].opcode = l[start].opcode[2].replace(/\[reloc\.|\]/g, '') + " ();";
             } else {
                 var fcn = l[start].opcode[1].replace(/\./g, '_');
                 if (fcn.indexOf('0x') == 0) {
