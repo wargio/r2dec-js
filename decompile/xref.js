@@ -37,7 +37,8 @@ module.exports = (function() {
         _check_string(obj.type);
         this.vaddr = obj.vaddr.toUnsigned();
         this.paddr = obj.paddr.toUnsigned();
-        if (obj.type === 'ascii' || obj.type === 'wide' || obj.type == 'utf8') {
+        if (obj.type === 'ascii' || obj.type === 'wide' || obj.type == 'utf8' ||
+            obj.type == 'utf16le' || obj.type == 'utf16be') {
             _check_string(obj.string);
             this.data = "\"" + (new Buffer(obj.string, 'base64')).toString() + "\"";
         } else {
