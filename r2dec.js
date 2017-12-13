@@ -24,8 +24,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-const r2dec = require('./libr2dec.js');
-const Json64 = require('./decompile/json64.js');
+//const r2dec = require('./libr2dec.js');
+const libdec = require('./libdec/libdec.js');
 const r2pipe = require('r2pipe');
 const util = require('util');
 
@@ -33,7 +33,7 @@ if (!r2pipe.hasOwnProperty('jsonParse')) {
     throw new Error("Update your r2pipe version to use r2dec from radare2");
 }
 
-r2pipe.jsonParse = Json64.parse;
+r2pipe.jsonParse = libdec.JSON.parse;
 
 if (process.argv.length > 2) {
     r2pipe.open(process.argv[2], main);
@@ -42,7 +42,11 @@ if (process.argv.length > 2) {
 }
 
 function main(err, r2) {
-    asyncMain(err, r2).then(console.log).catch(console.error);
+    asyncMain(err, r2).catch(function (v) {
+        console.log(v);
+    }).then(function (v) {
+        console.log(v);
+    });
 }
 
 function printer(msg) {
@@ -65,15 +69,32 @@ async function asyncMain(err, r2) {
         arch = 'x86intel';
     }
 
-    // analyze entrypoint function
-    await cmd('af');
+
+    await cmdj('af');
     const xrefs = await cmdj('isj');
     const strings = await cmdj('izj');
-    const pdfj = await cmdj('pdfj');
-    const decompiler = new r2dec(arch);
-    decompiler.addMetadata(xrefs);
-    decompiler.addMetadata(strings);
-    decompiler.work(pdfj).print(printer);
+    const data = await cmdj('agj');
+
+    const architecture = libdec.archs[arch];
+
+    let routine = libdec.analyzer.make(data);
+
+    libdec.analyzer.strings(routine, strings);
+    libdec.analyzer.analyze(routine, architecture);
+    libdec.analyzer.xrefs(routine, xrefs);
+
+    routine.print(console.log);
+    /*
+     // analyze entrypoint function
+     await cmd('af');
+     const xrefs = await cmdj('isj');
+     const strings = await cmdj('izj');
+     const pdfj = await cmdj('pdfj');
+     const decompiler = new r2dec(arch);
+     decompiler.addMetadata(xrefs);
+     decompiler.addMetadata(strings);
+     decompiler.work(pdfj).print(printer);
+     await r2quit();
+     */
     await r2quit();
-    return true;
 }

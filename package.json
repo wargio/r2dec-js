@@ -1,6 +1,6 @@
 {
     "name": "r2dec",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "description": "experimental pseudo-C decompiler for radare2",
     "main": "main.js",
     "keywords": [
