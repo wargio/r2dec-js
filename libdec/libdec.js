@@ -18,5 +18,11 @@
 module.exports = {
     analyzer: require('./core/Analyzer'),
     archs: require('./Archs'),
-    JSON: require('./json64')
+    JSON: require('./json64'),
+    supported: function() {
+        console.log('Supported architectures:')
+        for (var arch in this.archs) {
+            console.log('    ' + arch);
+        }
+    }
 };

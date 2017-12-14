@@ -15,20 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function () {
-
-    var _branches = {
-        'jne': 'EQ',
-        'je': 'NE',
-        'ja': 'LE',
-        'jb': 'GE',
-        'jbe': 'GT',
-        'jg': 'LE',
-        'jge': 'LT',
-        'jle': 'GT',
-        'jl': 'GE',
-        'js': 'LT'
-    };
+module.exports = (function() {
 
     var _signed_types = {
         'byte': 'int8_t ',
@@ -44,7 +31,10 @@ module.exports = (function () {
         'qword': 'uint64_t'
     };
 
-    var _memory_jump = function (e, xref) {
+    var _memory_jump = function(e, xref) {
+        if (e[1].match(/^[er]?[sb]p$/)) {
+            return null;
+        }
         if (_unsigned_types[e[1]]) {
             if (xref) {
                 return "*((" + _unsigned_types[e[1]] + "*) " + xref + ")";
@@ -57,7 +47,10 @@ module.exports = (function () {
         return null;
     };
 
-    var _memory_load = function (e) {
+    var _memory_load = function(e) {
+        if (e[1].match(/^[er]?[sb]p$/)) {
+            return null;
+        }
         if (_signed_types[e[1]]) {
             return "*((" + _signed_types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ") = " + e[3] + ";";
         } else if (_signed_types[e[2]]) {
@@ -66,7 +59,19 @@ module.exports = (function () {
         return null;
     };
 
-    var _common_math = function (e, op, bits) {
+    var _memory_cmp = function(e) {
+        if (_signed_types[e[1]]) {
+            return ["*((" + _signed_types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ")", e[3]];
+        } else if (_signed_types[e[2]]) {
+            return [e[1], "*((" + _signed_types[e[2]] + "*) " + e[3].replace(/\[|\]/g, '') + ")"];
+        }
+        return [e[1], e[2]];
+    }
+
+    var _common_math = function(e, op, bits) {
+        if (e[1].match(/^[er]?[sb]p$/)) {
+            return null;
+        }
         if (e.length == 2) {
             if (e[1].match(/r\wx/)) {
                 return "rax " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[1] + ";";
@@ -82,8 +87,11 @@ module.exports = (function () {
         return e[1] + " " + op + "= " + (bits ? '(uint' + bits + '_t) ' : '') + e[2] + ";";
     };
 
-    var _common_move = function (instr) {
+    var _common_move = function(instr) {
         var e = instr.parsed;
+        if (e[1].match(/^[er]?[sb]p$/)) {
+            return null;
+        }
         if (e.length == 3) {
             if (instr.string) {
                 return e[1] + " = " + instr.string + ";";
@@ -99,91 +107,38 @@ module.exports = (function () {
         return e[1] + " = " + e[2] + ";";
     };
 
-    var _extend_sign = function (target, source, bits) {
+    var _extend_sign = function(target, source, bits) {
         return target + " = " + '(int' + bits + '_t) ' + source + ";";
     };
 
+    var _conditional = function(instr, context, type) {
+        instr.conditional(context.cond.a, context.cond.b, type);
+        return null;
+    }
+
+    var _compare = function(instr, context) {
+        var e = instr.parsed;
+        var a = e[1];
+        var b = e[2];
+        if (e.length == 4) {
+            var m = _memory_cmp(e);
+            a = m[0];
+            b = m[1];
+        }
+        context.cond.a = a;
+        context.cond.b = b;
+        return null;
+    }
+
     return {
         instr: {
-            add: function (instr) {
+            add: function(instr) {
                 return _common_math(instr.parsed, '+');
             },
-            and: function (instr) {
+            and: function(instr) {
                 return _common_math(instr.parsed, '&');
             },
-            cbw: function () {
-                return _extend_sign('ax', 'al', 16);
-            },
-            cwde: function () {
-                return _extend_sign('eax', 'ax', 32);
-            },
-            cdqe: function () {
-                return _extend_sign('rax', 'eax', 64);
-            },
-            div: function (instr) {
-                return _common_math(instr.parsed, '/');
-            },
-            idiv: function (instr) {
-                return _common_math(instr.parsed, '/');
-            },
-            imul: function (instr) {
-                return _common_math(instr.parsed, '*');
-            },
-            lea: function (instr) {
-                var e = instr.parsed;
-                if (instr.string) {
-                    return e[1] + " = " + instr.string + ";";
-                }
-                return e[1] + " = " + e[2].replace(/\[|\]/g, '') + ";";
-            },
-            leave: function (instr) {
-                return null;
-            },
-            mod: function (instr) {
-                return _common_math(instr.parsed, '%');
-            },
-            mov: _common_move,
-            movabs: _common_move,
-            movzx: _common_move,
-            mul: function (instr) {
-                return _common_math(instr.parsed, '*');
-            },
-            neg: function (instr) {
-                var e = instr.parsed;
-                if (e[2].charAt(0) == '-') {
-                    return e[1] + " = " + e[2].substr(1, e[2].length) + ";";
-                }
-                return e[1] + " = -" + e[2] + ";";
-            },
-            nop: function () {
-                return '';
-            },
-            not: function (instr) {
-                var e = instr.parsed;
-                return e[1] + " = !" + e[2] + ";";
-            },
-            or: function (instr) {
-                return _common_math(instr.parsed, '|');
-            },
-            sal: function (instr) {
-                return _common_math(instr.parsed, '<<');
-            },
-            shl: function (instr) {
-                return _common_math(instr.parsed, '<<');
-            },
-            sar: function (instr) {
-                return _common_math(instr.parsed, '>>');
-            },
-            shr: function (instr) {
-                return _common_math(instr.parsed, '>>');
-            },
-            sub: function (instr) {
-                return _common_math(instr.parsed, '-');
-            },
-            xor: function (instr) {
-                return _common_math(instr.parsed, '^');
-            },
-            call: function (instr) {
+            call: function(instr) {
                 var res = _memory_jump(instr.parsed, instr.string);
                 if (res) {
                     return "((void (*)(void)) " + res + ") ();";
@@ -199,45 +154,163 @@ module.exports = (function () {
                     return fcn + " ();";
                 }
             },
-            ret: function (instr, block) {
-                var start = block.instr.indexOf(instr);
+            cbw: function() {
+                return _extend_sign('ax', 'al', 16);
+            },
+            cwde: function() {
+                return _extend_sign('eax', 'ax', 32);
+            },
+            cdqe: function() {
+                return _extend_sign('rax', 'eax', 64);
+            },
+            cmp: _compare,
+            div: function(instr) {
+                return _common_math(instr.parsed, '/');
+            },
+            idiv: function(instr) {
+                return _common_math(instr.parsed, '/');
+            },
+            imul: function(instr) {
+                return _common_math(instr.parsed, '*');
+            },
+            jne: function(i, c) {
+                _conditional(i, c, 'EQ');
+            },
+            je: function(i, c) {
+                _conditional(i, c, 'NE');
+            },
+            ja: function(i, c) {
+                _conditional(i, c, 'LE');
+            },
+            jb: function(i, c) {
+                _conditional(i, c, 'GE');
+            },
+            jbe: function(i, c) {
+                _conditional(i, c, 'GT');
+            },
+            jg: function(i, c) {
+                _conditional(i, c, 'LE');
+            },
+            jge: function(i, c) {
+                _conditional(i, c, 'LT');
+            },
+            jle: function(i, c) {
+                _conditional(i, c, 'GT');
+            },
+            jl: function(i, c) {
+                _conditional(i, c, 'GE');
+            },
+            js: function(i, c) {
+                _conditional(i, c, 'LT');
+            },
+            lea: function(instr) {
+                var e = instr.parsed;
+                if (instr.string) {
+                    return e[1] + " = " + instr.string + ";";
+                }
+                return e[1] + " = " + e[2].replace(/\[|\]/g, '') + ";";
+            },
+            leave: function(instr, context) {
+                context.leave = true;
+                return null;
+            },
+            mod: function(instr) {
+                return _common_math(instr.parsed, '%');
+            },
+            mov: _common_move,
+            movabs: _common_move,
+            movzx: _common_move,
+            mul: function(instr) {
+                return _common_math(instr.parsed, '*');
+            },
+            neg: function(instr) {
+                var e = instr.parsed;
+                if (e[2].charAt(0) == '-') {
+                    return e[1] + " = " + e[2].substr(1, e[2].length) + ";";
+                }
+                return e[1] + " = -" + e[2] + ";";
+            },
+            nop: function() {
+                return '';
+            },
+            not: function(instr) {
+                var e = instr.parsed;
+                return e[1] + " = !" + e[2] + ";";
+            },
+            or: function(instr) {
+                return _common_math(instr.parsed, '|');
+            },
+            pop: function() {
+                return null;
+            },
+            push: function() {
+                return null;
+            },
+            ret: function(instr, context, instructions) {
+                var start = instructions.indexOf(instr);
                 if (start >= 0) {
                     for (var i = start - 1; i >= start - 4; i--) {
-                        var e = block.instr[i].parsed;
+                        var e = instructions[i].parsed;
                         if (e.length < 2) {
                             continue;
                         }
                         var regex = e[1].match(/[er]?ax/);
-                        if (regex && block.instr[start - 1].parsed[0] == 'leave') {
+                        if (regex && context.leave) {
+                            context.leave = false;
                             return "return " + regex[0] + ";";
                         }
                     }
                 }
                 return "return;";
             },
-            jmp: function (instr, block) {
+            sal: function(instr) {
+                return _common_math(instr.parsed, '<<');
+            },
+            shl: function(instr) {
+                return _common_math(instr.parsed, '<<');
+            },
+            sar: function(instr) {
+                return _common_math(instr.parsed, '>>');
+            },
+            shr: function(instr) {
+                return _common_math(instr.parsed, '>>');
+            },
+            sub: function(instr) {
+                return _common_math(instr.parsed, '-');
+            },
+            test: function(l, start) {
+                var e = l[start].opcode;
+                if (e[1] == e[2]) {
+                    return conditional(e[1], "0", l, start);
+                }
+                return conditional("(" + e[1] + " & " + e[2] + ")", "0", l, start);
+            },
+            xor: function(instr) {
+                return _common_math(instr.parsed, '^');
+            },
+            jmp: function(instr, block) {
                 if (instr.parsed.length == 2) {
-                    return "goto " + instr.parsed[1] + ";";
+                    //return "goto " + instr.parsed[1] + ";";
                 } else if (instr.parsed.length == 3) {
                     if (instr.parsed[2].indexOf("[reloc.") == 0) {
                         return instr.parsed[2].replace(/\[reloc\.|\]/g, '') + " ();";
                     }
                 }
-                var x = instr.parsed.slice();
-                x[0] = 'goto';
-                return x.join(' ') + ";";
+                //var x = instr.parsed.slice();
+                //x[0] = 'goto';
+                //return x.join(' ') + ";";
             },
-            hlt: function () {
+            hlt: function() {
                 return "_hlt();";
             },
-            invalid: function () {
+            invalid: function() {
                 return null;
             }
         },
-        asm: function (opcode) {
+        asm: function(opcode) {
             return opcode.join(' ');
         },
-        parse: function (asm) {
+        parse: function(asm) {
             if (!asm) {
                 return [];
             }
@@ -247,9 +320,19 @@ module.exports = (function () {
             }
             var ret = asm.replace(/\[.+\]/g, '{#}').replace(/,/g, ' ');
             ret = ret.replace(/\s+/g, ' ').trim().split(' ');
-            return ret.map(function (a) {
+            return ret.map(function(a) {
                 return a == '{#}' ? mem : a;
             });
+        },
+        context: function() {
+            return {
+                cond: {
+                    a: null,
+                    b: null
+                },
+                leave: false,
+                vars: []
+            }
         }
     };
 })();

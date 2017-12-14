@@ -16,32 +16,37 @@
  */
 
 
-module.exports = (function () {
-    var List = function (d) {
-        this.data = d;
-        this.used = false;
-        this.next = null;
+module.exports = (function() {
+    var Branch = require('./Branch');
+    var Scope = require('./Scope');
+    var cfg = require('../config');
+
+    /*
+                var value = block.cond.type ? Branch.generate(block.cond.a, block.cond.b, block.cond.type, Branch.DEFINE.DEFAULT) : '\/\* unknown \*\/';
+                var temp = Scope.generate(/#/, value, 'while (#) {', '}');
+    */
+
+    var _detect_while = function(flow, instr, index) {
+        var current = instr[index];
+        if (current.jump && current.jump.lte(current.loc)) {
+
+        }
     };
 
-    return function (blocks) {
-        var array = blocks.map(function (b) {
-            return new List(b);
-        });
-        var list = array[0];
-        var current = list;
-        for (var i = 1; i < array.length; i++) {
-            if (current.data.fail && current.data.fail.eq(array[i].data.loc)) {
-                current.next = array[i];
-                current = array[i];
-                continue;
-            } else if (current.data.jump && current.data.jump.eq(array[i].data.loc)) {
-                current.next = array[i];
-                current = array[i];
-                continue;
-            } else {
-                break;
-            }
-        }
-        return list;
+    var _detect_jmp = function(flow, instr, index) {};
+
+    var _detect_if = function(flow, instr, index) {
+        return false;
+    };
+
+    var _detect = function(flow, instr, index) {
+        _detect_while(flow, instr, index);
+        _detect_if(flow, instr, index);
+    };
+
+    return function(instr) {
+        var flow = [];
+        _detect(flow, instr.splice(), 0);
+        return flow;
     };
 })();

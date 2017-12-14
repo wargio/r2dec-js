@@ -24,7 +24,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-//const r2dec = require('./libr2dec.js');
 const libdec = require('./libdec/libdec.js');
 const r2pipe = require('r2pipe');
 const util = require('util');
@@ -42,9 +41,9 @@ if (process.argv.length > 2) {
 }
 
 function main(err, r2) {
-    asyncMain(err, r2).catch(function (v) {
+    asyncMain(err, r2).catch(function(v) {
         console.log(v);
-    }).then(function (v) {
+    }).then(function(v) {
         console.log(v);
     });
 }

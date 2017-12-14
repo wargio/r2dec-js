@@ -17,16 +17,22 @@
 
 module.exports = {
     TYPE: {
-        INF: [   '1',    '1'],
-        EQ:  [' == ', ' != '],
-        NE:  [' != ', ' == '],
-        LT:  [ ' < ', ' >= '],
-        LE:  [' <= ',  ' > '],
-        GT:  [ ' > ', ' <= '],
-        GE:  [' >= ',  ' < ']
+        INF: ['1', '1'],
+        EQ: [' == ', ' != '],
+        NE: [' != ', ' == '],
+        LT: [' < ', ' >= '],
+        LE: [' <= ', ' > '],
+        GT: [' > ', ' <= '],
+        GE: [' >= ', ' < ']
     },
     DEFINE: {
         DEFAULT: 0,
         INVERTED: 1
+    },
+    generate: function(a, b, type, as) {
+        if (type == 'INF') {
+            return this.TYPE.INF[as];
+        }
+        return a + this.TYPE[type][as] + b;
     }
 };

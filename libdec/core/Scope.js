@@ -15,22 +15,39 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function () {
+module.exports = (function() {
+    var cfg = require('../config');
+
+
+    _replace = function(scope, s) {
+        return s.replace(scope.key, scope.value);
+    };
+
     /*
      * defines the scope type of the block;
      */
-    var Scope = function () {
+    var Scope = function() {
         this.header = '{';
         this.trailer = '}';
-        this.value = null;
-        this.key = null;
+        this.value = '';
+        this.key = /#/;
+        this.scope = [];
 
-        this.gen = function () {
-            return {
-                header: this.key ? this.header.replace(this.key, this.value) : this.header,
-                trailer: this.key ? this.trailer.replace(this.key, this.value) : this.trailer
-            };
+        this.print = function(p, ident) {
+            p(ident + _replace(this, this.header));
+            for (var i = 0; i < this.scope.length; i++) {
+                this.scope[i].print(p, ident + cfg.ident);
+            }
+            p(ident + _replace(this, this.trailer));
         };
     };
+    Scope.generate = function(key, value, header, trailer) {
+        var s = new Scope();
+        s.key = key;
+        s.value = value;
+        s.header = header;
+        s.trailer = trailer;
+        return s;
+    }
     return Scope;
 })();

@@ -19,5 +19,10 @@ module.exports = {
     ident: '    ',
     strings: {
         xref: 'DATA XREF from 0x'
+    },
+    anal: {
+        asmheader: '_asm("',
+        asmtrailer: '");',
+        replace: /sym\.imp\.|sym\./
     }
 };

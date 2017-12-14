@@ -15,33 +15,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function () {
+module.exports = (function() {
+    var cfg = require('../config');
     var Flow = require('./Flow');
     var Scope = require('./Scope');
 
     /*
-     * Expects name and blocks as input.
+     * Expects name and instructions as input.
      */
-    var Routine = function (name, blocks) {
-        this.blocks = blocks;
-        this.scope = new Scope();
+    var Routine = function(name, instructions) {
+        this.instructions = instructions;
         this.args = [];
-        this.flow = Flow(this.blocks);
+        this.returnType = 'void';
+        this.name = name;
+        this.scope = [];
 
-        this.scope.header = 'void ' + name + ' (#) {';
-        this.scope.key = /#/g;
-
-        this.print = function (p) {
-            this.scope.value = this.args.join(', ');
-            var s = this.scope.gen();
-            p(s.header);
-            var c = this.flow;
-            while (c) {
-                c.data.print(p, '');
-                p('    #####################################################################################à');
-                c = c.next;
+        this.print = function(p) {
+            p(this.returnType + ' ' + this.name + ' (' + this.args.join(', ') + ') {');
+            for (var i = 0; i < this.scope.length; i++) {
+                this.scope[i].print(p, cfg.ident);
             }
-            p(s.trailer);
+            p('}');
         };
     };
     return Routine;
