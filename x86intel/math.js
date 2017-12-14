@@ -138,22 +138,22 @@ module.exports = (function() {
             return commonmath(e, '|');
         },
         sal: function(e) {
-            return memoryload(e, '<<');
+            return commonmath(e, '<<');
         },
         shl: function(e) {
-            return memoryload(e, '<<');
+            return commonmath(e, '<<');
         },
         sar: function(e) {
-            return memoryload(e, '>>');
+            return commonmath(e, '>>');
         },
         shr: function(e) {
-            return memoryload(e, '>>');
+            return commonmath(e, '>>');
         },
         sub: function(e) {
-            return memoryload(e, '-');
+            return commonmath(e, '-');
         },
         xor: function(e) {
-            return memoryload(e, '^');
+            return commonmath(e, '^');
         },
         std: function(e) {
             return null;
