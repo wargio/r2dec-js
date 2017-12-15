@@ -135,10 +135,14 @@ module.exports = (function() {
             add: function(instr) {
                 return _common_math(instr.parsed, '+');
             },
+            addss: function(instr) {
+                return _common_math(instr.parsed, '+');
+            },
             and: function(instr) {
                 return _common_math(instr.parsed, '&');
             },
             call: function(instr) {
+                instr.jump = null;
                 var res = _memory_jump(instr.parsed, instr.string);
                 if (res) {
                     return "((void (*)(void)) " + res + ") ();";
@@ -166,6 +170,9 @@ module.exports = (function() {
             cmp: _compare,
             div: function(instr) {
                 return _common_math(instr.parsed, '/');
+            },
+            hlt: function() {
+                return "_hlt();";
             },
             idiv: function(instr) {
                 return _common_math(instr.parsed, '/');
@@ -213,6 +220,19 @@ module.exports = (function() {
                 _conditional(i, c, 'LT');
                 return null;
             },
+            jmp: function(instr, context, instructions) {
+                if (instr.parsed.length == 2) {
+                    //return "goto " + instr.parsed[1] + ";";
+                } else if (instr.parsed.length == 3) {
+                    if (instr.parsed[2].indexOf("[reloc.") == 0) {
+                        return instr.parsed[2].replace(/\[reloc\.|\]/g, '') + " ();";
+                    }
+                }
+                return null;
+                //var x = instr.parsed.slice();
+                //x[0] = 'goto';
+                //return x.join(' ') + ";";
+            },
             lea: function(instr) {
                 var e = instr.parsed;
                 if (instr.string) {
@@ -229,6 +249,9 @@ module.exports = (function() {
             },
             mov: _common_move,
             movabs: _common_move,
+            movss: _common_move,
+            movsx: _common_move,
+            movsxd: _common_move,
             movzx: _common_move,
             mul: function(instr) {
                 return _common_math(instr.parsed, '*');
@@ -240,8 +263,9 @@ module.exports = (function() {
                 }
                 return e[1] + " = -" + e[2] + ";";
             },
-            nop: function() {
-                return '';
+            nop: function(instr) {
+                instr.comments.push('nop');
+                return null;
             },
             not: function(instr) {
                 var e = instr.parsed;
@@ -294,24 +318,9 @@ module.exports = (function() {
                 context.cond.b = '0';
                 return null;
             },
+            ucomiss: _compare,
             xor: function(instr) {
                 return _common_math(instr.parsed, '^');
-            },
-            jmp: function(instr, context, instructions) {
-                if (instr.parsed.length == 2) {
-                    //return "goto " + instr.parsed[1] + ";";
-                } else if (instr.parsed.length == 3) {
-                    if (instr.parsed[2].indexOf("[reloc.") == 0) {
-                        return instr.parsed[2].replace(/\[reloc\.|\]/g, '') + " ();";
-                    }
-                }
-                return null;
-                //var x = instr.parsed.slice();
-                //x[0] = 'goto';
-                //return x.join(' ') + ";";
-            },
-            hlt: function() {
-                return "_hlt();";
             },
             invalid: function() {
                 return null;

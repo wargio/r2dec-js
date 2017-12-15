@@ -18,7 +18,6 @@
 module.exports = (function() {
     const cfg = require('../config');
     var Flow = require('./Flow');
-    var Scope = require('./Scope');
     var Instruction = require('./Instruction');
     var XRefs = require('./XRefs');
     var Strings = require('./Strings');
@@ -29,7 +28,7 @@ module.exports = (function() {
             if (e.ref && e.ptr) {
                 var str = xrefs.search(e.ptr);
                 if (str) {
-                    e.comments.push(elem ? elem.value : cfg.strings.xref + instr.xrefs[k].addr.toString(16));
+                    e.comments.push(str ? str.value : cfg.strings.xref + instr.xrefs[k].addr.toString(16));
                 }
             }
         });
@@ -72,15 +71,13 @@ module.exports = (function() {
     var Analyzer = function() {
         this.make = function(agj) {
             var instructions = [];
-            var scopes = new Array(agj[0].blocks.length);
             for (var i = 0; i < agj[0].blocks.length; i++) {
                 var block = agj[0].blocks[i];
-                scopes[i] = Scope.empty(block.offset);
                 instructions = instructions.concat(block.ops.map(function(b) {
                     return new Instruction(b, i);
                 }));
             }
-            var routine = new Routine(agj[0].name, instructions, scopes);
+            var routine = new Routine(agj[0].name, instructions);
             return routine;
         };
         this.strings = function(routine, izj) {

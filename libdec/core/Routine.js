@@ -23,27 +23,23 @@ module.exports = (function() {
     /*
      * Expects name and instructions as input.
      */
-    var Routine = function(name, instructions, scopes) {
+    var Routine = function(name, instructions) {
         this.instructions = instructions;
         this.args = [];
         this.returnType = 'void';
         this.name = name;
-        this.scopes = scopes;
+        this.scopes = instructions.map(function(i) {
+            return new Scope()
+        });
 
         this.print = function(p) {
             var current = 0;
             p(this.returnType + ' ' + this.name + ' (' + this.args.join(', ') + ') {');
             for (var i = 0; i < this.instructions.length; i++) {
                 var instr = this.instructions[i];
-                if (current != instr.scopeid) {
-                    this.scopes[current].printTrailer(p);
-                    this.scopes[instr.scopeid].printHeader(p);
-                    current = instr.scopeid;
-                }
-                instr.print(p, this.scopes[instr.scopeid].ident);
+                this.scopes[i].printHeader(p);
+                instr.print(p, this.scopes[i].ident);
             }
-            this.scopes[current].printTrailer(p);
-            p('}');
         };
     };
     return Routine;

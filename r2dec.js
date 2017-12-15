@@ -67,29 +67,34 @@ async function asyncMain(err, r2) {
     if (arch === 'x86') {
         arch = 'x86intel';
     }
-
-
-    await cmd('af');
-    /* asm.pseudo breaks things.. */
-    var pseudo = (await cmd('e asm.pseudo')).trim() == 'true';
-    if (pseudo) {
-        await cmd('e asm.pseudo = false');
-    }
-    const xrefs = await cmdj('isj');
-    const strings = await cmdj('izj');
-    const data = await cmdj('agj');
-
     const architecture = libdec.archs[arch];
 
-    let routine = libdec.analyzer.make(data);
+    if (architecture) {
+        await cmd('af');
+        /* asm.pseudo breaks things.. */
+        var pseudo = (await cmd('e asm.pseudo')).trim() == 'true';
+        if (pseudo) {
+            await cmd('e asm.pseudo = false');
+        }
+        const xrefs = await cmdj('isj');
+        const strings = await cmdj('izj');
+        const data = await cmdj('agj');
 
-    libdec.analyzer.strings(routine, strings);
-    libdec.analyzer.analyze(routine, architecture);
-    libdec.analyzer.xrefs(routine, xrefs);
 
-    routine.print(console.log);
-    if (pseudo) {
-        await cmd('e asm.pseudo = true');
+        let routine = libdec.analyzer.make(data);
+
+        libdec.analyzer.strings(routine, strings);
+        libdec.analyzer.analyze(routine, architecture);
+        libdec.analyzer.xrefs(routine, xrefs);
+
+        routine.print(console.log);
+        if (pseudo) {
+            await cmd('e asm.pseudo = true');
+        }
+    } else {
+        console.log(arch + " is not currently supported.");
+        libdec.supported();
     }
+
     await r2quit();
 }

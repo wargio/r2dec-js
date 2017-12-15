@@ -16,44 +16,42 @@
  */
 
 module.exports = (function() {
+    var _default_cmp = function(a, b) {
+        return a - b;
+    }
+
+    var _slow = function(a, b, cmp) {
+        for (var i = 0; i < b.length; i++) {
+            if (cmp(a, b[i]) == 0) return i;
+        }
+        return -1;
+    }
+
     return {
-        search: function(value, array, compare) {
-            var left = 0;
-            var right = array.length - 1;
-            var position = 0;
-            var element = null;
-            while (left <= right) {
-                position = Math.floor((left + right) / 2);
-                element = array[position];
-                var cmp = compare(value, element);
-                if (cmp < 0) {
-                    left = position + 1;
-                } else if (cmp > 0) {
-                    right = position - 1;
-                } else {
-                    return element;
-                }
-            }
-            return null;
-        },
         indexOf: function(value, array, compare) {
-            var left = 0;
-            var right = array.length - 1;
-            var position = 0;
-            var element = null;
-            while (left <= right) {
-                position = Math.floor((left + right) / 2);
-                element = array[position];
-                var cmp = compare(value, element);
-                if (cmp < 0) {
-                    left = position + 1;
-                } else if (cmp > 0) {
-                    right = position - 1;
+            if (!compare) {
+                compare = _default_cmp;
+            }
+            return _slow(value, array, compare);
+            /* FIXME: bin search doesn't work for reasons.. */
+            var m = 0;
+            var n = array.length - 1;
+            while (m <= n) {
+                var k = (n + m) >>> 1;
+                var cmp = compare(value, array[k]);
+                if (cmp > 0) {
+                    m = k + 1;
+                } else if (cmp < 0) {
+                    n = k - 1;
                 } else {
-                    return position;
+                    return k;
                 }
             }
             return -1;
+        },
+        search: function(value, array, compare) {
+            var pos = this.indexOf(value, array, compare);
+            return pos >= 0 ? array[pos] : null;
         }
     };
 })();
