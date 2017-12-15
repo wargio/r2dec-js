@@ -15,37 +15,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function () {
+module.exports = (function() {
+    Utils = require('./Utils');
+
+    var _compare = function(a, b) {
+        if (a.eq(b.loc)) {
+            return 0;
+        } else if (a.lt(b.loc)) {
+            return 1;
+        }
+        return -1;
+    }
+
     /*
      * Expects the izj json as input.
      */
-    var Strings = function (izj) {
-        this.data = izj.sort(function (a, b) {
+    var Strings = function(izj) {
+        this.data = izj.sort(function(a, b) {
             return a.vaddr.lte(b.vaddr) ? -1 : 1;
-        }).map(function (x) {
+        }).map(function(x) {
             return {
                 loc: x.vaddr,
                 value: Buffer.from(x.string, 'base64').toString()
             };
         });
 
-        this.search = function (address) {
-            var left = 0;
-            var right = this.data.length - 1;
-            var position = 0;
-            var element = null;
-            while (left <= right) {
-                position = Math.floor((left + right) / 2);
-                element = this.data[position];
-                if (element.loc.lt(address)) {
-                    left = position + 1;
-                } else if (element.loc.gt(address)) {
-                    right = position - 1;
-                } else {
-                    return element;
-                }
-            }
-            return null;
+        this.search = function(address) {
+            return Utils.search(address, this.data, _compare);
         };
     };
     return Strings;

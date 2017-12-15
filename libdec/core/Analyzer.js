@@ -17,6 +17,8 @@
 
 module.exports = (function() {
     const cfg = require('../config');
+    var Flow = require('./Flow');
+    var Scope = require('./Scope');
     var Instruction = require('./Instruction');
     var XRefs = require('./XRefs');
     var Strings = require('./Strings');
@@ -44,18 +46,24 @@ module.exports = (function() {
         });
     };
 
-    var _analyze_instructions = function(instr, arch, context) {
-        var fcn, opcode;
-        for (var i = 0; i < instr.length; i++) {
-            opcode = instr[i].opcode.replace(cfg.anal.replace, '');
-            instr[i].parsed = arch.parse(opcode);
-            fcn = arch.instr[instr[i].parsed[0]];
+    var _analyze_instructions = function(instructions, arch, context) {
+        var fcn, opcode, instr;
+        for (var i = 0; i < instructions.length; i++) {
+            instr = instructions[i];
+            // removes just 'sym.[imp.]' strings..
+            opcode = instr.opcode.replace(cfg.anal.replace, '');
+            instr.parsed = arch.parse(opcode);
+            fcn = arch.instructions[instr.parsed[0]];
             if (fcn) {
-                instr[i].pseudo = fcn(instr[i], context, instr);
+                instr.pseudo = fcn(instr, context, instructions);
             } else {
-                instr[i].pseudo = cfg.anal.asmheader + arch.asm(instr[i].parsed) + cfg.anal.asmtrailer;
+                instr.pseudo = cfg.anal.asmheader + opcode + cfg.anal.asmtrailer;
             }
         }
+    };
+
+    var _analyze_flows = function(scopes, instructions) {
+        Flow(scopes, instructions);
     };
 
     /*
@@ -64,13 +72,15 @@ module.exports = (function() {
     var Analyzer = function() {
         this.make = function(agj) {
             var instructions = [];
+            var scopes = new Array(agj[0].blocks.length);
             for (var i = 0; i < agj[0].blocks.length; i++) {
                 var block = agj[0].blocks[i];
+                scopes[i] = Scope.empty(block.offset);
                 instructions = instructions.concat(block.ops.map(function(b) {
-                    return new Instruction(b, block.offset);
+                    return new Instruction(b, i);
                 }));
             }
-            var routine = new Routine(agj[0].name, instructions);
+            var routine = new Routine(agj[0].name, instructions, scopes);
             return routine;
         };
         this.strings = function(routine, izj) {
@@ -81,6 +91,7 @@ module.exports = (function() {
         this.analyze = function(routine, arch) {
             var context = arch.context();
             _analyze_instructions(routine.instructions, arch, context);
+            _analyze_flows(routine.scopes, routine.instructions)
         };
         this.xrefs = function(routine, isj) {
             var instructions = routine.instructions;

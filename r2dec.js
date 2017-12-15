@@ -69,7 +69,12 @@ async function asyncMain(err, r2) {
     }
 
 
-    await cmdj('af');
+    await cmd('af');
+    /* asm.pseudo breaks things.. */
+    var pseudo = (await cmd('e asm.pseudo')).trim() == 'true';
+    if (pseudo) {
+        await cmd('e asm.pseudo = false');
+    }
     const xrefs = await cmdj('isj');
     const strings = await cmdj('izj');
     const data = await cmdj('agj');
@@ -83,17 +88,8 @@ async function asyncMain(err, r2) {
     libdec.analyzer.xrefs(routine, xrefs);
 
     routine.print(console.log);
-    /*
-     // analyze entrypoint function
-     await cmd('af');
-     const xrefs = await cmdj('isj');
-     const strings = await cmdj('izj');
-     const pdfj = await cmdj('pdfj');
-     const decompiler = new r2dec(arch);
-     decompiler.addMetadata(xrefs);
-     decompiler.addMetadata(strings);
-     decompiler.work(pdfj).print(printer);
-     await r2quit();
-     */
+    if (pseudo) {
+        await cmd('e asm.pseudo = true');
+    }
     await r2quit();
 }

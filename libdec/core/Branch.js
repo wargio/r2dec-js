@@ -16,23 +16,25 @@
  */
 
 module.exports = {
-    TYPE: {
-        INF: ['1', '1'],
-        EQ: [' == ', ' != '],
-        NE: [' != ', ' == '],
-        LT: [' < ', ' >= '],
-        LE: [' <= ', ' > '],
-        GT: [' > ', ' <= '],
-        GE: [' >= ', ' < ']
-    },
-    DEFINE: {
-        DEFAULT: 0,
-        INVERTED: 1
-    },
+    TYPE_INF: ['1', '0'],
+    TYPE_EQ: [' == ', ' != '],
+    TYPE_NE: [' != ', ' == '],
+    TYPE_LT: [' < ', ' >= '],
+    TYPE_LE: [' <= ', ' > '],
+    TYPE_GT: [' > ', ' <= '],
+    TYPE_GE: [' >= ', ' < '],
+    FLOW_DEFAULT: 0,
+    FLOW_INVERTED: 1,
     generate: function(a, b, type, as) {
         if (type == 'INF') {
-            return this.TYPE.INF[as];
+            return this.TYPE_INF[as];
         }
-        return a + this.TYPE[type][as] + b;
+        return a + this['TYPE_' + type][as] + b;
+    },
+    true: function() {
+        return this.TYPE_INF[this.FLOW_DEFAULT];
+    },
+    false: function() {
+        return this.TYPE_INF[this.FLOW_INVERTED];
     }
 };

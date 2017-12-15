@@ -26,28 +26,47 @@ module.exports = (function() {
     /*
      * defines the scope type of the block;
      */
-    var Scope = function() {
+    var Scope = function(loc) {
+        this.loc = loc
         this.header = '{';
         this.trailer = '}';
         this.value = '';
         this.key = /#/;
-        this.scope = [];
+        this.ident = cfg.ident;
+        this.delimident = '';
 
-        this.print = function(p, ident) {
-            p(ident + _replace(this, this.header));
-            for (var i = 0; i < this.scope.length; i++) {
-                this.scope[i].print(p, ident + cfg.ident);
+        this.defined = function() {
+            return (this.header || this.trailer) != null;
+        }
+        this.printHeader = function(p) {
+            if (this.header) {
+                p(this.delimident + _replace(this, this.header));
             }
-            p(ident + _replace(this, this.trailer));
+        };
+        this.printTrailer = function(p) {
+            if (this.trailer) {
+                p(this.delimident + _replace(this, this.trailer));
+            }
+        };
+        this.increaseIdent = function() {
+            this.ident += cfg.ident;
+            this.delimident += cfg.ident;
         };
     };
-    Scope.generate = function(key, value, header, trailer) {
-        var s = new Scope();
-        s.key = key;
+    Scope.empty = function(loc) {
+        var s = new Scope(loc);
+        s.header = null;
+        s.trailer = null;
+        return s;
+    };
+    Scope.generate = function(loc, ident, value, header, trailer) {
+        var s = new Scope(loc);
         s.value = value;
         s.header = header;
         s.trailer = trailer;
+        s.ident = ident;
+        s.delimident = s.ident.substr(cfg.ident.length, s.ident.length);
         return s;
-    }
+    };
     return Scope;
 })();

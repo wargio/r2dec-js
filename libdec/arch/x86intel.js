@@ -131,7 +131,7 @@ module.exports = (function() {
     }
 
     return {
-        instr: {
+        instructions: {
             add: function(instr) {
                 return _common_math(instr.parsed, '+');
             },
@@ -175,33 +175,43 @@ module.exports = (function() {
             },
             jne: function(i, c) {
                 _conditional(i, c, 'EQ');
+                return null;
             },
             je: function(i, c) {
                 _conditional(i, c, 'NE');
+                return null;
             },
             ja: function(i, c) {
                 _conditional(i, c, 'LE');
+                return null;
             },
             jb: function(i, c) {
                 _conditional(i, c, 'GE');
+                return null;
             },
             jbe: function(i, c) {
                 _conditional(i, c, 'GT');
+                return null;
             },
             jg: function(i, c) {
                 _conditional(i, c, 'LE');
+                return null;
             },
             jge: function(i, c) {
                 _conditional(i, c, 'LT');
+                return null;
             },
             jle: function(i, c) {
                 _conditional(i, c, 'GT');
+                return null;
             },
             jl: function(i, c) {
                 _conditional(i, c, 'GE');
+                return null;
             },
             js: function(i, c) {
                 _conditional(i, c, 'LT');
+                return null;
             },
             lea: function(instr) {
                 var e = instr.parsed;
@@ -278,17 +288,16 @@ module.exports = (function() {
             sub: function(instr) {
                 return _common_math(instr.parsed, '-');
             },
-            test: function(l, start) {
-                var e = l[start].opcode;
-                if (e[1] == e[2]) {
-                    return conditional(e[1], "0", l, start);
-                }
-                return conditional("(" + e[1] + " & " + e[2] + ")", "0", l, start);
+            test: function(instr, context, instructions) {
+                var e = instr.parsed;
+                context.cond.a = (e[1] == e[2]) ? e[1] : "(" + e[1] + " & " + e[2] + ")";
+                context.cond.b = '0';
+                return null;
             },
             xor: function(instr) {
                 return _common_math(instr.parsed, '^');
             },
-            jmp: function(instr, block) {
+            jmp: function(instr, context, instructions) {
                 if (instr.parsed.length == 2) {
                     //return "goto " + instr.parsed[1] + ";";
                 } else if (instr.parsed.length == 3) {
@@ -296,6 +305,7 @@ module.exports = (function() {
                         return instr.parsed[2].replace(/\[reloc\.|\]/g, '') + " ();";
                     }
                 }
+                return null;
                 //var x = instr.parsed.slice();
                 //x[0] = 'goto';
                 //return x.join(' ') + ";";
@@ -306,9 +316,6 @@ module.exports = (function() {
             invalid: function() {
                 return null;
             }
-        },
-        asm: function(opcode) {
-            return opcode.join(' ');
         },
         parse: function(asm) {
             if (!asm) {

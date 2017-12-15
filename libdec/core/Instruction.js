@@ -20,8 +20,8 @@ module.exports = (function() {
      * Gets an opcode block provided by agj
      * op = data[n].blocks[k].ops[i];
      */
-    var Instruction = function(op, block) {
-        this.blockid = block;
+    var Instruction = function(op, scopeid) {
+        this.scopeid = scopeid;
         this.loc = op.offset;
         this.jump = op.jump;
         this.ref = op.refptr;
