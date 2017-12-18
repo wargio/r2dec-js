@@ -43,7 +43,7 @@ module.exports = (function() {
                         ident += cfg.ident;
                         current = instr.scope;
                     } else if (current.level > instr.scope.level) {
-                        while (current != instr.scope) {
+                        while (current != instr.scope && scopes.length > 1) {
                             if (ident.length > cfg.ident.length) {
                                 ident = ident.substr(0, ident.length - cfg.ident.length);
                             }

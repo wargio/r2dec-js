@@ -50,6 +50,37 @@ module.exports = (function() {
         return true;
     };
 
+    var _detect_if_break = function(instructions, index, context) {
+        var instr = instructions[index];
+        if (instr.jump.lte(instr.loc) || !instr.cond) {
+            return false;
+        }
+        var scope = new Scope();
+        scope.level = instr.scope.level + 1;
+        var bounds = new AddrBounds(instr.loc, instr.jump);
+        /* if(cond) { block } */
+        var cond = instr.cond ? Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_INVERTED) : Branch.true();
+        var end = instr.jump;
+        scope.header = 'if (' + cond + ') {';
+        scope.trailer = '}';
+        for (var i = index; i < instructions.length; i++) {
+            instr = instructions[i];
+            if (end.eq(instr.loc)) {
+                break;
+            }
+            instr.scope = scope;
+            if (instr.jump && context.limits.isInside(instr.jump) && !bounds.isInside(instr.jump)) {
+                end = instr.jump;
+                scope.trailer = '}';
+                scope = new Scope();
+                scope.level = instr.scope.level;
+                scope.header = 'else {';
+                scope.trailer = '}';
+            }
+        }
+        return true;
+    }
+
     var _detect_while = function(instructions, index, context) {
         var instr = instructions[index];
         /* while(cond) { block } */
@@ -67,11 +98,12 @@ module.exports = (function() {
                 tmpinstr.scope = scope;
                 if (tmpinstr.jump && tmpinstr.jump.gt(tmpinstr.loc) && !bounds.isInside(tmpinstr.jump)) {
                     if (!tmpinstr.pseudo) {
-                        tmpinstr.pseudo = 'break';
+                        tmpinstr.pseudo = 'break;';
+                        _detect_if_break(instructions.slice(i, index), 0, context);
                     }
                 }
             }
-            scope.trailer = '} while(' + cond + ');';
+            scope.trailer = '} while (' + cond + ');';
             return true;
         }
         return false;
