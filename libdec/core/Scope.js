@@ -21,27 +21,23 @@ module.exports = (function() {
     /*
      * defines the scope type of the block;
      */
-    var Scope2 = function() {
+    var Scope = function() {
         this.header = null;
-        this.identht = '';
-        this.ident = cfg.ident;
-        this.scoped = 0;
-        this.printHeader = function(p) {
+        this.trailer = null;
+        this.level = 0;
+        this.printHeader = function(p, ident) {
             if (this.header) {
-                p(this.identht + this.header);
+                p(ident + this.header);
             }
         };
-        this.increaseIdent = function() {
-            this.ident += cfg.ident;
-            this.identht += cfg.ident;
-            this.scoped++;
+        this.printTrailer = function(p, ident) {
+            if (this.trailer) {
+                p(ident + this.trailer);
+            }
+        };
+        this.toString = function() {
+            return this.level + ' ' + this.header + ' ' + this.trailer;
         };
     };
-    Scope2.generate = function(value, ident) {
-        var s = new Scope2();
-        s.value = value;
-        s.ident = ident;
-        return s;
-    };
-    return Scope2;
+    return Scope;
 })();

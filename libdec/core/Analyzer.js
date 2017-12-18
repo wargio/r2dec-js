@@ -18,6 +18,7 @@
 module.exports = (function() {
     const cfg = require('../config');
     var Flow = require('./Flow');
+    var Scope = require('./Scope');
     var Instruction = require('./Instruction');
     var XRefs = require('./XRefs');
     var Strings = require('./Strings');
@@ -71,10 +72,11 @@ module.exports = (function() {
     var Analyzer = function() {
         this.make = function(agj) {
             var instructions = [];
+            var scope = new Scope();
             for (var i = 0; i < agj[0].blocks.length; i++) {
                 var block = agj[0].blocks[i];
                 instructions = instructions.concat(block.ops.map(function(b) {
-                    return new Instruction(b, i);
+                    return new Instruction(b, scope);
                 }));
             }
             var routine = new Routine(agj[0].name, instructions);
@@ -88,7 +90,7 @@ module.exports = (function() {
         this.analyze = function(routine, arch) {
             var context = arch.context();
             _analyze_instructions(routine.instructions, arch, context);
-            _analyze_flows(routine.scopes, routine.instructions)
+            _analyze_flows(routine.instructions)
         };
         this.xrefs = function(routine, isj) {
             var instructions = routine.instructions;

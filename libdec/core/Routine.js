@@ -28,18 +28,38 @@ module.exports = (function() {
         this.args = [];
         this.returnType = 'void';
         this.name = name;
-        this.scopes = instructions.map(function(i) {
-            return new Scope()
-        });
 
         this.print = function(p) {
-            var current = 0;
+            var current = this.instructions[0].scope;
+            var scopes = [current];
+            var ident = cfg.ident;
             p(this.returnType + ' ' + this.name + ' (' + this.args.join(', ') + ') {');
             for (var i = 0; i < this.instructions.length; i++) {
                 var instr = this.instructions[i];
-                this.scopes[i].printHeader(p);
-                instr.print(p, this.scopes[i].ident);
+                if (current != instr.scope) {
+                    if (current.level < instr.scope.level) {
+                        scopes.push(current);
+                        instr.scope.printHeader(p, ident);
+                        ident += cfg.ident;
+                        current = instr.scope;
+                    } else if (current.level > instr.scope.level) {
+                        while (current != instr.scope) {
+                            if (ident.length > cfg.ident.length) {
+                                ident = ident.substr(0, ident.length - cfg.ident.length);
+                            }
+                            current.printTrailer(p, ident);
+                            current = scopes.pop();
+                        }
+                    } else {
+                        var tmpident = ident.substr(0, ident.length - cfg.ident.length);
+                        current.printTrailer(p, tmpident);
+                        current = instr.scope;
+                        current.printHeader(p, tmpident);
+                    }
+                }
+                instr.print(p, ident);
             }
+            p('}');
         };
     };
     return Routine;

@@ -39,7 +39,7 @@ module.exports = (function() {
         return a.lt(b.loc) ? 1 : -1;
     };
     /* [long] jumps */
-    var _detect_jumps = function(scopes, instructions, index, context) {
+    var _detect_jumps = function(instructions, index, context) {
         var instr = instructions[index];
         if (context.limits.isInside(instr.jump)) {
             return false;
@@ -50,73 +50,75 @@ module.exports = (function() {
         return true;
     };
 
-    var _detect_while = function(scopes, instructions, index, context) {
+    var _detect_while = function(instructions, index, context) {
         var instr = instructions[index];
-        var current = scopes[index];
         /* while(cond) { block } */
         if (instr.jump.lte(instr.loc)) {
             /* infinite loop */
+            var scope = new Scope();
+            scope.level = instr.scope.level + 1;
             var bounds = new AddrBounds(instr.jump, instr.loc);
             var cond = instr.cond ? Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_DEFAULT) : Branch.true();
             var tmpinstr = Utils.search(instr.jump, instructions, _compare_loc);
             var start = instructions.indexOf(tmpinstr);
-            scopes[start].header = 'do {';
+            scope.header = 'do {';
             for (var i = start; i <= index; i++) {
                 tmpinstr = instructions[i];
-                current = scopes[i];
-                current.increaseIdent();
+                tmpinstr.scope = scope;
                 if (tmpinstr.jump && tmpinstr.jump.gt(tmpinstr.loc) && !bounds.isInside(tmpinstr.jump)) {
                     if (!tmpinstr.pseudo) {
                         tmpinstr.pseudo = 'break';
                     }
                 }
             }
-            current.trailer = '} while(' + cond + ');';
-            context.while.push(bounds);
+            scope.trailer = '} while(' + cond + ');';
             return true;
         }
         return false;
     };
 
-    var _detect_if = function(scopes, instructions, index, context) {
+    var _detect_if = function(instructions, index, context) {
         var instr = instructions[index];
-        var current = scopes[index];
         if (instr.jump.lte(instr.loc) || !instr.cond) {
             return false;
         }
+        var scope = new Scope();
+        scope.level = instr.scope.level + 1;
         var bounds = new AddrBounds(instr.loc, instr.jump);
         /* if(cond) { block } */
         var cond = instr.cond ? Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_DEFAULT) : Branch.true();
         var end = instr.jump;
-        current.header = 'if (' + cond + ') {';
+        scope.header = 'if (' + cond + ') {';
+        scope.trailer = '}';
         for (var i = index; i < instructions.length; i++) {
             instr = instructions[i];
             if (end.eq(instr.loc)) {
                 break;
             }
-            current = scopes[i];
-            current.increaseIdent();
+            instr.scope = scope;
             if (instr.jump && context.limits.isInside(instr.jump) && !bounds.isInside(instr.jump)) {
                 end = instr.jump;
-                current.trailer = '} else {';
+                scope.trailer = '}';
+                scope = new Scope();
+                scope.level = instr.scope.level;
+                scope.header = 'else {';
+                scope.trailer = '}';
             }
         }
-        current.trailer = '}';
         return true;
     };
 
-    return function(scopes, instructions) {
+    return function(instructions) {
         var context = {
-            limits: new AddrBounds(instructions[0].loc, instructions[instructions.length - 1].loc),
-            while: []
+            limits: new AddrBounds(instructions[0].loc, instructions[instructions.length - 1].loc)
         };
         for (var i = 0; i < instructions.length; i++) {
             if (!instructions[i].jump) {
                 continue;
             }
-            if (!_detect_jumps(scopes, instructions, i, context)) {
-                if (!_detect_while(scopes, instructions, i, context)) {
-                    _detect_if(scopes, instructions, i, context);
+            if (!_detect_jumps(instructions, i, context)) {
+                if (!_detect_while(instructions, i, context)) {
+                    _detect_if(instructions, i, context);
                 }
             }
         }
