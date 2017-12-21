@@ -24,11 +24,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-var r2dec = require('./libr2dec.js');
+var libdec = require('./libdec.js');
 var fs = require('fs');
 
-
-function load_text(filename) {
+function load_json(filename) {
     try {
         return fs.readFileSync(filename, 'utf8');
     } catch (e) {
@@ -37,29 +36,27 @@ function load_text(filename) {
     }
 }
 
-var arch = process.argv[2];
-var filename = process.argv[3];
+var filename = process.argv[2];
 
-if (!arch) {
-    console.log("missing architecture name!");
+if (filename) {
+    const data = libdec.JSON.parse(load_json(filename));
+    const architecture = libdec.archs[data.arch];
+    if (!architecture) {
+        console.log(architecture + " is not currently supported.");
+        libdec.supported();
+    } else {
+        const xrefs = data.isj;
+        const strings = data.izj;
+        const graph = data.agj;
+
+        let routine = libdec.analyzer.make(graph);
+
+        libdec.analyzer.strings(routine, strings);
+        libdec.analyzer.analyze(routine, architecture);
+        libdec.analyzer.xrefs(routine, xrefs);
+
+        routine.print(console.log);
+    }
+} else {
+    console.log('node ' + process.argv[1] + ' <test.json>');
 }
-
-if (!filename) {
-    console.log("missing filename!");
-}
-
-if (!filename || !arch || !r2dec.exists(arch)) {
-    console.log('node ' + process.argv[1] + ' <arch> <pdfj_filename.json>');
-    r2dec.supported('    ');
-    process.exit(1);
-}
-
-var decompiler = new r2dec(arch);
-var json = load_text(filename);
-var fcn1 = decompiler.work(json);
-var buffer = '';
-fcn1.print(function(m) {
-    if (m) buffer += m;
-});
-
-console.log(buffer);

@@ -18,6 +18,6 @@
 module.exports = (function() {
     return {
         ppc: require('./arch/ppc'),
-        x86intel: require('./arch/x86intel')
+        x86: require('./arch/x86')
     };
 })();
