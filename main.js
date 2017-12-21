@@ -24,7 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-var libdec = require('./libdec.js');
+const libdec = require('./libdec/libdec.js');
 var fs = require('fs');
 
 function load_json(filename) {

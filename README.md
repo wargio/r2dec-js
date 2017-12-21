@@ -1,77 +1,101 @@
 r2dec.
 ======
 
-decompiles stuff..
+converts asm to pseudo-C code.
+
+# Dependencies
+
+    NodeJS v8 or newer
+    npm
+
+# Install
+
+Follow the following steps to install r2dec via r2pm
+
+    r2pm init
+    r2pm install r2dec
+
+done
+
+# Usage
 
 * open with radare2 your file
-* analize the function you want to disassemble (`af`)
-* give the data to the plugin `. ./r2dec.js`
-* done.
-
-or 
-
-* open with radare2 your file
-* analize the function you want to disassemble (`af`)
-* give the data to the plugin `pdfj @ fcn.xxxxxxxx > dump.json`
-* open a terminal and go to the plugin folder and write `node main.js ppc path/to/dump.json`
+* analize the function you want to disassemble (`aaa`)
+* give the data to the plugin `#!pipe r2dec`
 * done.
 
 # Supported Arch
 
     ppc
     mips
-    x86intel
+    x86 (intel)
 
 ## Example
-Converts this
 
-```
-┌ (fcn) sym.make_funcname_visible 47
-│   sym.make_funcname_visible ();
-│              ; CALL XREF from 0x00434c58 (sub.free_b50)
-│              ; CALL XREF from 0x0043513a (sub.free_b50)
-│           0x004378b0      53             push rbx
-│           0x004378b1      89fb           mov ebx, edi
-│           0x004378b3      bff8694900     mov edi, str.FUNCNAME ; 0x4969f8 ; "FUNCNAME"
-│           0x004378b8      e8b3fbffff     call sym.find_variable_for_assignment
-│           0x004378bd      4885c0         test rax, rax
-│       ┌─< 0x004378c0      7412           je 0x4378d4
-│       │   0x004378c2      4883781800     cmp qword [rax + 0x18], 0
-│      ┌──< 0x004378c7      740b           je 0x4378d4
-│      ││   0x004378c9      85db           test ebx, ebx
-│     ┌───< 0x004378cb      7513           jne 0x4378e0
-│     │││   0x004378cd      814828001000.  or dword [rax + 0x28], 0x1000
-│     │││      ; JMP XREF from 0x004378c0 (sym.make_funcname_visible)
-│     │││      ; JMP XREF from 0x004378c7 (sym.make_funcname_visible)
-│     │└└─> 0x004378d4      5b             pop rbx
-│     │     0x004378d5      c3             ret
-│     │     0x004378d6      662e0f1f8400.  nop word cs:[rax + rax]
-│     │        ; JMP XREF from 0x004378cb (sym.make_funcname_visible)
-│     └───> 0x004378e0      816028ffefff.  and dword [rax + 0x28], 0xffffefff
-│           0x004378e7      5b             pop rbx
-└           0x004378e8      c3             ret
-```
+This example shows a possible dump of the plugin.
 
-to this:
+###Source Code
 
 ```c
-void make_funcname_visible() {
-    ebx = edi;
-    edi = 0x4969f8;
-    rax = fcn_437470 (edi);
-    if (rax != 0) {
-        if (*((int64_t*) rax + 0x18) == 0) {
-            goto label_4378d4;
+#include <stdio.h>
+
+int main(int argc, char const *argv[]) {
+    int var = 0;
+    while(var < 0x90) {
+        if(var < 0x10) {
+            var += 0x50;
         }
-        if (ebx != 0) {
-            goto label_4378e0;
-        }
-        *((int32_t*) rax + 0x28) |= 0x1000;
+        var += 0x10;
     }
-label_4378d4:
-    return;
-label_4378e0:
-    *((int32_t*) rax + 0x28) &= 0xffffefff;
+    return 0;
+}
+```
+
+###radare2 view
+
+
+```
+            ;-- main:
+╭ (fcn) main 50
+│   main ();
+│           ; var int local_20h @ rbp-0x20
+│           ; var int local_14h @ rbp-0x14
+│           ; var int local_4h @ rbp-0x4
+│              ; DATA XREF from 0x0000050d (entry0)
+│           0x000005fa      55             push rbp
+│           0x000005fb      4889e5         mov rbp, rsp
+│           0x000005fe      897dec         mov dword [local_14h], edi
+│           0x00000601      488975e0       mov qword [local_20h], rsi
+│           0x00000605      c745fc000000.  mov dword [local_4h], 0
+│       ╭─< 0x0000060c      eb0e           jmp 0x61c
+│       │      ; JMP XREF from 0x00000623 (main)
+│      ╭──> 0x0000060e      837dfc0f       cmp dword [local_4h], 0xf   ; [0xf:4]=0x3e000300
+│     ╭───< 0x00000612      7f04           jg 0x618
+│     │⁝│   0x00000614      8345fc50       add dword [local_4h], 0x50  ; 'P'
+│     │⁝│      ; JMP XREF from 0x00000612 (main)
+│     ╰───> 0x00000618      8345fc10       add dword [local_4h], 0x10
+│      ⁝│      ; JMP XREF from 0x0000060c (main)
+│      ⁝╰─> 0x0000061c      817dfc8f0000.  cmp dword [local_4h], 0x8f  ; [0x8f:4]=0x23800
+│      ╰──< 0x00000623      7ee9           jle 0x60e
+│           0x00000625      b800000000     mov eax, 0
+│           0x0000062a      5d             pop rbp
+╰           0x0000062b      c3             ret
+```
+
+###r2dec pseudo-C code
+
+```c
+void main () {
+    *((int32_t*) local_14h) = edi;
+    *((int64_t*) local_20h) = rsi;
+    *((int32_t*) local_4h) = 0;
+    do {
+        if (*((int32_t*) local_4h) <= 0xf) {
+            *((int32_t*) local_4h) += 0x50;
+        }
+        *((int32_t*) local_4h) += 0x10;
+    } while (*((int32_t*) local_4h) > 0x8f);
+    eax = 0;
     return;
 }
 ```

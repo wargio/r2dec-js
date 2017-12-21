@@ -130,7 +130,11 @@ module.exports = (function() {
             if (end.eq(instr.loc)) {
                 break;
             }
-            instr.scope = scope;
+            if (instr.scope.level < scope.level) {
+                instr.scope = scope;
+            } else {
+                instr.scope.level++;
+            }
             if (instr.jump && context.limits.isInside(instr.jump) && !bounds.isInside(instr.jump)) {
                 end = instr.jump;
                 scope.trailer = '}';
