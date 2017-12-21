@@ -64,9 +64,6 @@ async function asyncMain(err, r2) {
 
     let arch = (await cmd('e asm.arch')).trim();
     let bits = (await cmd('e asm.bits')).trim();
-    if (arch === 'x86') {
-        arch = 'x86intel';
-    }
     const architecture = libdec.archs[arch];
 
     if (architecture) {

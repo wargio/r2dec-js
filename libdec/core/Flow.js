@@ -33,7 +33,6 @@ module.exports = (function() {
 
     var _compare_loc = function(a, b) {
         if (a.eq(b.loc)) {
-            console.log("");
             return 0;
         }
         return a.lt(b.loc) ? 1 : -1;
@@ -95,7 +94,11 @@ module.exports = (function() {
             scope.header = 'do {';
             for (var i = start; i <= index; i++) {
                 tmpinstr = instructions[i];
-                tmpinstr.scope = scope;
+                if (tmpinstr.scope.level < scope.level) {
+                    tmpinstr.scope = scope;
+                } else {
+                    tmpinstr.scope.level++;
+                }
                 if (tmpinstr.jump && tmpinstr.jump.gt(tmpinstr.loc) && !bounds.isInside(tmpinstr.jump)) {
                     if (!tmpinstr.pseudo) {
                         tmpinstr.pseudo = 'break;';
