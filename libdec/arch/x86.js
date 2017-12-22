@@ -192,6 +192,10 @@ module.exports = (function() {
                 _conditional(i, c, 'LE');
                 return null;
             },
+            jae: function(i, c) {
+                _conditional(i, c, 'LT');
+                return null;
+            },
             jb: function(i, c) {
                 _conditional(i, c, 'GE');
                 return null;
