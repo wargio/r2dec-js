@@ -18,6 +18,7 @@
 module.exports = (function() {
     return {
         ppc: require('./arch/ppc'),
-        x86: require('./arch/x86')
+        x86: require('./arch/x86'),
+        mips: require('./arch/mips')
     };
 })();
