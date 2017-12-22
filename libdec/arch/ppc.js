@@ -736,7 +736,7 @@ module.exports = (function() {
                 if (instr.parsed[2] == '0') {
                     return instr.parsed[1] + " = 0;";
                 }
-                return instr.parsed[1] + " = (" + instr.parsed[2] + " << 32);";
+                return instr.parsed[1] + " = " + instr.parsed[2] + "0000;";
             },
             mr: function(instr) {
                 return instr.parsed[1] + " = " + instr.parsed[2] + ";";
