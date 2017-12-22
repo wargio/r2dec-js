@@ -65,7 +65,7 @@ module.exports = (function() {
             for (var i = l.length - 1; i >= 0; i--) {
                 if (!l[i]) break;
                 var e = l[i].opcode;
-                if (e.indexOf('r3 =')) {
+                if (e.indexOf('r3 =') == 0) {
                     r3 = true;
                     break;
                 }
