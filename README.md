@@ -1,7 +1,7 @@
-r2dec.
-======
+r2dec
+=====
 
-converts asm to pseudo-C code.
+Converts asm to pseudo-C code.
 
 # Dependencies
 

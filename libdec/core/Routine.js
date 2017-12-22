@@ -57,6 +57,9 @@ module.exports = (function() {
                         current.printHeader(p, tmpident);
                     }
                 }
+                if (instr.label > -1) {
+                    p( /*ident.substr(0, ident.length - cfg.ident.length) + */ 'label_' + instr.label + ':');
+                }
                 instr.print(p, ident);
             }
             p('}');
