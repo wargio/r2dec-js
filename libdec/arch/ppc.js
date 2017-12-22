@@ -349,6 +349,10 @@ module.exports = (function() {
         return e[1] + " = " + (bits ? '(uint' + bits + '_t) ' : '') + e[a] + " " + op + " " + e[b] + ";";
     };
 
+    var op_rotate = function(e, bits, left) {
+        return e[1] + ' = ' + (left ? 'rol' : 'ror') + bits + ' (' + e[2] + ', ' + e[3] + ');';
+    };
+
     var mask32 = function(mb, me) {
         if (mb < me + 1) {
             var mask = 0;
@@ -420,21 +424,25 @@ module.exports = (function() {
         return "*(((" + s + "int" + bits + "_t*) " + arg[1] + ")" + arg[0] + ") = " + e[1] + ";";
     };
 
-    var load_idx_bits = function(e, bits, unsigned) {
+    var load_idx_bits = function(instr, bits, unsigned) {
+        var e = instr.parsed;
+        instr.comments.push('with lock');
         var s = unsigned ? "u" : "";
         var sbits = bits > 8 ? "((" + s + "int" + bits + "_t*) (" : "";
         if (e[2] == '0') {
-            return e[1] + " = *(" + sbits + e[3] + "); // with lock";
+            return e[1] + " = *(" + sbits + e[3] + ");";
         }
-        return e[1] + " = *(" + sbits + "(uint8_t*)" + e[2] + " + " + e[3] + (bits > 8 ? ")" : "") + "); // with lock";
+        return e[1] + " = *(" + sbits + "(uint8_t*)" + e[2] + " + " + e[3] + (bits > 8 ? ")" : "") + ");";
     };
 
-    var store_idx_bits = function(e, bits, unsigned) {
+    var store_idx_bits = function(instr, bits, unsigned) {
+        var e = instr.parsed;
+        instr.comments.push('with lock');
         var s = unsigned ? "u" : "";
         if (e[2] == '0') {
-            return "*((" + s + "int" + bits + "_t*) " + e[3] + ") = " + e[1] + "; // with lock";
+            return "*((" + s + "int" + bits + "_t*) " + e[3] + ") = " + e[1] + ";";
         }
-        return "*((" + s + "int" + bits + "_t*) " + "((uint8_t*)" + e[2] + " + " + e[3] + ")) = " + e[1] + "; // with lock";
+        return "*((" + s + "int" + bits + "_t*) " + "((uint8_t*)" + e[2] + " + " + e[3] + ")) = " + e[1] + ";";
     };
 
     var _compare = function(instr, context, bits) {
@@ -525,9 +533,39 @@ module.exports = (function() {
             'ble+': function(instr, context) {
                 return _conditional(instr, context, 'GT');
             },
+            bl: function(instr) {
+                var fcn_name = instr.parsed[1].replace(/\./g, '_');
+                if (fcn_name.indexOf('0x') == 0) {
+                    fcn_name = fcn_name.replace(/0x/, 'fcn_');
+                }
+                return fcn_name + " ();";
+            },
             bdnz: function(instr, context) {
                 instr.conditional('(--ctr)', '0', 'NE');
                 return null;
+            },
+            blrl: function(instr, context) {
+                return '(*(void(*)()) lr) ();';
+            },
+            bctrl: function(instr, context) {
+                return '(*(void(*)()) ctr) ();';
+            },
+            mtlr: function(instr) {
+                return '_mtlr (' + instr.parsed[1] + ');';
+            },
+            blr: function(instr, context, instructions) {
+                var start = instructions.indexOf(instr);
+                if (start >= 0) {
+                    for (var i = start - 1; i >= start - 4; i--) {
+                        if (instructions[i].parsed.length < 2) {
+                            continue;
+                        }
+                        if (instructions[i].parsed[1] == 'r3') {
+                            return "return r3;";
+                        }
+                    }
+                }
+                return "return;";
             },
             cmplw: function(instr, context) {
                 return _compare(instr, context, "int32_t");
@@ -569,13 +607,13 @@ module.exports = (function() {
                 return load_bits(instr.parsed, 64, false);
             },
             lbzx: function(instr) {
-                return load_idx_bits(instr.parsed, 8, true);
+                return load_idx_bits(instr, 8, true);
             },
             ldarx: function(instr) {
-                return load_idx_bits(instr.parsed, 64, true);
+                return load_idx_bits(instr, 64, true);
             },
             'ldarx.': function(instr) {
-                return load_idx_bits(instr.parsed, 64, true);
+                return load_idx_bits(instr, 64, true);
             },
             ldu: function(instr) {
                 return load_bits(instr.parsed, 64, true);
@@ -587,7 +625,7 @@ module.exports = (function() {
                 return load_bits(instr.parsed, 32, true);
             },
             lwzx: function(instr) {
-                return load_idx_bits(instr.parsed, 32, true);
+                return load_idx_bits(instr, 32, true);
             },
             lhz: function(instr) {
                 return load_bits(instr.parsed, 16, true);
@@ -599,10 +637,10 @@ module.exports = (function() {
                 return store_bits(instr.parsed, 64, false);
             },
             stdcx: function(instr) {
-                return store_idx_bits(instr.parsed, 64, false);
+                return store_idx_bits(instr, 64, false);
             },
             'stdcx.': function(instr) {
-                return store_idx_bits(instr.parsed, 64, false);
+                return store_idx_bits(instr, 64, false);
             },
             stdu: function(instr) {
                 return store_bits(instr.parsed, 64, true);
@@ -695,6 +733,9 @@ module.exports = (function() {
                 return instr.parsed[1] + " = " + instr.parsed[2] + ";";
             },
             lis: function(instr) {
+                if (instr.parsed[2] == '0') {
+                    return instr.parsed[1] + " = 0;";
+                }
                 return instr.parsed[1] + " = (" + instr.parsed[2] + " << 32);";
             },
             mr: function(instr) {
@@ -764,6 +805,12 @@ module.exports = (function() {
             },
             srwi: function(instr) {
                 return op_bits4(instr.parsed, ">>", 32);
+            },
+            srawi: function(instr) {
+                return op_rotate(instr.parsed, 32, true);
+            },
+            srai: function(instr) {
+                return op_rotate(instr.parsed, 32, true);
             },
             srad: function(instr) {
                 return op_bits4(instr.parsed, ">>", 64);

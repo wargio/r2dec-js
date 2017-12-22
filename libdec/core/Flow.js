@@ -84,6 +84,9 @@ module.exports = (function() {
             var bounds = new AddrBounds(instr.jump, instr.loc);
             var cond = instr.cond ? Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_DEFAULT) : Branch.true();
             var tmpinstr = Utils.search(instr.jump, instructions, _compare_loc);
+            if (!tmpinstr) {
+                return false;
+            }
             var start = instructions.indexOf(tmpinstr);
             scope.level = instructions[start].scope.level + 1;
             scope.header = 'do {';
