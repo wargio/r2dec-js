@@ -32,19 +32,20 @@ module.exports = (function() {
             if (!compare) {
                 compare = _default_cmp;
             }
-            return _slow(value, array, compare);
-            /* FIXME: bin search doesn't work for reasons.. */
-            var m = 0;
-            var n = array.length - 1;
-            while (m <= n) {
-                var k = (n + m) >>> 1;
-                var cmp = compare(value, array[k]);
-                if (cmp > 0) {
-                    m = k + 1;
-                } else if (cmp < 0) {
-                    n = k - 1;
+            var min = 0;
+            var max = array.length - 1;
+            var index;
+            while (min <= max) {
+                index = (min + max) >> 1;
+                var cmp = compare(value, array[index]);
+                if (cmp === 0) {
+                    return index;
                 } else {
-                    return k;
+                    if (cmp < 0) {
+                        min = index + 1;
+                    } else {
+                        max = index - 1;
+                    }
                 }
             }
             return -1;

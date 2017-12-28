@@ -16,6 +16,7 @@
  */
 
 module.exports = (function() {
+    var Long = require('long');
     /* 
      * Gets an opcode block provided by agj
      * op = data[n].blocks[k].ops[i];
@@ -24,10 +25,10 @@ module.exports = (function() {
         this.scope = scope;
         this.loc = op.offset;
         this.jump = op.jump;
-        this.ref = op.refptr;
+        this.ref = op.refptr || (op.ptr && Long.ZERO.lt(op.ptr));
         this.label = -1;
         this.ptr = op.ptr ? op.ptr : null;
-        this.opcode = op.opcode ? op.opcode : 'invalid';
+        this.opcode = op.disasm ? op.disasm : (op.opcode ? op.opcode : 'invalid');
         this.comments = op.comment ? [(Buffer.from(op.comment, 'base64').toString())] : [];
         this.pseudo = op.opcode; //null;
         this.parsed = null;

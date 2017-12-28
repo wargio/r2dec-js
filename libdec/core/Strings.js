@@ -32,7 +32,7 @@ module.exports = (function() {
      */
     var Strings = function(izj) {
         this.data = izj.sort(function(a, b) {
-            return a.vaddr.lte(b.vaddr) ? -1 : 1;
+            return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
         }).map(function(x) {
             return {
                 loc: x.vaddr,

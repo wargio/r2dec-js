@@ -27,7 +27,7 @@ module.exports = (function() {
         this.instructions = instructions;
         this.args = [];
         this.returnType = 'void';
-        this.name = name;
+        this.name = name ? name.replace(cfg.anal.replace, '') : 'unknown_fcn';
 
         this.print = function(p) {
             var current = this.instructions[0].scope;

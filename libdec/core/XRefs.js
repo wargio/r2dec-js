@@ -32,7 +32,7 @@ module.exports = (function() {
      */
     var XRefs = function(isj) {
         this.data = isj.sort(function(a, b) {
-            return a.vaddr.lte(b.vaddr) ? -1 : 1;
+            return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
         }).map(function(x) {
             var name = x.name.indexOf('imp.') === 0 ? x.name.replace(/imp\./, '') : x.name;
             return {
