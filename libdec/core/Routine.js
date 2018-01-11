@@ -62,6 +62,13 @@ module.exports = (function() {
                 }
                 instr.print(p, ident);
             }
+            while (ident.length > 1 && current) {
+                if (ident.length > cfg.ident.length) {
+                    ident = ident.substr(0, ident.length - cfg.ident.length);
+                }
+                current.printTrailer(p, ident);
+                current = scopes.pop();
+            }
             p('}');
         };
     };

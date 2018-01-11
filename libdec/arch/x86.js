@@ -47,13 +47,19 @@ module.exports = (function() {
         return null;
     };
 
-    var _memory_load = function(e) {
+    var _memory_load = function(e, string) {
         if (e[1].match(/^[er]?[sb]p$/)) {
             return null;
         }
         if (_signed_types[e[1]]) {
+            if (string) {
+                return e[2].replace(/\[|\]/g, '') + " = " + string + ";";
+            }
             return "*((" + _signed_types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ") = " + e[3] + ";";
         } else if (_signed_types[e[2]]) {
+            if (string) {
+                return e[1] + " = " + string + ";";
+            }
             return e[1] + " = *((" + _signed_types[e[2]] + "*) " + e[3].replace(/\[|\]/g, '') + ");";
         }
         return null;
@@ -98,7 +104,7 @@ module.exports = (function() {
             }
             return e[1] + " = " + e[2] + ";";
         }
-        var m = _memory_load(e);
+        var m = _memory_load(e, instr.string);
         if (m) {
             return m;
         } else if (instr.string) {
@@ -324,6 +330,9 @@ module.exports = (function() {
             },
             ucomiss: _compare,
             xor: function(instr) {
+                if (instr.parsed[1] == instr.parsed[2]) {
+                    return instr.parsed[1] + ' = 0;';
+                }
                 return _common_math(instr.parsed, '^');
             },
             invalid: function() {
