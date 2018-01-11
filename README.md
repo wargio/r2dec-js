@@ -26,6 +26,7 @@ done
 
 # Supported Arch
 
+    arm
     ppc
     mips
     x86 (intel)
