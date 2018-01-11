@@ -29,6 +29,9 @@ module.exports = (function() {
 
     var _load = function(instr) {
         var e = instr.parsed;
+        if (e[1] == 'lr') {
+            return null;
+        }
         if (e.length == 3) {
             return e[1] + ' = ' + (instr.string ? instr.string : e[2]) + ';';
         } else if (e.length == 4) {
@@ -39,6 +42,25 @@ module.exports = (function() {
             return e[1] + ' = ' + e[2] + '[' + e[3] + ' << ' + e[5] + ']' + ';';
         } else if (e.length == 7 && e[4].toLowerCase() == 'lsl') {
             return e[2] + ' += (' + e[3] + ' << ' + e[5] + '); ' + e[1] + ' = ' + e[2] + '[0]' + ';';
+        }
+        return instr.pseudo;
+    };
+
+    var _store = function(instr) {
+        var e = instr.parsed;
+        if (e[1] == 'lr') {
+            return null;
+        }
+        if (e.length == 3) {
+            return e[1] + ' = ' + (instr.string ? instr.string : e[2]) + ';';
+        } else if (e.length == 4) {
+            return e[2] + '[' + e[3] + '] = ' + e[1] + ';';
+        } else if (e.length == 5) {
+            return e[2] + ' += ' + e[3] + '; ' + e[2] + '[0] = ' + e[1] + ';';
+        } else if (e.length == 6 && e[4].toLowerCase() == 'lsl') {
+            return e[2] + '[' + e[3] + ' << ' + e[5] + '] = ' + e[1] + ';';
+        } else if (e.length == 7 && e[4].toLowerCase() == 'lsl') {
+            return e[2] + ' += (' + e[3] + ' << ' + e[5] + '); ' + e[2] + '[0] = ' + e[1] + ';';
         }
         return instr.pseudo;
     };
@@ -73,7 +95,7 @@ module.exports = (function() {
                 return _conditional(instr, context, 'GT');
             },
             bl: function(instr) {
-                return instr.parsed[1] + ' ();';
+                return instr.parsed[1].replace(/\./g, '_') + ' ();';
             },
             cmp: function(instr, context) {
                 context.cond.a = instr.parsed[1];
@@ -97,7 +119,46 @@ module.exports = (function() {
                 }
                 return dst + ' = ' + instr.parsed[2];
             },
+            moveq: function(instr, context) {
+                var dst = instr.parsed[1];
+                if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
+                    return null;
+                }
+                return 'if (' + context.cond.a + ' == ' + context.cond.b + ') ' + dst + ' = ' + instr.parsed[2];
+            },
+            movne: function(instr, context) {
+                var dst = instr.parsed[1];
+                if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
+                    return null;
+                }
+                return 'if (' + context.cond.a + ' != ' + context.cond.b + ') ' + dst + ' = ' + instr.parsed[2];
+            },
+            pop: function(instr) {
+                for (var i = 1; i < instr.parsed.length; i++) {
+                    if (instr.parsed[i] == 'pc') {
+                        return 'return;';
+                    }
+                }
+                return null;
+            },
+            popeq: function(instr, context) {
+                for (var i = 1; i < instr.parsed.length; i++) {
+                    if (instr.parsed[i] == 'pc') {
+                        return 'if (' + context.cond.a + ' == ' + context.cond.b + ') return;';
+                    }
+                }
+                return null;
+            },
+            popne: function(instr, context) {
+                for (var i = 1; i < instr.parsed.length; i++) {
+                    if (instr.parsed[i] == 'pc') {
+                        return 'if (' + context.cond.a + ' != ' + context.cond.b + ') return;';
+                    }
+                }
+                return null;
+            },
             push: function() {},
+            str: _store,
             sub: function(instr) {
                 return _common_math(instr.parsed, '-');
             },
