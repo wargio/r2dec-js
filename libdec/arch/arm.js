@@ -28,8 +28,17 @@ module.exports = (function() {
     };
 
     var _load = function(instr) {
-        if (instr.parsed.length == 3) {
-            return instr.parsed[1] + ' = ' + (instr.string ? instr.string : instr.parsed[2]) + ';';
+        var e = instr.parsed;
+        if (e.length == 3) {
+            return e[1] + ' = ' + (instr.string ? instr.string : e[2]) + ';';
+        } else if (e.length == 4) {
+            return e[1] + ' = ' + e[2] + '[' + e[3] + ']' + ';';
+        } else if (e.length == 5) {
+            return e[2] + ' += ' + e[3] + '; ' + e[1] + ' = ' + e[2] + '[0]' + ';';
+        } else if (e.length == 6 && e[4].toLowerCase() == 'lsl') {
+            return e[1] + ' = ' + e[2] + '[' + e[3] + ' << ' + e[5] + ']' + ';';
+        } else if (e.length == 7 && e[4].toLowerCase() == 'lsl') {
+            return e[2] + ' += (' + e[3] + ' << ' + e[5] + '); ' + e[1] + ' = ' + e[2] + '[0]' + ';';
         }
         return instr.pseudo;
     };
