@@ -17,6 +17,7 @@
 
 module.exports = (function() {
     return {
+        arm: require('./arch/arm'),
         ppc: require('./arch/ppc'),
         x86: require('./arch/x86'),
         mips: require('./arch/mips')
