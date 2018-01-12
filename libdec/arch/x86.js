@@ -230,6 +230,10 @@ module.exports = (function() {
                 _conditional(i, c, 'LT');
                 return null;
             },
+            jns: function(i, c) {
+                _conditional(i, c, 'GE');
+                return null;
+            },
             jmp: function(instr, context, instructions) {
                 if (instr.parsed.length == 2) {
                     //return "goto " + instr.parsed[1] + ";";
@@ -266,12 +270,13 @@ module.exports = (function() {
             mul: function(instr) {
                 return _common_math(instr.parsed, '*');
             },
+            inc: function(instr) {
+                var e = instr.parsed;
+                return e[1] + "++;";
+            },
             neg: function(instr) {
                 var e = instr.parsed;
-                if (e[2].charAt(0) == '-') {
-                    return e[1] + " = " + e[2].substr(1, e[2].length) + ";";
-                }
-                return e[1] + " = -" + e[2] + ";";
+                return e[1] + " = -" + e[1] + ";";
             },
             nop: function(instr) {
                 instr.comments.push('nop');
@@ -279,7 +284,7 @@ module.exports = (function() {
             },
             not: function(instr) {
                 var e = instr.parsed;
-                return e[1] + " = !" + e[2] + ";";
+                return e[1] + " = ~" + e[1] + ";";
             },
             or: function(instr) {
                 return _common_math(instr.parsed, '|');
@@ -320,6 +325,9 @@ module.exports = (function() {
                 return _common_math(instr.parsed, '>>');
             },
             sub: function(instr) {
+                return _common_math(instr.parsed, '-');
+            },
+            sbb: function(instr) {
                 return _common_math(instr.parsed, '-');
             },
             test: function(instr, context, instructions) {
