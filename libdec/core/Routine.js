@@ -20,6 +20,33 @@ module.exports = (function() {
     var Flow = require('./Flow');
     var Scope = require('./Scope');
 
+    var _print_deps = function(p, instructions) {
+        var macros = [];
+        var codes = [];
+        for (var i = 0; i < instructions.length; i++) {
+            if (!instructions[i].pseudo || !instructions[i].pseudo.deps) {
+                continue;
+            }
+            for (var j = 0; j < instructions[i].pseudo.deps.macros.length; j++) {
+                if (macros.indexOf(instructions[i].pseudo.deps.macros[j]) < 0) {
+                    macros.push(instructions[i].pseudo.deps.macros[j]);
+                    if (instructions[i].pseudo.deps.code.length > 0) {
+                        codes.push(instructions[i].pseudo.deps.code);
+                    }
+                }
+            }
+        }
+        for (var i = 0; i < macros.length; i++) {
+            p(macros[i]);
+        }
+        if (macros.length) {
+            p('');
+        }
+        for (var i = 0; i < codes.length; i++) {
+            p(codes[i] + '\n');
+        }
+    };
+
     /*
      * Expects name and instructions as input.
      */
@@ -30,20 +57,7 @@ module.exports = (function() {
         this.name = name ? name.replace(cfg.anal.replace, '') : 'unknown_fcn';
 
         this.print = function(p) {
-            var macros = [];
-            for (var i = 0; i < this.instructions.length; i++) {
-                if (!this.instructions[i].pseudo || !this.instructions[i].pseudo.deps) {
-                    continue;
-                }
-                for (var j = 0; j < this.instructions[i].pseudo.deps.macros.length; j++) {
-                    if (macros.indexOf(this.instructions[i].pseudo.deps.macros[j]) < 0) {
-                        macros.push(this.instructions[i].pseudo.deps.macros[j])
-                    }
-                }
-            }
-            for (var i = 0; i < macros.length; i++) {
-                p(macros[i]);
-            }
+            _print_deps(p, this.instructions);
             var current = this.instructions[0].scope;
             var scopes = [current];
             var ident = cfg.ident;
