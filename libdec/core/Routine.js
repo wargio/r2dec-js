@@ -47,6 +47,13 @@ module.exports = (function() {
         }
     };
 
+    var _fix_routine_name = function(name) {
+        if (!name) {
+            return 'unknown_fcn';
+        }
+        return name.replace(cfg.anal.replace, '').replace(/\.|:/g, '_').replace(/__+/g, '_').replace(/^_/, '').replace(/_[0-9a-f]+$/, '');
+    }
+
     /*
      * Expects name and instructions as input.
      */
@@ -54,7 +61,7 @@ module.exports = (function() {
         this.instructions = instructions;
         this.args = [];
         this.returnType = 'void';
-        this.name = name ? name.replace(cfg.anal.replace, '') : 'unknown_fcn';
+        this.name = _fix_routine_name(name);
 
         this.print = function(p) {
             _print_deps(p, this.instructions);

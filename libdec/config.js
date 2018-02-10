@@ -23,6 +23,6 @@ module.exports = {
     anal: {
         asmheader: '_asm("',
         asmtrailer: '");',
-        replace: /sym\.imp\.|sym\.|obj\.|aav\./
+        replace: /sym\.imp\.|sym\.|obj\.|aav\.|sub\./
     }
 };

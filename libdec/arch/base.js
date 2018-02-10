@@ -23,6 +23,8 @@ module.exports = (function() {
         'wcscmp': ['#include <wchar.h>'],
         'strcmp': ['#include <string.h>'],
         'strncmp': ['#include <string.h>'],
+        'msvcrt_dll_memset': ['#include <string.h>'],
+        'memset': ['#include <string.h>'],
         'memcpy': ['#include <string.h>'],
         'strcpy': ['#include <string.h>'],
         'puts': ['#include <stdio.h>'],
@@ -67,6 +69,15 @@ module.exports = (function() {
         };
     };
 
+    var _common_pre_op = function(op, destination, source) {
+        this.op = op;
+        this.dst = destination;
+        this.src = source;
+        this.toString = function() {
+            return this.dst + ' = ' + this.op + this.src;
+        };
+    };
+
     var _common_memory = function(bits, is_signed, pointer, register, is_write) {
         this.reg = register;
         this.pointer = pointer;
@@ -105,17 +116,27 @@ module.exports = (function() {
         };
     };
 
-    var _common_assign = function(destination, source) {
+    var _common_assign = function(destination, source, bits) {
         this.dst = destination;
+        this.bits = bits ? ('(int' + bits + '_t) ') : '';
         this.src = source;
         this.toString = function() {
-            return this.dst + ' = ' + this.src;
+            return this.dst + ' = ' + this.bits + this.src;
         };
     }
 
     return {
+        increase: function(destination, source) {
+            return new _pseudocode(new _common_math('+', destination, destination, source));
+        },
+        decrease: function(destination, source) {
+            return new _pseudocode(new _common_math('+', destination, destination, source));
+        },
         assign: function(destination, source) {
-            return new _pseudocode(new _common_assign(destination, source));
+            return new _pseudocode(new _common_assign(destination, source, false));
+        },
+        extend: function(destination, source, bits) {
+            return new _pseudocode(new _common_assign(destination, source, bits));
         },
         return: function(register) {
             if (register) {
@@ -153,11 +174,11 @@ module.exports = (function() {
         module: function(destination, source_a, source_b) {
             return new _pseudocode(new _common_math('%', destination, source_a, source_b));
         },
-        not: function(destination, source_a) {
-            return new _pseudocode(new _common_math('', destination, '!', source_a));
+        not: function(destination, source) {
+            return new _pseudocode(new _common_pre_op('!', destination, source));
         },
-        negate: function(destination, source_a) {
-            return new _pseudocode(new _common_math('', destination, '-', source_a));
+        negate: function(destination, source) {
+            return new _pseudocode(new _common_pre_op('-', destination, source));
         },
         shift_left: function(destination, source_a, source_b) {
             return new _pseudocode(new _common_math('<<', destination, source_a, source_b));
@@ -181,13 +202,6 @@ module.exports = (function() {
         write_memory: function(pointer, register, bits, is_signed) {
             return new _pseudocode(new _common_memory(bits, is_signed, pointer, register, true));
         },
-        call: function(address, args) {
-            var macros = _call_common[address];
-            if (macros) {
-                macros = new _dependency(macros);
-            }
-            return new _pseudocode(address + ' (' + args.join(', ') + ')', macros);
-        },
         call: function(address, args, is_pointer) {
             args = args || [];
             var macros = _call_common[address];
@@ -195,7 +209,7 @@ module.exports = (function() {
                 macros = new _dependency(macros);
             }
             if (is_pointer) {
-                address = '(*(void(*)(' + (args.lenght > 0 ? '...' : '') + ')) ' + address + ')'
+                address = '(*(void(*)(' + (args.length > 0 ? '...' : '') + ')) ' + address + ')'
             }
             return new _pseudocode(address + ' (' + args.join(', ') + ')', macros);
         },
@@ -216,6 +230,9 @@ module.exports = (function() {
         },
         branch_greater_equal: function(a, b) {
             return new _pseudocode(new _common_conditional('CMP_GE', a, b, false));
+        },
+        push: function(data) {
+            return new _pseudocode(data);
         },
         unknown: function(data) {
             return new _pseudocode('_asm(\"' + data + '\")');
