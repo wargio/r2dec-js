@@ -32,6 +32,7 @@ module.exports = (function() {
         this.comments = op.comment ? [(Buffer.from(op.comment, 'base64').toString())] : [];
         this.pseudo = this.opcode; //null;
         this.parsed = null;
+        this.valid = true;
         this.string = null;
         this.cond = null;
         this.xrefs = op.xrefs ? op.xrefs.slice() : [];
@@ -47,8 +48,8 @@ module.exports = (function() {
                     p(ident + ' */');
                 }
             }
-            if (this.pseudo) {
-                p(ident + this.pseudo);
+            if (this.pseudo && this.valid) {
+                p(ident + this.pseudo.toString() + ';');
             }
         };
         this.conditional = function(a, b, type) {
