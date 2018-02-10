@@ -29,7 +29,7 @@ module.exports = (function() {
         this.hi = hi;
 
         this.isInside = function(addr) {
-            return addr.gte(this.low) && addr.lte(this.hi);
+            return addr ? (addr.gte(this.low) && addr.lte(this.hi)) : false;
         }
     };
 
@@ -46,7 +46,7 @@ module.exports = (function() {
             return false;
         }
         if (!instr.pseudo) {
-            instr.pseudo = 'goto 0x' + instr.jump.toString(16) + ';'
+            instr.pseudo = 'goto 0x' + instr.jump.toString(16);
         }
         return true;
     };
@@ -65,7 +65,7 @@ module.exports = (function() {
     var _set_label = function(instructions, index) {
         var label = _label_counter++;
         var instr = instructions[index];
-        instr.pseudo = 'goto label_' + label + ';';
+        instr.pseudo = 'goto label_' + label;
         for (var i = index; i < instructions.length; i++) {
             var tmpinstr = instructions[i];
             if (tmpinstr.loc.eq(instr.jump)) {
@@ -88,8 +88,9 @@ module.exports = (function() {
                 return false;
             }
             var start = instructions.indexOf(tmpinstr);
+            var is_while = (instructions[start - 1] && bounds.isInside(instructions[start - 1].jump));
             scope.level = instructions[start].scope.level + 1;
-            scope.header = 'do {';
+            scope.header = is_while ? ('while (' + cond + ') {') : 'do {';
             for (var i = start; i <= index; i++) {
                 tmpinstr = instructions[i];
                 if (tmpinstr.scope.level == scope.level) {
@@ -105,7 +106,7 @@ module.exports = (function() {
                     }
                 }
             }
-            scope.trailer = '} while (' + cond + ');';
+            scope.trailer = is_while ? '}' : '} while (' + cond + ');';
             return true;
         }
         return false;

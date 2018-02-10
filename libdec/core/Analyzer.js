@@ -16,6 +16,7 @@
  */
 
 module.exports = (function() {
+    var Base = require('../arch/base');
     const cfg = require('../config');
     var Flow = require('./Flow');
     var Scope = require('./Scope');
@@ -57,7 +58,7 @@ module.exports = (function() {
             if (fcn) {
                 instr.pseudo = fcn(instr, context, instructions);
             } else {
-                instr.pseudo = cfg.anal.asmheader + opcode + cfg.anal.asmtrailer;
+                instr.pseudo = Base.unknown(opcode);
             }
         }
     };

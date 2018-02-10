@@ -344,13 +344,13 @@ module.exports = (function() {
         var a = swap ? 3 : 2;
         var b = swap ? 2 : 3;
         if (e[1] == e[a] && !bits) {
-            return e[1] + " " + op + "= " + e[b] + ";";
+            return e[1] + " " + op + "= " + e[b];
         }
-        return e[1] + " = " + (bits ? '(uint' + bits + '_t) ' : '') + e[a] + " " + op + " " + e[b] + ";";
+        return e[1] + " = " + (bits ? '(uint' + bits + '_t) ' : '') + e[a] + " " + op + " " + e[b];
     };
 
     var op_rotate = function(e, bits, left) {
-        return e[1] + ' = ' + (left ? 'rol' : 'ror') + bits + ' (' + e[2] + ', ' + e[3] + ');';
+        return e[1] + ' = ' + (left ? 'rol' : 'ror') + bits + ' (' + e[2] + ', ' + e[3] + ')';
     };
 
     var mask32 = function(mb, me) {
@@ -396,32 +396,32 @@ module.exports = (function() {
         var s = unsigned ? "u" : "";
         var arg = e[2].replace(/\)/, '').split('(');
         if (arg[1] == '0') {
-            return e[1] + " = *((" + s + "int" + bits + "_t*) " + arg[0] + ");";
+            return e[1] + " = *((" + s + "int" + bits + "_t*) " + arg[0] + ")";
         } else if (arg[0] == '0') {
-            return e[1] + " = *((" + s + "int" + bits + "_t*) " + arg[1] + ");";
+            return e[1] + " = *((" + s + "int" + bits + "_t*) " + arg[1] + ")";
         }
         arg[0] = parseInt(arg[0]) / (bits / 8);
         if (arg[0] < 0)
             arg[0] = " - " + Math.abs(arg[0]);
         else
             arg[0] = " + " + arg[0];
-        return e[1] + " = *(((" + s + "int" + bits + "_t*) " + arg[1] + ")" + arg[0] + ");";
+        return e[1] + " = *(((" + s + "int" + bits + "_t*) " + arg[1] + ")" + arg[0] + ")";
     };
 
     var store_bits = function(e, bits, unsigned) {
         var s = unsigned ? "u" : "";
         var arg = e[2].replace(/\)/, '').split('(');
         if (arg[1] == '0') {
-            return "*((" + s + "int" + bits + "_t*) " + arg[0] + ") = " + e[1] + ";";
+            return "*((" + s + "int" + bits + "_t*) " + arg[0] + ") = " + e[1];
         } else if (arg[0] == '0') {
-            return "*((" + s + "int" + bits + "_t*) " + arg[1] + ") = " + e[1] + ";";
+            return "*((" + s + "int" + bits + "_t*) " + arg[1] + ") = " + e[1];
         }
         arg[0] = parseInt(arg[0]) / (bits / 8);
         if (arg[0] < 0)
             arg[0] = " - " + Math.abs(arg[0]);
         else
             arg[0] = " + " + arg[0];
-        return "*(((" + s + "int" + bits + "_t*) " + arg[1] + ")" + arg[0] + ") = " + e[1] + ";";
+        return "*(((" + s + "int" + bits + "_t*) " + arg[1] + ")" + arg[0] + ") = " + e[1];
     };
 
     var load_idx_bits = function(instr, bits, unsigned) {
@@ -430,9 +430,9 @@ module.exports = (function() {
         var s = unsigned ? "u" : "";
         var sbits = bits > 8 ? "((" + s + "int" + bits + "_t*) (" : "";
         if (e[2] == '0') {
-            return e[1] + " = *(" + sbits + e[3] + ");";
+            return e[1] + " = *(" + sbits + e[3] + ")";
         }
-        return e[1] + " = *(" + sbits + "(uint8_t*)" + e[2] + " + " + e[3] + (bits > 8 ? ")" : "") + ");";
+        return e[1] + " = *(" + sbits + "(uint8_t*)" + e[2] + " + " + e[3] + (bits > 8 ? ")" : "") + ")";
     };
 
     var store_idx_bits = function(instr, bits, unsigned) {
@@ -440,9 +440,9 @@ module.exports = (function() {
         instr.comments.push('with lock');
         var s = unsigned ? "u" : "";
         if (e[2] == '0') {
-            return "*((" + s + "int" + bits + "_t*) " + e[3] + ") = " + e[1] + ";";
+            return "*((" + s + "int" + bits + "_t*) " + e[3] + ") = " + e[1];
         }
-        return "*((" + s + "int" + bits + "_t*) " + "((uint8_t*)" + e[2] + " + " + e[3] + ")) = " + e[1] + ";";
+        return "*((" + s + "int" + bits + "_t*) " + "((uint8_t*)" + e[2] + " + " + e[3] + ")) = " + e[1];
     };
 
     var _compare = function(instr, context, bits) {
@@ -538,20 +538,20 @@ module.exports = (function() {
                 if (fcn_name.indexOf('0x') == 0) {
                     fcn_name = fcn_name.replace(/0x/, 'fcn_');
                 }
-                return fcn_name + " ();";
+                return fcn_name + " ()";
             },
             bdnz: function(instr, context) {
                 instr.conditional('(--ctr)', '0', 'NE');
                 return null;
             },
             blrl: function(instr, context) {
-                return '(*(void(*)()) lr) ();';
+                return '(*(void(*)()) lr) ()';
             },
             bctrl: function(instr, context) {
-                return '(*(void(*)()) ctr) ();';
+                return '(*(void(*)()) ctr) ()';
             },
             mtlr: function(instr) {
-                return '_mtlr (' + instr.parsed[1] + ');';
+                return '_mtlr (' + instr.parsed[1] + ')';
             },
             blr: function(instr, context, instructions) {
                 var start = instructions.indexOf(instr);
@@ -561,11 +561,11 @@ module.exports = (function() {
                             continue;
                         }
                         if (instructions[i].parsed[1] == 'r3') {
-                            return "return r3;";
+                            return "return r3";
                         }
                     }
                 }
-                return "return;";
+                return "return";
             },
             cmplw: function(instr, context) {
                 return _compare(instr, context, "int32_t");
@@ -662,90 +662,90 @@ module.exports = (function() {
             },
             dcbz: function(instr) {
                 if (instr.parsed[1] == "0") {
-                    return "_dcbz (" + instr.parsed[2] + ");";
+                    return "_dcbz (" + instr.parsed[2] + ")";
                 }
-                return "_dcbz (" + instr.parsed[1] + " + " + instr.parsed[2] + ");";
+                return "_dcbz (" + instr.parsed[1] + " + " + instr.parsed[2] + ")";
             },
             mtmsrd: function(instr) {
-                return '_mtmsrd (' + instr.parsed[1] + ');';
+                return '_mtmsrd (' + instr.parsed[1] + ')';
             },
             mfmsrd: function(instr) {
-                return instr.parsed[1] + ' = (uint64_t) _mfmsrd ();';
+                return instr.parsed[1] + ' = (uint64_t) _mfmsrd ()';
             },
             mfcr: function(instr) {
-                return instr.parsed[1] + ' = _mfcr ();';
+                return instr.parsed[1] + ' = _mfcr ()';
             },
             mtcr: function(instr) {
-                return '_mtcr (' + instr.parsed[1] + ');';
+                return '_mtcr (' + instr.parsed[1] + ')';
             },
             mtctr: function(instr) {
-                return 'ctr = ' + instr.parsed[1] + ';';
+                return 'ctr = ' + instr.parsed[1];
             },
             mfctr: function(instr) {
-                return instr.parsed[1] + ' = ctr;';
+                return instr.parsed[1] + ' = ctr';
             },
             mtcrf: function(instr) {
-                return '_mtcrf (' + instr.parsed[1] + ', ' + instr.parsed[2] + ');';
+                return '_mtcrf (' + instr.parsed[1] + ', ' + instr.parsed[2] + ')';
             },
             mflr: function(instr) {
-                return instr.parsed[1] + ' = _mflr ();';
+                return instr.parsed[1] + ' = _mflr ()';
             },
             mtocrf: function(instr) {
-                return '_mtocrf (' + instr.parsed[1] + ', ' + instr.parsed[2] + ');';
+                return '_mtocrf (' + instr.parsed[1] + ', ' + instr.parsed[2] + ')';
             },
             mfpvr: function(instr) {
-                return instr.parsed[1] + ' = _mfpvr ();';
+                return instr.parsed[1] + ' = _mfpvr ()';
             },
             mfdccr: function(instr) {
-                return instr.parsed[1] + ' = _mfdccr ();';
+                return instr.parsed[1] + ' = _mfdccr ()';
             },
             mtdccr: function(instr) {
-                return '_mtdccr (' + instr.parsed[1] + ');';
+                return '_mtdccr (' + instr.parsed[1] + ')';
             },
             mfspr: function(instr) {
                 instr.comments.push("SPR num: " + parseInt(e[2]));
                 var spr = get_spr(instr.parsed[2]);
                 var bits = get_bits(spr);
-                return instr.parsed[1] + ' = (' + bits + ') _mfspr (' + spr + ');';
+                return instr.parsed[1] + ' = (' + bits + ') _mfspr (' + spr + ')';
             },
             mtspr: function(instr) {
                 instr.comments.push("SPR num: " + parseInt(instr.parsed[1]));
                 var spr = get_spr(instr.parsed[1]);
                 var bits = get_bits(spr);
-                return '_mtspr (' + spr + ', ' + instr.parsed[2] + ');';
+                return '_mtspr (' + spr + ', ' + instr.parsed[2] + ')';
             },
             sync: function() {
-                return "_isync ();";
+                return "_isync ()";
             },
             lwsync: function() {
-                return "_lwsync ();";
+                return "_lwsync ()";
             },
             isync: function() {
-                return "_isync ();";
+                return "_isync ()";
             },
             slbia: function() {
-                return "_slbia ();";
+                return "_slbia ()";
             },
             eieio: function() {
-                return "_eieio ();";
+                return "_eieio ()";
             },
             li: function(instr) {
-                return instr.parsed[1] + " = " + instr.parsed[2] + ";";
+                return instr.parsed[1] + " = " + instr.parsed[2];
             },
             lis: function(instr) {
                 if (instr.parsed[2] == '0') {
-                    return instr.parsed[1] + " = 0;";
+                    return instr.parsed[1] + " = 0";
                 }
-                return instr.parsed[1] + " = " + instr.parsed[2] + "0000;";
+                return instr.parsed[1] + " = " + instr.parsed[2] + "0000";
             },
             mr: function(instr) {
-                return instr.parsed[1] + " = " + instr.parsed[2] + ";";
+                return instr.parsed[1] + " = " + instr.parsed[2];
             },
             neg: function(instr) {
-                return instr.parsed[1] + " = -" + instr.parsed[2] + ";";
+                return instr.parsed[1] + " = -" + instr.parsed[2];
             },
             not: function(instr) {
-                return instr.parsed[1] + " = !" + instr.parsed[2] + ";";
+                return instr.parsed[1] + " = !" + instr.parsed[2];
             },
             add: function(instr) {
                 return op_bits4(instr.parsed, "+");
@@ -829,7 +829,7 @@ module.exports = (function() {
                  */
                 var ret = instr.parsed[1];
                 var reg = instr.parsed[2];
-                return ret + " = (uint64_t) _cntlz(" + reg + ");";
+                return ret + " = (uint64_t) _cntlz(" + reg + ")";
             },
             cntlzw: function(instr) {
                 /*
@@ -842,16 +842,16 @@ module.exports = (function() {
                  */
                 var ret = instr.parsed[1];
                 var reg = instr.parsed[2];
-                return ret + " = (uint32_t) _cntlzw(" + reg + ");";
+                return ret + " = (uint32_t) _cntlzw(" + reg + ")";
             },
             extsb: function(instr) {
-                return instr.parsed[1] + " = (int64_t) " + instr.parsed[2] + ";";
+                return instr.parsed[1] + " = (int64_t) " + instr.parsed[2];
             },
             extsh: function(instr) {
-                return instr.parsed[1] + " = (int64_t) " + instr.parsed[2] + ";";
+                return instr.parsed[1] + " = (int64_t) " + instr.parsed[2];
             },
             extsw: function(instr) {
-                return instr.parsed[1] + " = (int64_t) " + instr.parsed[2] + ";";
+                return instr.parsed[1] + " = (int64_t) " + instr.parsed[2];
             },
             /*
 to be redone. this is wrong.
@@ -862,16 +862,16 @@ rldicl %r0, %r0, 0,59     # %r0 = %r0 & 0x1F
 rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
 */
             rldic: function(instr) {
-                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4] + ';';
+                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4];
             },
             rldcl: function(instr) {
-                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4] + ';';
+                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4];
             },
             rldicl: function(instr) {
-                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4] + ';';
+                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4];
             },
             rldcr: function(instr) {
-                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4] + ';';
+                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4];
             },
             rldicr: function(instr) {
                 var res = instr.parsed[1] + ' = ';
@@ -880,7 +880,7 @@ rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
                 var mb = 0;
                 var me = parseInt(instr.parsed[4]);
                 var mask = mask64(mb, me);
-                return res + ';';
+                return res;
             },
             clrlwi: function(instr) {
                 var res = instr.parsed[1];
