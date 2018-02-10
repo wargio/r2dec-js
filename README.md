@@ -90,13 +90,14 @@ void main () {
     *((int32_t*) local_14h) = edi;
     *((int64_t*) local_20h) = rsi;
     *((int32_t*) local_4h) = 0;
-    do {
+    while (*((int32_t*) local_4h) > 0x8f) {
         if (*((int32_t*) local_4h) <= 0xf) {
             *((int32_t*) local_4h) += 0x50;
         }
         *((int32_t*) local_4h) += 0x10;
-    } while (*((int32_t*) local_4h) > 0x8f);
+    }
     eax = 0;
-    return;
+    return eax;
 }
+
 ```
