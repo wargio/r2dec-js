@@ -103,35 +103,40 @@ module.exports = (function() {
         var regs64 = ['rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9'];
         var args = [];
         var bad_ax = true;
-        var pushonly = false;
         var end = instrs.indexOf(instr) - regs64.length;
-        for (var i = instrs.indexOf(instr) - 1; i >= end; i--) {
-            var op = instrs[i].parsed[0];
-            var arg0 = instrs[i].parsed[1];
-            if (_bits_types[arg0]) {
-                arg0 = instrs[i].parsed[2];
+        var start = instrs.indexOf(instr) - 1;
+        if (instrs[start].parsed[0] == 'push') {
+            for (var i = start; i >= 0; i--) {
+                var op = instrs[i].parsed[0];
+                if (op == 'push') {
+                    args.push(instrs[i].string || instrs[i].pseudo.toString().replace(/^.+\s=\s/, '').trim());
+                } else if (op == 'call' || instrs[i].jump) {
+                    break;
+                }
             }
-            if (op == 'push') {
-                args.push(instrs[i].string || instrs[i].pseudo.toString().replace(/^.+\s=\s/, '').trim());
-                pushonly = true;
-                continue;
-            }
-            if (bad_ax && (arg0 == 'eax' || arg0 == 'rax')) {
+        } else {
+            for (var i = start; i >= end; i--) {
+                var arg0 = instrs[i].parsed[1];
+                if (_bits_types[arg0]) {
+                    arg0 = instrs[i].parsed[2];
+                }
+                if (bad_ax && (arg0 == 'eax' || arg0 == 'rax')) {
+                    bad_ax = false;
+                    continue;
+                }
+                if ((arg0 != 'esp' && regs32.indexOf(arg0) < 0 && regs64.indexOf(arg0) < 0) ||
+                    !instrs[i].pseudo || !instrs[i].pseudo[0] == 'call') {
+                    break;
+                }
                 bad_ax = false;
-                continue;
+                if (regs32.indexOf(arg0) > -1) {
+                    regs32.splice(regs32.indexOf(arg0), 1);
+                } else if (regs64.indexOf(arg0) > -1) {
+                    regs64.splice(regs64.indexOf(arg0), 1);
+                }
+                args.push(instrs[i].string || instrs[i].pseudo.toString().replace(/^.+\s=\s/, '').trim());
+                instrs[i].valid = false;
             }
-            if ((arg0 != 'esp' && regs32.indexOf(arg0) < 0 && regs64.indexOf(arg0) < 0) ||
-                !instrs[i].pseudo || !instrs[i].pseudo[0] == 'call' || pushonly) {
-                break;
-            }
-            bad_ax = false;
-            if (regs32.indexOf(arg0) > -1) {
-                regs32.splice(regs32.indexOf(arg0), 1);
-            } else if (regs64.indexOf(arg0) > -1) {
-                regs64.splice(regs64.indexOf(arg0), 1);
-            }
-            args.push(instrs[i].string || instrs[i].pseudo.toString().replace(/^.+\s=\s/, '').trim());
-            instrs[i].valid = false;
         }
         var callname = instr.parsed[1];
         if (_bits_types[instr.parsed[1]]) {

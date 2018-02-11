@@ -36,7 +36,7 @@ module.exports = (function() {
         }).map(function(x) {
             return {
                 loc: x.vaddr,
-                value: Buffer.from(x.string, 'base64').toString()
+                value: Buffer.from(x.string, 'base64').toString().replace(/\\\\/g, '\\')
             };
         });
 
