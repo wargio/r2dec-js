@@ -54,6 +54,9 @@ module.exports = (function() {
             // removes just 'sym.[imp.]' strings..
             opcode = instr.opcode.replace(cfg.anal.replace, '');
             instr.parsed = arch.parse(opcode);
+        }
+        for (var i = 0; i < instructions.length; i++) {
+            instr = instructions[i];
             fcn = arch.instructions[instr.parsed[0]];
             if (fcn) {
                 instr.pseudo = fcn(instr, context, instructions);

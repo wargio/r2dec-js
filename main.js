@@ -27,7 +27,7 @@
 const libdec = require('./libdec/libdec.js');
 var fs = require('fs');
 
-function load_json(filename) {
+function load_text(filename) {
     try {
         return fs.readFileSync(filename, 'utf8');
     } catch (e) {
@@ -39,7 +39,7 @@ function load_json(filename) {
 var filename = process.argv[2];
 
 if (filename) {
-    const data = libdec.JSON.parse(load_json(filename));
+    const data = libdec.JSON.parse(load_text(filename));
     const architecture = libdec.archs[data.arch];
     if (!architecture) {
         console.log(architecture + " is not currently supported.");

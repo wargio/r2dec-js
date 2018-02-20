@@ -44,8 +44,25 @@ module.exports = (function() {
         return name.replace(/\[reloc\.|\]/g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/_[0-9a-f]+$/, '').replace(/^_+/, '');
     }
 
+    var _is_stack_reg = function(val) {
+        return val ? (val.match(/^[er]?[sb]p$/) != null) : false;
+    }
+
+    var _clean_save_reg = function(instr, size, instructions) {
+        var index = instructions.indexOf(instr);
+        var saved = [];
+        for (var i = index + 1; size > 0 && i < instructions.length; i++) {
+            if (instructions[i].parsed[0] == 'push' && saved.indexOf(instructions[i].parsed[1]) < 0) {
+                saved.push(instructions[i].parsed[1]);
+                instructions[i].parsed = ['nop'];
+            } else {
+                break;
+            }
+        }
+    }
+
     var _common_math = function(e, op, bits) {
-        if (e[1].match(/^[er]?[sb]p$/)) {
+        if (_is_stack_reg(e[1])) {
             return null;
         }
         if (e.length == 2) {
@@ -108,7 +125,7 @@ module.exports = (function() {
         if (instrs[start].parsed[0] == 'push') {
             for (var i = start; i >= 0; i--) {
                 var op = instrs[i].parsed[0];
-                if (op == 'push') {
+                if (op == 'push' && !_is_stack_reg(instrs[i].parsed[1])) {
                     args.push(instrs[i].string || instrs[i].pseudo.toString().replace(/^.+\s=\s/, '').trim());
                 } else if (op == 'call' || instrs[i].jump) {
                     break;
@@ -146,7 +163,7 @@ module.exports = (function() {
             } else if (callname.indexOf('0x') == 0) {
                 callname = "*((" + _unsigned_types[instr.parsed[1]] + "*) " + callname + ")";
             }
-        } else if (callname.match(/[er]di/)) {
+        } else if (callname.match(/[er][abds][ix]/)) {
             is_pointer = true;
         }
         return Base.call(_call_fix_name(callname), args, is_pointer || false);
@@ -168,7 +185,10 @@ module.exports = (function() {
             add: function(instr) {
                 return _common_math(instr.parsed, Base.add);
             },
-            sub: function(instr) {
+            sub: function(instr, context, instructions) {
+                if (_is_stack_reg(instr.parsed[1])) {
+                    _clean_save_reg(instr, parseInt(instr.parsed[2]), instructions);
+                }
                 return _common_math(instr.parsed, Base.subtract);
             },
             sbb: function(instr) {
@@ -248,6 +268,10 @@ module.exports = (function() {
             cmp: _compare,
             test: function(instr, context, instructions) {
                 var e = instr.parsed;
+                if (e.length == 4) {
+                    _memory_cmp(e, context.cond);
+                    return null;
+                }
                 context.cond.a = (e[1] == e[2]) ? e[1] : "(" + e[1] + " & " + e[2] + ")";
                 context.cond.b = '0';
                 return Base.nop();
@@ -359,4 +383,5 @@ module.exports = (function() {
             }
         }
     };
+
 })();
