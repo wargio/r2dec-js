@@ -93,5 +93,6 @@ async function asyncMain(err, r2) {
         libdec.supported();
     }
 
-    await r2quit();
+    // kill itself.
+    process.kill(process.pid); //await r2quit();
 }

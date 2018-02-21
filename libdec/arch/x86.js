@@ -100,19 +100,19 @@ module.exports = (function() {
             type = inv;
         }
         instr.conditional(context.cond.a, context.cond.b, type);
-        return null;
+        return Base.nop();
     };
 
     var _compare = function(instr, context) {
         var e = instr.parsed;
         if (e.length == 4) {
             _memory_cmp(e, context.cond);
-            return null;
+            return Base.nop();
         }
         context.cond.a = e[1];
         context.cond.b = e[2];
         context.cond.is_incdec = false;
-        return null;
+        return Base.nop();
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
@@ -263,7 +263,7 @@ module.exports = (function() {
                 } else if (e.length == 2 && (e[1] == 'eax' || e[1] == 'rax')) {
                     return _call_function(instr, context, instructions, true);
                 }
-                return Base.nop();
+                return Base.nop()
             },
             cmp: _compare,
             test: function(instr, context, instructions) {

@@ -24,6 +24,7 @@ module.exports = (function() {
         'strcmp': ['#include <string.h>'],
         'strncmp': ['#include <string.h>'],
         'msvcrt_dll_memset': ['#include <string.h>'],
+        'xmalloc': ['#include <stdlib.h>'],
         'memset': ['#include <string.h>'],
         'memcpy': ['#include <string.h>'],
         'strcpy': ['#include <string.h>'],
@@ -63,9 +64,9 @@ module.exports = (function() {
         this.srcB = source_b;
         this.toString = function() {
             if (this.srcA == this.dst) {
-                return this.dst + ' ' + this.op + '= ' + this.srcB;
+                return this.dst + ' ' + this.op + '= ' + this.srcA;
             }
-            return this.dst + ' = ' + this.srcB + ' ' + this.op + ' ' + this.srcB;
+            return this.dst + ' = ' + this.srcA + ' ' + this.op + ' ' + this.srcB;
         };
     };
 
@@ -179,6 +180,9 @@ module.exports = (function() {
         },
         negate: function(destination, source) {
             return new _pseudocode(new _common_pre_op('-', destination, source));
+        },
+        inverse: function(destination, source) {
+            return new _pseudocode(new _common_pre_op('~', destination, source));
         },
         shift_left: function(destination, source_a, source_b) {
             return new _pseudocode(new _common_math('<<', destination, source_a, source_b));
