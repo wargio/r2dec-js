@@ -52,8 +52,8 @@ module.exports = (function() {
         for (var i = 0; i < instructions.length; i++) {
             instr = instructions[i];
             // removes just 'sym.[imp.]' strings..
-            opcode = instr.opcode.replace(cfg.anal.replace, '');
-            instr.parsed = arch.parse(opcode);
+            instr.opcode = instr.opcode.replace(cfg.anal.replace, '');
+            instr.parsed = arch.parse(instr.opcode);
         }
         for (var i = 0; i < instructions.length; i++) {
             instr = instructions[i];
@@ -61,7 +61,7 @@ module.exports = (function() {
             if (fcn) {
                 instr.pseudo = fcn(instr, context, instructions);
             } else {
-                instr.pseudo = Base.unknown(opcode);
+                instr.pseudo = Base.unknown(instr.opcode);
             }
         }
     };

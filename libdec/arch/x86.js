@@ -122,14 +122,16 @@ module.exports = (function() {
         var regs32 = ['ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp'];
         var regs64 = ['rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9'];
         var args = [];
+        var returnval = '';
         var bad_ax = true;
         var end = instrs.indexOf(instr) - regs64.length;
         var start = instrs.indexOf(instr) - 1;
-        if (instrs[start].parsed[0] == 'push') {
+        if (instrs[start].parsed[0] == 'push' || context.pusharg) {
             for (var i = start; i >= 0; i--) {
                 var op = instrs[i].parsed[0];
                 if (op == 'push' && !_is_stack_reg(instrs[i].parsed[1])) {
                     args.push(instrs[i].string || instrs[i].pseudo.toString().replace(/^.+\s=\s/, '').trim());
+                    context.pusharg = true;
                 } else if (op == 'call' || instrs[i].jump) {
                     break;
                 }
@@ -144,7 +146,7 @@ module.exports = (function() {
                     bad_ax = false;
                     continue;
                 }
-                if ((arg0 != 'esp' && regs32.indexOf(arg0) < 0 && regs64.indexOf(arg0) < 0) ||
+                if (!arg0 || (arg0.indexOf('local_') != 0 && arg0 != 'esp' && regs32.indexOf(arg0) < 0 && regs64.indexOf(arg0) < 0) ||
                     !instrs[i].pseudo || !instrs[i].pseudo[0] == 'call') {
                     break;
                 }
@@ -169,7 +171,17 @@ module.exports = (function() {
         } else if (callname.match(/[er][abds][ix]/)) {
             is_pointer = true;
         }
-        return Base.call(_call_fix_name(callname), args, is_pointer || false);
+        instr = instrs[start + 2];
+        if (instr) {
+            for (var i = 2; i < instr.parsed.length; i++) {
+                var reg = instr.parsed[i];
+                if (reg == 'eax' || reg == 'rax') {
+                    returnval = reg + ' = ';
+                    break;
+                }
+            }
+        }
+        return Base.call(returnval + _call_fix_name(callname), args, is_pointer || false);
     }
 
     return {
@@ -196,6 +208,18 @@ module.exports = (function() {
             },
             sbb: function(instr) {
                 return _common_math(instr.parsed, Base.subtract);
+            },
+            sar: function(instr, context, instructions) {
+                return _common_math(instr.parsed, Base.shift_right);
+            },
+            sal: function(instr, context, instructions) {
+                return _common_math(instr.parsed, Base.shift_left);
+            },
+            shr: function(instr, context, instructions) {
+                return _common_math(instr.parsed, Base.shift_right);
+            },
+            shl: function(instr, context, instructions) {
+                return _common_math(instr.parsed, Base.shift_left);
             },
             and: function(instr) {
                 return _common_math(instr.parsed, Base.and);
@@ -312,7 +336,9 @@ module.exports = (function() {
                 var previous = instructions[instructions.indexOf(instr) - 1];
                 if (previous.parsed[0] == 'push') {
                     /* 0x0000 push 1; 0x0002 pop eax ===> eax = 1 */
-                    return Base.assign(instr.parsed[1], previous.string || previous.parsed[1]);
+                    var src = previous.parsed[1];
+                    previous.parsed = ['nop'];
+                    return Base.assign(instr.parsed[1], previous.string || src);
                 }
                 return Base.nop();
             },
@@ -392,6 +418,7 @@ module.exports = (function() {
                     b: null,
                     is_incdec: false
                 },
+                pusharg: false,
                 returntype: 'void',
                 leave: null,
                 vars: []

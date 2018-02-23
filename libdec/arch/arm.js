@@ -19,9 +19,16 @@ module.exports = (function() {
 
     var Base = require('./base');
 
+    var _is_register = function(name) {
+        return name && name.match(/r[0-9]+/) != null;
+    }
+
     var _common_math = function(e, op) {
         if (e[1] == 'ip' || e[1] == 'sp' || e[1] == 'fp') {
             return Base.nop();
+        }
+        if (e.length == 3) {
+            return op(e[1], e[1], e[2]);
         }
         return op(e[1], e[2], e[3]);
     };
@@ -37,6 +44,9 @@ module.exports = (function() {
         var cast = (bits == '8') ? ' = *((uint8_t*) ' : ' = *((uint' + bits + '_t*)((uint8_t*) ';
         var castend = (bits == '8') ? ');' : '))';
         if (e.length == 3) {
+            if (_is_register(e[2])) {
+                return e[1] + ' = ' + (instr.string ? instr.string : '*((uint' + bits + '_t*) ' + e[2] + ')');
+            }
             return e[1] + ' = ' + (instr.string ? instr.string : e[2]);
         } else if (e.length == 4) {
             return e[1] + cast + e[2] + ' + ' + e[3] + castend;
@@ -84,9 +94,20 @@ module.exports = (function() {
         return instr.pseudo;
     };
 
+    var _compare = function(instr, context) {
+        context.cond.a = instr.parsed[1];
+        context.cond.b = instr.parsed[2];
+        return Base.nop();
+    }
+
     var _conditional = function(instr, context, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
         return Base.nop();
+    };
+
+    var _conditional_inline = function(instr, context, instructions, type) {
+        instr.conditional(context.cond.a, context.cond.b, type);
+        instr.jump = instructions[instructions.indexOf(instr) + 1].loc;
     };
 
     var _call = function(instr, context, instructions) {
@@ -110,7 +131,7 @@ module.exports = (function() {
         } else if (instructions[start + 1].parsed[3] == 'r0') {
             callname = 'r0 = ' + callname;
         }
-        return Base.call(callname, args, false);
+        return Base.call(callname, args, _is_register(callname));
     };
 
     return {
@@ -118,22 +139,31 @@ module.exports = (function() {
             add: function(instr) {
                 return _common_math(instr.parsed, Base.add);
             },
-            addeq: function(instr, context) {
-                return 'if (' + context.cond.a + ' == ' + context.cond.b + ') ' + _common_math(instr.parsed, Base.add);
+            addeq: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'EQ');
+                return _common_math(instr.parsed, Base.add);
             },
-            addne: function(instr, context) {
-                return 'if (' + context.cond.a + ' != ' + context.cond.b + ') ' + _common_math(instr.parsed, Base.add);
+            addne: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'NE');
+                return _common_math(instr.parsed, Base.add);
             },
             and: function(instr) {
                 return _common_math(instr.parsed, Base.and);
             },
-            andeq: function(instr, context) {
-                return 'if (' + context.cond.a + ' == ' + context.cond.b + ') ' + _common_math(instr.parsed, Base.and);
+            andeq: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'EQ');
+                return _common_math(instr.parsed, Base.and);
             },
-            andne: function(instr, context) {
-                return 'if (' + context.cond.a + ' != ' + context.cond.b + ') ' + _common_math(instr.parsed, Base.and);
+            andne: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'NE');
+                return _common_math(instr.parsed, Base.and);
             },
-            b: function() {},
+            b: function() {
+                return Base.nop();
+            },
+            bx: function(instr) {
+                return Base.call(instr.parsed[1], [], true, true);
+            },
             bne: function(instr, context) {
                 return _conditional(instr, context, 'EQ');
             },
@@ -153,11 +183,8 @@ module.exports = (function() {
                 return _conditional(instr, context, 'GT');
             },
             bl: _call,
-            cmp: function(instr, context) {
-                context.cond.a = instr.parsed[1];
-                context.cond.b = instr.parsed[2];
-                return Base.nop();
-            },
+            blx: _call,
+            cmp: _compare,
             ldr: function(instr) {
                 return _load(instr, '32');
             },
@@ -186,19 +213,50 @@ module.exports = (function() {
                 }
                 return Base.assign(dst, instr.parsed[2]);
             },
-            moveq: function(instr, context) {
+            moveq: function(instr, context, instructions) {
                 var dst = instr.parsed[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
                     return Base.nop();
                 }
-                return 'if (' + context.cond.a + ' == ' + context.cond.b + ') ' + Base.assign(dst, instr.parsed[2]);
+                _conditional_inline(instr, context, instructions, 'EQ');
+                return Base.assign(dst, instr.parsed[2]);
             },
-            movne: function(instr, context) {
+            movne: function(instr, context, instructions) {
                 var dst = instr.parsed[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
                     return Base.nop();
                 }
-                return 'if (' + context.cond.a + ' != ' + context.cond.b + ') ' + Base.assign(dst, instr.parsed[2]);
+                _conditional_inline(instr, context, instructions, 'NE');
+                return Base.assign(dst, instr.parsed[2]);
+            },
+            movs: function(instr, context) {
+                var dst = instr.parsed[1];
+                if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
+                    return Base.nop();
+                }
+                _compare(instr, context);
+                return Base.assign(dst, instr.parsed[2]);
+            },
+            movt: function(instr) {
+                var dst = instr.parsed[1];
+                var src = parseInt(instr.parsed[2]);
+                if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
+                    return Base.nop();
+                }
+                if (instr.parsed[2] == 0) {
+                    return Base.and(dst, dst, '0xFFFF');
+                }
+                return Base.special(dst + ' = (' + dst + ' & 0xFFFF) | 0x' + src.toString(16) + '0000');
+            },
+            movw: function(instr) {
+                var dst = instr.parsed[1];
+                if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
+                    return Base.nop();
+                }
+                if (instr.parsed[2] == '0') {
+                    return Base.and(dst, dst, '0xFFFF0000');
+                }
+                return Base.special(dst + ' = (' + dst + ' & 0xFFFF0000) | ' + instr.parsed[2]);
             },
             mvn: function(instr) {
                 var dst = instr.parsed[1];
@@ -207,37 +265,43 @@ module.exports = (function() {
                 }
                 return Base.inverse(dst, instr.parsed[2]);
             },
-            mvneq: function(instr, context) {
+            mvneq: function(instr, context, instructions) {
                 var dst = instr.parsed[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
                     return Base.nop();
                 }
-                return 'if (' + context.cond.a + ' == ' + context.cond.b + ') ' + Base.inverse(dst, instr.parsed[2]);
+                _conditional_inline(instr, context, instructions, 'EQ');
+                return Base.inverse(dst, instr.parsed[2]);
             },
-            mvnne: function(instr, context) {
+            mvnne: function(instr, context, instructions) {
                 var dst = instr.parsed[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
                     return Base.nop();
                 }
-                return 'if (' + context.cond.a + ' != ' + context.cond.b + ') ' + Base.inverse(dst, instr.parsed[2]);
+                _conditional_inline(instr, context, instructions, 'NE');
+                return Base.inverse(dst, instr.parsed[2]);
             },
             mul: function(instr) {
                 return _common_math(instr.parsed, Base.multiply);
             },
-            muleq: function(instr, context) {
-                return 'if (' + context.cond.a + ' == ' + context.cond.b + ') ' + _common_math(instr.parsed, Base.multiply);
+            muleq: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'EQ');
+                return _common_math(instr.parsed, Base.multiply);
             },
-            mulne: function(instr, context) {
-                return 'if (' + context.cond.a + ' != ' + context.cond.b + ') ' + _common_math(instr.parsed, Base.multiply);
+            mulne: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'NE');
+                return _common_math(instr.parsed, Base.multiply);
             },
             or: function(instr) {
                 return _common_math(instr.parsed, Base.or);
             },
-            oreq: function(instr, context) {
-                return 'if (' + context.cond.a + ' == ' + context.cond.b + ') ' + _common_math(instr.parsed, Base.or);
+            oreq: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'EQ');
+                return _common_math(instr.parsed, Base.or);
             },
-            orne: function(instr, context) {
-                return 'if (' + context.cond.a + ' != ' + context.cond.b + ') ' + _common_math(instr.parsed, Base.or);
+            orne: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'NE');
+                return _common_math(instr.parsed, Base.or);
             },
             pop: function(instr) {
                 for (var i = 1; i < instr.parsed.length; i++) {
@@ -247,18 +311,20 @@ module.exports = (function() {
                 }
                 return null;
             },
-            popeq: function(instr, context) {
+            popeq: function(instr, context, instructions) {
                 for (var i = 1; i < instr.parsed.length; i++) {
                     if (instr.parsed[i] == 'pc') {
-                        return 'if (' + context.cond.a + ' == ' + context.cond.b + ') return';
+                        _conditional_inline(instr, context, instructions, 'EQ');
+                        return Base.return();
                     }
                 }
                 return null;
             },
-            popne: function(instr, context) {
+            popne: function(instr, context, instructions) {
                 for (var i = 1; i < instr.parsed.length; i++) {
                     if (instr.parsed[i] == 'pc') {
-                        return 'if (' + context.cond.a + ' != ' + context.cond.b + ') return';
+                        _conditional_inline(instr, context, instructions, 'NE');
+                        return Base.return();
                     }
                 }
                 return null;
@@ -277,10 +343,12 @@ module.exports = (function() {
                 return _common_math(instr.parsed, Base.xor);
             },
             xoreq: function(instr, context) {
-                return 'if (' + context.cond.a + ' == ' + context.cond.b + ') ' + _common_math(instr.parsed, Base.xor);
+                _conditional_inline(instr, context, instructions, 'EQ');
+                return _common_math(instr.parsed, Base.xor);
             },
             xorne: function(instr, context) {
-                return 'if (' + context.cond.a + ' != ' + context.cond.b + ') ' + _common_math(instr.parsed, Base.xor);
+                _conditional_inline(instr, context, instructions, 'NE');
+                return _common_math(instr.parsed, Base.xor);
             },
             invalid: function() {
                 return Base.nop();

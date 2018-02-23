@@ -212,7 +212,7 @@ module.exports = (function() {
         write_memory: function(pointer, register, bits, is_signed) {
             return new _pseudocode(new _common_memory(bits, is_signed, pointer, register, true));
         },
-        call: function(address, args, is_pointer) {
+        call: function(address, args, is_pointer, returns) {
             args = args || [];
             var macros = _call_common[address];
             if (macros) {
@@ -220,6 +220,9 @@ module.exports = (function() {
             }
             if (is_pointer) {
                 address = '(*(void(*)(' + (args.length > 0 ? '...' : '') + ')) ' + address + ')'
+            }
+            if (returns) {
+                address = 'return ' + address;
             }
             return new _pseudocode(address + ' (' + args.join(', ') + ')', macros);
         },
@@ -242,6 +245,9 @@ module.exports = (function() {
             return new _pseudocode(new _common_conditional('CMP_GE', a, b, false));
         },
         push: function(data) {
+            return new _pseudocode(data);
+        },
+        special: function(data) {
             return new _pseudocode(data);
         },
         unknown: function(data) {
