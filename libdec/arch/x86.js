@@ -311,6 +311,7 @@ module.exports = (function() {
             pop: function(instr, context, instructions) {
                 var previous = instructions[instructions.indexOf(instr) - 1];
                 if (previous.parsed[0] == 'push') {
+                    /* 0x0000 push 1; 0x0002 pop eax ===> eax = 1 */
                     return Base.assign(instr.parsed[1], previous.string || previous.parsed[1]);
                 }
                 return Base.nop();
