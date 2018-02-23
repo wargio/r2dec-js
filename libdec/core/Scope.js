@@ -17,14 +17,16 @@
 
 module.exports = (function() {
     var cfg = require('../config');
+    var uniq_counter = 0;
 
     /*
      * defines the scope type of the block;
      */
-    var Scope = function() {
+    var Scope = function(lvl) {
         this.header = null;
         this.trailer = null;
-        this.level = 0;
+        this.level = lvl || 0;
+        this.uid = uniq_counter++;
         this.printHeader = function(p, ident) {
             if (this.header) {
                 p(ident + this.header);
@@ -36,7 +38,7 @@ module.exports = (function() {
             }
         };
         this.toString = function() {
-            return this.level + ' ' + this.header + ' ' + this.trailer;
+            return /*this.uid + ' ' +*/ this.level + ' ' + this.header + ' ' + this.trailer;
         };
     };
     return Scope;

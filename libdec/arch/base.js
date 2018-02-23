@@ -64,7 +64,7 @@ module.exports = (function() {
         this.srcB = source_b;
         this.toString = function() {
             if (this.srcA == this.dst) {
-                return this.dst + ' ' + this.op + '= ' + this.srcA;
+                return this.dst + ' ' + this.op + '= ' + this.srcB;
             }
             return this.dst + ' = ' + this.srcA + ' ' + this.op + ' ' + this.srcB;
         };
@@ -131,7 +131,7 @@ module.exports = (function() {
             return new _pseudocode(new _common_math('+', destination, destination, source));
         },
         decrease: function(destination, source) {
-            return new _pseudocode(new _common_math('+', destination, destination, source));
+            return new _pseudocode(new _common_math('-', destination, destination, source));
         },
         assign: function(destination, source) {
             return new _pseudocode(new _common_assign(destination, source, false));
@@ -145,8 +145,11 @@ module.exports = (function() {
             }
             return new _pseudocode('return');
         },
-        jump: function(address) {
-            return new _pseudocode('goto address_' + address.toString(16));
+        goto: function(address) {
+            if (typeof address == 'string') {
+                return new _pseudocode('goto ' + address);
+            }
+            return new _pseudocode('goto 0x' + address.toString(16));
         },
         nop: function(destination, source_a, source_b) {
             return null;
@@ -158,6 +161,9 @@ module.exports = (function() {
             return new _pseudocode(new _common_math('|', destination, source_a, source_b));
         },
         xor: function(destination, source_a, source_b) {
+            if (source_a == source_b) {
+                return new _pseudocode(new _common_assign(destination, '0', false));
+            }
             return new _pseudocode(new _common_math('^', destination, source_a, source_b));
         },
         add: function(destination, source_a, source_b) {

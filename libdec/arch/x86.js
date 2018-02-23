@@ -41,6 +41,9 @@ module.exports = (function() {
     };
 
     var _call_fix_name = function(name) {
+        if (name.indexOf('fcn.') == 0) {
+            return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
+        }
         return name.replace(/\[reloc\.|\]/g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/_[0-9a-f]+$/, '').replace(/^_+/, '');
     }
 
@@ -201,9 +204,6 @@ module.exports = (function() {
                 return _common_math(instr.parsed, Base.or);
             },
             xor: function(instr, context, instructions) {
-                if (instr.parsed[1] == instr.parsed[2]) {
-                    return Base.assign(instr.parsed[1], '0');
-                }
                 return _common_math(instr.parsed, Base.xor);
             },
             idiv: function(instr) {

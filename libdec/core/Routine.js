@@ -51,6 +51,9 @@ module.exports = (function() {
         if (!name) {
             return 'unknown_fcn';
         }
+        if (name.indexOf('fcn.') == 0) {
+            return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
+        }
         return name.replace(cfg.anal.replace, '').replace(/\.|:/g, '_').replace(/__+/g, '_').replace(/^_/, '').replace(/_[0-9a-f]+$/, '');
     }
 
