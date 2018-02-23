@@ -303,6 +303,9 @@ module.exports = (function() {
                 leave: false,
                 vars: []
             }
+        },
+        returns: function(context) {
+            return 'void';
         }
     };
 })();

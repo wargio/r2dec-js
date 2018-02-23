@@ -38,7 +38,7 @@ module.exports = (function() {
             }
         };
         this.toString = function() {
-            return /*this.uid + ' ' +*/ this.level + ' ' + this.header + ' ' + this.trailer;
+            return this.uid + ' ' + this.level + ' ' + this.header + ' ' + this.trailer;
         };
     };
     return Scope;

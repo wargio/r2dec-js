@@ -953,6 +953,9 @@ rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
                 longaddr: [],
                 vars: []
             }
+        },
+        returns: function(context) {
+            return 'void';
         }
     };
 })();

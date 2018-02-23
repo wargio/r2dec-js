@@ -282,10 +282,19 @@ module.exports = (function() {
                 var register = false;
                 if (p) {
                     if (p.parsed[0] == 'leave') {
+                        context.returntype = 'int32_t';
                         register = true;
                     } else if (p.parsed[0] == 'pop' && (p.parsed[1] == 'rbp' || p.parsed[1] == 'ebp') && instructions[index - 1].parsed[1] == 'eax') {
+                        context.returntype = 'int32_t';
+                        register = true;
+                    } else if (p.parsed[0] == 'pop' && (p.parsed[1] == 'rbp' || p.parsed[1] == 'ebp') && instructions[index - 1].parsed[1] == 'rax') {
+                        context.returntype = 'int64_t';
                         register = true;
                     } else if (p.parsed[1] == 'eax') {
+                        context.returntype = 'int32_t';
+                        register = true;
+                    } else if (p.parsed[1] == 'rax') {
+                        context.returntype = 'int64_t';
                         register = true;
                     }
                 }
@@ -300,6 +309,10 @@ module.exports = (function() {
                 return Base.push(value);
             },
             pop: function(instr, context, instructions) {
+                var previous = instructions[instructions.indexOf(instr) - 1];
+                if (previous.parsed[0] == 'push') {
+                    return Base.assign(instr.parsed[1], previous.string || previous.parsed[1]);
+                }
                 return Base.nop();
             },
             jne: function(i, c) {
@@ -378,9 +391,13 @@ module.exports = (function() {
                     b: null,
                     is_incdec: false
                 },
+                returntype: 'void',
                 leave: null,
                 vars: []
             }
+        },
+        returns: function(context) {
+            return context.returntype;
         }
     };
 

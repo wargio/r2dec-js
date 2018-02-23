@@ -324,6 +324,9 @@ module.exports = (function() {
                     b: null
                 }
             }
+        },
+        returns: function(context) {
+            return 'void';
         }
     };
 })();
