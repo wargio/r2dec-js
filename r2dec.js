@@ -64,7 +64,10 @@ function has_option(args, name) {
 
 function has_invalid_args(args) {
     for (var i = 0; i < args.length; i++) {
-        if (!usages[args[i]]) return true;
+        if (!usages[args[i]]) {
+            console.log('Invalid argument \'' + args[i] + '\'\n');
+            return true;
+        }
     }
     return false;
 }
