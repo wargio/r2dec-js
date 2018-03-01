@@ -36,21 +36,21 @@ module.exports = (function() {
         this.string = null;
         this.cond = null;
         this.xrefs = op.xrefs ? op.xrefs.slice() : [];
-        this.print = function(p, ident, color) {
+        this.print = function(p, ident, options) {
             if (this.comments.length > 0) {
                 if (this.comments.length == 1) {
-                    if (color) {
-                        p(ident + color.instance.comment('/* ' + this.comments[0] + ' */'));
+                    if (options.color) {
+                        p(ident + options.color.comment('/* ' + this.comments[0] + ' */'));
                     } else {
                         p(ident + '/* ' + this.comments[0] + ' */');
                     }
                 } else {
-                    if (color) {
-                        p(ident + color.instance.comment('/* '));
+                    if (options.color) {
+                        p(ident + options.color.comment('/* '));
                         for (var j = 0; j < this.comments.length; j++) {
-                            p(ident + color.instance.comment(' * ' + this.comments[j]));
+                            p(ident + options.color.comment(' * ' + this.comments[j]));
                         }
-                        p(ident + color.instance.comment(' */'));
+                        p(ident + options.color.comment(' */'));
                     } else {
                         p(ident + '/* ');
                         for (var j = 0; j < this.comments.length; j++) {
@@ -61,7 +61,7 @@ module.exports = (function() {
                 }
             }
             if (this.pseudo && this.valid) {
-                p(ident + this.pseudo.toString(color) + ';');
+                p(ident + this.pseudo.toString(options) + ';');
             }
         };
         this.conditional = function(a, b, type) {

@@ -36,6 +36,20 @@ module.exports = (function() {
         string: /("[^"]+")/
     };
 
+    var _apply_regex = function(input, type, regex) {
+        var x = input.split(regex);
+        var p = input.match(regex);
+        var s = '';
+        var i = 0;
+        for (i = 0; i < p.length; i++) {
+            s += x[i] + _colors[type](p[i]);
+        }
+        for (; i < x.length; i++) {
+            s += x[i];
+        }
+        return s;
+    };
+
     var _colorize_data = function(input, color) {
         if (!input) {
             return '';
@@ -43,40 +57,21 @@ module.exports = (function() {
         /* control flor (if, else, while, do, etc..) */
         var x = input.split(_regexs.ctrlflow);
         if (x.length > 1) {
-            var p = input.match(_regexs.ctrlflow);
-            var s = '';
-            var i = 0;
-            for (i = 0; i < p.length; i++) {
-                s += x[i] + _colors.flow(p[i]);
-            }
-            for (; i < x.length; i++) {
-                s += x[i];
-            }
-            input = s;
+            input = _apply_regex(input, 'flow', _regexs.ctrlflow);
         }
         /* numbers */
         var x = input.split(_regexs.numbers);
         if (x.length == 1 && x == '') {
             input = _colors.integers(input);
         } else if (x.length > 1) {
-            var p = input.match(_regexs.numbers);
-            var s = '';
-            var i = 0;
-            for (i = 0; i < p.length; i++) {
-                s += x[i] + _colors.integers(p[i]);
-            }
-            for (; i < x.length; i++) {
-                s += x[i];
-            }
-            input = s;
+            input = _apply_regex(input, 'integers', _regexs.numbers);
         }
         /* uint32_t, etc.. */
         x = input.split(_regexs.bits);
         if (x.length == 1 && x == '') {
             input = _colors.types(input);
         } else if (input.split(_regexs.bits).length > 1) {
-            var p = input.match(_regexs.bits);
-            input = x[0] + _colors.types(p[0]) + x[1];
+            input = _apply_regex(input, 'types', _regexs.bits);
         }
         return input;
     }
@@ -99,6 +94,26 @@ module.exports = (function() {
     };
     return {
         colorize: _colorize,
-        instance: _colors
+        callname: function(input) {
+            return _colors.callname(input);
+        },
+        comment: function(input) {
+            return _colors.comment(input);
+        },
+        flow: function(input) {
+            return _colors.flow(input);
+        },
+        integers: function(input) {
+            return _colors.integers(input);
+        },
+        labels: function(input) {
+            return _colors.labels(input);
+        },
+        text: function(input) {
+            return _colors.text(input);
+        },
+        types: function(input) {
+            return _colors.types(input);
+        }
     };
 })();

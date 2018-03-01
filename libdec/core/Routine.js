@@ -38,7 +38,7 @@ module.exports = (function() {
         }
         for (var i = 0; i < macros.length; i++) {
             if (color) {
-                p(color.instance.text(macros[i]));
+                p(color.text(macros[i]));
             } else {
                 p(macros[i]);
             }
@@ -48,7 +48,7 @@ module.exports = (function() {
         }
         for (var i = 0; i < codes.length; i++) {
             /* TODO: missing colors.. :| */
-            p(codes[i] + '\n');
+            p(color.colorize(codes[i]) + '\n');
         }
     };
 
@@ -71,13 +71,13 @@ module.exports = (function() {
         this.returnType = 'void';
         this.name = _fix_routine_name(name);
 
-        this.print = function(p, color) {
-            _print_deps(p, this.instructions, color);
+        this.print = function(p, options) {
+            _print_deps(p, this.instructions, options.color);
             var current = this.instructions[0].scope;
             var scopes = [current];
             var ident = cfg.ident;
-            if (color) {
-                p(color.instance.types(this.returnType) + ' ' + color.instance.callname(this.name) + ' (' + this.args.join(', ') + ') {');
+            if (options.color) {
+                p(options.color.types(this.returnType) + ' ' + options.color.callname(this.name) + ' (' + this.args.join(', ') + ') {');
             } else {
                 p(this.returnType + ' ' + this.name + ' (' + this.args.join(', ') + ') {');
             }
@@ -86,7 +86,7 @@ module.exports = (function() {
                 if (current != instr.scope) {
                     if (current.level < instr.scope.level) {
                         scopes.push(current);
-                        instr.scope.printHeader(p, ident, color);
+                        instr.scope.printHeader(p, ident, options);
                         ident += cfg.ident;
                         current = instr.scope;
                     } else if (current.level > instr.scope.level) {
@@ -94,30 +94,30 @@ module.exports = (function() {
                             if (ident.length > cfg.ident.length) {
                                 ident = ident.substr(0, ident.length - cfg.ident.length);
                             }
-                            current.printTrailer(p, ident, color);
+                            current.printTrailer(p, ident, options);
                             current = scopes.pop();
                         }
                     } else {
                         var tmpident = ident.substr(0, ident.length - cfg.ident.length);
-                        current.printTrailer(p, tmpident, color);
+                        current.printTrailer(p, tmpident, options);
                         current = instr.scope;
-                        current.printHeader(p, tmpident, color);
+                        current.printHeader(p, tmpident, options);
                     }
                 }
                 if (instr.label > -1) {
-                    if (color) {
-                        p( /*ident.substr(0, ident.length - cfg.ident.length) + */ color.instance.labels('label_' + instr.label) + ':');
+                    if (options.color) {
+                        p( /*ident.substr(0, ident.length - cfg.ident.length) + */ options.color.labels('label_' + instr.label) + ':');
                     } else {
                         p( /*ident.substr(0, ident.length - cfg.ident.length) + */ 'label_' + instr.label + ':');
                     }
                 }
-                instr.print(p, ident, color);
+                instr.print(p, ident, options);
             }
             while (ident.length > 1 && current) {
                 if (ident.length > cfg.ident.length) {
                     ident = ident.substr(0, ident.length - cfg.ident.length);
                 }
-                current.printTrailer(p, ident, color);
+                current.printTrailer(p, ident, options);
                 current = scopes.pop();
             }
             p('}');

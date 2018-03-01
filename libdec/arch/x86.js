@@ -122,7 +122,7 @@ module.exports = (function() {
     var _call_fix_args = function(args) {
         var stackbased = false;
         for (var i = 0; i < args.length; i++) {
-            if (args[i].indexOf('local_') >= 0 || args[i].indexOf('esp') >= 0) {
+            if (args[i].value.indexOf('local_') >= 0 || args[i].value.indexOf('esp') >= 0) {
                 stackbased = true;
             }
         }
@@ -130,7 +130,7 @@ module.exports = (function() {
             return args;
         }
         return args.filter(function(x) {
-            return x.indexOf('"') >= 0 || x.indexOf('local_') >= 0 || x.indexOf('esp') >= 0;
+            return x.value.indexOf('"') >= 0 || x.value.indexOf('local_') >= 0 || x.value.indexOf('esp') >= 0;
         });
     };
 
@@ -165,7 +165,7 @@ module.exports = (function() {
             }
         }
 
-        var known_args_n = Base.call_args(callname);
+        var known_args_n = Base.arguments(callname);
         if (known_args_n == 0) {
             return Base.call(_call_fix_name(callname), args, is_pointer || false, returnval);
         }
@@ -176,17 +176,16 @@ module.exports = (function() {
                 }
                 var op = instrs[i].parsed[0];
                 var arg0 = instrs[i].parsed[1];
-                if (_unsigned_types[arg0]) {
+                var bits = null;
+                if (_bits_types[arg0]) {
                     arg0 = instr.parsed[2];
+                    bits = _bits_types[instrs[i].parsed[1]];
                 }
                 if (op == 'push' && !_is_stack_reg(arg0)) {
-                    if (_unsigned_types[instrs[i].parsed[1]]) {
-                        arg0 = "(" + _unsigned_types[instrs[i].parsed[1]] + "*) " + instrs[i].parsed[2];
-                    }
                     if (instrs[i].string) {
                         instrs[i].valid = false;
                     }
-                    args.push(instrs[i].string || arg0);
+                    args.push(new Base.call_argument(instrs[i].string || arg0, bits));
                     context.pusharg = true;
                 } else if (op == 'call' || instrs[i].jump) {
                     break;
@@ -198,8 +197,10 @@ module.exports = (function() {
                     break;
                 }
                 var arg0 = instrs[i].parsed[1];
+                var bits = null;
                 if (_bits_types[arg0]) {
                     arg0 = instrs[i].parsed[2];
+                    bits = _bits_types[instrs[i].parsed[1]];
                 }
                 if (bad_ax && (arg0 == 'eax' || arg0 == 'rax')) {
                     bad_ax = false;
@@ -218,10 +219,7 @@ module.exports = (function() {
                 if (instrs[i].string) {
                     instrs[i].valid = false;
                 }
-                if (_unsigned_types[instrs[i].parsed[1]]) {
-                    arg0 = "(" + _unsigned_types[instrs[i].parsed[1]] + "*) " + instrs[i].parsed[2];
-                }
-                args.push(instrs[i].string || arg0);
+                args.push(new Base.call_argument(instrs[i].string || arg0, bits));
             }
             args = _call_fix_args(args);
         }

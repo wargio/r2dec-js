@@ -118,7 +118,7 @@ module.exports = (function() {
         }
         t = t.replace(/^.+\s=\s/, '').trim();
         instr.valid = false;
-        return instr.string ? instr.string : t;
+        return new Base.call_argument(instr.string ? instr.string : t);
     };
 
     var _call = function(instr, context, instructions) {
@@ -126,7 +126,7 @@ module.exports = (function() {
         var returnval = null;
         var args = [];
         var regnum = 3;
-        var known_args_n = Base.call_args(callname);
+        var known_args_n = Base.arguments(callname);
         if (known_args_n == 0) {
             return Base.call(callname, args, is_pointer || false, returnval);
         } else if (known_args_n > 0) {
@@ -147,7 +147,10 @@ module.exports = (function() {
                 i = start;
             }
         }
-        if (instructions[start + 1].parsed[2] == 'r0') {
+        if (instructions[start + 1].parsed[0].charAt(0) == 'c' && instructions[start + 1].parsed[1] == 'r0') {
+            // cbz/cmp
+            returnval = 'r0';
+        } else if (instructions[start + 1].parsed[2] == 'r0') {
             returnval = 'r0';
         } else if (instructions[start + 1].parsed[3] == 'r0') {
             returnval = 'r0';

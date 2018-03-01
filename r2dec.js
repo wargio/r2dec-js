@@ -29,6 +29,15 @@ const colorme = require('./libdec/colorme.js');
 const r2pipe = require('r2pipe');
 const util = require('util');
 
+const padding = '          ';
+
+const usages = {
+    "--help": "this help message",
+    "--colors": "enables syntax colors",
+    "--hide-casts": "hides all casts in the pseudo code",
+    "--issue": "generates the json used for the test suite",
+}
+
 if (!r2pipe.hasOwnProperty('jsonParse')) {
     throw new Error("Update your r2pipe version to use r2dec from radare2");
 }
@@ -53,15 +62,26 @@ function has_option(args, name) {
     return (args.indexOf(name) >= 0);
 }
 
+function has_invalid_args(args) {
+    for (var i = 0; i < args.length; i++) {
+        if (!usages[args[i]]) return true;
+    }
+    return false;
+}
+
 function usage() {
     console.log("#!pipe r2dec [options]");
-    console.log("       --help     | this help message");
-    console.log("       --colors   | enables syntax colors");
-    console.log("       --issue    | generates the json used for the test suite");
+    for (var key in usages) {
+        var cmd = key + padding.substr(key.length, padding.length);
+        console.log("       %s | %s", cmd, usages[key]);
+    }
 }
 
 async function asyncMain(err, r2, args) {
-    if (has_option(args, '--help') || has_option(args, 'help') || has_option(args, '-h')) {
+    if (has_invalid_args(args)) {
+        args.push('--help');
+    }
+    if (has_option(args, '--help')) {
         usage();
         suicide();
     }
@@ -74,7 +94,10 @@ async function asyncMain(err, r2, args) {
     }
 
     // r2dec options
-    var colors = has_option(args, '--colors') ? colorme : null;
+    var options = {
+        color: has_option(args, '--colors') ? colorme : null,
+        casts: !has_option(args, '--hide-casts'),
+    };
 
     let arch = (await cmd('e asm.arch')).trim();
     let bits = (await cmd('e asm.bits')).trim();
@@ -103,7 +126,7 @@ async function asyncMain(err, r2, args) {
             libdec.analyzer.analyze(routine, architecture);
             libdec.analyzer.xrefs(routine, xrefs);
 
-            routine.print(console.log, colors);
+            routine.print(console.log, options);
         }
 
         if (pseudo) {

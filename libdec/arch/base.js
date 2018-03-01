@@ -101,11 +101,14 @@ module.exports = (function() {
     var _pseudocode = function(context, dependencies) {
         this.ctx = context;
         this.deps = dependencies || new _dependency();
-        this.toString = function(color) {
-            if (typeof this.ctx == 'string') {
-                return _colorize(this.ctx.toString(), color);
+        this.toString = function(options) {
+            if (!options) {
+                options = {};
             }
-            return this.ctx.toString(color);
+            if (typeof this.ctx == 'string') {
+                return _colorize(this.ctx.toString(), options.color);
+            }
+            return this.ctx.toString(options);
         };
     };
 
@@ -124,11 +127,11 @@ module.exports = (function() {
         this.dst = destination;
         this.srcA = source_a;
         this.srcB = source_b;
-        this.toString = function(color) {
+        this.toString = function(options) {
             if (this.srcA == this.dst) {
-                return _colorize(this.dst, color) + ' ' + this.op + '= ' + _colorize(this.srcB, color);
+                return _colorize(this.dst, options.color) + ' ' + this.op + '= ' + _colorize(this.srcB, options.color);
             }
-            return _colorize(this.dst, color) + ' = ' + _colorize(this.srcA, color) + ' ' + this.op + ' ' + _colorize(this.srcB, color);
+            return _colorize(this.dst, options.color) + ' = ' + _colorize(this.srcA, options.color) + ' ' + this.op + ' ' + _colorize(this.srcB, options.color);
         };
     };
 
@@ -136,8 +139,8 @@ module.exports = (function() {
         this.op = op;
         this.dst = destination;
         this.src = source;
-        this.toString = function(color) {
-            return _colorize(this.dst, color) + ' = ' + this.op + _colorize(this.src, color);
+        this.toString = function(options) {
+            return _colorize(this.dst, options.color) + ' = ' + this.op + _colorize(this.src, options.color);
         };
     };
 
@@ -146,18 +149,18 @@ module.exports = (function() {
         this.pointer = pointer;
         this.bits = bits ? ((is_signed ? '' : 'u') + 'int' + bits + '_t') : null;
         if (is_write) {
-            this.toString = function(color) {
-                if (this.bits) {
-                    return '*((' + _colorize(this.bits, color) + '*) ' + _colorize(this.pointer, color) + ') = ' + _colorize(this.reg, color);
+            this.toString = function(options) {
+                if (this.bits && options.casts) {
+                    return '*((' + _colorize(this.bits, options.color) + '*) ' + _colorize(this.pointer, options.color) + ') = ' + _colorize(this.reg, options.color);
                 }
-                return '*(' + _colorize(this.pointer, color) + ') = ' + _colorize(this.reg, color);
+                return '*(' + _colorize(this.pointer, options.color) + ') = ' + _colorize(this.reg, options.color);
             };
         } else {
-            this.toString = function(color) {
-                if (this.bits) {
-                    return this.reg + ' = *((' + _colorize(this.bits, color) + '*) ' + _colorize(this.pointer, color) + ')';
+            this.toString = function(options) {
+                if (this.bits && options.casts) {
+                    return this.reg + ' = *((' + _colorize(this.bits, options.color) + '*) ' + _colorize(this.pointer, options.color) + ')';
                 }
-                return this.reg + ' = *(' + _colorize(this.pointer, color) + ')';
+                return this.reg + ' = *(' + _colorize(this.pointer, options.color) + ')';
             };
         }
     };
@@ -170,7 +173,7 @@ module.exports = (function() {
         this.setInverse = function(b) {
             this.inverse = b ? 1 : 0;
         }
-        this.toString = function(color) {
+        this.toString = function(options) {
             return this.a + _cmps[this.cmp][this.inverse] + this.b;
         };
     };
@@ -180,8 +183,8 @@ module.exports = (function() {
         this.dst = destination;
         this.srcA = source_a;
         this.srcB = source_b;
-        this.toString = function(color) {
-            return this.dst + ' = ' + (color ? color.instance.callname(this.call) : this.call) + ' (' + _colorize(this.srcA, color) + ', ' + _colorize(this.srcB, color) + ')';
+        this.toString = function(options) {
+            return this.dst + ' = ' + (options.color ? options.color.callname(this.call) : this.call) + ' (' + _colorize(this.srcA, options.color) + ', ' + _colorize(this.srcB, options.color) + ')';
         };
     };
 
@@ -189,11 +192,11 @@ module.exports = (function() {
         this.dst = destination;
         this.bits = bits ? ('int' + bits + '_t') : null;
         this.src = source;
-        this.toString = function(color) {
-            if (this.bits) {
-                return _colorize(this.dst, color) + ' = (' + _colorize(this.bits, color) + ') ' + _colorize(this.src, color);
+        this.toString = function(options) {
+            if (this.bits && options.casts) {
+                return _colorize(this.dst, options.color) + ' = (' + _colorize(this.bits, options.color) + ') ' + _colorize(this.src, options.color);
             }
-            return _colorize(this.dst, color) + ' = ' + _colorize(this.src, color);
+            return _colorize(this.dst, options.color) + ' = ' + _colorize(this.src, options.color);
         };
     };
 
@@ -202,22 +205,22 @@ module.exports = (function() {
         this.args = args || [];
         this.is_pointer = is_pointer;
         this.returns = returns;
-        this.toString = function(color) {
+        this.toString = function(options) {
             var s = '';
             var caller = this.caller;
             var args = this.args.map(function(x) {
-                return _colorize(x, color);
+                return x.toString(options);
             });
             if (is_pointer) {
-                caller = '(*(' + (color ? color.types('void') : 'void') + '(*)(' + (this.args.length > 0 ? '...' : '') + ')) ' + caller + ')';
-            } else if (color) {
-                caller = color.instance.callname(caller);
+                caller = '(*(' + (options.color ? options.color.types('void') : 'void') + '(*)(' + (this.args.length > 0 ? '...' : '') + ')) ' + caller + ')';
+            } else if (options.color) {
+                caller = options.color.callname(caller);
             }
             if (this.returns) {
                 if (this.returns == 'return') {
-                    s = (color ? color.instance.flow('return') : 'return') + ' ';
+                    s = (options.color ? options.color.flow('return') : 'return') + ' ';
                 } else {
-                    s = _colorize(this.returns, color) + ' = ';
+                    s = _colorize(this.returns, options.color) + ' = ';
                 }
             }
             return s + caller + ' (' + args.join(', ') + ')';
@@ -226,26 +229,36 @@ module.exports = (function() {
 
     var _common_goto = function(reg) {
         this.reg = reg;
-        this.toString = function(color) {
-            var r = color ? color.instance.flow('goto') : 'goto';
-            r += ' ' + (color ? _colorize(this.reg, color) : this.reg);
+        this.toString = function(options) {
+            var r = options.color ? options.color.flow('goto') : 'goto';
+            r += ' ' + (options.color ? _colorize(this.reg, options.color) : this.reg);
             return r;
         };
     };
 
     var _common_return = function(reg) {
         this.reg = reg;
-        this.toString = function(color) {
-            var r = color ? color.instance.flow('return') : 'return';
+        this.toString = function(options) {
+            var r = options.color ? options.color.flow('return') : 'return';
             if (this.reg) {
-                r += ' ' + (color ? _colorize(this.reg, color) : this.reg);
+                r += ' ' + (options.color ? _colorize(this.reg, options.color) : this.reg);
             }
             return r;
         };
     };
 
     return {
-        call_args: function(name) {
+        call_argument: function(value, bits) {
+            this.bits = bits ? ('int' + bits + '_t') : null;
+            this.value = value;
+            this.toString = function(options) {
+                if (this.bits && options.casts) {
+                    return '(' + _colorize(this.bits, options.color) + '*) ' + _colorize(this.value, options.color);
+                }
+                return _colorize(this.value, options.color);
+            };
+        },
+        arguments: function(name) {
             if (_call_common[name]) {
                 return _call_common[name].args;
             }
@@ -319,12 +332,12 @@ module.exports = (function() {
         },
         rotate_left: function(destination, source_a, source_b, bits) {
             return new _pseudocode(new _common_rotate(destination, source_a, source_b, bits, true),
-                new _dependency(['#include <stdint.h>', '#include <limits.h>'], 'uint###_t rotate_left### (uint###_t value, unsigned int count) {\n\tconst unsigned int mask = (CHAR_BIT * sizeof(value)) - 1;\n\tcount &= mask;\n\treturn (value << count) | (value >> (-count & mask));\n}\n'.replace(/###/g, bits.toString()))
+                new _dependency(['#include <stdint.h>', '#include <limits.h>'], 'uint###_t rotate_left### (uint###_t value, uint32_t count) {\n\tconst uint32_t mask = (CHAR_BIT * sizeof(value)) - 1;\n\tcount &= mask;\n\treturn (value << count) | (value >> (-count & mask));\n}\n'.replace(/###/g, bits.toString()))
             );
         },
         rotate_right: function(destination, source_a, source_b, bits) {
             return new _pseudocode(new _common_rotate(destination, source_a, source_b, bits, false),
-                new _dependency(['#include <stdint.h>', '#include <limits.h>'], 'uint###_t rotate_right### (uint###_t value, unsigned int count) {\n\tconst unsigned int mask = (CHAR_BIT * sizeof(value)) - 1;\n\tcount &= mask;\n\treturn (value >> count) | (value << (-count & mask));\n}'.replace(/###/g, bits.toString()))
+                new _dependency(['#include <stdint.h>', '#include <limits.h>'], 'uint###_t rotate_right### (uint###_t value, uint32_t count) {\n\tconst uint32_t mask = (CHAR_BIT * sizeof(value)) - 1;\n\tcount &= mask;\n\treturn (value >> count) | (value << (-count & mask));\n}'.replace(/###/g, bits.toString()))
             );
         },
         read_memory: function(pointer, register, bits, is_signed) {

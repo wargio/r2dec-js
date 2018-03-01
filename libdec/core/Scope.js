@@ -32,14 +32,14 @@ module.exports = (function() {
         this.trailer = null;
         this.level = lvl || 0;
         this.uid = uniq_counter++;
-        this.printHeader = function(p, ident, color) {
+        this.printHeader = function(p, ident, options) {
             if (this.header) {
-                p(ident + _colorize(this.header, color));
+                p(ident + _colorize(this.header, options.color));
             }
         };
-        this.printTrailer = function(p, ident, color) {
+        this.printTrailer = function(p, ident, options) {
             if (this.trailer) {
-                p(ident + _colorize(this.trailer, color));
+                p(ident + _colorize(this.trailer, options.color));
             }
         };
         this.toString = function() {
