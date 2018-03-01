@@ -130,7 +130,7 @@ module.exports = (function() {
             return args;
         }
         return args.filter(function(x) {
-            return x.charAt(0) == '"' || x.indexOf('local_') >= 0 || x.indexOf('esp') >= 0;
+            return x.indexOf('"') >= 0 || x.indexOf('local_') >= 0 || x.indexOf('esp') >= 0;
         });
     };
 

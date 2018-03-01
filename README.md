@@ -20,8 +20,16 @@ done
 # Usage
 
 * open with radare2 your file
-* analize the function you want to disassemble (`aaa`)
+* analize the function you want to disassemble (`af`)
 * give the data to the plugin `#!pipe r2dec`
+* done.
+
+# Report an Issue
+
+* open with radare2 your file
+* analize the function you want to disassemble (`af`)
+* give the data to the plugin `#!pipe r2dec --issue`
+* insert the JSON returned by the previous command into the issue (you can also upload the output)
 * done.
 
 # Supported Arch
