@@ -118,48 +118,31 @@ module.exports = (function() {
         return Base.nop();
     };
 
+    // cannot be stack based + register baserd args at the same time
+    var _call_fix_args = function(args) {
+        var stackbased = false;
+        for (var i = 0; i < args.length; i++) {
+            if (args[i].indexOf('local_') >= 0 || args[i].indexOf('esp') >= 0) {
+                stackbased = true;
+            }
+        }
+        if (!stackbased) {
+            return args;
+        }
+        return args.filter(function(x) {
+            return x.charAt(0) == '"' || x.indexOf('local_') >= 0 || x.indexOf('esp') >= 0;
+        });
+    };
+
     var _call_function = function(instr, context, instrs, is_pointer) {
         var regs32 = ['ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp'];
         var regs64 = ['rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9'];
         var args = [];
-        var returnval = '';
+        var returnval = null;
         var bad_ax = true;
         var end = instrs.indexOf(instr) - regs64.length;
-        var start = instrs.indexOf(instr) - 1;
-        if (instrs[start].parsed[0] == 'push' || context.pusharg) {
-            for (var i = start; i >= 0; i--) {
-                var op = instrs[i].parsed[0];
-                if (op == 'push' && !_is_stack_reg(instrs[i].parsed[1])) {
-                    args.push(instrs[i].string || instrs[i].pseudo.toString().replace(/^.+\s=\s/, '').trim());
-                    context.pusharg = true;
-                } else if (op == 'call' || instrs[i].jump) {
-                    break;
-                }
-            }
-        } else {
-            for (var i = start; i >= end; i--) {
-                var arg0 = instrs[i].parsed[1];
-                if (_bits_types[arg0]) {
-                    arg0 = instrs[i].parsed[2];
-                }
-                if (bad_ax && (arg0 == 'eax' || arg0 == 'rax')) {
-                    bad_ax = false;
-                    continue;
-                }
-                if (!arg0 || (arg0.indexOf('local_') != 0 && arg0 != 'esp' && regs32.indexOf(arg0) < 0 && regs64.indexOf(arg0) < 0) ||
-                    !instrs[i].pseudo || !instrs[i].pseudo[0] == 'call') {
-                    break;
-                }
-                bad_ax = false;
-                if (regs32.indexOf(arg0) > -1) {
-                    regs32.splice(regs32.indexOf(arg0), 1);
-                } else if (regs64.indexOf(arg0) > -1) {
-                    regs64.splice(regs64.indexOf(arg0), 1);
-                }
-                args.push(instrs[i].string || instrs[i].pseudo.toString().replace(/^.+\s=\s/, '').trim());
-                instrs[i].valid = false;
-            }
-        }
+        var start = instrs.indexOf(instr);
+
         var callname = instr.parsed[1];
         if (_bits_types[instr.parsed[1]]) {
             callname = instr.parsed[2];
@@ -171,18 +154,100 @@ module.exports = (function() {
         } else if (callname.match(/[er][abds][ix]/)) {
             is_pointer = true;
         }
-        instr = instrs[start + 2];
+        instr = instrs[start + 1];
         if (instr) {
             for (var i = 2; i < instr.parsed.length; i++) {
                 var reg = instr.parsed[i];
                 if (reg == 'eax' || reg == 'rax') {
-                    returnval = reg + ' = ';
+                    returnval = reg;
                     break;
                 }
             }
         }
-        return Base.call(returnval + _call_fix_name(callname), args, is_pointer || false);
+
+        var known_args_n = Base.call_args(callname);
+        if (known_args_n == 0) {
+            return Base.call(_call_fix_name(callname), args, is_pointer || false, returnval);
+        }
+        if (instrs[start - 1].parsed[0] == 'push' || context.pusharg) {
+            for (var i = start - 1; i >= 0; i--) {
+                if (known_args_n > 0 && args.length >= known_args_n) {
+                    break;
+                }
+                var op = instrs[i].parsed[0];
+                var arg0 = instrs[i].parsed[1];
+                if (_unsigned_types[arg0]) {
+                    arg0 = instr.parsed[2];
+                }
+                if (op == 'push' && !_is_stack_reg(arg0)) {
+                    if (_unsigned_types[instrs[i].parsed[1]]) {
+                        arg0 = "(" + _unsigned_types[instrs[i].parsed[1]] + "*) " + instrs[i].parsed[2];
+                    }
+                    if (instrs[i].string) {
+                        instrs[i].valid = false;
+                    }
+                    args.push(instrs[i].string || arg0);
+                    context.pusharg = true;
+                } else if (op == 'call' || instrs[i].jump) {
+                    break;
+                }
+            }
+        } else {
+            for (var i = start - 1; i >= end; i--) {
+                if (known_args_n > 0 && args.length >= known_args_n) {
+                    break;
+                }
+                var arg0 = instrs[i].parsed[1];
+                if (_bits_types[arg0]) {
+                    arg0 = instrs[i].parsed[2];
+                }
+                if (bad_ax && (arg0 == 'eax' || arg0 == 'rax')) {
+                    bad_ax = false;
+                    continue;
+                }
+                if (!arg0 || (arg0.indexOf('local_') != 0 && arg0 != 'esp' && regs32.indexOf(arg0) < 0 && regs64.indexOf(arg0) < 0) ||
+                    !instrs[i].pseudo || instrs[i].pseudo[0] == 'call') {
+                    break;
+                }
+                bad_ax = false;
+                if (regs32.indexOf(arg0) > -1) {
+                    regs32.splice(regs32.indexOf(arg0), 1);
+                } else if (regs64.indexOf(arg0) > -1) {
+                    regs64.splice(regs64.indexOf(arg0), 1);
+                }
+                if (instrs[i].string) {
+                    instrs[i].valid = false;
+                }
+                if (_unsigned_types[instrs[i].parsed[1]]) {
+                    arg0 = "(" + _unsigned_types[instrs[i].parsed[1]] + "*) " + instrs[i].parsed[2];
+                }
+                args.push(instrs[i].string || arg0);
+            }
+            args = _call_fix_args(args);
+        }
+        return Base.call(_call_fix_name(callname), args, is_pointer || false, returnval);
     }
+
+    var _standard_mov = function(instr) {
+        if (instr.parsed[1].match(/^[er]?[sb]p$/)) {
+            return null;
+        } else if (instr.parsed.length == 3) {
+            return Base.assign(instr.parsed[1], instr.string || instr.parsed[2]);
+        } else if (_bits_types[instr.parsed[1]]) {
+            return Base.write_memory(instr.parsed[2], instr.parsed[3], _bits_types[instr.parsed[1]], true);
+        }
+        return Base.read_memory(instr.parsed[3], instr.parsed[1], _bits_types[instr.parsed[2]], true);
+    };
+
+    var _conditional_inline = function(instr, context, instructions, type) {
+        instr.conditional(context.cond.a, context.cond.b, type);
+        instr.jump = instructions[instructions.indexOf(instr) + 1].loc;
+    };
+
+    var _conditional_inline = function(instr, context, instructions, type) {
+        instr.conditional(context.cond.a, context.cond.b, type);
+        instr.jump = instructions[instructions.indexOf(instr) + 1].loc;
+    };
 
     return {
         instructions: {
@@ -246,16 +311,47 @@ module.exports = (function() {
                 return Base.assign(instr.parsed[1], instr.string || instr.parsed[2]);
             },
             call: _call_function,
-            mov: function(instr) {
-                if (instr.parsed[1].match(/^[er]?[sb]p$/)) {
-                    return null;
-                } else if (instr.parsed.length == 3) {
-                    return Base.assign(instr.parsed[1], instr.string || instr.parsed[2]);
-                } else if (_bits_types[instr.parsed[1]]) {
-                    return Base.write_memory(instr.parsed[2], instr.parsed[3], _bits_types[instr.parsed[1]], true);
-                }
-                return Base.read_memory(instr.parsed[3], instr.parsed[1], _bits_types[instr.parsed[2]], true);
+            cmova: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'GT');
+                return _standard_mov(instr);
             },
+            cmovae: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'GE');
+                return _standard_mov(instr);
+            },
+            cmovb: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'LT');
+                return _standard_mov(instr);
+            },
+            cmovbe: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'LE');
+                return _standard_mov(instr);
+            },
+            cmove: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'EQ');
+                return _standard_mov(instr);
+            },
+            cmovg: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'GT');
+                return _standard_mov(instr);
+            },
+            cmovge: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'GE');
+                return _standard_mov(instr);
+            },
+            cmovl: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'LT');
+                return _standard_mov(instr);
+            },
+            cmovle: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'LE');
+                return _standard_mov(instr);
+            },
+            cmovne: function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'NE');
+                return _standard_mov(instr);
+            },
+            mov: _standard_mov,
             cbw: function() {
                 return Base.extend('ax', 'al', 16);
             },
@@ -265,8 +361,53 @@ module.exports = (function() {
             cdqe: function() {
                 return Base.extend('rax', 'eax', 64);
             },
+            movsx: function(instr) {
+                if (instr.parsed.length == 4) {
+                    return Base.extend(instr.parsed[1], instr.parsed[3], _bits_types[instr.parsed[2]]);
+                }
+                return Base.extend(instr.parsed[1], instr.parsed[2], _bits_types['dword']);
+            },
+            movsxd: function(instr) {
+                if (instr.parsed.length == 4) {
+                    return Base.extend(instr.parsed[1], instr.parsed[3], _bits_types[instr.parsed[2]]);
+                }
+                return Base.extend(instr.parsed[1], instr.parsed[2], _bits_types['dword']);
+            },
             movzx: function(instr) {
-                return Base.extend(instr.parsed[1], instr.parsed[3], _bits_types[instr.parsed[2]]);
+                if (instr.parsed.length == 4) {
+                    return Base.extend(instr.parsed[1], instr.parsed[3], _bits_types[instr.parsed[2]]);
+                }
+                return Base.extend(instr.parsed[1], instr.parsed[2], _bits_types['dword']);
+            },
+            seta: function(instr, context) {
+                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' > ' + context.cond.b + ') ? 1 : 0');
+            },
+            setae: function(instr, context) {
+                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' >= ' + context.cond.b + ') ? 1 : 0');
+            },
+            setb: function(instr, context) {
+                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' < ' + context.cond.b + ') ? 1 : 0');
+            },
+            setbe: function(instr, context) {
+                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' <= ' + context.cond.b + ') ? 1 : 0');
+            },
+            sete: function(instr, context) {
+                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' == ' + context.cond.b + ') ? 1 : 0');
+            },
+            setg: function(instr, context) {
+                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' > ' + context.cond.b + ') ? 1 : 0');
+            },
+            setge: function(instr, context) {
+                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' >= ' + context.cond.b + ') ? 1 : 0');
+            },
+            setl: function(instr, context) {
+                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' < ' + context.cond.b + ') ? 1 : 0');
+            },
+            setle: function(instr, context) {
+                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' <= ' + context.cond.b + ') ? 1 : 0');
+            },
+            setne: function(instr, context) {
+                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' != ' + context.cond.b + ') ? 1 : 0');
             },
             nop: function(instr, context, instructions) {
                 var index = instructions.indexOf(instr);
@@ -391,7 +532,7 @@ module.exports = (function() {
                 return Base.nop();
             },
             hlt: function() {
-                return Base.call('_hlt');
+                return Base.call('_hlt', [], false, 'return');
             },
             invalid: function() {
                 return Base.nop();

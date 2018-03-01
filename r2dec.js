@@ -34,14 +34,10 @@ if (!r2pipe.hasOwnProperty('jsonParse')) {
 
 r2pipe.jsonParse = libdec.JSON.parse;
 
-if (process.argv.length > 2) {
-    r2pipe.open(process.argv[2], main);
-} else {
-    r2pipe.open(main);
-}
+r2pipe.open(main);
 
 function main(err, r2) {
-    asyncMain(err, r2).catch(function(v) {
+    asyncMain(err, r2, process.argv.slice(2)).catch(function(v) {
         console.log(v);
     }).then(function(v) {
         console.log(v);
@@ -54,13 +50,38 @@ function printer(msg) {
     }
 }
 
-async function asyncMain(err, r2) {
+function suicide() {
+    process.kill(process.pid);
+}
+
+function has_option(args, name) {
+    return (args.indexOf(name) >= 0);
+}
+
+function usage() {
+    console.log("#!pipe r2dec [options]");
+    console.log("       --help     | this help message");
+    console.log("       --colors   | enables syntax colors");
+    console.log("       --issue    | generates the json used for the test suite");
+}
+
+async function asyncMain(err, r2, args) {
+    if (has_option(args, '--help') || has_option(args, 'help') || has_option(args, '-h')) {
+        usage();
+        suicide();
+    }
+
+
     const cmd = util.promisify(r2.cmd).bind(r2);
     const cmdj = util.promisify(r2.cmdj).bind(r2);
     const r2quit = util.promisify(r2.quit).bind(r2);
     if (err) {
         throw err;
     }
+
+    // r2dec options
+    const colors = has_option(args, '--colors');
+
 
     let arch = (await cmd('e asm.arch')).trim();
     let bits = (await cmd('e asm.bits')).trim();
@@ -73,18 +94,25 @@ async function asyncMain(err, r2) {
         if (pseudo) {
             await cmd('e asm.pseudo = false');
         }
-        const xrefs = await cmdj('isj');
-        const strings = await cmdj('izj');
-        const data = await cmdj('agj');
 
+        if (has_option(args, '--issue')) {
+            const xrefs = (await cmd('isj')).trim();
+            const strings = (await cmd('izj')).trim();
+            const data = (await cmd('agj')).trim();
+            console.log('{"name":"issue_' + (new Date()).getTime() + '","arch":"' + arch + '","agj":' + data + ',"isj":' + xrefs + ',"izj":' + strings + '}');
+        } else {
+            const xrefs = await cmdj('isj');
+            const strings = await cmdj('izj');
+            const data = await cmdj('agj');
+            let routine = libdec.analyzer.make(data);
 
-        let routine = libdec.analyzer.make(data);
+            libdec.analyzer.strings(routine, strings);
+            libdec.analyzer.analyze(routine, architecture);
+            libdec.analyzer.xrefs(routine, xrefs);
 
-        libdec.analyzer.strings(routine, strings);
-        libdec.analyzer.analyze(routine, architecture);
-        libdec.analyzer.xrefs(routine, xrefs);
+            routine.print(console.log, colors);
+        }
 
-        routine.print(console.log);
         if (pseudo) {
             await cmd('e asm.pseudo = true');
         }
@@ -94,5 +122,7 @@ async function asyncMain(err, r2) {
     }
 
     // kill itself.
-    process.kill(process.pid); //await r2quit();
+    suicide();
+    // r2quit is broken
+    //await r2quit();
 }

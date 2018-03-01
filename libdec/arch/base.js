@@ -18,20 +18,74 @@
 module.exports = (function() {
 
     var _call_common = {
-        'textdomain': ['#include <libintl.h>'],
-        'setlocale': ['#include <locale.h>'],
-        'wcscmp': ['#include <wchar.h>'],
-        'strcmp': ['#include <string.h>'],
-        'strncmp': ['#include <string.h>'],
-        'msvcrt_dll_memset': ['#include <string.h>'],
-        'xmalloc': ['#include <stdlib.h>'],
-        'memset': ['#include <string.h>'],
-        'memcpy': ['#include <string.h>'],
-        'strcpy': ['#include <string.h>'],
-        'puts': ['#include <stdio.h>'],
-        'printf': ['#include <stdio.h>'],
-        'scanf': ['#include <stdio.h>'],
-        'isoc99_scanf': ['#include <stdio.h>']
+        'fgets': {
+            macro: ['#include <stdio.h>'],
+            args: 3
+        },
+        'fwrite': {
+            macro: ['#include <stdio.h>'],
+            args: 4
+        },
+        'fread': {
+            macro: ['#include <stdio.h>'],
+            args: 4
+        },
+        'textdomain': {
+            macro: ['#include <libintl.h>'],
+            args: -1
+        },
+        'setlocale': {
+            macro: ['#include <locale.h>'],
+            args: -1
+        },
+        'wcscmp': {
+            macro: ['#include <wchar.h>'],
+            args: 2
+        },
+        'strcmp': {
+            macro: ['#include <string.h>'],
+            args: 2
+        },
+        'strncmp': {
+            macro: ['#include <string.h>'],
+            args: 3
+        },
+        'msvcrt_dll_memset': {
+            macro: ['#include <string.h>'],
+            args: 3
+        },
+        'xmalloc': {
+            macro: ['#include <stdlib.h>'],
+            args: 1
+        },
+        'memset': {
+            macro: ['#include <string.h>'],
+            args: 3
+        },
+        'memcpy': {
+            macro: ['#include <string.h>'],
+            args: 3
+        },
+        'strcpy': {
+            macro: ['#include <string.h>'],
+            args: 2
+        },
+        'puts': {
+            macro: ['#include <stdio.h>'],
+            args: 1
+        },
+        'printf': {
+            macro: ['#include <stdio.h>'],
+            args: -1
+        },
+        'scanf': {
+            macro: ['#include <stdio.h>'],
+            args: -1
+        },
+        'isoc99_scanf': {
+            macro: ['#include <stdio.h>'],
+            args: -1
+        }
     };
 
     var _dependency = function(macros, code) {
@@ -127,6 +181,12 @@ module.exports = (function() {
     }
 
     return {
+        call_args: function(name) {
+            if (_call_common[name]) {
+                return _call_common[name].args;
+            }
+            return -1;
+        },
         increase: function(destination, source) {
             return new _pseudocode(new _common_math('+', destination, destination, source));
         },
@@ -214,15 +274,21 @@ module.exports = (function() {
         },
         call: function(address, args, is_pointer, returns) {
             args = args || [];
-            var macros = _call_common[address];
-            if (macros) {
-                macros = new _dependency(macros);
+            if (_call_common[address]) {
+                var macros = _call_common[address].macro;
+                if (macros) {
+                    macros = new _dependency(macros);
+                }
             }
             if (is_pointer) {
                 address = '(*(void(*)(' + (args.length > 0 ? '...' : '') + ')) ' + address + ')'
             }
             if (returns) {
-                address = 'return ' + address;
+                if (returns == 'return') {
+                    address = returns + ' ' + address;
+                } else {
+                    address = returns + ' = ' + address;
+                }
             }
             return new _pseudocode(address + ' (' + args.join(', ') + ')', macros);
         },

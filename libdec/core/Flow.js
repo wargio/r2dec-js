@@ -63,14 +63,12 @@ module.exports = (function() {
             instr.pseudo = Base.goto(instr.jump);
             return false;
         }
-        for (var i = index; i < instructions.length; i++) {
-            var tmpinstr = instructions[i];
-            if (tmpinstr.loc.eq(instr.jump)) {
-                var label = (tmpinstr.label < 0) ? _label_counter++ : tmpinstr.label;
-                tmpinstr.label = label;
-                instr.pseudo = Base.goto('label_' + label);
-                return true;
-            }
+        var found = Utils.search(instr.jump, instructions, _compare_loc);
+        if (found) {
+            var label = (found.label < 0) ? _label_counter++ : found.label;
+            found.label = label;
+            instr.pseudo = Base.goto('label_' + label);
+            return true;
         }
         return false;
     };
@@ -132,7 +130,7 @@ module.exports = (function() {
                 scope.trailer = '}';
             }
         }
-        if (elseinst) {
+        if (elseinst && elseinst.jump.gt(elseinst.loc)) {
             _set_label(instructions, instructions.indexOf(elseinst));
             elseinst = null;
         }
@@ -155,10 +153,14 @@ module.exports = (function() {
         }
         var start = instructions.indexOf(instr);
         var is_while = (instructions[start - 1] && bounds.isInside(instructions[start - 1].jump));
+        if (instructions[start].scope.level > first.scope.level) {
+            _set_label(instructions, index, !context.limits.isInside(first.jump));
+            return true;
+        }
         scope.level = instructions[start].scope.level + 1;
         scope.header = is_while ? ('while (' + cond + ') {') : 'do {';
         var scopes = [];
-        for (var i = start; i <= index; i++) {
+        for (var i = start; i < index; i++) {
             instr = instructions[i];
             if (instr.scope.level == scope.level) {
                 instr.scope.level++;
