@@ -26,6 +26,11 @@
 
 const libdec = require('./libdec/libdec.js');
 var fs = require('fs');
+// r2dec options
+const options = {
+    color: null,
+    casts: true,
+};
 
 function load_text(filename) {
     try {
@@ -55,7 +60,7 @@ if (filename) {
         libdec.analyzer.analyze(routine, architecture);
         libdec.analyzer.xrefs(routine, xrefs);
 
-        routine.print(console.log);
+        routine.print(console.log, options);
     }
 } else {
     console.log('node ' + process.argv[1] + ' <test.json>');

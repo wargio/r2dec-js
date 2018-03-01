@@ -27,7 +27,7 @@ module.exports = (function() {
         this.b = _is_str(b) ? new Base.common(b) : b;
         this.compare = compare;
         this.toString = function(options) {
-            return '(' + this.a.toString(options) + (this.compare ? (this.compare + this.a.toString(options)) : '') + ')';
+            return '(' + this.a.toString(options) + (this.compare ? (this.compare + this.b.toString(options)) : '') + ')';
         };
     };
 

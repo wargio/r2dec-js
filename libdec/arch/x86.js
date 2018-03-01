@@ -18,20 +18,6 @@
 module.exports = (function() {
     var Base = require('./base');
 
-    var _signed_types = {
-        'byte': 'int8_t ',
-        'word': 'int16_t',
-        'dword': 'int32_t',
-        'qword': 'int64_t'
-    };
-
-    var _unsigned_types = {
-        'byte': 'uint8_t ',
-        'word': 'uint16_t',
-        'dword': 'uint32_t',
-        'qword': 'uint64_t'
-    };
-
     var _bits_types = {
         'byte': 8,
         'word': 16,
@@ -76,23 +62,23 @@ module.exports = (function() {
             }
             return op("dx:ax", "dx:ax", arg);
         } else if (_bits_types[e[1]]) {
-            var arg = new Base.bits_argument(e[2], _bits_types[e[1]], false, true, true);
+            var arg = new Base.bits_argument(e[2], _bits_types[e[1]], true, true, true);
             return op(arg, arg, e[3]);
         } else if (_bits_types[e[2]]) {
-            var arg = new Base.bits_argument(e[3], _bits_types[e[2]], false, true, true);
+            var arg = new Base.bits_argument(e[3], _bits_types[e[2]], true, true, true);
             return op(e[1], e[1], arg);
         }
-        var arg = new Base.bits_argument(e[2], bits, false, true, true);
+        var arg = new Base.bits_argument(e[2], bits, true, true, true);
         return op(e[1], e[1], arg);
     };
 
     var _memory_cmp = function(e, cond) {
         if (_bits_types[e[1]]) {
-            cond.a = new Base.bits_argument(e[2].replace(/\[|\]/g, ''), _bits_types[e[1]], false, true, true);
+            cond.a = new Base.bits_argument(e[2].replace(/\[|\]/g, ''), _bits_types[e[1]], true, true, true);
             cond.b = e[3];
         } else if (_bits_types[e[2]]) {
             cond.a = e[1];
-            cond.b = new Base.bits_argument(e[3].replace(/\[|\]/g, ''), _bits_types[e[2]], false, true, true);
+            cond.b = new Base.bits_argument(e[3].replace(/\[|\]/g, ''), _bits_types[e[2]], true, true, true);
         } else {
             cond.a = e[1];
             cond.b = e[2];
@@ -480,10 +466,10 @@ module.exports = (function() {
             push: function(instr) {
                 instr.valid = false;
                 var value = instr.parsed[1];
-                if (_unsigned_types[value]) {
-                    value = "*((" + _unsigned_types[value] + "*) " + instr.parsed[2] + ")";
+                if (_bits_types[value]) {
+                    return Base.bits_argument(instr.parsed[2], _bits_types[value], false, true, false);
                 }
-                return Base.instructions.push(value);
+                return Base.bits_argument(value);
             },
             pop: function(instr, context, instructions) {
                 var previous = instructions[instructions.indexOf(instr) - 1];

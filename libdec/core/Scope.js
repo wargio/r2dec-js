@@ -34,12 +34,12 @@ module.exports = (function() {
         this.uid = uniq_counter++;
         this.printHeader = function(p, ident, options) {
             if (this.header) {
-                p(ident + this.header.toString(options));
+                p(ident + this.header.toString(options).trim());
             }
         };
         this.printTrailer = function(p, ident, options) {
             if (this.trailer) {
-                p(ident + this.trailer.toString(options));
+                p(ident + this.trailer.toString(options).trim());
             }
         };
         this.toString = function() {

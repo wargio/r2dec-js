@@ -35,7 +35,7 @@ module.exports = (function() {
         this.is_head = is_head;
         this.condition = condition;
         this.toString = function(options) {
-            return (this.is_head ? '' : '} ') + _colorize(this.name, options.color) + (this.condition ? (' ' + this.condition.toString(options)) : '') + (this.is_head ? ' {' : '');
+            return (this.is_head ? '' : '} ') + _colorize(this.name, options.color) + (this.condition ? (' ' + this.condition.toString(options)) : '') + (this.is_head ? ' {' : (this.condition ? ';' : ''));
         }
     };
 
@@ -61,7 +61,7 @@ module.exports = (function() {
             return false;
         }
         if (!instr.pseudo) {
-            instr.pseudo = Base.goto(instr.jump);
+            instr.pseudo = Base.instructions.goto(instr.jump);
         }
         return true;
     };
@@ -73,14 +73,14 @@ module.exports = (function() {
     var _set_label = function(instructions, index, is_external) {
         var instr = instructions[index];
         if (is_external) {
-            instr.pseudo = Base.goto(instr.jump);
+            instr.pseudo = Base.instructions.goto(instr.jump);
             return false;
         }
         var found = Utils.search(instr.jump, instructions, _compare_loc);
         if (found) {
             var label = (found.label < 0) ? _label_counter++ : found.label;
             found.label = label;
-            instr.pseudo = Base.goto('label_' + label);
+            instr.pseudo = Base.instructions.goto('label_' + label);
             return true;
         }
         return false;
@@ -190,7 +190,7 @@ module.exports = (function() {
                 }
             }
         }
-        scope.trailer = is_while ? new ControlFlow(null, false) : new ControlFlow('while', true, cond);
+        scope.trailer = is_while ? new ControlFlow(null, false) : new ControlFlow('while', false, cond);
         return true;
     };
 
