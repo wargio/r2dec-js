@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2017 deroad
+ * Copyright (C) 2017-2018 deroad
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,6 @@
  */
 
 module.exports = (function() {
-
     var Base = require('./base');
 
     var _signed_types = {
@@ -69,28 +68,31 @@ module.exports = (function() {
             return null;
         }
         if (e.length == 2) {
+            var arg = new Base.bits_argument(e[1], bits, false);
             if (e[1].match(/r\wx/)) {
-                return op("rax", "rax", (bits ? '(uint' + bits + '_t) ' : '') + e[1]);
+                return op("rax", "rax", arg);
             } else if (e[1].match(/r\wx/)) {
-                return op("edx:eax", "edx:eax", (bits ? '(uint' + bits + '_t) ' : '') + e[1]);
+                return op("edx:eax", "edx:eax", arg);
             }
-            return op("dx:ax", "dx:ax", (bits ? '(uint' + bits + '_t) ' : '') + e[1]);
-        } else if (_signed_types[e[1]]) {
-            var a = "*((" + _signed_types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ")";
-            return op(a, a, e[3]);
-        } else if (_signed_types[e[2]]) {
-            return op(e[1], e[1], "*((" + _signed_types[e[2]] + "*) " + e[3].replace(/\[|\]/g, '') + ")");
+            return op("dx:ax", "dx:ax", arg);
+        } else if (_bits_types[e[1]]) {
+            var arg = new Base.bits_argument(e[2], _bits_types[e[1]], false, true, true);
+            return op(arg, arg, e[3]);
+        } else if (_bits_types[e[2]]) {
+            var arg = new Base.bits_argument(e[3], _bits_types[e[2]], false, true, true);
+            return op(e[1], e[1], arg);
         }
-        return op(e[1], e[1], (bits ? '(uint' + bits + '_t) ' : '') + e[2]);
+        var arg = new Base.bits_argument(e[2], bits, false, true, true);
+        return op(e[1], e[1], arg);
     };
 
     var _memory_cmp = function(e, cond) {
-        if (_signed_types[e[1]]) {
-            cond.a = "*((" + _signed_types[e[1]] + "*) " + e[2].replace(/\[|\]/g, '') + ")";
+        if (_bits_types[e[1]]) {
+            cond.a = new Base.bits_argument(e[2].replace(/\[|\]/g, ''), _bits_types[e[1]], false, true, true);
             cond.b = e[3];
-        } else if (_signed_types[e[2]]) {
+        } else if (_bits_types[e[2]]) {
             cond.a = e[1];
-            cond.b = "*((" + _signed_types[e[2]] + "*) " + e[3].replace(/\[|\]/g, '') + ")";
+            cond.b = new Base.bits_argument(e[3].replace(/\[|\]/g, ''), _bits_types[e[2]], false, true, true);
         } else {
             cond.a = e[1];
             cond.b = e[2];
@@ -103,19 +105,19 @@ module.exports = (function() {
             type = inv;
         }
         instr.conditional(context.cond.a, context.cond.b, type);
-        return Base.nop();
+        return Base.instructions.nop();
     };
 
     var _compare = function(instr, context) {
         var e = instr.parsed;
         if (e.length == 4) {
             _memory_cmp(e, context.cond);
-            return Base.nop();
+            return Base.instructions.nop();
         }
         context.cond.a = e[1];
         context.cond.b = e[2];
         context.cond.is_incdec = false;
-        return Base.nop();
+        return Base.instructions.nop();
     };
 
     // cannot be stack based + register baserd args at the same time
@@ -134,6 +136,10 @@ module.exports = (function() {
         });
     };
 
+    var _requires_pointer = function(string, arg) {
+        return (string != null || arg.indexOf('local_') == 0 || arg == 'esp');
+    };
+
     var _call_function = function(instr, context, instrs, is_pointer) {
         var regs32 = ['ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp'];
         var regs64 = ['rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9'];
@@ -144,15 +150,22 @@ module.exports = (function() {
         var start = instrs.indexOf(instr);
 
         var callname = instr.parsed[1];
+        var known_args_n = -1;
         if (_bits_types[instr.parsed[1]]) {
             callname = instr.parsed[2];
             if (callname.indexOf("reloc.") == 0) {
                 callname = callname.replace(/reloc\./g, '');
+                known_args_n = Base.arguments(callname);
             } else if (callname.indexOf('0x') == 0) {
-                callname = "*((" + _unsigned_types[instr.parsed[1]] + "*) " + callname + ")";
+                callname = new Base.bits_argument(callname, _bits_types[e[1]], false, true, true);
+            } else {
+                known_args_n = Base.arguments(callname);
             }
-        } else if (callname.match(/[er][abds][ix]/)) {
-            is_pointer = true;
+        } else {
+            known_args_n = Base.arguments(callname);
+            if (callname.match(/[er][abds][ix]/)) {
+                is_pointer = true;
+            }
         }
         instr = instrs[start + 1];
         if (instr) {
@@ -167,7 +180,7 @@ module.exports = (function() {
 
         var known_args_n = Base.arguments(callname);
         if (known_args_n == 0) {
-            return Base.call(_call_fix_name(callname), args, is_pointer || false, returnval);
+            return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
         }
         if (instrs[start - 1].parsed[0] == 'push' || context.pusharg) {
             for (var i = start - 1; i >= 0; i--) {
@@ -185,7 +198,7 @@ module.exports = (function() {
                     if (instrs[i].string) {
                         instrs[i].valid = false;
                     }
-                    args.push(new Base.call_argument(instrs[i].string || arg0, bits));
+                    args.push(new Base.bits_argument(instrs[i].string || arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
                     context.pusharg = true;
                 } else if (op == 'call' || instrs[i].jump) {
                     break;
@@ -218,23 +231,24 @@ module.exports = (function() {
                 }
                 if (instrs[i].string) {
                     instrs[i].valid = false;
+                    bits = null;
                 }
-                args.push(new Base.call_argument(instrs[i].string || arg0, bits));
+                args.push(new Base.bits_argument(instrs[i].string || arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
             }
             args = _call_fix_args(args);
         }
-        return Base.call(_call_fix_name(callname), args, is_pointer || false, returnval);
+        return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
     }
 
     var _standard_mov = function(instr) {
         if (instr.parsed[1].match(/^[er]?[sb]p$/)) {
             return null;
         } else if (instr.parsed.length == 3) {
-            return Base.assign(instr.parsed[1], instr.string || instr.parsed[2]);
+            return Base.instructions.assign(instr.parsed[1], instr.string || instr.parsed[2]);
         } else if (_bits_types[instr.parsed[1]]) {
-            return Base.write_memory(instr.parsed[2], instr.parsed[3], _bits_types[instr.parsed[1]], true);
+            return Base.instructions.write_memory(instr.parsed[2], instr.parsed[3], _bits_types[instr.parsed[1]], true);
         }
-        return Base.read_memory(instr.parsed[3], instr.parsed[1], _bits_types[instr.parsed[2]], true);
+        return Base.instructions.read_memory(instr.parsed[3], instr.parsed[1], _bits_types[instr.parsed[2]], true);
     };
 
     var _conditional_inline = function(instr, context, instructions, type) {
@@ -252,61 +266,61 @@ module.exports = (function() {
             inc: function(instr, context) {
                 context.cond.a = instr.parsed[1];
                 context.cond.b = '0';
-                return Base.increase(instr.parsed[1], '1');
+                return Base.instructions.increase(instr.parsed[1], '1');
             },
             dec: function(instr, context) {
                 context.cond.a = instr.parsed[1];
                 context.cond.b = '0';
                 context.cond.is_incdec = true;
-                return Base.decrease(instr.parsed[1], '1');
+                return Base.instructions.decrease(instr.parsed[1], '1');
             },
             add: function(instr) {
-                return _common_math(instr.parsed, Base.add);
+                return _common_math(instr.parsed, Base.instructions.add);
             },
             sub: function(instr, context, instructions) {
                 if (_is_stack_reg(instr.parsed[1])) {
                     _clean_save_reg(instr, parseInt(instr.parsed[2]), instructions);
                 }
-                return _common_math(instr.parsed, Base.subtract);
+                return _common_math(instr.parsed, Base.instructions.subtract);
             },
             sbb: function(instr) {
-                return _common_math(instr.parsed, Base.subtract);
+                return _common_math(instr.parsed, Base.instructions.subtract);
             },
             sar: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.shift_right);
+                return _common_math(instr.parsed, Base.instructions.shift_right);
             },
             sal: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.shift_left);
+                return _common_math(instr.parsed, Base.instructions.shift_left);
             },
             shr: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.shift_right);
+                return _common_math(instr.parsed, Base.instructions.shift_right);
             },
             shl: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.shift_left);
+                return _common_math(instr.parsed, Base.instructions.shift_left);
             },
             and: function(instr) {
-                return _common_math(instr.parsed, Base.and);
+                return _common_math(instr.parsed, Base.instructions.and);
             },
             or: function(instr) {
-                return _common_math(instr.parsed, Base.or);
+                return _common_math(instr.parsed, Base.instructions.or);
             },
             xor: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.xor);
+                return _common_math(instr.parsed, Base.instructions.xor);
             },
             idiv: function(instr) {
-                return _common_math(instr.parsed, Base.divide);
+                return _common_math(instr.parsed, Base.instructions.divide);
             },
             imul: function(instr) {
-                return _common_math(instr.parsed, Base.multiply);
+                return _common_math(instr.parsed, Base.instructions.multiply);
             },
             neg: function(instr) {
-                return Base.negate(instr.parsed[1], instr.parsed[1]);
+                return Base.instructions.negate(instr.parsed[1], instr.parsed[1]);
             },
             not: function(instr) {
-                return Base.not(instr.parsed[1], instr.parsed[1]);
+                return Base.instructions.not(instr.parsed[1], instr.parsed[1]);
             },
             lea: function(instr) {
-                return Base.assign(instr.parsed[1], instr.string || instr.parsed[2]);
+                return Base.instructions.assign(instr.parsed[1], instr.string || instr.parsed[2]);
             },
             call: _call_function,
             cmova: function(instr, context, instructions) {
@@ -351,61 +365,61 @@ module.exports = (function() {
             },
             mov: _standard_mov,
             cbw: function() {
-                return Base.extend('ax', 'al', 16);
+                return Base.instructions.extend('ax', 'al', 16);
             },
             cwde: function() {
-                return Base.extend('eax', 'ax', 32);
+                return Base.instructions.extend('eax', 'ax', 32);
             },
             cdqe: function() {
-                return Base.extend('rax', 'eax', 64);
+                return Base.instructions.extend('rax', 'eax', 64);
             },
             movsx: function(instr) {
                 if (instr.parsed.length == 4) {
-                    return Base.extend(instr.parsed[1], instr.parsed[3], _bits_types[instr.parsed[2]]);
+                    return Base.instructions.extend(instr.parsed[1], instr.parsed[3], _bits_types[instr.parsed[2]]);
                 }
-                return Base.extend(instr.parsed[1], instr.parsed[2], _bits_types['dword']);
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], _bits_types['dword']);
             },
             movsxd: function(instr) {
                 if (instr.parsed.length == 4) {
-                    return Base.extend(instr.parsed[1], instr.parsed[3], _bits_types[instr.parsed[2]]);
+                    return Base.instructions.extend(instr.parsed[1], instr.parsed[3], _bits_types[instr.parsed[2]]);
                 }
-                return Base.extend(instr.parsed[1], instr.parsed[2], _bits_types['dword']);
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], _bits_types['dword']);
             },
             movzx: function(instr) {
                 if (instr.parsed.length == 4) {
-                    return Base.extend(instr.parsed[1], instr.parsed[3], _bits_types[instr.parsed[2]]);
+                    return Base.instructions.extend(instr.parsed[1], instr.parsed[3], _bits_types[instr.parsed[2]]);
                 }
-                return Base.extend(instr.parsed[1], instr.parsed[2], _bits_types['dword']);
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], _bits_types['dword']);
             },
             seta: function(instr, context) {
-                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' > ' + context.cond.b + ') ? 1 : 0');
+                return Base.instructions.assign(instr.parsed[1], '(' + context.cond.a + ' > ' + context.cond.b + ') ? 1 : 0');
             },
             setae: function(instr, context) {
-                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' >= ' + context.cond.b + ') ? 1 : 0');
+                return Base.instructions.assign(instr.parsed[1], '(' + context.cond.a + ' >= ' + context.cond.b + ') ? 1 : 0');
             },
             setb: function(instr, context) {
-                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' < ' + context.cond.b + ') ? 1 : 0');
+                return Base.instructions.assign(instr.parsed[1], '(' + context.cond.a + ' < ' + context.cond.b + ') ? 1 : 0');
             },
             setbe: function(instr, context) {
-                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' <= ' + context.cond.b + ') ? 1 : 0');
+                return Base.instructions.assign(instr.parsed[1], '(' + context.cond.a + ' <= ' + context.cond.b + ') ? 1 : 0');
             },
             sete: function(instr, context) {
-                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' == ' + context.cond.b + ') ? 1 : 0');
+                return Base.instructions.assign(instr.parsed[1], '(' + context.cond.a + ' == ' + context.cond.b + ') ? 1 : 0');
             },
             setg: function(instr, context) {
-                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' > ' + context.cond.b + ') ? 1 : 0');
+                return Base.instructions.assign(instr.parsed[1], '(' + context.cond.a + ' > ' + context.cond.b + ') ? 1 : 0');
             },
             setge: function(instr, context) {
-                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' >= ' + context.cond.b + ') ? 1 : 0');
+                return Base.instructions.assign(instr.parsed[1], '(' + context.cond.a + ' >= ' + context.cond.b + ') ? 1 : 0');
             },
             setl: function(instr, context) {
-                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' < ' + context.cond.b + ') ? 1 : 0');
+                return Base.instructions.assign(instr.parsed[1], '(' + context.cond.a + ' < ' + context.cond.b + ') ? 1 : 0');
             },
             setle: function(instr, context) {
-                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' <= ' + context.cond.b + ') ? 1 : 0');
+                return Base.instructions.assign(instr.parsed[1], '(' + context.cond.a + ' <= ' + context.cond.b + ') ? 1 : 0');
             },
             setne: function(instr, context) {
-                return Base.assign(instr.parsed[1], '(' + context.cond.a + ' != ' + context.cond.b + ') ? 1 : 0');
+                return Base.instructions.assign(instr.parsed[1], '(' + context.cond.a + ' != ' + context.cond.b + ') ? 1 : 0');
             },
             nop: function(instr, context, instructions) {
                 var index = instructions.indexOf(instr);
@@ -414,19 +428,19 @@ module.exports = (function() {
                     instructions[index - 1].pseudo.ctx.indexOf('return') != 0) {
                     instructions[index - 1].pseudo.ctx = 'return ' + instructions[index - 1].pseudo.ctx;
                 }
-                return Base.nop();
+                return Base.instructions.nop();
             },
             leave: function(instr, context) {
-                return Base.nop();
+                return Base.instructions.nop();
             },
             jmp: function(instr, context, instructions) {
                 var e = instr.parsed;
                 if (e.length == 3 && e[2].indexOf("[reloc.") == 0) {
-                    return Base.call(_call_fix_name(e[2]));
+                    return Base.instructions.call(_call_fix_name(e[2]));
                 } else if (e.length == 2 && (e[1] == 'eax' || e[1] == 'rax')) {
                     return _call_function(instr, context, instructions, true);
                 }
-                return Base.nop()
+                return Base.instructions.nop()
             },
             cmp: _compare,
             test: function(instr, context, instructions) {
@@ -437,7 +451,7 @@ module.exports = (function() {
                 }
                 context.cond.a = (e[1] == e[2]) ? e[1] : "(" + e[1] + " & " + e[2] + ")";
                 context.cond.b = '0';
-                return Base.nop();
+                return Base.instructions.nop();
             },
             ret: function(instr, context, instructions) {
                 var index = instructions.indexOf(instr) - 1;
@@ -461,7 +475,7 @@ module.exports = (function() {
                         register = true;
                     }
                 }
-                return Base.return(register ? 'eax' : '');
+                return Base.instructions.return(register ? 'eax' : '');
             },
             push: function(instr) {
                 instr.valid = false;
@@ -469,7 +483,7 @@ module.exports = (function() {
                 if (_unsigned_types[value]) {
                     value = "*((" + _unsigned_types[value] + "*) " + instr.parsed[2] + ")";
                 }
-                return Base.push(value);
+                return Base.instructions.push(value);
             },
             pop: function(instr, context, instructions) {
                 var previous = instructions[instructions.indexOf(instr) - 1];
@@ -477,63 +491,63 @@ module.exports = (function() {
                     /* 0x0000 push 1; 0x0002 pop eax ===> eax = 1 */
                     var src = previous.parsed[1];
                     previous.parsed = ['nop'];
-                    return Base.assign(instr.parsed[1], previous.string || src);
+                    return Base.instructions.assign(instr.parsed[1], previous.string || src);
                 }
-                return Base.nop();
+                return Base.instructions.nop();
             },
             jne: function(i, c) {
                 _conditional(i, c, 'EQ', 'NE');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             je: function(i, c) {
                 _conditional(i, c, 'NE', 'EQ');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             ja: function(i, c) {
                 _conditional(i, c, 'LE', 'GT');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             jae: function(i, c) {
                 _conditional(i, c, 'LT', 'GE');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             jb: function(i, c) {
                 _conditional(i, c, 'GE', 'LT');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             jbe: function(i, c) {
                 _conditional(i, c, 'GT', 'LE');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             jg: function(i, c) {
                 _conditional(i, c, 'LE', 'GT');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             jge: function(i, c) {
                 _conditional(i, c, 'LT', 'GE');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             jle: function(i, c) {
                 _conditional(i, c, 'GT', 'LE');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             jl: function(i, c) {
                 _conditional(i, c, 'GE', 'LT');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             js: function(i, c) {
                 _conditional(i, c, 'LT', 'GE');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             jns: function(i, c) {
                 _conditional(i, c, 'GE', 'LT');
-                return Base.nop();
+                return Base.instructions.nop();
             },
             hlt: function() {
-                return Base.call('_hlt', [], false, 'return');
+                return Base.instructions.call('_hlt', [], false, 'return');
             },
             invalid: function() {
-                return Base.nop();
+                return Base.instructions.nop();
             }
         },
         parse: function(asm) {

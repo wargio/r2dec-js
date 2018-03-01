@@ -24,6 +24,16 @@ done
 * give the data to the plugin `#!pipe r2dec`
 * done.
 
+# Arguments
+
+```
+#!pipe r2dec [options]
+       --help       | this help message
+       --colors     | enables syntax colors
+       --hide-casts | hides all casts in the pseudo code
+       --issue      | generates the json used for the test suite
+```
+
 # Report an Issue
 
 * open with radare2 your file

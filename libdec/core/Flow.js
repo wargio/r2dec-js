@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2017 deroad
+ * Copyright (C) 2017-2018 deroad
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,10 +25,23 @@ module.exports = (function() {
 
     var _label_counter = 0;
 
+    var _colorize = function(input, color) {
+        if (!color || input == '') return input;
+        return color.colorize(input);
+    }
+
+    var ControlFlow = function(name, is_head, condition) {
+        this.name = name || '';
+        this.is_head = is_head;
+        this.condition = condition;
+        this.toString = function(options) {
+            return (this.is_head ? '' : '} ') + _colorize(this.name, options.color) + (this.condition ? (' ' + this.condition.toString(options)) : '') + (this.is_head ? ' {' : '');
+        }
+    };
+
     var AddressBounds = function(low, hi) {
         this.low = low;
         this.hi = hi;
-
         this.isInside = function(addr) {
             return addr ? (addr.gte(this.low) && addr.lte(this.hi)) : false;
         }
@@ -101,8 +114,8 @@ module.exports = (function() {
         var cond = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_DEFAULT);
         var fail = instr.fail;
         var elseinst = null;
-        scope.header = 'if (' + cond + ') {';
-        scope.trailer = '}';
+        scope.header = new ControlFlow('if', true, cond);
+        scope.trailer = new ControlFlow(null, false);
         for (var i = index; i < instructions.length; i++) {
             instr = instructions[i];
             if (end.lte(instr.loc)) {
@@ -118,16 +131,16 @@ module.exports = (function() {
                 elseinst = instr;
                 end = instr.jump;
                 bounds = new AddressBounds(instr.loc, instr.jump)
-                scope.trailer = '}';
+                scope.trailer = new ControlFlow(null, false);
                 scope = new Scope();
                 scope.level = instr.scope.level;
                 if (instr.fail && instr.cond) {
                     var cond = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_DEFAULT);
-                    scope.header = 'else if (' + cond + ') {';
+                    scope.header = new ControlFlow('else if', true, cond);
                 } else {
-                    scope.header = 'else {';
+                    scope.header = new ControlFlow('else', true);
                 }
-                scope.trailer = '}';
+                scope.trailer = new ControlFlow(null, false);
             }
         }
         if (elseinst && elseinst.jump.gt(elseinst.loc)) {
@@ -158,7 +171,7 @@ module.exports = (function() {
             return true;
         }
         scope.level = instructions[start].scope.level + 1;
-        scope.header = is_while ? ('while (' + cond + ') {') : 'do {';
+        scope.header = is_while ? (new ControlFlow('while', true, cond)) : new ControlFlow('do', true);
         var scopes = [];
         for (var i = start; i < index; i++) {
             instr = instructions[i];
@@ -177,7 +190,7 @@ module.exports = (function() {
                 }
             }
         }
-        scope.trailer = is_while ? '}' : '} while (' + cond + ');';
+        scope.trailer = is_while ? new ControlFlow(null, false) : new ControlFlow('while', true, cond);
         return true;
     };
 

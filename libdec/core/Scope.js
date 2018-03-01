@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2017 deroad
+ * Copyright (C) 2017-2018 deroad
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,12 +34,12 @@ module.exports = (function() {
         this.uid = uniq_counter++;
         this.printHeader = function(p, ident, options) {
             if (this.header) {
-                p(ident + _colorize(this.header, options.color));
+                p(ident + this.header.toString(options));
             }
         };
         this.printTrailer = function(p, ident, options) {
             if (this.trailer) {
-                p(ident + _colorize(this.trailer, options.color));
+                p(ident + this.trailer.toString(options));
             }
         };
         this.toString = function() {

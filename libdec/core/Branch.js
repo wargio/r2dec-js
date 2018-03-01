@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2017 deroad
+ * Copyright (C) 2017-2018 deroad
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,26 +15,43 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = {
-    TYPE_INF: ['1', '0'],
-    TYPE_EQ: [' == ', ' != '],
-    TYPE_NE: [' != ', ' == '],
-    TYPE_LT: [' < ', ' >= '],
-    TYPE_LE: [' <= ', ' > '],
-    TYPE_GT: [' > ', ' <= '],
-    TYPE_GE: [' >= ', ' < '],
-    FLOW_DEFAULT: 0,
-    FLOW_INVERTED: 1,
-    generate: function(a, b, type, as) {
-        if (type == 'INF') {
-            return this.TYPE_INF[as];
+module.exports = (function() {
+    var Base = require('../arch/base');
+
+    var _is_str = function(s) {
+        return typeof s == 'string';
+    };
+
+    var _condition = function(a, b, compare) {
+        this.a = _is_str(a) ? new Base.common(a) : a;
+        this.b = _is_str(b) ? new Base.common(b) : b;
+        this.compare = compare;
+        this.toString = function(options) {
+            return '(' + this.a.toString(options) + (this.compare ? (this.compare + this.a.toString(options)) : '') + ')';
+        };
+    };
+
+    return {
+        TYPE_INF: ['1', '0'],
+        TYPE_EQ: [' == ', ' != '],
+        TYPE_NE: [' != ', ' == '],
+        TYPE_LT: [' < ', ' >= '],
+        TYPE_LE: [' <= ', ' > '],
+        TYPE_GT: [' > ', ' <= '],
+        TYPE_GE: [' >= ', ' < '],
+        FLOW_DEFAULT: 0,
+        FLOW_INVERTED: 1,
+        generate: function(a, b, type, as) {
+            if (type == 'INF') {
+                return new _condition(this.TYPE_INF[as]);
+            }
+            return new _condition(a, b, this['TYPE_' + type][as]);
+        },
+        true: function() {
+            return new _condition(this.TYPE_INF[this.FLOW_DEFAULT]);
+        },
+        false: function() {
+            return new _condition(this.TYPE_INF[this.FLOW_INVERTED]);
         }
-        return a + this['TYPE_' + type][as] + b;
-    },
-    true: function() {
-        return this.TYPE_INF[this.FLOW_DEFAULT];
-    },
-    false: function() {
-        return this.TYPE_INF[this.FLOW_INVERTED];
-    }
-};
+    };
+})();
