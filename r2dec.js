@@ -29,7 +29,7 @@ const colorme = require('./libdec/colorme.js');
 const r2pipe = require('r2pipe');
 const util = require('util');
 
-const padding = '          ';
+const padding = '            ';
 
 const usages = {
     "--help": "this help message",
