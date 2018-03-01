@@ -88,6 +88,11 @@ module.exports = (function() {
         }
     };
 
+    var _colorize = function(input, color) {
+        if (!color) return input;
+        return color.colorize(input);
+    }
+
     var _dependency = function(macros, code) {
         this.macros = macros || [];
         this.code = code || '';
@@ -96,8 +101,11 @@ module.exports = (function() {
     var _pseudocode = function(context, dependencies) {
         this.ctx = context;
         this.deps = dependencies || new _dependency();
-        this.toString = function() {
-            return this.ctx.toString();
+        this.toString = function(color) {
+            if (typeof this.ctx == 'string') {
+                return _colorize(this.ctx.toString(), color);
+            }
+            return this.ctx.toString(color);
         };
     };
 
@@ -116,11 +124,11 @@ module.exports = (function() {
         this.dst = destination;
         this.srcA = source_a;
         this.srcB = source_b;
-        this.toString = function() {
+        this.toString = function(color) {
             if (this.srcA == this.dst) {
-                return this.dst + ' ' + this.op + '= ' + this.srcB;
+                return _colorize(this.dst, color) + ' ' + this.op + '= ' + _colorize(this.srcB, color);
             }
-            return this.dst + ' = ' + this.srcA + ' ' + this.op + ' ' + this.srcB;
+            return _colorize(this.dst, color) + ' = ' + _colorize(this.srcA, color) + ' ' + this.op + ' ' + _colorize(this.srcB, color);
         };
     };
 
@@ -128,22 +136,28 @@ module.exports = (function() {
         this.op = op;
         this.dst = destination;
         this.src = source;
-        this.toString = function() {
-            return this.dst + ' = ' + this.op + this.src;
+        this.toString = function(color) {
+            return _colorize(this.dst, color) + ' = ' + this.op + _colorize(this.src, color);
         };
     };
 
     var _common_memory = function(bits, is_signed, pointer, register, is_write) {
         this.reg = register;
         this.pointer = pointer;
-        this.bits = bits ? ('(' + (is_signed ? '' : 'u') + 'int' + bits + '_t*)') : '';
+        this.bits = bits ? ((is_signed ? '' : 'u') + 'int' + bits + '_t') : null;
         if (is_write) {
-            this.toString = function() {
-                return '*(' + this.bits + ' ' + this.pointer + ') = ' + this.reg;
+            this.toString = function(color) {
+                if (this.bits) {
+                    return '*((' + _colorize(this.bits, color) + '*) ' + _colorize(this.pointer, color) + ') = ' + _colorize(this.reg, color);
+                }
+                return '*(' + _colorize(this.pointer, color) + ') = ' + _colorize(this.reg, color);
             };
         } else {
-            this.toString = function() {
-                return this.reg + ' = *(' + this.bits + ' ' + this.pointer + ')';
+            this.toString = function(color) {
+                if (this.bits) {
+                    return this.reg + ' = *((' + _colorize(this.bits, color) + '*) ' + _colorize(this.pointer, color) + ')';
+                }
+                return this.reg + ' = *(' + _colorize(this.pointer, color) + ')';
             };
         }
     };
@@ -156,7 +170,7 @@ module.exports = (function() {
         this.setInverse = function(b) {
             this.inverse = b ? 1 : 0;
         }
-        this.toString = function() {
+        this.toString = function(color) {
             return this.a + _cmps[this.cmp][this.inverse] + this.b;
         };
     };
@@ -166,19 +180,69 @@ module.exports = (function() {
         this.dst = destination;
         this.srcA = source_a;
         this.srcB = source_b;
-        this.toString = function() {
-            return this.dst + ' = ' + this.call + ' (' + this.srcA + ', ' + this.srcB + ')';
+        this.toString = function(color) {
+            return this.dst + ' = ' + (color ? color.instance.callname(this.call) : this.call) + ' (' + _colorize(this.srcA, color) + ', ' + _colorize(this.srcB, color) + ')';
         };
     };
 
     var _common_assign = function(destination, source, bits) {
         this.dst = destination;
-        this.bits = bits ? ('(int' + bits + '_t) ') : '';
+        this.bits = bits ? ('int' + bits + '_t') : null;
         this.src = source;
-        this.toString = function() {
-            return this.dst + ' = ' + this.bits + this.src;
+        this.toString = function(color) {
+            if (this.bits) {
+                return _colorize(this.dst, color) + ' = (' + _colorize(this.bits, color) + ') ' + _colorize(this.src, color);
+            }
+            return _colorize(this.dst, color) + ' = ' + _colorize(this.src, color);
         };
-    }
+    };
+
+    var _common_call = function(caller, args, is_pointer, returns) {
+        this.caller = caller;
+        this.args = args || [];
+        this.is_pointer = is_pointer;
+        this.returns = returns;
+        this.toString = function(color) {
+            var s = '';
+            var caller = this.caller;
+            var args = this.args.map(function(x) {
+                return _colorize(x, color);
+            });
+            if (is_pointer) {
+                caller = '(*(' + (color ? color.types('void') : 'void') + '(*)(' + (this.args.length > 0 ? '...' : '') + ')) ' + caller + ')';
+            } else if (color) {
+                caller = color.instance.callname(caller);
+            }
+            if (this.returns) {
+                if (this.returns == 'return') {
+                    s = (color ? color.instance.flow('return') : 'return') + ' ';
+                } else {
+                    s = _colorize(this.returns, color) + ' = ';
+                }
+            }
+            return s + caller + ' (' + args.join(', ') + ')';
+        };
+    };
+
+    var _common_goto = function(reg) {
+        this.reg = reg;
+        this.toString = function(color) {
+            var r = color ? color.instance.flow('goto') : 'goto';
+            r += ' ' + (color ? _colorize(this.reg, color) : this.reg);
+            return r;
+        };
+    };
+
+    var _common_return = function(reg) {
+        this.reg = reg;
+        this.toString = function(color) {
+            var r = color ? color.instance.flow('return') : 'return';
+            if (this.reg) {
+                r += ' ' + (color ? _colorize(this.reg, color) : this.reg);
+            }
+            return r;
+        };
+    };
 
     return {
         call_args: function(name) {
@@ -200,16 +264,13 @@ module.exports = (function() {
             return new _pseudocode(new _common_assign(destination, source, bits));
         },
         return: function(register) {
-            if (register) {
-                return new _pseudocode('return ' + register);
-            }
-            return new _pseudocode('return');
+            return new _pseudocode(new _common_return(register));
         },
         goto: function(address) {
-            if (typeof address == 'string') {
-                return new _pseudocode('goto ' + address);
+            if (typeof address != 'string') {
+                address = '0x' + address.toString(16);
             }
-            return new _pseudocode('goto 0x' + address.toString(16));
+            return new _pseudocode(new _common_goto(address));
         },
         nop: function(destination, source_a, source_b) {
             return null;
@@ -273,24 +334,14 @@ module.exports = (function() {
             return new _pseudocode(new _common_memory(bits, is_signed, pointer, register, true));
         },
         call: function(address, args, is_pointer, returns) {
-            args = args || [];
+            var macros = null;
             if (_call_common[address]) {
-                var macros = _call_common[address].macro;
+                macros = _call_common[address].macro;
                 if (macros) {
                     macros = new _dependency(macros);
                 }
             }
-            if (is_pointer) {
-                address = '(*(void(*)(' + (args.length > 0 ? '...' : '') + ')) ' + address + ')'
-            }
-            if (returns) {
-                if (returns == 'return') {
-                    address = returns + ' ' + address;
-                } else {
-                    address = returns + ' = ' + address;
-                }
-            }
-            return new _pseudocode(address + ' (' + args.join(', ') + ')', macros);
+            return new _pseudocode(new _common_call(address, args, is_pointer, returns), macros);
         },
         branch_equal: function(a, b) {
             return new _pseudocode(new _common_conditional('CMP_EQ', a, b, false));

@@ -20,7 +20,7 @@ module.exports = (function() {
     var Flow = require('./Flow');
     var Scope = require('./Scope');
 
-    var _print_deps = function(p, instructions) {
+    var _print_deps = function(p, instructions, color) {
         var macros = [];
         var codes = [];
         for (var i = 0; i < instructions.length; i++) {
@@ -37,12 +37,17 @@ module.exports = (function() {
             }
         }
         for (var i = 0; i < macros.length; i++) {
-            p(macros[i]);
+            if (color) {
+                p(color.instance.text(macros[i]));
+            } else {
+                p(macros[i]);
+            }
         }
         if (macros.length) {
             p('');
         }
         for (var i = 0; i < codes.length; i++) {
+            /* TODO: missing colors.. :| */
             p(codes[i] + '\n');
         }
     };
@@ -66,18 +71,22 @@ module.exports = (function() {
         this.returnType = 'void';
         this.name = _fix_routine_name(name);
 
-        this.print = function(p) {
-            _print_deps(p, this.instructions);
+        this.print = function(p, color) {
+            _print_deps(p, this.instructions, color);
             var current = this.instructions[0].scope;
             var scopes = [current];
             var ident = cfg.ident;
-            p(this.returnType + ' ' + this.name + ' (' + this.args.join(', ') + ') {');
+            if (color) {
+                p(color.instance.types(this.returnType) + ' ' + color.instance.callname(this.name) + ' (' + this.args.join(', ') + ') {');
+            } else {
+                p(this.returnType + ' ' + this.name + ' (' + this.args.join(', ') + ') {');
+            }
             for (var i = 0; i < this.instructions.length; i++) {
                 var instr = this.instructions[i];
                 if (current != instr.scope) {
                     if (current.level < instr.scope.level) {
                         scopes.push(current);
-                        instr.scope.printHeader(p, ident);
+                        instr.scope.printHeader(p, ident, color);
                         ident += cfg.ident;
                         current = instr.scope;
                     } else if (current.level > instr.scope.level) {
@@ -85,26 +94,30 @@ module.exports = (function() {
                             if (ident.length > cfg.ident.length) {
                                 ident = ident.substr(0, ident.length - cfg.ident.length);
                             }
-                            current.printTrailer(p, ident);
+                            current.printTrailer(p, ident, color);
                             current = scopes.pop();
                         }
                     } else {
                         var tmpident = ident.substr(0, ident.length - cfg.ident.length);
-                        current.printTrailer(p, tmpident);
+                        current.printTrailer(p, tmpident, color);
                         current = instr.scope;
-                        current.printHeader(p, tmpident);
+                        current.printHeader(p, tmpident, color);
                     }
                 }
                 if (instr.label > -1) {
-                    p( /*ident.substr(0, ident.length - cfg.ident.length) + */ 'label_' + instr.label + ':');
+                    if (color) {
+                        p( /*ident.substr(0, ident.length - cfg.ident.length) + */ color.instance.labels('label_' + instr.label) + ':');
+                    } else {
+                        p( /*ident.substr(0, ident.length - cfg.ident.length) + */ 'label_' + instr.label + ':');
+                    }
                 }
-                instr.print(p, ident);
+                instr.print(p, ident, color);
             }
             while (ident.length > 1 && current) {
                 if (ident.length > cfg.ident.length) {
                     ident = ident.substr(0, ident.length - cfg.ident.length);
                 }
-                current.printTrailer(p, ident);
+                current.printTrailer(p, ident, color);
                 current = scopes.pop();
             }
             p('}');

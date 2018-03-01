@@ -25,6 +25,7 @@
  */
 
 const libdec = require('./libdec/libdec.js');
+const colorme = require('./libdec/colorme.js');
 const r2pipe = require('r2pipe');
 const util = require('util');
 
@@ -42,12 +43,6 @@ function main(err, r2) {
     }).then(function(v) {
         console.log(v);
     });
-}
-
-function printer(msg) {
-    if (msg) {
-        console.log(msg.replace(/\n/, ''));
-    }
 }
 
 function suicide() {
@@ -71,7 +66,6 @@ async function asyncMain(err, r2, args) {
         suicide();
     }
 
-
     const cmd = util.promisify(r2.cmd).bind(r2);
     const cmdj = util.promisify(r2.cmdj).bind(r2);
     const r2quit = util.promisify(r2.quit).bind(r2);
@@ -80,8 +74,7 @@ async function asyncMain(err, r2, args) {
     }
 
     // r2dec options
-    const colors = has_option(args, '--colors');
-
+    var colors = has_option(args, '--colors') ? colorme : null;
 
     let arch = (await cmd('e asm.arch')).trim();
     let bits = (await cmd('e asm.bits')).trim();

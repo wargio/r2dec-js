@@ -19,6 +19,11 @@ module.exports = (function() {
     var cfg = require('../config');
     var uniq_counter = 0;
 
+    var _colorize = function(input, color) {
+        if (!color) return input;
+        return color.colorize(input);
+    }
+
     /*
      * defines the scope type of the block;
      */
@@ -27,14 +32,14 @@ module.exports = (function() {
         this.trailer = null;
         this.level = lvl || 0;
         this.uid = uniq_counter++;
-        this.printHeader = function(p, ident) {
+        this.printHeader = function(p, ident, color) {
             if (this.header) {
-                p(ident + this.header);
+                p(ident + _colorize(this.header, color));
             }
         };
-        this.printTrailer = function(p, ident) {
+        this.printTrailer = function(p, ident, color) {
             if (this.trailer) {
-                p(ident + this.trailer);
+                p(ident + _colorize(this.trailer, color));
             }
         };
         this.toString = function() {

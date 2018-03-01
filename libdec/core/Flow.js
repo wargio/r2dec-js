@@ -54,7 +54,7 @@ module.exports = (function() {
     };
 
     var _has_label = function(instr) {
-        return typeof instr.pseudo == 'string' && instr.pseudo.indexOf('goto label_') == 0;
+        return typeof instr.pseudo == 'string' && instr.pseudo.toString().indexOf('goto label_') == 0;
     }
 
     var _set_label = function(instructions, index, is_external) {

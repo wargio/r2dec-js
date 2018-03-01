@@ -36,20 +36,32 @@ module.exports = (function() {
         this.string = null;
         this.cond = null;
         this.xrefs = op.xrefs ? op.xrefs.slice() : [];
-        this.print = function(p, ident) {
+        this.print = function(p, ident, color) {
             if (this.comments.length > 0) {
                 if (this.comments.length == 1) {
-                    p(ident + '/* ' + this.comments[0] + ' */');
-                } else {
-                    p(ident + '/* ');
-                    for (var j = 0; j < this.comments.length; j++) {
-                        p(ident + ' * ' + this.comments[j]);
+                    if (color) {
+                        p(ident + color.instance.comment('/* ' + this.comments[0] + ' */'));
+                    } else {
+                        p(ident + '/* ' + this.comments[0] + ' */');
                     }
-                    p(ident + ' */');
+                } else {
+                    if (color) {
+                        p(ident + color.instance.comment('/* '));
+                        for (var j = 0; j < this.comments.length; j++) {
+                            p(ident + color.instance.comment(' * ' + this.comments[j]));
+                        }
+                        p(ident + color.instance.comment(' */'));
+                    } else {
+                        p(ident + '/* ');
+                        for (var j = 0; j < this.comments.length; j++) {
+                            p(ident + ' * ' + this.comments[j]);
+                        }
+                        p(ident + ' */');
+                    }
                 }
             }
             if (this.pseudo && this.valid) {
-                p(ident + this.pseudo.toString() + ';');
+                p(ident + this.pseudo.toString(color) + ';');
             }
         };
         this.conditional = function(a, b, type) {

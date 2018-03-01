@@ -236,7 +236,7 @@ module.exports = (function() {
             ldm: function(instr) {
                 for (var i = 1; i < instr.parsed.length; i++) {
                     if (instr.parsed[i] == 'pc') {
-                        return 'return';
+                        return Base.return();
                     }
                 }
                 instr.comments.push(instr.opcode);
@@ -297,7 +297,7 @@ module.exports = (function() {
             pop: function(instr) {
                 for (var i = 1; i < instr.parsed.length; i++) {
                     if (instr.parsed[i] == 'pc') {
-                        return 'return';
+                        return Base.return();
                     }
                 }
                 return null;
