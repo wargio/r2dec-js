@@ -185,7 +185,7 @@ module.exports = (function() {
 
     var _conditional_instruction_list = [
         'add', 'and', 'eor', 'ldr', 'ldrb', 'ldm', 'lsl', 'lsr',
-        'mov', 'mvn', 'mul', 'orr', 'pop', 'str', 'strb', 'sub'
+        'mov', 'mvn', 'mul', 'orr', 'pop', 'str', 'strb', 'sub', 'bx'
     ];
 
     var _arm = {
@@ -200,6 +200,9 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             bx: function(instr) {
+                if (instr.parsed[1] == 'lr') {
+                    return Base.instructions.return();
+                }
                 return Base.instructions.call(instr.parsed[1], [], true, 'return');
             },
             bne: function(instr, context) {
@@ -331,6 +334,12 @@ module.exports = (function() {
             },
             push: function() {},
             'push.w': function() {},
+            ror: function(instr) {
+                return Base.instructions.rotate_right(instr.parsed[1], instr.parsed[2], parseInt(instr.parsed[3], 16).toString(), 32);
+            },
+            rol: function(instr) {
+                return Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], parseInt(instr.parsed[3], 16).toString(), 32);
+            },
             str: function(instr) {
                 return _store(instr, '32');
             },

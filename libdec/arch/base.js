@@ -17,76 +17,8 @@
 
 module.exports = (function() {
 
-    var _call_common = {
-        'fgets': {
-            macro: ['#include <stdio.h>'],
-            args: 3
-        },
-        'fwrite': {
-            macro: ['#include <stdio.h>'],
-            args: 4
-        },
-        'fread': {
-            macro: ['#include <stdio.h>'],
-            args: 4
-        },
-        'textdomain': {
-            macro: ['#include <libintl.h>'],
-            args: -1
-        },
-        'setlocale': {
-            macro: ['#include <locale.h>'],
-            args: -1
-        },
-        'wcscmp': {
-            macro: ['#include <wchar.h>'],
-            args: 2
-        },
-        'strcmp': {
-            macro: ['#include <string.h>'],
-            args: 2
-        },
-        'strncmp': {
-            macro: ['#include <string.h>'],
-            args: 3
-        },
-        'msvcrt_dll_memset': {
-            macro: ['#include <string.h>'],
-            args: 3
-        },
-        'xmalloc': {
-            macro: ['#include <stdlib.h>'],
-            args: 1
-        },
-        'memset': {
-            macro: ['#include <string.h>'],
-            args: 3
-        },
-        'memcpy': {
-            macro: ['#include <string.h>'],
-            args: 3
-        },
-        'strcpy': {
-            macro: ['#include <string.h>'],
-            args: 2
-        },
-        'puts': {
-            macro: ['#include <stdio.h>'],
-            args: 1
-        },
-        'printf': {
-            macro: ['#include <stdio.h>'],
-            args: -1
-        },
-        'scanf': {
-            macro: ['#include <stdio.h>'],
-            args: -1
-        },
-        'isoc99_scanf': {
-            macro: ['#include <stdio.h>'],
-            args: -1
-        }
-    };
+    const _call_c = require('../db/c_calls');
+    const _call_common = require('../db/macros');
 
     var _colorize = function(input, color) {
         if (!color) return input;
@@ -95,7 +27,7 @@ module.exports = (function() {
 
     var _dependency = function(macros, code) {
         this.macros = macros || [];
-        this.code = code || '';
+        this.code = code || [];
     }
 
     var _pseudocode = function(context, dependencies) {
@@ -126,9 +58,13 @@ module.exports = (function() {
         return typeof s == 'string';
     };
 
+    var _castme = function(bits, is_signed) {
+        return bits ? ((is_signed ? '' : 'u') + 'int' + bits + '_t') : null;
+    }
+
     var _apply_bits = function(input, bits, options, is_signed, is_pointer, is_memory) {
         var pointer = is_pointer ? '*' : '';
-        bits = bits ? ((is_signed ? '' : 'u') + 'int' + bits + '_t') : null;
+        bits = _castme(bits, is_signed);
         if (options.casts && bits) {
             return (is_memory ? '*(' : '') + '(' + _colorize(bits, options.color) + pointer + ') ' + _colorize(input, options.color) + (is_memory ? ')' : '');
         }
@@ -213,7 +149,7 @@ module.exports = (function() {
         this.srcA = _is_str(source_a) ? new _bits_argument(source_a, false, false, false) : source_a;
         this.srcB = _is_str(source_b) ? new _bits_argument(source_b, false, false, false) : source_b;
         this.toString = function(options) {
-            return this.dst.toString(options) + ' = ' + (options.color ? options.color.callname(this.call) : this.call) + ' (' + this.srcA.toString(options.color) + ', ' + this.srcB.toString(options.color) + ')';
+            return this.dst.toString(options) + ' = ' + (options.color ? options.color.callname(this.call) : this.call) + ' (' + this.srcA.toString(options) + ', ' + this.srcB.toString(options) + ')';
         };
     };
 
@@ -225,11 +161,13 @@ module.exports = (function() {
         };
     };
 
-    var _common_call = function(caller, args, is_pointer, returns) {
+    var _common_call = function(caller, args, is_pointer, returns, bits, is_signed) {
         this.caller = caller;
         this.args = args || [];
         this.is_pointer = is_pointer;
         this.returns = returns;
+        this.bits = bits;
+        this.is_signed = is_signed;
         this.toString = function(options) {
             var s = '';
             var caller = this.caller;
@@ -245,7 +183,11 @@ module.exports = (function() {
                 if (this.returns == 'return') {
                     s = (options.color ? options.color.flow('return') : 'return') + ' ';
                 } else {
-                    s = _colorize(this.returns, options.color) + ' = ';
+                    var cast = '';
+                    if (options.casts && this.bits) {
+                        cast = _colorize(_castme(this.bits, this.is_signed), options.color) + ' ';
+                    }
+                    s = _colorize(this.returns, options.color) + ' = ' + cast;
                 }
             }
             return s + caller + ' (' + args.join(', ') + ')';
@@ -279,6 +221,17 @@ module.exports = (function() {
         };
     };
 
+    var _composed_extended_op = function(extended) {
+        this.extended = extended;
+        this.toString = function(options) {
+            var s = this.extended.toString(options);
+            for (var i = 0; i < this.extended.length; i++) {
+                s += '\n' + options.ident + this.extended[i].toString(options);
+            }
+            return s;
+        };
+    }
+
     return {
         bits_argument: _bits_argument,
         arguments: function(name) {
@@ -288,6 +241,20 @@ module.exports = (function() {
             return -1;
         },
         common: _common_data,
+        composed: function(extended) {
+            var macros = [];
+            var codes = [];
+            for (var i = 0; i < extended.length; i++) {
+                macros = macros.concat(extended[i].deps.macros);
+                codes = codes.concat(extended[i].deps.code);
+            }
+            return new _pseudocode(new _composed_extended_op(extended), new _dependency(macros, codes));
+        },
+        add_macro: function(op, macro) {
+            if (op && op.deps.macros.indexOf(macro) < 0) {
+                op.deps.macros.push(macro);
+            }
+        },
         branches: {
             branch_equal: function(a, b) {
                 return new _pseudocode(new _common_conditional('CMP_EQ', a, b, false));
@@ -377,12 +344,12 @@ module.exports = (function() {
             },
             rotate_left: function(destination, source_a, source_b, bits) {
                 return new _pseudocode(new _common_rotate(destination, source_a, source_b, bits, true),
-                    new _dependency(['#include <stdint.h>', '#include <limits.h>'], 'uint###_t rotate_left### (uint###_t value, uint32_t count) {\n\tconst uint32_t mask = (CHAR_BIT * sizeof(value)) - 1;\n\tcount &= mask;\n\treturn (value << count) | (value >> (-count & mask));\n}\n'.replace(/###/g, bits.toString()))
+                    new _dependency(_call_c.rotate_left.macros, [new _call_c.rotate_left.fcn(bits)])
                 );
             },
             rotate_right: function(destination, source_a, source_b, bits) {
                 return new _pseudocode(new _common_rotate(destination, source_a, source_b, bits, false),
-                    new _dependency(['#include <stdint.h>', '#include <limits.h>'], 'uint###_t rotate_right### (uint###_t value, uint32_t count) {\n\tconst uint32_t mask = (CHAR_BIT * sizeof(value)) - 1;\n\tcount &= mask;\n\treturn (value >> count) | (value << (-count & mask));\n}'.replace(/###/g, bits.toString()))
+                    new _dependency(_call_c.rotate_right.macros, [new _call_c.rotate_right.fcn(bits)])
                 );
             },
             read_memory: function(pointer, register, bits, is_signed) {
@@ -391,15 +358,15 @@ module.exports = (function() {
             write_memory: function(pointer, register, bits, is_signed) {
                 return new _pseudocode(new _common_memory(bits, is_signed, pointer, register, true));
             },
-            call: function(address, args, is_pointer, returns) {
+            call: function(name, args, is_pointer, returns, bits) {
                 var macros = null;
-                if (_call_common[address]) {
-                    macros = _call_common[address].macro;
+                if (_call_common[name]) {
+                    macros = _call_common[name].macro;
                     if (macros) {
                         macros = new _dependency(macros);
                     }
                 }
-                return new _pseudocode(new _common_call(address, args, is_pointer, returns), macros);
+                return new _pseudocode(new _common_call(name, args, is_pointer, returns, bits), macros);
             },
             push: function(data) {
                 return new _pseudocode(data);

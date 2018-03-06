@@ -61,7 +61,7 @@ module.exports = (function() {
             if (fcn) {
                 instr.pseudo = fcn(instr, context, instructions);
             } else {
-                instr.pseudo = Base.unknown(instr.opcode);
+                instr.pseudo = Base.instructions.unknown(instr.opcode);
             }
         }
     };

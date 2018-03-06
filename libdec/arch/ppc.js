@@ -16,305 +16,307 @@
  */
 
 module.exports = (function() {
+    var Base = require('./base');
+
     var sprs = {
         SPR_MQ: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x0
         },
         SPR_XER: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x1
         },
         SPR_RTCU: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x4
         },
         SPR_RTCL: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x5
         },
         SPR_LR: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x8
         },
         SPR_CTR: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x9
         },
         SPR_DSISR: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x12
         },
         SPR_DAR: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x13
         },
         SPR_DEC: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x16
         },
         SPR_SDR1: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x19
         },
         SPR_SRR0: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x1a
         },
         SPR_SRR1: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x1b
         },
         SPR_VRSAVE: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x100
         },
         SPR_TBRL: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x10c
         },
         SPR_TBRU: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x10d
         },
         SPR_SPRG0: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x110
         },
         SPR_SPRG1: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x111
         },
         SPR_SPRG2: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x112
         },
         SPR_SPRG3: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x113
         },
         SPR_EAR: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x11a
         },
         SPR_TBL: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x11c
         },
         SPR_TBU: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x11d
         },
         SPR_PVR: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x11f
         },
         SPR_SPEFSCR: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x200
         },
         SPR_IBAT0U: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x210
         },
         SPR_IBAT0L: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x211
         },
         SPR_IBAT1U: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x212
         },
         SPR_IBAT1L: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x213
         },
         SPR_IBAT2U: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x214
         },
         SPR_IBAT2L: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x215
         },
         SPR_IBAT3U: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x216
         },
         SPR_IBAT3L: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x217
         },
         SPR_DBAT0U: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x218
         },
         SPR_DBAT0L: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x219
         },
         SPR_DBAT1U: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x21a
         },
         SPR_DBAT1L: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x21b
         },
         SPR_DBAT2U: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x21c
         },
         SPR_DBAT2L: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x21d
         },
         SPR_DBAT3U: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x21e
         },
         SPR_DBAT3L: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x21f
         },
         SPR_UMMCR0: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3a8
         },
         SPR_UMMCR1: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3ac
         },
         SPR_UPMC1: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3a9
         },
         SPR_UPMC2: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3aa
         },
         SPR_USIA: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3ab
         },
         SPR_UPMC3: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3ad
         },
         SPR_UPMC4: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3ae
         },
         SPR_MMCR0: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3b8
         },
         SPR_PMC1: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3b9
         },
         SPR_PMC2: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3ba
         },
         SPR_SIA: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3bb
         },
         SPR_MMCR1: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3bc
         },
         SPR_PMC3: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3bd
         },
         SPR_PMC4: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3be
         },
         SPR_SDA: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3bf
         },
         SPR_DMISS: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3d0
         },
         SPR_DCMP: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3d1
         },
         SPR_HASH1: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3d2
         },
         SPR_HASH2: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3d3
         },
         SPR_IMISS: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3d4
         },
         SPR_ICMP: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3d5
         },
         SPR_RPA: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3d6
         },
         SPR_HID0: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3f0
         },
         SPR_HID1: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3f1
         },
         SPR_IABR: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3f2
         },
         SPR_HID2: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3f3
         },
         SPR_HID4: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3f4
         },
         SPR_DABR: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3f5
         },
         SPR_HID5: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3f6
         },
         SPR_HID6: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3f9
         },
         SPR_ICTC: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3fb
         },
         SPR_THRM1: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3fc
         },
         SPR_THRM2: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3fd
         },
         SPR_THRM3: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3fe
         },
         SPR_PIR: {
-            bits: 'uint64_t',
+            bits: 64,
             id: 0x3ff
         }
     };
@@ -328,29 +330,38 @@ module.exports = (function() {
                 break;
             }
         }
-        if (name == null)
+        if (name == null) {
             return '0x' + n.toString(16);
+        }
         return name; //+ " /* " + sprs[e].id + " */";
     };
 
     var get_bits = function(spr) {
         var o = sprs[spr];
-        if (o == null)
-            return 'uint64_t';
+        if (o == null) {
+            return 64;
+        }
         return o.bits;
     };
 
     var op_bits4 = function(e, op, bits, swap) {
-        var a = swap ? 3 : 2;
-        var b = swap ? 2 : 3;
-        if (e[1] == e[a] && !bits) {
-            return e[1] + " " + op + "= " + e[b];
+        var a = swap ? e[3] : e[2];
+        var b = swap ? e[2] : e[3];
+        if (e[1] == a && !bits) {
+            return op(e[1], e[1], b);
         }
-        return e[1] + " = " + (bits ? '(uint' + bits + '_t) ' : '') + e[a] + " " + op + " " + e[b];
+        if (bits) {
+            //value, bits, is_signed, is_pointer, is_memory
+            a = new Base.bits_argument(a, bits, false);
+        }
+        return op(e[1], a, b, bits);
     };
 
     var op_rotate = function(e, bits, left) {
-        return e[1] + ' = ' + (left ? 'rol' : 'ror') + bits + ' (' + e[2] + ', ' + e[3] + ')';
+        if (left) {
+            return Base.instructions.rotate_left(e[1], e[2], e[3], bits);
+        }
+        return Base.instructions.rotate_right(e[1], e[2], e[3], bits);
     };
 
     var mask32 = function(mb, me) {
@@ -393,19 +404,22 @@ module.exports = (function() {
     };
 
     var load_bits = function(e, bits, unsigned) {
-        var s = unsigned ? "u" : "";
         var arg = e[2].replace(/\)/, '').split('(');
         if (arg[1] == '0') {
-            return e[1] + " = *((" + s + "int" + bits + "_t*) " + arg[0] + ")";
+            //pointer, register, bits, is_signed
+            return Base.instructions.read_memory(arg[0], e[1], bits, !unsigned);
         } else if (arg[0] == '0') {
-            return e[1] + " = *((" + s + "int" + bits + "_t*) " + arg[1] + ")";
+            //pointer, register, bits, is_signed
+            return Base.instructions.read_memory(arg[1], e[1], bits, !unsigned);
         }
         arg[0] = parseInt(arg[0]) / (bits / 8);
-        if (arg[0] < 0)
+        if (arg[0] < 0) {
             arg[0] = " - " + Math.abs(arg[0]);
-        else
+        } else {
             arg[0] = " + " + arg[0];
-        return e[1] + " = *(((" + s + "int" + bits + "_t*) " + arg[1] + ")" + arg[0] + ")";
+        }
+        //pointer, register, bits, is_signed
+        return Base.instructions.read_memory(arg[1] + arg[0], e[1], bits, !unsigned);
     };
 
     var store_bits = function(e, bits, unsigned) {
@@ -706,105 +720,110 @@ module.exports = (function() {
                 instr.comments.push("SPR num: " + parseInt(e[2]));
                 var spr = get_spr(instr.parsed[2]);
                 var bits = get_bits(spr);
-                return instr.parsed[1] + ' = (' + bits + ') _mfspr (' + spr + ')';
+                return Base.instructions.call('_mfspr', [spr], false, instr.parsed[1], bits, false);
             },
             mtspr: function(instr) {
                 instr.comments.push("SPR num: " + parseInt(instr.parsed[1]));
                 var spr = get_spr(instr.parsed[1]);
                 var bits = get_bits(spr);
-                return '_mtspr (' + spr + ', ' + instr.parsed[2] + ')';
+                var reg = new Base.bits_argument(instr.parsed[2], bits, false, false, false);
+                var op = Base.instructions.call('_mtspr', [spr, reg]);
+                if (spr.indexOf('0x') != 0) {
+                    Base.add_macro(op, '#define ' + spr + ' (' + instr.parsed[1] + ')')
+                }
+                return op;
             },
             sync: function() {
-                return "_isync ()";
+                return Base.instructions.call('_isync');
             },
             lwsync: function() {
-                return "_lwsync ()";
+                return Base.instructions.call('_lwsync');
             },
             isync: function() {
-                return "_isync ()";
+                return Base.instructions.call('_isync');
             },
             slbia: function() {
-                return "_slbia ()";
+                return Base.instructions.call('_slbia');
             },
             eieio: function() {
-                return "_eieio ()";
+                return Base.instructions.call('_eieio');
             },
             li: function(instr) {
-                return instr.parsed[1] + " = " + instr.parsed[2];
+                return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
             },
             lis: function(instr) {
                 if (instr.parsed[2] == '0') {
-                    return instr.parsed[1] + " = 0";
+                    return Base.instructions.assign(instr.parsed[1], '0');
                 }
-                return instr.parsed[1] + " = " + instr.parsed[2] + "0000";
+                return Base.instructions.assign(instr.parsed[1], instr.parsed[2] + "0000");
             },
             mr: function(instr) {
-                return instr.parsed[1] + " = " + instr.parsed[2];
+                return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
             },
             neg: function(instr) {
-                return instr.parsed[1] + " = -" + instr.parsed[2];
+                return Base.instructions.negate(instr.parsed[1], instr.parsed[2]);
             },
             not: function(instr) {
-                return instr.parsed[1] + " = !" + instr.parsed[2];
+                return Base.instructions.not(instr.parsed[1], instr.parsed[2]);
             },
             add: function(instr) {
-                return op_bits4(instr.parsed, "+");
+                return op_bits4(instr.parsed, Base.instructions.add);
             },
             addi: function(instr) {
-                return op_bits4(instr.parsed, "+");
+                return op_bits4(instr.parsed, Base.instructions.add);
             },
             addis: function(instr) {
                 instr.parsed[3] += '0000';
-                return op_bits4(instr.parsed, "+");
+                return op_bits4(instr.parsed, Base.instructions.add);
             },
             sub: function(instr) {
-                return op_bits4(instr.parsed, "-", false, true);
+                return op_bits4(instr.parsed, Base.instructions.subtract, false, true);
             },
             subc: function(instr) {
-                return op_bits4(instr.parsed, "-", false, true);
+                return op_bits4(instr.parsed, Base.instructions.subtract, false, true);
             },
             subf: function(instr) {
-                return op_bits4(instr.parsed, "-", false, true);
+                return op_bits4(instr.parsed, Base.instructions.subtract, false, true);
             },
             xor: function(instr) {
-                return op_bits4(instr.parsed, "^");
+                return op_bits4(instr.parsed, Base.instructions.xor);
             },
             xori: function(instr) {
-                return op_bits4(instr.parsed, "^");
+                return op_bits4(instr.parsed, Base.instructions.xor);
             },
             or: function(instr) {
-                return op_bits4(instr.parsed, "|");
+                return op_bits4(instr.parsed, Base.instructions.or);
             },
             ori: function(instr) {
-                return op_bits4(instr.parsed, "|");
+                return op_bits4(instr.parsed, Base.instructions.or);
             },
             oris: function(instr) {
                 instr.parsed[3] += '0000';
-                return op_bits4(instr.parsed, "|");
+                return op_bits4(instr.parsed, Base.instructions.or);
             },
             and: function(instr) {
-                return op_bits4(instr.parsed, "&");
+                return op_bits4(instr.parsed, Base.instructions.and);
             },
             andi: function(instr) {
-                return op_bits4(instr.parsed, "&");
+                return op_bits4(instr.parsed, Base.instructions.and);
             },
             sld: function(instr) {
-                return op_bits4(instr.parsed, "<<", 64);
+                return op_bits4(instr.parsed, Base.instructions.shift_left, 64);
             },
             sldi: function(instr) {
-                return op_bits4(instr.parsed, "<<", 64);
+                return op_bits4(instr.parsed, Base.instructions.shift_left, 64);
             },
             slw: function(instr) {
-                return op_bits4(instr.parsed, "<<", 32);
+                return op_bits4(instr.parsed, Base.instructions.shift_left, 32);
             },
             slwi: function(instr) {
-                return op_bits4(instr.parsed, "<<", 32);
+                return op_bits4(instr.parsed, Base.instructions.shift_left, 32);
             },
             srw: function(instr) {
-                return op_bits4(instr.parsed, ">>", 32);
+                return op_bits4(instr.parsed, Base.instructions.shift_right, 32);
             },
             srwi: function(instr) {
-                return op_bits4(instr.parsed, ">>", 32);
+                return op_bits4(instr.parsed, Base.instructions.shift_right, 32);
             },
             srawi: function(instr) {
                 return op_rotate(instr.parsed, 32, true);
@@ -813,45 +832,29 @@ module.exports = (function() {
                 return op_rotate(instr.parsed, 32, true);
             },
             srad: function(instr) {
-                return op_bits4(instr.parsed, ">>", 64);
+                return op_bits4(instr.parsed, Base.instructions.shift_right, 64);
             },
             sradi: function(instr) {
-                return op_bits4(instr.parsed, ">>", 64);
+                return op_bits4(instr.parsed, Base.instructions.shift_right, 64);
             },
             cntlz: function(instr) {
-                /*
-                 int cntlz(u64 value) {
-                    for (int n = 0; n < 32; n++, value <<= 1) {
-                       if (value & 0x8000000000000000) break;
-                    }
-                    return n;
-                 }
-                 */
                 var ret = instr.parsed[1];
                 var reg = instr.parsed[2];
-                return ret + " = (uint64_t) _cntlz(" + reg + ")";
+                return Base.instructions.call('_cntlz', [reg], false, ret, 64, false);
             },
             cntlzw: function(instr) {
-                /*
-                 int cntlz(u32 value) {
-                    for (int n = 0; n < 32; n++, value <<= 1) {
-                       if (value & 0x80000000) break;
-                    }
-                    return n;
-                 }
-                 */
                 var ret = instr.parsed[1];
                 var reg = instr.parsed[2];
-                return ret + " = (uint32_t) _cntlzw(" + reg + ")";
+                return Base.instructions.call('_cntlzw', [reg], false, ret, 32, false);
             },
             extsb: function(instr) {
-                return instr.parsed[1] + " = (int64_t) " + instr.parsed[2];
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 64);
             },
             extsh: function(instr) {
-                return instr.parsed[1] + " = (int64_t) " + instr.parsed[2];
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 64);
             },
             extsw: function(instr) {
-                return instr.parsed[1] + " = (int64_t) " + instr.parsed[2];
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 64);
             },
             /*
 to be redone. this is wrong.
@@ -862,17 +865,27 @@ rldicl %r0, %r0, 0,59     # %r0 = %r0 & 0x1F
 rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
 */
             rldic: function(instr) {
-                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4];
+                var rol = Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], instr.parsed[3], 64);
+                var and = Base.instructions.and(instr.parsed[1], instr.parsed[1], instr.parsed[4])
+                return Base.composed([rol, and]);
             },
             rldcl: function(instr) {
-                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4];
+                var rol = Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], instr.parsed[3], 64);
+                var and = Base.instructions.and(instr.parsed[1], instr.parsed[1], instr.parsed[4])
+                return Base.composed([rol, and]);
             },
             rldicl: function(instr) {
-                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4];
+                var rol = Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], instr.parsed[3], 64);
+                var and = Base.instructions.and(instr.parsed[1], instr.parsed[1], instr.parsed[4])
+                return Base.composed([rol, and]);
             },
             rldcr: function(instr) {
-                return instr.parsed[1] + ' = rol64(' + instr.parsed[2] + ', ' + instr.parsed[3] + ') & ' + instr.parsed[4];
+                var rol = Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], instr.parsed[3], 64);
+                var and = Base.instructions.and(instr.parsed[1], instr.parsed[1], instr.parsed[4]);
+                return Base.composed([rol, and]);
             },
+            /*
+            //BROKEN
             rldicr: function(instr) {
                 var res = instr.parsed[1] + ' = ';
                 var rs = instr.parsed[2];
@@ -882,13 +895,14 @@ rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
                 var mask = mask64(mb, me);
                 return res;
             },
+            */
             clrlwi: function(instr) {
                 var res = instr.parsed[1];
                 var rs = instr.parsed[2];
                 var sh = parseInt(instr.parsed[3]);
                 var mask = 0xFFFFFFFF >>> sh;
                 instr.parsed[3] = '0x' + mask.toString(16);
-                return op_bits4(instr.parsed, "&", 32);
+                return op_bits4(instr.parsed, Base.instructions.and, 32);
             },
             clrldi: function(instr) {
                 var res = instr.parsed[1];
@@ -902,7 +916,7 @@ rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
                     mask[0] >>>= (sh - 31);
                 }
                 instr.parsed[3] = '0x' + mask[0].toString(16) + mask[1].toString(16) + 'll';
-                return op_bits4(instr.parsed, "&", 64);
+                return op_bits4(instr.parsed, Base.instructions.and, 64);
             },
             invalid: function() {
                 return null;

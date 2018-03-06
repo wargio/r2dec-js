@@ -100,6 +100,7 @@ async function asyncMain(err, r2, args) {
     var options = {
         color: has_option(args, '--colors') ? colorme : null,
         casts: !has_option(args, '--hide-casts'),
+        ident: null
     };
 
     let arch = (await cmd('e asm.arch')).trim();

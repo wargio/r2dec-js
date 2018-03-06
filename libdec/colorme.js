@@ -30,8 +30,8 @@ module.exports = (function() {
     _colors.setTheme(colortheme);
 
     var _regexs = {
-        ctrlflow: /\bif\b|\belse\b|\bwhile\b|\bfor\b|\bdo\b/g,
-        bits: /[ui]+nt[123468]+\_t/g,
+        ctrlflow: /\bif\b|\belse\b|\bwhile\b|\bfor\b|\bdo\b|\breturn\b/g,
+        bits: /[ui]+nt[123468]+\_t|\bvoid\b|\bconst\b|\bsizeof\b/g,
         numbers: /\b\d+\b|0x[0-9A-Fa-f]+/g,
         string: /("[^"]+")/
     };

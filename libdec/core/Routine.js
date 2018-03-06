@@ -20,9 +20,13 @@ module.exports = (function() {
     var Flow = require('./Flow');
     var Scope = require('./Scope');
 
-    var _print_deps = function(p, instructions, color) {
+    var _print_deps = function(p, instructions, options) {
+        var color = options.color;
         var macros = [];
         var codes = [];
+        if (options.casts) {
+            macros.push('#include <stdint.h>');
+        }
         for (var i = 0; i < instructions.length; i++) {
             if (!instructions[i].pseudo || !instructions[i].pseudo.deps) {
                 continue;
@@ -30,9 +34,11 @@ module.exports = (function() {
             for (var j = 0; j < instructions[i].pseudo.deps.macros.length; j++) {
                 if (macros.indexOf(instructions[i].pseudo.deps.macros[j]) < 0) {
                     macros.push(instructions[i].pseudo.deps.macros[j]);
-                    if (instructions[i].pseudo.deps.code.length > 0) {
-                        codes.push(instructions[i].pseudo.deps.code);
-                    }
+                }
+            }
+            for (var j = 0; j < instructions[i].pseudo.deps.code.length; j++) {
+                if (codes.indexOf(instructions[i].pseudo.deps.code[j]) < 0) {
+                    codes.push(instructions[i].pseudo.deps.code[j]);
                 }
             }
         }
@@ -48,7 +54,7 @@ module.exports = (function() {
         }
         for (var i = 0; i < codes.length; i++) {
             /* TODO: missing colors.. :| */
-            p(color.colorize(codes[i]) + '\n');
+            p(codes[i].toString(options) + '\n');
         }
     };
 
@@ -72,7 +78,7 @@ module.exports = (function() {
         this.name = _fix_routine_name(name);
 
         this.print = function(p, options) {
-            _print_deps(p, this.instructions, options.color);
+            _print_deps(p, this.instructions, options);
             var current = this.instructions[0].scope;
             var scopes = [current];
             var ident = cfg.ident;
@@ -105,6 +111,7 @@ module.exports = (function() {
                     }
                 }
                 if (instr.label > -1) {
+                    options.ident = ident;
                     if (options.color) {
                         p( /*ident.substr(0, ident.length - cfg.ident.length) + */ options.color.labels('label_' + instr.label) + ':');
                     } else {
