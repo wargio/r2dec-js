@@ -71,7 +71,7 @@ module.exports = (function() {
         if (options.casts && bits) {
             return (is_memory ? '*(' : '') + '(' + _colorize(bits, options.color) + pointer + ') ' + _colorize(input, options.color) + (is_memory ? ')' : '');
         }
-        return _colorize(input, options.color);
+        return (is_memory ? '*(' : '') + _colorize(input, options.color) + (is_memory ? ')' : '');
     }
 
     _bits_argument = function(value, bits, is_signed, is_pointer, is_memory) {
@@ -111,7 +111,7 @@ module.exports = (function() {
     };
 
     var _common_memory = function(bits, is_signed, pointer, register, is_write) {
-        this.reg = _is_str(register) ? new _bits_argument(register, false, false, false, true) : register;
+        this.reg = _is_str(register) ? new _bits_argument(register, false, false, false, false) : register;
         this.pointer = _is_str(pointer) ? new _bits_argument(pointer, bits, is_signed, true, true) : pointer;
         this.is_signed = is_signed;
         this.bits = bits || null;
@@ -175,6 +175,9 @@ module.exports = (function() {
             var s = '';
             var caller = this.caller;
             var args = this.args.map(function(x) {
+                if (typeof x == 'string') {
+                    return _colorize(x, options.color);
+                }
                 return x.toString(options);
             });
             if (is_pointer) {
@@ -252,6 +255,12 @@ module.exports = (function() {
                 codes = codes.concat(extended[i].deps.code);
             }
             return new _pseudocode(new _composed_extended_op(extended), new _dependency(macros, codes));
+        },
+        macro: function(value) {
+            this.value = value;
+            this.toString = function(options) {
+                return (options && options.color ? options.color.text(this.value) : this.value);
+            };
         },
         add_macro: function(op, macro) {
             if (op && op.deps.macros.indexOf(macro) < 0) {
