@@ -63,6 +63,9 @@ module.exports = (function() {
     }
 
     var _apply_bits = function(input, bits, options, is_signed, is_pointer, is_memory) {
+        if (!options) {
+            options = {};
+        }
         var pointer = is_pointer ? '*' : '';
         bits = _castme(bits, is_signed);
         if (options.casts && bits) {
@@ -224,9 +227,9 @@ module.exports = (function() {
     var _composed_extended_op = function(extended) {
         this.extended = extended;
         this.toString = function(options) {
-            var s = this.extended.toString(options);
-            for (var i = 0; i < this.extended.length; i++) {
-                s += '\n' + options.ident + this.extended[i].toString(options);
+            var s = this.extended[0].toString(options);
+            for (var i = 1; i < this.extended.length; i++) {
+                s += ';\n' + options.ident + this.extended[i].toString(options);
             }
             return s;
         };
