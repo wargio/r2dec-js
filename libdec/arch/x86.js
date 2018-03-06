@@ -350,6 +350,7 @@ module.exports = (function() {
                 return _standard_mov(instr);
             },
             mov: _standard_mov,
+            movabs: _standard_mov,
             cbw: function() {
                 return Base.instructions.extend('ax', 'al', 16);
             },
