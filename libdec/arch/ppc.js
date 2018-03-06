@@ -688,7 +688,7 @@ module.exports = (function() {
                 return Base.instructions.call('_dcbz', [instr.parsed[1] + ' + ' + instr.parsed[2]]);
             },
             mtmsrd: function(instr) {
-                return Base.instructions.call('_mtcr', [instr.parsed[1]]);
+                return Base.instructions.call('_mtmsrd', [instr.parsed[1]]);
             },
             mfmsrd: function(instr) {
                 return Base.instructions.call('_mfmsrd', [], false, instr.parsed[1], 64, false);

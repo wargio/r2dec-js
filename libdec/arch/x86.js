@@ -123,7 +123,7 @@ module.exports = (function() {
     };
 
     var _requires_pointer = function(string, arg) {
-        return (string != null || arg.indexOf('local_') == 0 || arg == 'esp');
+        return string == null && (arg.indexOf('local_') == 0 || arg == 'esp');
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
