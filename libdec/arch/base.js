@@ -16,6 +16,7 @@
  */
 
 module.exports = (function() {
+    var Branch = require('../core/Branch');
 
     const _call_c = require('../db/c_calls');
     const _call_common = require('../db/macros');
@@ -238,7 +239,19 @@ module.exports = (function() {
         };
     }
 
-    return {
+    var _inline_assign_if = function(destination, source_a, source_b, cond, src_true, src_false) {
+        this.dst = _is_str(destination) ? new _bits_argument(destination) : destination;
+        this.srcA = src_true;
+        this.srcB = src_false;
+        this.condition = Branch.generate(source_a, source_b, cond, Branch.FLOW_DEFAULT, _base);
+        this.toString = function(options) {
+            var s = this.dst.toString(options);
+            s += ' = ' + this.condition.toString(options) + ' ? ' + this.srcA.toString(options) + ' : ' + this.srcB.toString(options);
+            return s;
+        };
+    }
+
+    var _base = {
         bits_argument: _bits_argument,
         arguments: function(name) {
             if (_call_common[name]) {
@@ -255,6 +268,9 @@ module.exports = (function() {
                 codes = codes.concat(extended[i].deps.code);
             }
             return new _pseudocode(new _composed_extended_op(extended), new _dependency(macros, codes));
+        },
+        conditional_assign: function(destination, source_a, source_b, cond, src_true, src_false) {
+            return new _pseudocode(new _inline_assign_if(destination, source_a, source_b, cond, src_true, src_false));
         },
         macro: function(value) {
             this.value = value;
@@ -293,6 +309,9 @@ module.exports = (function() {
             },
             decrease: function(destination, source) {
                 return new _pseudocode(new _common_math('-', destination, destination, source));
+            },
+            conditional_assign: function(destination, source_a, source_b, cond, src_true, src_false) {
+                return new _pseudocode(new _inline_assign_if(destination, source_a, source_b, cond, src_true, src_false));
             },
             assign: function(destination, source) {
                 return new _pseudocode(new _common_assign(destination, source, false));
@@ -391,4 +410,5 @@ module.exports = (function() {
             }
         }
     };
+    return _base;
 })();

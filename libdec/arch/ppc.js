@@ -347,14 +347,13 @@ module.exports = (function() {
     var op_bits4 = function(e, op, bits, swap) {
         var a = swap ? e[3] : e[2];
         var b = swap ? e[2] : e[3];
-        if (e[1] == a && !bits) {
-            return op(e[1], e[1], b);
-        }
-        if (bits) {
-            //value, bits, is_signed, is_pointer, is_memory
+        //value, bits, is_signed, is_pointer, is_memory
+        if (swap) {
+            b = new Base.bits_argument(b, bits, false);
+        } else {
             a = new Base.bits_argument(a, bits, false);
         }
-        return op(e[1], a, b, bits);
+        return op(e[1], a, b);
     };
 
     var op_rotate = function(e, bits, left) {

@@ -111,7 +111,7 @@ module.exports = (function() {
         var end = instr.jump;
         var bounds = new AddressBounds(instr.loc, instr.jump);
         /* if(cond) { block } */
-        var cond = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_DEFAULT);
+        var cond = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_DEFAULT, Base);
         var fail = instr.fail;
         var elseinst = null;
         scope.header = new ControlFlow('if', true, cond);
@@ -135,7 +135,7 @@ module.exports = (function() {
                 scope = new Scope();
                 scope.level = instr.scope.level;
                 if (instr.fail && instr.cond) {
-                    var cond = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_DEFAULT);
+                    var cond = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_DEFAULT, Base);
                     scope.header = new ControlFlow('else if', true, cond);
                 } else {
                     scope.header = new ControlFlow('else', true);
@@ -159,7 +159,7 @@ module.exports = (function() {
         /* infinite loop */
         var scope = new Scope();
         var bounds = new AddressBounds(first.jump, first.loc);
-        var cond = first.cond ? Branch.generate(first.cond.a, first.cond.b, first.cond.type, Branch.FLOW_DEFAULT) : Branch.true();
+        var cond = first.cond ? Branch.generate(first.cond.a, first.cond.b, first.cond.type, Branch.FLOW_DEFAULT, Base) : Branch.true(Base);
         var instr = Utils.search(first.jump, instructions, _compare_loc);
         if (!instr) {
             return false;

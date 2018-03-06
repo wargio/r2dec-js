@@ -16,15 +16,13 @@
  */
 
 module.exports = (function() {
-    var Base = require('../arch/base');
-
     var _is_str = function(s) {
         return typeof s == 'string';
     };
 
-    var _condition = function(a, b, compare) {
-        this.a = _is_str(a) ? new Base.common(a) : a;
-        this.b = _is_str(b) ? new Base.common(b) : b;
+    var _condition = function(a, b, compare, base) {
+        this.a = _is_str(a) ? new base.common(a) : a;
+        this.b = _is_str(b) ? new base.common(b) : b;
         this.compare = compare;
         this.toString = function(options) {
             return '(' + this.a.toString(options) + (this.compare ? (this.compare + this.b.toString(options)) : '') + ')';
@@ -41,17 +39,17 @@ module.exports = (function() {
         TYPE_GE: [' >= ', ' < '],
         FLOW_DEFAULT: 0,
         FLOW_INVERTED: 1,
-        generate: function(a, b, type, as) {
+        generate: function(a, b, type, as, base) {
             if (type == 'INF') {
-                return new _condition(this.TYPE_INF[as]);
+                return new _condition(this.TYPE_INF[as], null, null, base);
             }
-            return new _condition(a, b, this['TYPE_' + type][as]);
+            return new _condition(a, b, this['TYPE_' + type][as], base);
         },
-        true: function() {
-            return new _condition(this.TYPE_INF[this.FLOW_DEFAULT]);
+        true: function(base) {
+            return new _condition(this.TYPE_INF[this.FLOW_DEFAULT], null, null, base);
         },
-        false: function() {
-            return new _condition(this.TYPE_INF[this.FLOW_INVERTED]);
+        false: function(base) {
+            return new _condition(this.TYPE_INF[this.FLOW_INVERTED], null, null, base);
         }
     };
 })();
