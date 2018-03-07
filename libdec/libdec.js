@@ -20,9 +20,11 @@ module.exports = {
     archs: require('./Archs'),
     JSON: require('./json64'),
     supported: function() {
-        console.log('Supported architectures:')
+        console.log('Supported architectures:');
+        var s = [];
         for (var arch in this.archs) {
-            console.log('    ' + arch);
+            s.push(arch);
         }
+        console.log('    ' + s.join(', '));
     }
 };
