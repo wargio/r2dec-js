@@ -10,11 +10,11 @@ all:
 
 install:
 	mkdir -p $(PLUGDIR)
-	rm -f $(PLUGDIR)/core_pdd.$(LIBEXT)*
+	rm -rf $(PLUGDIR)/core_pdd.$(LIBEXT)*
 	cp -rf core_pdd.$(LIBEXT)* $(PLUGDIR)
 
 uninstall:
-	rm -f $(PLUGDIR)/core_pdd.$(LIBEXT)
+	rm -rf $(PLUGDIR)/core_pdd.$(LIBEXT)
 
 clean:
-	rm -f core_pdd.$(LIBEXT)
+	rm -rf core_pdd.$(LIBEXT)
