@@ -32,6 +32,7 @@ done
        --colors     | enables syntax colors
        --hide-casts | hides all casts in the pseudo code
        --issue      | generates the json used for the test suite
+       --debug      | do not catch exceptions
 ```
 
 # Report an Issue
@@ -119,6 +120,5 @@ int32_t main () {
     eax = 0;
     return eax;
 }
-
 
 ```
