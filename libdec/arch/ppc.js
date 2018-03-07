@@ -356,11 +356,28 @@ module.exports = (function() {
         return op(e[1], a, b);
     };
 
+    var op_bits3 = function(e, op, bits) {
+        console.log(e)
+        a = e[1];
+        b = e[2];
+        if (bits) {
+            b = new Base.bits_argument(b, bits, false);
+        }
+        return op(a, a, b);
+    };
+
     var op_rotate = function(e, bits, left) {
         if (left) {
             return Base.instructions.rotate_left(e[1], e[2], e[3], bits);
         }
         return Base.instructions.rotate_right(e[1], e[2], e[3], bits);
+    };
+
+    var op_rotate3 = function(e, bits, left) {
+        if (left) {
+            return Base.instructions.rotate_left(e[1], e[1], e[2], bits);
+        }
+        return Base.instructions.rotate_right(e[1], e[1], e[2], bits);
     };
 
     var mask32 = function(mb, me) {
@@ -572,7 +589,7 @@ module.exports = (function() {
                 if (false && instr.parsed[1] == 'r0') {
                     return Base.instructions.nop();
                 }
-                return Base.instructions.call('_mtlr', [instr.parsed[1]]);
+                return Base.instructions.assign('lr', instr.parsed[1]);
             },
             blr: function(instr, context, instructions) {
                 var start = instructions.indexOf(instr);
@@ -712,7 +729,7 @@ module.exports = (function() {
                 if (false && instr.parsed[1] == 'r0') {
                     return Base.instructions.nop();
                 }
-                return Base.instructions.call('_mflr', [], false, instr.parsed[1]);
+                return Base.instructions.assign(instr.parsed[1], 'lr');
             },
             mtocrf: function(instr) {
                 return Base.instructions.call('_mtocrf', [instr.parsed[1], instr.parsed[2]]);
@@ -750,7 +767,7 @@ module.exports = (function() {
                 return op;
             },
             sync: function() {
-                return Base.instructions.call('_isync');
+                return Base.instructions.call('_sync');
             },
             lwsync: function() {
                 return Base.instructions.call('_lwsync');
@@ -933,6 +950,340 @@ rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
                 }
                 instr.parsed[3] = '0x' + mask[0].toString(16) + mask[1].toString(16) + 'll';
                 return op_bits4(instr.parsed, Base.instructions.and, 64);
+            },
+            "e_add16i": function(instr, context, instruction) {
+                return op_bits4(instr.parsed, Base.instructions.add, 32);
+            },
+            "e_add2i.": function(instr, context, instruction) {
+                return op_bits3(instr.parsed, Base.instructions.subtract);
+            },
+            "e_add2is": function(instr, context, instruction) {},
+            "e_addi": function(instr, context, instruction) {},
+            "e_addi.": function(instr, context, instruction) {},
+            "e_addic": function(instr, context, instruction) {},
+            "e_addic.": function(instr, context, instruction) {},
+            /*
+            "e_and2i.": function(instr, context, instruction) {},
+            "e_and2is.": function(instr, context, instruction) {},
+            "e_andi": function(instr, context, instruction) {},
+            "e_andi.": function(instr, context, instruction) {},
+            "e_bge": function(instr, context, instruction) {},
+            "e_ble": function(instr, context, instruction) {},
+            "e_bne": function(instr, context, instruction) {},
+            "e_bns": function(instr, context, instruction) {},
+            "e_blt": function(instr, context, instruction) {},
+            "e_bgt": function(instr, context, instruction) {},
+            "e_beq": function(instr, context, instruction) {},
+            "e_bso": function(instr, context, instruction) {},
+            "e_bc": function(instr, context, instruction) {},
+            "e_bgel": function(instr, context, instruction) {},
+            "e_blel": function(instr, context, instruction) {},
+            "e_bnel": function(instr, context, instruction) {},
+            "e_bnsl": function(instr, context, instruction) {},
+            "e_bltl": function(instr, context, instruction) {},
+            "e_bgtl": function(instr, context, instruction) {},
+            "e_beql": function(instr, context, instruction) {},
+            "e_bsol": function(instr, context, instruction) {},
+            "e_bcl": function(instr, context, instruction) {},
+            "e_bgectr": function(instr, context, instruction) {},
+            "e_blectr": function(instr, context, instruction) {},
+            "e_bnectr": function(instr, context, instruction) {},
+            "e_bnsctr": function(instr, context, instruction) {},
+            "e_bltctr": function(instr, context, instruction) {},
+            "e_bgtctr": function(instr, context, instruction) {},
+            "e_beqctr": function(instr, context, instruction) {},
+            "e_bsoctr": function(instr, context, instruction) {},
+            "e_bcctr": function(instr, context, instruction) {},
+            "e_bgectrl": function(instr, context, instruction) {},
+            "e_blectrl": function(instr, context, instruction) {},
+            "e_bnectrl": function(instr, context, instruction) {},
+            "e_bnsctrl": function(instr, context, instruction) {},
+            "e_bltctrl": function(instr, context, instruction) {},
+            "e_bgtctrl": function(instr, context, instruction) {},
+            "e_beqctrl": function(instr, context, instruction) {},
+            "e_bsoctrl": function(instr, context, instruction) {},
+            "e_bcctrl": function(instr, context, instruction) {},
+            "e_b": function(instr, context, instruction) {},
+            "e_bl": function(instr, context, instruction) {},
+            "e_cmp16i": function(instr, context, instruction) {},
+            "e_cmph16i": function(instr, context, instruction) {},
+            "e_cmph": function(instr, context, instruction) {},
+            "e_cmphl16i": function(instr, context, instruction) {},
+            "e_cmphl": function(instr, context, instruction) {},
+            "e_cmpli": function(instr, context, instruction) {},
+            "e_cmpi": function(instr, context, instruction) {},
+            "e_cmpl16i": function(instr, context, instruction) {},
+            "e_crand": function(instr, context, instruction) {},
+            "e_crandc": function(instr, context, instruction) {},
+            "e_creqv": function(instr, context, instruction) {},
+            "e_crnand": function(instr, context, instruction) {},
+            "e_crnor": function(instr, context, instruction) {},
+            "e_cror": function(instr, context, instruction) {},
+            "e_crorc": function(instr, context, instruction) {},
+            "e_crxor": function(instr, context, instruction) {},
+            "e_lbz": function(instr, context, instruction) {},
+            "e_lbzu": function(instr, context, instruction) {},
+            "e_lha": function(instr, context, instruction) {},
+            "e_lhau": function(instr, context, instruction) {},
+            "e_lhz": function(instr, context, instruction) {},
+            "e_lhzu": function(instr, context, instruction) {},
+            "e_li": function(instr, context, instruction) {},
+            "e_lis": function(instr, context, instruction) {},
+            "e_lmw": function(instr, context, instruction) {},
+            "e_lwz": function(instr, context, instruction) {},
+            "e_lwzu": function(instr, context, instruction) {},
+            "e_mcrf": function(instr, context, instruction) {},
+            "e_mull2i": function(instr, context, instruction) {},
+            "e_mulli": function(instr, context, instruction) {},
+            "e_or2i": function(instr, context, instruction) {},
+            "e_or2is": function(instr, context, instruction) {},
+            "e_ori": function(instr, context, instruction) {},
+            "e_ori.": function(instr, context, instruction) {},
+            "e_rlw": function(instr, context, instruction) {},
+            "e_rlw.": function(instr, context, instruction) {},
+            "e_rlwi": function(instr, context, instruction) {},
+            "e_rlwi.": function(instr, context, instruction) {},
+            "e_rlwimi": function(instr, context, instruction) {},
+            "e_rlwinm": function(instr, context, instruction) {},
+            "e_slwi": function(instr, context, instruction) {},
+            "e_slwi.": function(instr, context, instruction) {},
+            "e_srwi": function(instr, context, instruction) {},
+            "e_srwi.": function(instr, context, instruction) {},
+            "e_stb": function(instr, context, instruction) {},
+            "e_stbu": function(instr, context, instruction) {},
+            "e_sth": function(instr, context, instruction) {},
+            "e_sthu": function(instr, context, instruction) {},
+            "e_stmw": function(instr, context, instruction) {},
+            "e_stw": function(instr, context, instruction) {},
+            "e_stwu": function(instr, context, instruction) {},
+            "e_subfic": function(instr, context, instruction) {},
+            "e_subfic.": function(instr, context, instruction) {},
+            */
+            "e_xori": function(instr, context, instruction) {
+                return op_bits3(instr.parsed, Base.instructions.xor);
+            },
+            "e_xori.": function(instr, context, instruction) {
+                return op_bits3(instr.parsed, Base.instructions.xor);
+            },
+            "se_illegal": function() {
+                return Base.instructions.nop();
+            },
+            "se_isync": function(instr, context, instructions) {
+                return Base.instructions.call('_isync');
+            },
+            "se_sc": function(instr, context, instructions) {},
+            "se_blr": function(instr, context, instructions) {
+                var start = instructions.indexOf(instr);
+                if (start >= 0) {
+                    for (var i = start - 1; i >= start - 4; i--) {
+                        if (instructions[i].parsed.length < 2) {
+                            continue;
+                        }
+                        if (instructions[i].parsed[1] == 'r3') {
+                            return Base.instructions.return('r3');
+                        }
+                    }
+                }
+                return Base.instructions.return();
+            },
+            "se_blrl": function(instr, context, instructions) {
+                if (context.mtlr.register) {
+                    context.mtlr.instr.valid = false;
+                    return Base.instructions.call(context.mtlr.register, [], true);
+                }
+                return Base.instructions.call('lr', [], true);
+            },
+            "se_bctrl": function(instr, context, instructions) {
+                return Base.instructions.call('ctr', [], true);
+            },
+            /*
+            "se_bctr": function(instr, context, instructions) {},
+            */
+            "se_rfi": function(instr, context, instructions) {
+                return Base.instructions.call('_rfi');
+            },
+            "se_rfci": function(instr, context, instructions) {
+                return Base.instructions.call('_rfci');
+            },
+            "se_rfdi": function(instr, context, instructions) {
+                return Base.instructions.call('_rfdi');
+            },
+            "se_not": function(instr, context, instructions) {
+                return Base.instructions.not(instr.parsed[1], instr.parsed[2]);
+            },
+            "se_neg": function(instr, context, instructions) {
+                return Base.instructions.negate(instr.parsed[1], instr.parsed[2]);
+            },
+            "se_mflr": function(instr, context, instructions) {
+                return Base.instructions.assign(instr.parsed[1], 'lr');
+            },
+            "se_mtlr": function(instr, context, instructions) {
+                return Base.instructions.assign('lr', instr.parsed[1]);
+            },
+            "se_mfctr": function(instr, context, instructions) {
+                return Base.instructions.assign(instr.parsed[1], 'ctr');
+            },
+            "se_mtctr": function(instr, context, instructions) {
+                return Base.instructions.assign('ctr', instr.parsed[1]);
+            },
+            "se_extzb": function(instr, context, instructions) {
+                if (instr.parsed.length == 2) {
+                    return Base.instructions.extend(instr.parsed[1], instr.parsed[1], 32);
+                }
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 32);
+            },
+            "se_extsb": function(instr, context, instructions) {
+                if (instr.parsed.length == 2) {
+                    return Base.instructions.extend(instr.parsed[1], instr.parsed[1], 32);
+                }
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 32);
+            },
+            "se_extzh": function(instr, context, instructions) {
+                if (instr.parsed.length == 2) {
+                    return Base.instructions.extend(instr.parsed[1], instr.parsed[1], 32);
+                }
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 32);
+            },
+            "se_extsh": function(instr, context, instructions) {
+                if (instr.parsed.length == 2) {
+                    return Base.instructions.extend(instr.parsed[1], instr.parsed[1], 32);
+                }
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 32);
+            },
+            "se_mr": function(instr, context, instructions) {
+                return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
+            },
+            "se_mtar": function(instr, context, instructions) {
+                return Base.instructions.call('_mtar', [instr.parsed[1]]);
+            },
+            "se_mfar": function(instr, context, instructions) {
+                return Base.instructions.call('_mfar', [], false, instr.parsed[1]);
+            },
+            "se_add": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.add);
+            },
+            "se_mullw": function(instr, context, instructions) {},
+            "se_sub": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.subtract);
+            },
+            "se_subf": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.subtract);
+            },
+            "se_cmpi": function(instr, context, instructions) {
+                return _compare(instr, context, 32);
+            },
+            "se_cmpli": function(instr, context, instructions) {
+                return _compare(instr, context, 32);
+            },
+            "se_cmp": function(instr, context, instructions) {
+                return _compare(instr, context, 32);
+            },
+            "se_cmpl": function(instr, context, instructions) {
+                return _compare(instr, context, 32);
+            },
+            "se_cmph": function(instr, context, instructions) {
+                return _compare(instr, context, 16);
+            },
+            "se_cmphl": function(instr, context, instructions) {
+                return _compare(instr, context, 16);
+            },
+            "se_addi": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.add);
+            },
+            "se_and": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.and);
+            },
+            "se_and.": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.and);
+            },
+            "se_andi": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.and);
+            },
+            "se_andc": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.and);
+            },
+            "se_b": function(instr, context, instructions) {
+                return Base.instructions.nop();
+            },
+            "se_bl": function(instr, context, instructions) {
+                var fcn_name = instr.parsed[1].replace(/\./g, '_');
+                if (fcn_name.indexOf('0x') == 0) {
+                    fcn_name = fcn_name.replace(/0x/, 'fcn_');
+                }
+                return Base.instructions.call(fcn_name);
+            },
+            "se_bge": function(instr, context, instructions) {
+                return _conditional(instr, context, 'LT');
+            },
+            "se_ble": function(instr, context, instructions) {
+                return _conditional(instr, context, 'GT');
+            },
+            "se_bne": function(instr, context, instructions) {
+                return _conditional(instr, context, 'EQ');
+            },
+            "se_blt": function(instr, context, instructions) {
+                return _conditional(instr, context, 'GE');
+            },
+            "se_bgt": function(instr, context, instructions) {
+                return _conditional(instr, context, 'LE');
+            },
+            "se_beq": function(instr, context, instructions) {
+                return _conditional(instr, context, 'NE');
+            },
+            "se_or": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.or);
+            },
+            "se_li": function(instr, context, instructions) {
+                return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
+            },
+            /*
+                        "se_bclri": function(instr, context, instructions) {},
+                        "se_bgeni": function(instr, context, instructions) {},
+                        "se_bmaski": function(instr, context, instructions) {},
+                        "se_bseti": function(instr, context, instructions) {},
+                        "se_btsti": function(instr, context, instructions) {},
+            */
+            "se_lbz": function(instr, context, instructions) {
+                return load_bits(instr.parsed, 8, false);
+            },
+            "se_lbh": function(instr, context, instructions) {
+                return load_bits(instr.parsed, 16, false);
+            },
+            "se_lwz": function(instr, context, instructions) {
+                return load_bits(instr.parsed, 32, false);
+            },
+            "se_slw": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.shift_left, 32);
+            },
+            "se_slwi": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.shift_left, 32);
+            },
+            "se_sraw": function(instr, context, instructions) {
+                return op_rotate3(instr.parsed, 32, true);
+            },
+            "se_srawi": function(instr, context, instructions) {
+                return op_rotate3(instr.parsed, 32, true);
+            },
+            "se_srw": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.shift_right, 32);
+            },
+            "se_srwi": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.shift_right, 32);
+            },
+            "se_stb": function(instr, context, instructions) {
+                return store_bits(instr.parsed, 8, false);
+            },
+            "se_sth": function(instr, context, instructions) {
+                return store_bits(instr.parsed, 16, false);
+            },
+            "se_stw": function(instr, context, instructions) {
+                return store_bits(instr.parsed, 32, false);
+            },
+            "se_subi": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.subtract);
+            },
+            "se_subi.": function(instr, context, instructions) {
+                return op_bits3(instr.parsed, Base.instructions.subtract);
             },
             invalid: function() {
                 return null;

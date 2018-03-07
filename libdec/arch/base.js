@@ -327,6 +327,7 @@ module.exports = (function() {
                 return new _pseudocode(new _inline_assign_if(destination, source_a, source_b, cond, src_true, src_false));
             },
             assign: function(destination, source) {
+                console.log(destination, source)
                 return new _pseudocode(new _common_assign(destination, source, false));
             },
             extend: function(destination, source, bits) {
