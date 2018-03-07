@@ -68,7 +68,7 @@ module.exports = (function() {
             var arg = new Base.bits_argument(e[3], _bits_types[e[2]], true, true, true);
             return op(e[1], e[1], arg);
         }
-        var arg = new Base.bits_argument(e[2], bits, true, true, true);
+        var arg = new Base.bits_argument(e[2], bits, false, false, false);
         return op(e[1], e[1], arg);
     };
 
