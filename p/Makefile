@@ -10,6 +10,7 @@ all:
 
 install:
 	mkdir -p $(PLUGDIR)
+	rm -f $(PLUGDIR)/core_pdd.$(LIBEXT)*
 	cp -rf core_pdd.$(LIBEXT)* $(PLUGDIR)
 
 uninstall:
