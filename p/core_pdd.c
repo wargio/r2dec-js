@@ -37,7 +37,7 @@ static void _cmd_pdd(RCore *core, const char *input) {
 		break;
 	default:
 		// decompile
-		r_core_cmdf (core, "#!pipe r2dec --colors %s", input);
+		r_core_cmdf (core, "#!pipe r2dec %s", input);
 		break;
 	}
 }

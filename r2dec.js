@@ -100,22 +100,24 @@ async function asyncMain(err, r2, args) {
         const cmdj = util.promisify(r2.cmdj).bind(r2);
         const r2quit = util.promisify(r2.quit).bind(r2);
 
+        let arch = (await cmd('e asm.arch')).trim();
+        let bits = (await cmd('e asm.bits')).trim();
+        const honorpseudo = (await cmd('e asm.pseudo')).trim() == 'true';
+        const honorcolor = parseInt((await cmd('e scr.color')).trim()) > 0;
+
         // r2dec options
         var options = {
-            color: has_option(args, '--colors') ? colorme : null,
+            color: (honorcolor || has_option(args, '--colors')) ? colorme : null,
             casts: !has_option(args, '--hide-casts'),
             ident: null
         };
 
-        let arch = (await cmd('e asm.arch')).trim();
-        let bits = (await cmd('e asm.bits')).trim();
         const architecture = libdec.archs[arch];
 
         if (architecture) {
             await cmd('af');
             /* asm.pseudo breaks things.. */
-            var pseudo = (await cmd('e asm.pseudo')).trim() == 'true';
-            if (pseudo) {
+            if (honorpseudo) {
                 await cmd('e asm.pseudo = false');
             }
 
@@ -136,7 +138,7 @@ async function asyncMain(err, r2, args) {
                 routine.print(console.log, options);
             }
 
-            if (pseudo) {
+            if (honorpseudo) {
                 await cmd('e asm.pseudo = true');
             }
         } else {
