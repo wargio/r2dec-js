@@ -306,7 +306,7 @@ module.exports = (function() {
                 return Base.instructions.not(instr.parsed[1], instr.parsed[1]);
             },
             lea: function(instr) {
-                return Base.instructions.assign(instr.parsed[1], instr.string || instr.parsed[2]);
+                return Base.instructions.assign(instr.parsed[1], instr.string || instr.parsed[2].replace(/\./g, '_'));
             },
             call: _call_function,
             cmova: function(instr, context, instructions) {
@@ -544,6 +544,10 @@ module.exports = (function() {
             var mem = '';
             if (asm.match(/\[.+\]/)) {
                 mem = asm.match(/\[.+\]/)[0].replace(/\[|\]/g, '');
+                // searching for rbx + rcx*4 or similars
+                if (mem.match(/[a-z]+\*[0-9]+/)) {
+                    mem = mem.replace(/[a-z]+\*[0-9]+/, '(' + mem.match(/[a-z]+\*[0-9]+/)[0].replace(/\*/, ' * ') + ')');
+                }
             }
             var ret = asm.replace(/\[.+\]/g, '{#}').replace(/,/g, ' ');
             ret = ret.replace(/\s+/g, ' ').trim().split(' ');
