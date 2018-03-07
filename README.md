@@ -104,7 +104,9 @@ int main(int argc, char const *argv[]) {
 ### r2dec pseudo-C code
 
 ```c
-void main () {
+#include <stdint.h>
+
+int32_t main () {
     *((int32_t*) local_14h) = edi;
     *((int64_t*) local_20h) = rsi;
     *((int32_t*) local_4h) = 0;
@@ -117,5 +119,6 @@ void main () {
     eax = 0;
     return eax;
 }
+
 
 ```
