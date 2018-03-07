@@ -547,6 +547,7 @@ module.exports = (function() {
                 if (fcn_name.indexOf('0x') == 0) {
                     fcn_name = fcn_name.replace(/0x/, 'fcn_');
                 }
+                instr.invalidate_jump();
                 return Base.instructions.call(fcn_name);
             },
             bdnz: function(instr, context) {

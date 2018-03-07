@@ -73,6 +73,9 @@ module.exports = (function() {
                 }
             }
         };
+        this.invalidate_jump = function() {
+            this.jump = null;
+        }
     };
 
     return Instruction;

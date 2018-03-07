@@ -26,7 +26,7 @@ module.exports = (function() {
     };
 
     var _call_fix_name = function(name) {
-        if (name.indexOf('fcn.') == 0) {
+        if (name.indexOf('fcn.') == 0 || name.indexOf('func.') == 0) {
             return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
         }
         return name.replace(/\[reloc\.|\]/g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/_[0-9a-f]+$/, '').replace(/^_+/, '');
@@ -127,6 +127,7 @@ module.exports = (function() {
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
+        instr.invalidate_jump();
         var regs32 = ['ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp'];
         var regs64 = ['rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9'];
         var args = [];
@@ -134,7 +135,6 @@ module.exports = (function() {
         var bad_ax = true;
         var end = instrs.indexOf(instr) - regs64.length;
         var start = instrs.indexOf(instr);
-
         var callname = instr.parsed[1];
         var known_args_n = -1;
         if (_bits_types[instr.parsed[1]]) {
@@ -423,6 +423,7 @@ module.exports = (function() {
             jmp: function(instr, context, instructions) {
                 var e = instr.parsed;
                 if (e.length == 3 && e[2].indexOf("[reloc.") == 0) {
+                    instr.invalidate_jump();
                     return Base.instructions.call(_call_fix_name(e[2]));
                 } else if (e.length == 2 && (e[1] == 'eax' || e[1] == 'rax')) {
                     return _call_function(instr, context, instructions, true);

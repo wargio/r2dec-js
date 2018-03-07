@@ -128,6 +128,7 @@ module.exports = (function() {
     };
 
     var _call = function(instr, context, instructions) {
+        instr.invalidate_jump();
         var callname = instr.parsed[1].replace(/\./g, '_');
         var returnval = null;
         var args = [];
@@ -203,6 +204,7 @@ module.exports = (function() {
                 if (instr.parsed[1] == 'lr') {
                     return Base.instructions.return();
                 }
+                instr.invalidate_jump();
                 return Base.instructions.call(instr.parsed[1], [], true, 'return');
             },
             bne: function(instr, context) {
