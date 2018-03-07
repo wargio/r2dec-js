@@ -55,6 +55,9 @@ module.exports = (function() {
             instr.opcode = instr.opcode.replace(cfg.anal.replace, '');
             instr.parsed = arch.parse(instr.opcode);
         }
+        if (arch.delayed_branch) {
+            arch.delayed_branch(instructions);
+        }
         for (var i = 0; i < instructions.length; i++) {
             instr = instructions[i];
             fcn = arch.instructions[instr.parsed[0]];

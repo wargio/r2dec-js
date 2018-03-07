@@ -23,7 +23,7 @@ module.exports = (function() {
         var e = instr.parsed;
         var a = swap ? e[3] : e[2];
         var b = swap ? e[2] : e[3];
-        if (e[2] == 'zero') {
+        if (e[2] == '0') {
             return Base.instructions.assign(e[1], e[3]);
         }
         if (bits) {
@@ -35,11 +35,8 @@ module.exports = (function() {
 
     var _move = function(instr, bits, unsigned) {
         var e = instr.parsed;
-        if (e[1] == 'zero') {
+        if (e[1] == '0') {
             return Base.instructions.nop();
-        }
-        if (e[2] == 'zero') {
-            e[2] == '0';
         }
         // value, bits, is_signed, is_pointer, is_memory
         var reg = new Base.bits_argument(e[2], bits, false);
@@ -94,16 +91,20 @@ module.exports = (function() {
 
     var compare = function(instr, context, instructions, cmp, zero) {
         instr.conditional(instr.parsed[1], zero ? "0" : instr.parsed[2], cmp);
-        /*
-        _delayed_branch (instr, context, instructions);
-        */
         return Base.instructions.nop();
     };
 
-    var _conditional_inline = function(instr, context, instructions, type) {
-        instr.conditional(context.cond.a, context.cond.b, type);
+    var _conditional_inline_zero = function(instr, instructions, type) {
+        instr.conditional(instr.parsed[3], '0', type);
         instr.jump = instructions[instructions.indexOf(instr) + 1].loc;
+        return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
     };
+
+    var _branch_list = [
+        'b', 'bal', 'jr', 'jal', 'jalr',
+        'beqz', 'bnez', 'bltz', 'blez',
+        'bgtz', 'bgez', 'beq', 'bne'
+    ];
 
     return {
         instructions: {
@@ -114,7 +115,7 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             'lui': function(instr) {
-                if (instr.parsed[2] != 'zero') {
+                if (instr.parsed[2] != '0') {
                     if (instr.parsed[2].indexOf('0x') < 0) {
                         instr.parsed[2] = '0x' + instr.parsed[2];
                     }
@@ -125,18 +126,18 @@ module.exports = (function() {
             'move': function(instr) {
                 return _move(instr);
             },
+            'movn': function(instr, context, instructions) {
+                return _conditional_inline_zero(instr, instructions, 'NE');
+            },
+            'movz': function(instr, context, instructions) {
+                return _conditional_inline_zero(instr, instructions, 'EQ');
+            },
             'neg': function(instr) {
                 var e = instr;
-                if (e[2] == 'zero') {
-                    e[2] = '0';
-                }
                 return Base.instructions.negate(e[1], e[2]);
             },
             'not': function(instr) {
                 var e = instr.parsed;
-                if (e[2] == 'zero') {
-                    e[2] = '0';
-                }
                 return Base.instructions.not(e[1], e[2]);
             },
             'add': function(instr) {
@@ -209,23 +210,14 @@ module.exports = (function() {
             },
             'slt': function(instr) {
                 var e = instr.parsed;
-                if (e[3] == 'zero') {
-                    e[3] == '0';
-                }
                 return Base.instructions.conditional_assign(e[1], e[2], e[3], 'LT', '1', '0');
             },
             'slti': function(instr) {
                 var e = instr.parsed;
-                if (e[3] == 'zero') {
-                    e[3] == '0';
-                }
                 return Base.instructions.conditional_assign(e[1], e[2], e[3], 'LT', '1', '0');
             },
             'sltiu': function(instr) {
                 var e = instr.parsed;
-                if (e[3] == 'zero') {
-                    e[3] == '0';
-                }
                 //value, bits, is_signed, is_pointer, is_memory
                 var arg0 = new Base.bits_argument(e[2], 32, false, false, false);
                 var arg1 = new Base.bits_argument(e[3], 32, false, false, false);
@@ -344,7 +336,12 @@ module.exports = (function() {
             if (!asm) {
                 return [];
             }
-            return asm.replace(/,/g, ' ').replace(/\s+/g, ' ').trim().split(' ');
+            return asm.replace(/,/g, ' ').replace(/\s+/g, ' ').trim().split(' ').map(function(x) {
+                if (x == 'zero') {
+                    return '0';
+                }
+                return x;
+            });
         },
         context: function() {
             return {
@@ -355,7 +352,13 @@ module.exports = (function() {
             }
         },
         delayed_branch: function(instructions) {
-
+            for (var i = 0; i < instructions.length; i++) {
+                var op = instructions[i].parsed[0];
+                if (_branch_list.indexOf(op) >= 0) {
+                    Base.swap_instructions(instructions, i);
+                    ++i;
+                }
+            }
         },
         returns: function(context) {
             return 'void';

@@ -252,6 +252,22 @@ module.exports = (function() {
     }
 
     var _base = {
+        swap_instructions: function(instructions, index) {
+            var a = instructions[index];
+            var b = instructions[index + 1];
+            var oldloc = a.loc;
+            var oldjmp = a.jmp;
+            var oldfail = a.fail;
+            a.loc = b.loc;
+            a.jmp = b.jmp;
+            a.fail = b.fail;
+
+            b.loc = oldloc;
+            b.jmp = oldjmp;
+            b.fail = oldfail;
+            instructions[index] = b;
+            instructions[index + 1] = a;
+        },
         bits_argument: _bits_argument,
         arguments: function(name) {
             if (_call_common[name]) {
@@ -268,9 +284,6 @@ module.exports = (function() {
                 codes = codes.concat(extended[i].deps.code);
             }
             return new _pseudocode(new _composed_extended_op(extended), new _dependency(macros, codes));
-        },
-        conditional_assign: function(destination, source_a, source_b, cond, src_true, src_false) {
-            return new _pseudocode(new _inline_assign_if(destination, source_a, source_b, cond, src_true, src_false));
         },
         macro: function(value) {
             this.value = value;
