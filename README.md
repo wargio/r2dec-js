@@ -32,6 +32,7 @@ done
        --colors     | enables syntax colors
        --hide-casts | hides all casts in the pseudo code
        --issue      | generates the json used for the test suite
+       --debug      | do not catch exceptions
 ```
 
 # Report an Issue
@@ -104,7 +105,9 @@ int main(int argc, char const *argv[]) {
 ### r2dec pseudo-C code
 
 ```c
-void main () {
+#include <stdint.h>
+
+int32_t main () {
     *((int32_t*) local_14h) = edi;
     *((int64_t*) local_20h) = rsi;
     *((int32_t*) local_4h) = 0;

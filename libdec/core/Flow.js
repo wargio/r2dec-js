@@ -39,6 +39,14 @@ module.exports = (function() {
         }
     };
 
+    var ControlFlowPanic = function(name, is_head, condition) {
+        this.name = name || '';
+        this.condition = condition;
+        this.toString = function(options) {
+            return _colorize(this.name, options.color) + ' ' + this.condition.toString(options) + ';';
+        }
+    };
+
     var AddressBounds = function(low, hi) {
         this.low = low;
         this.hi = hi;
@@ -172,6 +180,12 @@ module.exports = (function() {
         }
         scope.level = instructions[start].scope.level + 1;
         scope.header = is_while ? (new ControlFlow('while', true, cond)) : new ControlFlow('do', true);
+        if (first.jump.eq(first.loc)) {
+            scope.header = new ControlFlowPanic('while', true, cond);
+            scope.trailer = null;
+            instr.scope = scope;
+            return true;
+        }
         var scopes = [];
         for (var i = start; i < index; i++) {
             instr = instructions[i];

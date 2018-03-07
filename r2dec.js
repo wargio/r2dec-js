@@ -36,6 +36,7 @@ const usages = {
     "--colors": "enables syntax colors",
     "--hide-casts": "hides all casts in the pseudo code",
     "--issue": "generates the json used for the test suite",
+    "--debug": "do not catch exceptions",
 }
 
 if (!r2pipe.hasOwnProperty('jsonParse')) {
@@ -49,8 +50,10 @@ r2pipe.open(main);
 function main(err, r2) {
     asyncMain(err, r2, process.argv.slice(2)).catch(function(v) {
         console.log(v);
+        suicide();
     }).then(function(v) {
         console.log(v);
+        suicide();
     });
 }
 
@@ -88,57 +91,69 @@ async function asyncMain(err, r2, args) {
         usage();
         suicide();
     }
-
-    const cmd = util.promisify(r2.cmd).bind(r2);
-    const cmdj = util.promisify(r2.cmdj).bind(r2);
-    const r2quit = util.promisify(r2.quit).bind(r2);
     if (err) {
         throw err;
     }
 
-    // r2dec options
-    var options = {
-        color: has_option(args, '--colors') ? colorme : null,
-        casts: !has_option(args, '--hide-casts'),
-        ident: null
-    };
+    try {
+        const cmd = util.promisify(r2.cmd).bind(r2);
+        const cmdj = util.promisify(r2.cmdj).bind(r2);
+        const r2quit = util.promisify(r2.quit).bind(r2);
 
-    let arch = (await cmd('e asm.arch')).trim();
-    let bits = (await cmd('e asm.bits')).trim();
-    const architecture = libdec.archs[arch];
+        // r2dec options
+        var options = {
+            color: has_option(args, '--colors') ? colorme : null,
+            casts: !has_option(args, '--hide-casts'),
+            ident: null
+        };
 
-    if (architecture) {
-        await cmd('af');
-        /* asm.pseudo breaks things.. */
-        var pseudo = (await cmd('e asm.pseudo')).trim() == 'true';
-        if (pseudo) {
-            await cmd('e asm.pseudo = false');
-        }
+        let arch = (await cmd('e asm.arch')).trim();
+        let bits = (await cmd('e asm.bits')).trim();
+        const architecture = libdec.archs[arch];
 
-        if (has_option(args, '--issue')) {
-            const xrefs = (await cmd('isj')).trim();
-            const strings = (await cmd('izj')).trim();
-            const data = (await cmd('agj')).trim();
-            console.log('{"name":"issue_' + (new Date()).getTime() + '","arch":"' + arch + '","agj":' + data + ',"isj":' + xrefs + ',"izj":' + strings + '}');
+        if (architecture) {
+            await cmd('af');
+            /* asm.pseudo breaks things.. */
+            var pseudo = (await cmd('e asm.pseudo')).trim() == 'true';
+            if (pseudo) {
+                await cmd('e asm.pseudo = false');
+            }
+
+            if (has_option(args, '--issue')) {
+                const xrefs = (await cmd('isj')).trim();
+                const strings = (await cmd('izj')).trim();
+                const data = (await cmd('agj')).trim();
+                console.log('{"name":"issue_' + (new Date()).getTime() + '","arch":"' + arch + '","agj":' + data + ',"isj":' + xrefs + ',"izj":' + strings + '}');
+            } else {
+                const xrefs = await cmdj('isj');
+                const strings = await cmdj('izj');
+                const data = await cmdj('agj');
+                let routine = libdec.analyzer.make(data);
+
+                libdec.analyzer.strings(routine, strings);
+                libdec.analyzer.analyze(routine, architecture);
+                libdec.analyzer.xrefs(routine, xrefs);
+                routine.print(console.log, options);
+            }
+
+            if (pseudo) {
+                await cmd('e asm.pseudo = true');
+            }
         } else {
-            const xrefs = await cmdj('isj');
-            const strings = await cmdj('izj');
-            const data = await cmdj('agj');
-            let routine = libdec.analyzer.make(data);
-
-            libdec.analyzer.strings(routine, strings);
-            libdec.analyzer.analyze(routine, architecture);
-            libdec.analyzer.xrefs(routine, xrefs);
-
-            routine.print(console.log, options);
+            console.log(arch + ' is not currently supported.\n' +
+                'Please open an enhancement issue at https://github.com/wargio/r2dec-js/issues');
+            libdec.supported();
         }
-
-        if (pseudo) {
-            await cmd('e asm.pseudo = true');
+    } catch (e) {
+        if (has_option(args, '--debug')) {
+            throw e;
+        } else {
+            console.log(
+                '\n\nr2dec has crashed.\n' +
+                'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
+                'Use the option \'--issue\' to generate the needed data for the issue.'
+            );
         }
-    } else {
-        console.log(arch + " is not currently supported.");
-        libdec.supported();
     }
 
     // kill itself.
