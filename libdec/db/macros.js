@@ -85,6 +85,10 @@ module.exports = (function() {
         'isoc99_scanf': {
             macro: ['#include <stdio.h>'],
             args: -1
+        },
+        'getenv': {
+            macro: ['#include <stdlib.h>'],
+            args: 1
         }
     };
 
