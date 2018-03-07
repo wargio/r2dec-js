@@ -14,7 +14,7 @@ install:
 	cp -rf core_pdd.$(LIBEXT)* $(PLUGDIR)
 
 uninstall:
-	rm -rf $(PLUGDIR)/core_pdd.$(LIBEXT)
+	rm -rf $(PLUGDIR)/core_pdd.$(LIBEXT)*
 
 clean:
-	rm -rf core_pdd.$(LIBEXT)
+	rm -rf core_pdd.$(LIBEXT)*
