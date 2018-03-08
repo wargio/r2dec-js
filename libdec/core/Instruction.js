@@ -60,7 +60,6 @@ module.exports = (function() {
                     }
                 }
             }
-            p(ident + '/* ' + this.opcode + ' */');
             if (this.pseudo && this.valid) {
                 p(ident + this.pseudo.toString(options) + ';');
             }

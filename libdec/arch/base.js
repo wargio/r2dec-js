@@ -147,6 +147,16 @@ module.exports = (function() {
         };
     };
 
+    var _common_bitmask = function(destination, source_a, source_b) {
+        this.call = 'BIT_MASK';
+        this.dst = _is_str(destination) ? new _bits_argument(destination, false, false, false) : destination;
+        this.srcA = _is_str(source_a) ? new _bits_argument(source_a, false, false, false) : source_a;
+        this.srcB = _is_str(source_b) ? new _bits_argument(source_b, false, false, false) : source_b;
+        this.toString = function(options) {
+            return this.dst.toString(options) + ' = ' + (options.color ? options.color.callname(this.call) : this.call) + ' (' + this.srcA.toString(options) + ', ' + this.srcB.toString(options) + ')';
+        };
+    };
+
     var _common_rotate = function(destination, source_a, source_b, bits, is_left) {
         this.call = 'rotate_' + (is_left ? 'left' : 'right') + bits;
         this.dst = _is_str(destination) ? new _bits_argument(destination, false, false, false) : destination;
@@ -221,10 +231,17 @@ module.exports = (function() {
         };
     };
 
+    var _common_macro_c = function(macro) {
+        this.macro = macro;
+        this.toString = function(options) {
+            return (options.color ? options.color.text(this.macro) : this.macro);
+        };
+    };
+
     var _common_asm = function(opcode) {
         this.opcode = opcode;
         this.toString = function(options) {
-            return (options.color ? options.color.callname('_asm') : '_asm') + ' (\"' + this.opcode + '\")';
+            return (options.color ? options.color.callname('__asm') : '__asm') + ' (' + this.opcode + ')';
         };
     };
 
@@ -327,7 +344,6 @@ module.exports = (function() {
                 return new _pseudocode(new _inline_assign_if(destination, source_a, source_b, cond, src_true, src_false));
             },
             assign: function(destination, source) {
-                console.log(destination, source)
                 return new _pseudocode(new _common_assign(destination, source, false));
             },
             extend: function(destination, source, bits) {
@@ -397,6 +413,11 @@ module.exports = (function() {
                     new _dependency(_call_c.rotate_right.macros, [new _call_c.rotate_right.fcn(bits)])
                 );
             },
+            bit_mask: function(destination, source_a, source_b) {
+                return new _pseudocode(new _common_bitmask(destination, source_a, source_b),
+                    new _dependency(_call_c.bit_mask.macros, [])
+                );
+            },
             read_memory: function(pointer, register, bits, is_signed) {
                 return new _pseudocode(new _common_memory(bits, is_signed, pointer, register, false));
             },
@@ -415,6 +436,9 @@ module.exports = (function() {
             },
             push: function(data) {
                 return new _pseudocode(data);
+            },
+            macro: function(macro_name, macro) {
+                return new _pseudocode(new _common_macro_c(macro_name), new _dependency([macro], []));
             },
             special: function(data) {
                 return new _pseudocode(data);

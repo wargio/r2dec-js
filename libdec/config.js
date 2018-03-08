@@ -21,8 +21,8 @@ module.exports = {
         xref: 'DATA XREF from 0x'
     },
     anal: {
-        asmheader: '_asm("',
-        asmtrailer: '");',
+        asmheader: '__asm(',
+        asmtrailer: ');',
         replace: /sym\.imp\.|sym\.|obj\.|aav\.|sub\./
     }
 };
