@@ -28,6 +28,11 @@ module.exports = (function() {
         return color.callname(input);
     }
 
+    var _colorize_define = function(input, color) {
+        if (!color) return input;
+        return color.text(input);
+    }
+
     return {
         rotate_left: {
             macros: ['#include <stdint.h>', '#include <limits.h>'],
@@ -77,6 +82,10 @@ module.exports = (function() {
                 };
             }
         },
+        bit_mask: {
+            macros: ['#include <limits.h>', '#define BIT_MASK(__TYPE__, __ONE_COUNT__) \\\n    ((__TYPE__) (-((__ONE_COUNT__) != 0))) \\\n    & (((__TYPE__) -1) >> ((sizeof(__TYPE__) * CHAR_BIT) - (__ONE_COUNT__)))'],
+            fcn: null
+        }
     };
 
 })();
