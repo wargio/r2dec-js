@@ -12,11 +12,18 @@ mv core_test.so ~/.config/radare2/plugins
 #include <r_cons.h>
 #include <string.h>
 #include <r_anal.h>
+#include <duktape.h>
 
 #undef R_API
 #define R_API static
 #undef R_IPI
 #define R_IPI static
+
+#include "long_js.h"
+
+static void call_js(void) {
+	duk_context *ctx = duk_create_heap_default();
+}
 
 static void _cmd_pdd(RCore *core, const char *input) {
 	switch (*input) {
