@@ -212,9 +212,14 @@ module.exports = (function() {
             b: function() {
                 return Base.instructions.nop();
             },
-            bx: function(instr) {
+            bx: function(instr, context, instructions) {
                 if (instr.parsed[1] == 'lr') {
-                    return Base.instructions.return();
+                    var start = instructions.indexOf(instr)
+                    var returnval = null;
+                    if (instructions[start - 1].parsed[1] == 'r0') {
+                        returnval = 'r0';
+                    }
+                    return Base.instructions.return(returnval);
                 }
                 instr.invalidate_jump();
                 return Base.instructions.call(instr.parsed[1], [], true, 'return');
