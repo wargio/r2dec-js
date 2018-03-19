@@ -30,6 +30,7 @@ done
 #!pipe r2dec [options]
        --help       | this help message
        --colors     | enables syntax colors
+       --assembly   | shows pseudo next to the assembly
        --hide-casts | hides all casts in the pseudo code
        --issue      | generates the json used for the test suite
        --debug      | do not catch exceptions

@@ -18,6 +18,10 @@
 module.exports = (function() {
 
     return {
+        'exit': {
+            macro: ['#include <stdlib.h>'],
+            args: 1
+        },
         'fgets': {
             macro: ['#include <stdio.h>'],
             args: 3

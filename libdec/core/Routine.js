@@ -56,7 +56,7 @@ module.exports = (function() {
         }
         for (var i = 0; i < codes.length; i++) {
             /* TODO: missing colors.. :| */
-            p(asm_pad + codes[i].toString(options).replace(/\n/g, '\n' + asm_pad));
+            p(asm_pad + codes[i].toString(options).replace(/\n/g, '\n' + asm_pad) + '\n' + asm_pad);
         }
     };
 

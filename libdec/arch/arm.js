@@ -166,13 +166,15 @@ module.exports = (function() {
                 i = start;
             }
         }
-        if (instructions[start + 1].parsed[0].charAt(0) == 'c' && instructions[start + 1].parsed[1] == 'r0') {
-            // cbz/cmp
-            returnval = 'r0';
-        } else if (instructions[start + 1].parsed[2] == 'r0') {
-            returnval = 'r0';
-        } else if (instructions[start + 1].parsed[3] == 'r0') {
-            returnval = 'r0';
+        if (instructions[start + 1]) {
+            if (instructions[start + 1].parsed[0].charAt(0) == 'c' && instructions[start + 1].parsed[1] == 'r0') {
+                // cbz/cmp
+                returnval = 'r0';
+            } else if (instructions[start + 1].parsed[2] == 'r0') {
+                returnval = 'r0';
+            } else if (instructions[start + 1].parsed[3] == 'r0') {
+                returnval = 'r0';
+            }
         }
         return Base.instructions.call(callname, args, _is_register(callname), returnval);
     };
