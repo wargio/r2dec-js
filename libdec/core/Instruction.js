@@ -17,6 +17,16 @@
 
 module.exports = (function() {
     var Long = require('long');
+    var _colorize = function(input, color) {
+        if (!color) return input;
+        return color.colorize(input);
+    }
+
+    var _align32 = function(x) {
+        var zeros = '00000000';
+        var c = x.toString(16);
+        return '0x' + zeros.substr(c.length, zeros.length) + c;
+    };
     /* 
      * Gets an opcode block provided by agj
      * op = data[n].blocks[k].ops[i];
@@ -29,6 +39,7 @@ module.exports = (function() {
         this.ref = (op.refptr || (this.ptr && Long.ZERO.lt(op.ptr))) ? true : false;
         this.label = -1;
         this.opcode = op.disasm ? op.disasm : (op.opcode ? op.opcode : 'invalid');
+        this.assembly = op.opcode ? op.opcode : 'invalid';
         this.comments = op.comment ? [(Buffer.from(op.comment, 'base64').toString())] : [];
         this.pseudo = this.opcode; //null;
         this.parsed = null;
@@ -36,32 +47,41 @@ module.exports = (function() {
         this.string = null;
         this.cond = null;
         this.xrefs = op.xrefs ? op.xrefs.slice() : [];
-        this.print = function(p, ident, options) {
+        this.print = function(p, ident, options, asmpadding) {
             if (this.comments.length > 0) {
                 if (this.comments.length == 1) {
                     if (options.color) {
-                        p(ident + options.color.comment('/* ' + this.comments[0] + ' */'));
+                        p(asmpadding + ident + options.color.comment('/* ' + this.comments[0] + ' */'));
                     } else {
-                        p(ident + '/* ' + this.comments[0] + ' */');
+                        p(asmpadding + ident + '/* ' + this.comments[0] + ' */');
                     }
                 } else {
                     if (options.color) {
-                        p(ident + options.color.comment('/* '));
+                        p(asmpadding + ident + options.color.comment('/* '));
                         for (var j = 0; j < this.comments.length; j++) {
-                            p(ident + options.color.comment(' * ' + this.comments[j]));
+                            p(asmpadding + ident + options.color.comment(' * ' + this.comments[j]));
                         }
-                        p(ident + options.color.comment(' */'));
+                        p(asmpadding + ident + options.color.comment(' */'));
                     } else {
-                        p(ident + '/* ');
+                        p(asmpadding + ident + '/* ');
                         for (var j = 0; j < this.comments.length; j++) {
-                            p(ident + ' * ' + this.comments[j]);
+                            p(asmpadding + ident + ' * ' + this.comments[j]);
                         }
-                        p(ident + ' */');
+                        p(asmpadding + ident + ' */');
                     }
                 }
             }
             if (this.pseudo && this.valid) {
-                p(ident + this.pseudo.toString(options) + ';');
+                var asm = '';
+                if (options.assembly) {
+                    var c = '    ' + _align32(this.loc) + '  ' + this.assembly;
+                    asm = _colorize(c, options.color) + asmpadding.substr(c.length, asmpadding.length);
+                }
+                p(asm + ident + this.pseudo.toString(options) + ';');
+            } else if (options.assembly) {
+                var c = '    ' + _align32(this.loc) + '  ' + this.assembly;
+                var asm = _colorize(c, options.color) + asmpadding.substr(c.length, asmpadding.length);
+                p(asm);
             }
         };
         this.conditional = function(a, b, type) {

@@ -34,6 +34,7 @@ const padding = '            ';
 const usages = {
     "--help": "this help message",
     "--colors": "enables syntax colors",
+    "--assembly": "shows pseudo next to the assembly",
     "--hide-casts": "hides all casts in the pseudo code",
     "--issue": "generates the json used for the test suite",
     "--debug": "do not catch exceptions",
@@ -109,6 +110,7 @@ async function asyncMain(err, r2, args) {
         var options = {
             color: (honorcolor || has_option(args, '--colors')) ? colorme : null,
             casts: !has_option(args, '--hide-casts'),
+            assembly: has_option(args, '--assembly'),
             ident: null
         };
 
