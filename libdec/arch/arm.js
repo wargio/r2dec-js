@@ -19,6 +19,13 @@ module.exports = (function() {
 
     var Base = require('./base');
 
+    var _operands = {
+        'lsl': '<<',
+        'lsr': '>>',
+        'asl': '<<',
+        'asr': '>>',
+    }
+
     var _is_register = function(name) {
         return name && name.match(/r[0-9]+/) != null;
     }
@@ -29,8 +36,13 @@ module.exports = (function() {
         }
         if (e.length == 3) {
             return op(e[1], e[1], e[2]);
+        } else if (e.length == 4) {
+            return op(e[1], e[2], e[3]);
         }
-        return op(e[1], e[2], e[3]);
+        if (_operands[e[4]]) {
+            e[4] = _operands[e[4]];
+        }
+        return op(e[1], e[2], '(' + e.slice(3).join(' ') + ')');
     };
 
     var _load = function(instr, bits) {
@@ -351,6 +363,20 @@ module.exports = (function() {
             sub: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.subtract);
             },
+            rsb: function(instr) {
+                var op = Base.instructions.subtract;
+                var e = instr.parsed;
+                if (e[1] == 'ip' || e[1] == 'sp' || e[1] == 'fp') {
+                    return Base.instructions.nop();
+                }
+                if (e.length == 4) {
+                    return op(e[1], e[3], e[2]);
+                }
+                if (_operands[e[4]]) {
+                    e[4] = _operands[e[4]];
+                }
+                return op(e[1], '(' + e.slice(3).join(' ') + ')', e[2]);
+            },
             ubfx: function(instr) {
                 //UBFX dest, src, lsb, width
                 var dest = instr.parsed[1];
@@ -360,10 +386,10 @@ module.exports = (function() {
                 return Base.instructions.special(dest + ' = ' + '(' + src + ' >> ' + lsb + ') & ((1 << ' + width + ') - 1)');
             },
             uxtb: function(instr) {
-                return Base.instructions.subtract(instr.parsed[1], instr.parsed[2], 8);
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 8);
             },
             uxth: function(instr) {
-                return Base.instructions.subtract(instr.parsed[1], instr.parsed[2], 16);
+                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 16);
             },
             invalid: function() {
                 return Base.instructions.nop();

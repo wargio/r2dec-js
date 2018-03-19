@@ -167,9 +167,9 @@ module.exports = (function() {
         };
     };
 
-    var _common_assign = function(destination, source) {
+    var _common_assign = function(destination, source, bits) {
         this.dst = _is_str(destination) ? new _bits_argument(destination, false, false, false) : destination;
-        this.src = _is_str(source) ? new _bits_argument(source, false, false, false) : source;
+        this.src = _is_str(source) ? new _bits_argument(source, bits || false, true, false) : source;
         this.toString = function(options) {
             return this.dst.toString(options) + ' = ' + this.src.toString(options);
         };
