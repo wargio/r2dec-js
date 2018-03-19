@@ -56,7 +56,7 @@ module.exports = (function() {
         }
         for (var i = 0; i < codes.length; i++) {
             /* TODO: missing colors.. :| */
-            p(asm_pad + codes[i].toString(options).replace(/\n/g, '\n' + asm_pad) + '\n');
+            p(asm_pad + codes[i].toString(options).replace(/\n/g, '\n' + asm_pad));
         }
     };
 
@@ -90,7 +90,7 @@ module.exports = (function() {
         this.instructions = instructions;
         this.args = [];
         this.returnType = 'void';
-        this.name = _fix_routine_name(name);
+        this.name = name;
 
         this.print = function(p, options) {
             var current = this.instructions[0].scope;
