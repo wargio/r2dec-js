@@ -94,7 +94,7 @@ module.exports = (function() {
             if (instr.string) {
                 return Base.instructions.assign(e[1], instr.string);
             }
-            return Base.instructions.write_memory(e[1], e[2], bits, false);
+            return Base.instructions.write_memory(e[2], e[1], bits, false);
         } else if (e.length == 4) {
             return new Base.common(cast + e[2] + ' + ' + e[3] + castend + e[1]);
         } else if (e.length == 5 && e[3] != '-' && e[3] != '+') {
