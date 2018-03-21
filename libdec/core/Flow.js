@@ -39,6 +39,10 @@ module.exports = (function() {
         }
     };
 
+    ControlFlow.end_brace = function() {
+        return new ControlFlow(null, false, null);
+    };
+
     var ControlFlowPanic = function(name, is_head, condition) {
         this.name = name || '';
         this.condition = condition;
@@ -73,7 +77,7 @@ module.exports = (function() {
                 var scope = new Scope(instr.scope.level + 1);
                 var cond = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_INVERTED, Base);
                 scope.header = new ControlFlow('if', true, cond);
-                scope.trailer = new ControlFlow(null, false);
+                scope.trailer = ControlFlow.end_brace();
                 instr.scope = scope
             }
             instr.pseudo = Base.instructions.goto(instr.jump);
@@ -88,6 +92,13 @@ module.exports = (function() {
     var _set_label = function(instructions, index, is_external) {
         var instr = instructions[index];
         if (is_external) {
+            if (instr.cond) {
+                var scope = new Scope(instr.scope.level + 1);
+                var cond = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_INVERTED, Base);
+                scope.header = new ControlFlow('if', true, cond);
+                scope.trailer = ControlFlow.end_brace();
+                instr.scope = scope
+            }
             instr.pseudo = Base.instructions.goto(instr.jump);
             return false;
         }
@@ -120,9 +131,10 @@ module.exports = (function() {
         if (instr.jump.lte(instr.loc) || !instr.cond) {
             return false;
         }
+        var orig_scope = instr.scope;
         var scope = new Scope();
-        var level = instr.scope.level;
-        scope.level = level + 1;
+        var old_level = instr.scope.level;
+        scope.level = old_level + 1;
         var end = instr.jump;
         var bounds = new AddressBounds(instr.loc, instr.jump);
         /* if(cond) { block } */
@@ -130,7 +142,7 @@ module.exports = (function() {
         var fail = instr.fail;
         var elseinst = null;
         scope.header = new ControlFlow('if', true, cond);
-        scope.trailer = new ControlFlow(null, false);
+        scope.trailer = ControlFlow.end_brace();
         for (var i = index; i < instructions.length; i++) {
             instr = instructions[i];
             if (end.lte(instr.loc)) {
@@ -138,7 +150,7 @@ module.exports = (function() {
             }
             if (instr.scope.level == scope.level) {
                 instr.scope.level++;
-            } else if (instr.scope.level >= level && instr.scope.level < scope.level) {
+            } else if (instr.scope.level >= old_level && instr.scope.level < scope.level) {
                 instr.scope = scope;
                 elseinst = null;
             }
@@ -146,16 +158,11 @@ module.exports = (function() {
                 elseinst = instr;
                 end = instr.jump;
                 bounds = new AddressBounds(instr.loc, instr.jump)
-                scope.trailer = new ControlFlow(null, false);
+                scope.trailer = ControlFlow.end_brace();
                 scope = new Scope();
-                scope.level = instr.scope.level;
-                if (instr.fail && instr.cond) {
-                    var cond = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_DEFAULT, Base);
-                    scope.header = new ControlFlow('else if', true, cond);
-                } else {
-                    scope.header = new ControlFlow('else', true);
-                }
-                scope.trailer = new ControlFlow(null, false);
+                scope.level = old_level + 1;
+                scope.header = new ControlFlow('else', true);
+                scope.trailer = new ControlFlow.end_brace();
             }
         }
         if (elseinst && elseinst.jump.gt(elseinst.loc)) {
@@ -211,7 +218,7 @@ module.exports = (function() {
                 }
             }
         }
-        scope.trailer = is_while ? new ControlFlow(null, false) : new ControlFlow('while', false, cond);
+        scope.trailer = is_while ? ControlFlow.end_brace() : new ControlFlow('while', false, cond);
         return true;
     };
 
