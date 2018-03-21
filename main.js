@@ -30,6 +30,8 @@ var fs = require('fs');
 const options = {
     color: null,
     casts: true,
+    assembly: true,
+    ident: null
 };
 
 function load_text(filename) {

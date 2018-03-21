@@ -69,6 +69,13 @@ module.exports = (function() {
             return false;
         }
         if (!instr.pseudo) {
+            if (instr.cond) {
+                var scope = new Scope(instr.scope.level + 1);
+                var cond = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_INVERTED, Base);
+                scope.header = new ControlFlow('if', true, cond);
+                scope.trailer = new ControlFlow(null, false);
+                instr.scope = scope
+            }
             instr.pseudo = Base.instructions.goto(instr.jump);
         }
         return true;
