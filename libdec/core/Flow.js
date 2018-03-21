@@ -123,7 +123,6 @@ module.exports = (function() {
             }
             shift.scope = scope;
         }
-
     };
 
     var _detect_if = function(instructions, index, context) {
@@ -214,6 +213,9 @@ module.exports = (function() {
             }
             if (instr.jump && instr.jump.gt(instr.loc) && !bounds.isInside(instr.jump)) {
                 if (_set_label(instructions, i, !context.limits.isInside(instr.jump))) {
+                    if (instr.cond && instr.scope.header && instr.scope.header.name == 'if') {
+                        instr.scope.header.condition = Branch.generate(instr.cond.a, instr.cond.b, instr.cond.type, Branch.FLOW_INVERTED, Base);
+                    }
                     _shift_any_instruction_after_goto(instructions, i, scope.level - 1);
                 }
             }
