@@ -115,6 +115,7 @@ static void usage(void) {
 	eprintf ("Usage: pdd [args] - core plugin for r2dec\n");
 	eprintf (" pdd   - decompile current function\n");
 	eprintf (" pdd?  - show this help\n");
+	eprintf (" pdda  - decompile current function with side assembly\n");
 	eprintf (" pddu  - install/upgrade r2dec via r2pm\n");
 	eprintf (" pddi  - generates the issue data\n");
 }
@@ -134,6 +135,10 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	case 'i':
 		// --issue
 		duk_r2dec(core, "--issue");
+		break;
+	case 'a':
+		// --assembly
+		duk_r2dec(core, "--assembly");
 		break;
 	case '?':
 	default:
