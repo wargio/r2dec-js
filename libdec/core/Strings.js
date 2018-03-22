@@ -16,7 +16,8 @@
  */
 
 module.exports = (function() {
-    Utils = require('./Utils');
+    var base64 = require('libdec/base64');
+    var Utils = require('libdec/core/Utils');
 
     var _compare = function(a, b) {
         if (a.eq(b.loc)) {
@@ -36,7 +37,7 @@ module.exports = (function() {
         }).map(function(x) {
             return {
                 loc: x.vaddr,
-                value: Buffer.from(x.string, 'base64').toString().replace(/\\\\/g, '\\')
+                value: base64.atob(x.string).replace(/\\\\/g, '\\')
             };
         });
 

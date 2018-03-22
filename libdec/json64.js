@@ -1,5 +1,6 @@
 var json_parse = function(options) {
     "use strict";
+    var Long = require('libdec/long');
     // This is a function that can parse a JSON text, producing a JavaScript
     // data structure. It is a simple, recursive descent parser. It does not use
     // eval or regular expressions, so it can be used as a model for implementing
@@ -10,7 +11,6 @@ var json_parse = function(options) {
     var _options = {
         "strict": false, // not being strict means do not generate syntax errors for "duplicate key"
     };
-    var Long = require('long');
     // If there are options, then use them to override the default _options
     if (options !== undefined && options !== null) {
         if (options.strict === true) {
@@ -88,7 +88,7 @@ var json_parse = function(options) {
                     try {
                         return Long.fromString(string, true);
                     } catch (e) {
-                        console.log(e)
+                        console.log(e.stack)
                         return string;
                     }
                 }

@@ -17,7 +17,7 @@
 
 module.exports = (function() {
 
-    var Base = require('./base');
+    var Base = require('libdec/arch/base');
 
     var op_bits4 = function(instr, op, bits, unsigned, swap) {
         var e = instr.parsed;

@@ -16,9 +16,9 @@
  */
 
 module.exports = {
-    analyzer: require('./core/Analyzer'),
-    archs: require('./Archs'),
-    JSON: require('./json64'),
+    analyzer: require('libdec/core/Analyzer'),
+    archs: require('libdec/Archs'),
+    JSON: require('libdec/json64'),
     supported: function() {
         console.log('Supported architectures:');
         var s = [];

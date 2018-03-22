@@ -16,14 +16,14 @@
  */
 
 module.exports = (function() {
-    var Base = require('../arch/base');
-    const cfg = require('../config');
-    var Flow = require('./Flow');
-    var Scope = require('./Scope');
-    var Instruction = require('./Instruction');
-    var XRefs = require('./XRefs');
-    var Strings = require('./Strings');
-    var Routine = require('./Routine');
+    var Base = require('libdec/arch/base');
+    const cfg = require('libdec/config');
+    var Flow = require('libdec/core/Flow');
+    var Scope = require('libdec/core/Scope');
+    var Instruction = require('libdec/core/Instruction');
+    var XRefs = require('libdec/core/XRefs');
+    var Strings = require('libdec/core/Strings');
+    var Routine = require('libdec/core/Routine');
 
     var _resolve_xref = function(xrefs, instr) {
         instr.forEach(function(e) {

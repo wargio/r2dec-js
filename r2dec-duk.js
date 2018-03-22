@@ -23,15 +23,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
-const libdec = require('./libdec/libdec.js');
-const colorme = require('./libdec/colorme.js');
-const r2pipe = require('r2pipe');
-const util = require('util');
-
-const padding = '            ';
-
-const usages = {
+var libdec = require('./libdec/libdec');
+var colorme = require('./libdec/colorme');
+var padding = '            ';
+var usages = {
     "--help": "this help message",
     "--colors": "enables syntax colors",
     "--assembly": "shows pseudo next to the assembly",
@@ -40,35 +35,13 @@ const usages = {
     "--debug": "do not catch exceptions",
 }
 
-if (!r2pipe.hasOwnProperty('jsonParse')) {
-    throw new Error("Update your r2pipe version to use r2dec from radare2");
-}
-
-r2pipe.jsonParse = libdec.JSON.parse;
-
-r2pipe.open(main);
-
-function main(err, r2) {
-    asyncMain(err, r2, process.argv.slice(2)).catch(function(v) {
-        console.log(v);
-        suicide();
-    }).then(function(v) {
-        console.log(v);
-        suicide();
-    });
-}
-
-function suicide() {
-    process.kill(process.pid);
-}
-
 function has_option(args, name) {
     return (args.indexOf(name) >= 0);
 }
 
 function has_invalid_args(args) {
     for (var i = 0; i < args.length; i++) {
-        if (!usages[args[i]]) {
+        if (args[i] != '' && !usages[args[i]]) {
             console.log('Invalid argument \'' + args[i] + '\'\n');
             return true;
         }
@@ -77,34 +50,26 @@ function has_invalid_args(args) {
 }
 
 function usage() {
-    console.log("#!pipe r2dec [options]");
+    console.log("r2dec [options]");
     for (var key in usages) {
         var cmd = key + padding.substr(key.length, padding.length);
-        console.log("       %s | %s", cmd, usages[key]);
+        console.log("       " + cmd + " | " + usages[key]);
     }
 }
 
-async function asyncMain(err, r2, args) {
+r2dec_main = function(args) {
     if (has_invalid_args(args)) {
         args.push('--help');
     }
     if (has_option(args, '--help')) {
         usage();
-        suicide();
+        return;
     }
-    if (err) {
-        throw err;
-    }
-
     try {
-        const cmd = util.promisify(r2.cmd).bind(r2);
-        const cmdj = util.promisify(r2.cmdj).bind(r2);
-        const r2quit = util.promisify(r2.quit).bind(r2);
-
-        let arch = (await cmd('e asm.arch')).trim();
-        let bits = (await cmd('e asm.bits')).trim();
-        const honorpseudo = (await cmd('e asm.pseudo')).trim() == 'true';
-        const honorcolor = parseInt((await cmd('e scr.color')).trim()) > 0;
+        var arch = r2cmd('e asm.arch').trim();
+        var bits = r2cmd('e asm.bits').trim();
+        var honorpseudo = r2cmd('e asm.pseudo').trim() == 'true';
+        var honorcolor = parseInt(r2cmd('e scr.color').trim()) > 0;
 
         // r2dec options
         var options = {
@@ -114,25 +79,25 @@ async function asyncMain(err, r2, args) {
             ident: null
         };
 
-        const architecture = libdec.archs[arch];
+        var architecture = libdec.archs[arch];
 
         if (architecture) {
-            await cmd('af');
+            r2cmd('af');
             /* asm.pseudo breaks things.. */
             if (honorpseudo) {
-                await cmd('e asm.pseudo = false');
+                r2cmd('e asm.pseudo = false');
             }
 
             if (has_option(args, '--issue')) {
-                const xrefs = (await cmd('isj')).trim();
-                const strings = (await cmd('izj')).trim();
-                const data = (await cmd('agj')).trim();
+                var xrefs = (r2cmd('isj')).trim();
+                var strings = (r2cmd('izj')).trim();
+                var data = (r2cmd('agj')).trim();
                 console.log('{"name":"issue_' + (new Date()).getTime() + '","arch":"' + arch + '","agj":' + data + ',"isj":' + xrefs + ',"izj":' + strings + '}');
             } else {
-                const xrefs = await cmdj('isj');
-                const strings = await cmdj('izj');
-                const data = await cmdj('agj');
-                let routine = libdec.analyzer.make(data);
+                var xrefs = r2cmdj('isj');
+                var strings = r2cmdj('izj');
+                var data = r2cmdj('agj');
+                var routine = libdec.analyzer.make(data);
 
                 libdec.analyzer.strings(routine, strings);
                 libdec.analyzer.analyze(routine, architecture);
@@ -141,7 +106,7 @@ async function asyncMain(err, r2, args) {
             }
 
             if (honorpseudo) {
-                await cmd('e asm.pseudo = true');
+                r2cmd('e asm.pseudo = true');
             }
         } else {
             console.log(arch + ' is not currently supported.\n' +
@@ -150,7 +115,7 @@ async function asyncMain(err, r2, args) {
         }
     } catch (e) {
         if (has_option(args, '--debug')) {
-            throw e;
+            console.log(e.stack);
         } else {
             console.log(
                 '\n\nr2dec has crashed.\n' +
@@ -159,9 +124,4 @@ async function asyncMain(err, r2, args) {
             );
         }
     }
-
-    // kill itself.
-    suicide();
-    // r2quit is broken
-    //await r2quit();
 }
