@@ -16,6 +16,7 @@
  */
 
 module.exports = (function() {
+    var Long = require('libdec/long');
     var base64 = require('./libdec/base64');
     var _colorize = function(input, color) {
         if (!color) return input;

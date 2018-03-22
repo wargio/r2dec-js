@@ -27,7 +27,6 @@ module.exports = (function() {
     };
 
     const Colors = require('libdec/colors/ansi');
-    //_colors.setTheme(colortheme);
     var _colors = Colors.make(colortheme);
 
     var _regexs = {

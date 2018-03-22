@@ -5,6 +5,12 @@
 #define LONG_RETURN_A_VAL (1)
 #define LONG_RETURN_UNDEFINED (0)
 
+void duk_dump_context_stdout (duk_context *ctx) {
+	duk_push_context_dump(ctx);
+	printf("%s\n", duk_to_string(ctx, -1));
+	duk_pop(ctx);
+}
+
 uint64_t* Long_get_uint64(duk_context *ctx, duk_idx_t offset) {
 	duk_get_prop_string(ctx, offset, LONG_SYMBOL);
 	// object already 'this', so we don't need to have -1.
@@ -371,13 +377,13 @@ void Long_init(duk_context *ctx) {
 
 	duk_put_prop_string(ctx, -2, "prototype");
 	duk_put_global_string(ctx, "Long");
-	duk_eval_string(ctx, "Long.fromString = function(x){return new Long(x);}");
-	duk_eval_string(ctx, "Long.ZERO = new Long('0')");
-	duk_eval_string(ctx, "Long.ONE = new Long('1')");
-	duk_eval_string(ctx, "Long.NEG_ONE = new Long('0xFFFFFFFFFFFFFFFF')");
-	duk_eval_string(ctx, "Long.UZERO = new Long('0')");
-	duk_eval_string(ctx, "Long.UONE = new Long('1')");
-	duk_eval_string(ctx, "Long.MAX_VALUE = new Long('0x7FFFFFFFFFFFFFFF')");
-	duk_eval_string(ctx, "Long.MIN_VALUE = new Long('0x8000000000000000')");
-	duk_eval_string(ctx, "Long.MAX_UNSIGNED_VALUE = new Long('0xFFFFFFFFFFFFFFFF')");
+	duk_eval_string_noresult(ctx, "Long.fromString = function(x){return new Long(x);}");
+	duk_eval_string_noresult(ctx, "Long.ZERO = new Long('0')");
+	duk_eval_string_noresult(ctx, "Long.ONE = new Long('1')");
+	duk_eval_string_noresult(ctx, "Long.NEG_ONE = new Long('0xFFFFFFFFFFFFFFFF')");
+	duk_eval_string_noresult(ctx, "Long.UZERO = new Long('0')");
+	duk_eval_string_noresult(ctx, "Long.UONE = new Long('1')");
+	duk_eval_string_noresult(ctx, "Long.MAX_VALUE = new Long('0x7FFFFFFFFFFFFFFF')");
+	duk_eval_string_noresult(ctx, "Long.MIN_VALUE = new Long('0x8000000000000000')");
+	duk_eval_string_noresult(ctx, "Long.MAX_UNSIGNED_VALUE = new Long('0xFFFFFFFFFFFFFFFF')");
 }

@@ -75,15 +75,14 @@ static void duk_r2_init(duk_context* ctx) {
 	duk_put_global_string (ctx, "___internal_require");
 	duk_push_c_function (ctx, duk_r2cmd, 1);
 	duk_put_global_string (ctx, "r2cmd");
-	duk_eval_string (ctx, "r2cmdj = function(m){return libdec.JSON.parse(r2cmd(m));}");
-	//module.exports
-	duk_eval_string (ctx, "require = function(x){try{var module={exports:null};eval(___internal_require(x));return module.exports;}catch(ee){console.log(ee.stack);}}");
+	duk_eval_string_noresult (ctx, "r2cmdj = function(m){return libdec.JSON.parse(r2cmd(m));}");
+	duk_eval_string_noresult (ctx, "require = function(x){try{var module={exports:null};eval(___internal_require(x));return module.exports;}catch(ee){console.log(ee.stack);}}");
 }
 
 static void duk_eval_file(duk_context* ctx, const char* file) {
 	char* text = r2dec_read_file (file);
 	if (text) {
-		duk_eval_string (ctx, text);
+		duk_eval_string_noresult (ctx, text);
 		free (text);
 	}
 }
@@ -99,7 +98,7 @@ static void duk_r2dec(RCore *core, const char *input) {
 	core_link = core;
 	duk_context *ctx = duk_create_heap (0, 0, 0, 0, r2dec_fatal_function);
 	duk_console_init (ctx, 0);
-	Long_init (ctx);
+//	Long_init (ctx);
 	duk_r2_init (ctx);
 	duk_eval_file (ctx, "r2dec-duk.js");
 	if (*input) {
@@ -107,7 +106,7 @@ static void duk_r2dec(RCore *core, const char *input) {
 	} else {
 		snprintf (args, sizeof(args), "r2dec_main(\"\".split(/\\s+/))");
 	}
-	duk_eval_string (ctx, args);
+	duk_eval_string_noresult (ctx, args);
 	duk_destroy_heap (ctx);
 	core_link = 0;
 }
