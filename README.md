@@ -3,11 +3,6 @@ r2dec
 
 Converts asm to pseudo-C code.
 
-# Dependencies
-
-    NodeJS v8 or newer
-    npm
-
 # Install
 
 Follow the following steps to install r2dec via r2pm
@@ -121,5 +116,4 @@ int32_t main () {
     eax = 0;
     return eax;
 }
-
 ```
