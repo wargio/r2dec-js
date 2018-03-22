@@ -19,10 +19,19 @@ mv core_test.so ~/.config/radare2/plugins
 #undef R_IPI
 #define R_IPI static
 
-#include "long_js.h"
+#include "long_js.c"
 
-static void call_js(void) {
+static RCore *core_link = 0;
+
+static duk_ret_t duk_r2(duk_context *ctx) {
+	const char* output = r_core_cmd_str()
+	return 0;
+}
+
+static void call_js(RCore *core, const char *input) {
 	duk_context *ctx = duk_create_heap_default();
+
+	duk_destroy_heap(ctx);
 }
 
 static void _cmd_pdd(RCore *core, const char *input) {

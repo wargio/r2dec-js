@@ -1,11 +1,11 @@
 CFLAGS+=-g
-CFLAGS+=$(shell pkg-config --cflags r_util r_io r_cons r_core) -Iduktape
+CFLAGS+=$(shell pkg-config --cflags r_util r_io r_cons r_core) -I./duktape
 LDFLAGS+=$(shell pkg-config --libs r_util r_io r_cons r_core) -lm -std=c99
 LIBEXT=$(shell r2 -H LIBEXT)
 PLUGDIR=$(shell r2 -H USER_PLUGINS)
 
 all:
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -fPIC duktape/duktape.c core_pdd.c -o core_pdd.$(LIBEXT)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -fPIC duktape/duktape.c duktape/duk_console.c core_pdd.c -o core_pdd.$(LIBEXT)
 	$(MAKE) install
 
 install:
