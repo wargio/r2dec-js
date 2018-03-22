@@ -47,7 +47,7 @@ static duk_ret_t duk_r2cmd(duk_context *ctx) {
 	if (duk_is_string (ctx, 0)) {
 		char* output = r_core_cmd_str (core_link, duk_safe_to_string (ctx, 0));
 		duk_push_string (ctx, output);
-		free(output);
+		free (output);
 		return 1;
 	}
 	return DUK_RET_TYPE_ERROR;
@@ -89,12 +89,12 @@ static void duk_eval_file(duk_context* ctx, const char* file) {
 }
 
 static void r2dec_fatal_function (void *udata, const char *msg) {
-    fprintf(stderr, "*** FATAL ERROR: %s\n", (msg ? msg : "no message"));
-    fflush(stderr);
-    abort();
+    fprintf (stderr, "*** FATAL ERROR: %s\n", (msg ? msg : "no message"));
+    fflush (stderr);
+    abort ();
 }
 
-static void call_js(RCore *core, const char *input) {
+static void duk_r2dec(RCore *core, const char *input) {
 	char args[1024] = {0};
 	core_link = core;
 	duk_context *ctx = duk_create_heap (0, 0, 0, 0, r2dec_fatal_function);
@@ -107,20 +107,26 @@ static void call_js(RCore *core, const char *input) {
 	} else {
 		snprintf (args, sizeof(args), "r2dec_main(\"\".split(/\\s+/))");
 	}
-	duk_eval_string(ctx, args);
-	duk_destroy_heap(ctx);
+	duk_eval_string (ctx, args);
+	duk_destroy_heap (ctx);
 	core_link = 0;
+}
+
+static void usage(void) {
+	eprintf ("Usage: pdd [args] - core plugin for r2dec\n");
+	eprintf (" pdd   - decompile current function\n");
+	eprintf (" pdd?  - show this help\n");
+	eprintf (" pddu  - install/upgrade r2dec via r2pm\n");
+	eprintf (" pddi  - generates the issue data\n");
 }
 
 static void _cmd_pdd(RCore *core, const char *input) {
 	switch (*input) {
-	case '?':
-		eprintf ("Usage: pdd [args] - core plugin for r2dec\n");
-		eprintf (" pdd   - decompile current function\n");
-		eprintf (" pdd?  - show this help\n");
-		eprintf (" pddu  - install/upgrade r2dec via r2pm\n");
-		eprintf (" pddi  - generates the issue data\n");
-		eprintf (" pddt  - duktape test\n");
+	case '\0':
+		duk_r2dec(core, input);
+		break;
+	case ' ':
+		duk_r2dec(core, input);
 		break;
 	case 'u':
 		// update
@@ -128,16 +134,11 @@ static void _cmd_pdd(RCore *core, const char *input) {
 		break;
 	case 'i':
 		// --issue
-		r_core_cmd0 (core, "#!pipe r2dec --issue");
+		duk_r2dec(core, "--issue");
 		break;
-	case 't':
-		// duktape
-		input++;
-		call_js(core, input);
-		break;
+	case '?':
 	default:
-		// decompile
-		r_core_cmdf (core, "#!pipe r2dec %s", input);
+		usage();
 		break;
 	}
 }
