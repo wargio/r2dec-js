@@ -50,7 +50,6 @@ int Long_get_argument_number(duk_context *ctx, uint64_t* number) {
 		double a = duk_get_number(ctx, 0);
 		*number = a;
 	} else if (duk_is_object(ctx, 0)) {
-		printf("object\n");
 		*number = Long_get_uint64_from_obj(ctx, 0);
 	} else {
 		duk_pop(ctx);

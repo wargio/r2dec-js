@@ -16,9 +16,9 @@
  */
 
 module.exports = (function() {
-    var cfg = require('../config');
-    var Flow = require('./Flow');
-    var Scope = require('./Scope');
+    var cfg = require('libdec/config');
+    var Flow = require('libdec/core/Flow');
+    var Scope = require('libdec/core/Scope');
 
     var _padding = '                                                                                                    ';
 

@@ -16,7 +16,7 @@
  */
 
 module.exports = (function() {
-    var Long = require('long');
+    var base64 = require('./libdec/base64');
     var _colorize = function(input, color) {
         if (!color) return input;
         return color.colorize(input);
@@ -40,7 +40,7 @@ module.exports = (function() {
         this.label = -1;
         this.opcode = op.disasm ? op.disasm : (op.opcode ? op.opcode : 'invalid');
         this.assembly = op.opcode ? op.opcode : 'invalid';
-        this.comments = op.comment ? [(Buffer.from(op.comment, 'base64').toString())] : [];
+        this.comments = op.comment ? [base64.atob(op.comment)] : [];
         this.pseudo = this.opcode; //null;
         this.parsed = null;
         this.valid = true;

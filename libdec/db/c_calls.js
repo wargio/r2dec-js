@@ -16,7 +16,7 @@
  */
 
 module.exports = (function() {
-    var cfg = require('../config');
+    var cfg = require('libdec/config');
 
     var _colorize = function(input, color) {
         if (!color) return input;

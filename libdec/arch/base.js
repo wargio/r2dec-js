@@ -16,10 +16,9 @@
  */
 
 module.exports = (function() {
-    var Branch = require('../core/Branch');
-
-    const _call_c = require('../db/c_calls');
-    const _call_common = require('../db/macros');
+    var Branch = require('libdec/core/Branch');
+    const _call_c = require('libdec/db/c_calls');
+    const _call_common = require('libdec/db/macros');
 
     var _colorize = function(input, color) {
         if (!color) return input;

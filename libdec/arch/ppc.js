@@ -16,7 +16,7 @@
  */
 
 module.exports = (function() {
-    var Base = require('./base');
+    var Base = require('libdec/arch/base');
 
     var sprs = {
         SPR_MQ: {

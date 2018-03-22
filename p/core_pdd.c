@@ -13,6 +13,7 @@ mv core_test.so ~/.config/radare2/plugins
 #include <string.h>
 #include <r_anal.h>
 #include <duktape.h>
+#include <duk_console.h>
 
 #undef R_API
 #define R_API static
@@ -23,15 +24,92 @@ mv core_test.so ~/.config/radare2/plugins
 
 static RCore *core_link = 0;
 
-static duk_ret_t duk_r2(duk_context *ctx) {
-	const char* output = r_core_cmd_str()
+static char* r2dec_read_file(const char* file) {
+	if (!file) {
+		return 0;
+	}
+	char *r2dec_home = r_str_home (R2_HOMEDIR R_SYS_DIR "r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js" R_SYS_DIR);
+	int len = 0;
+	char filepath[1024];
+	if (!r2dec_home) {
+		return 0;
+	}
+	snprintf (filepath, sizeof(filepath), "%s%s", r2dec_home, file);
+	free (r2dec_home);
+	char* text = r_file_slurp (filepath, &len);
+	if (text && len > 0) {
+		return text;
+	}
 	return 0;
 }
 
-static void call_js(RCore *core, const char *input) {
-	duk_context *ctx = duk_create_heap_default();
+static duk_ret_t duk_r2cmd(duk_context *ctx) {
+	if (duk_is_string (ctx, 0)) {
+		char* output = r_core_cmd_str (core_link, duk_safe_to_string (ctx, 0));
+		duk_push_string (ctx, output);
+		free(output);
+		return 1;
+	}
+	return DUK_RET_TYPE_ERROR;
+}
 
+static duk_ret_t duk_internal_require(duk_context *ctx) {
+	char fullname[256];
+	if (duk_is_string (ctx, 0)) {
+		snprintf (fullname, sizeof(fullname), "%s.js", duk_safe_to_string (ctx, 0));
+		char* text = r2dec_read_file (fullname);
+		if (text) {
+			duk_push_string (ctx, text);
+			free (text);
+		} else {
+			printf("Error: '%s' not found.\n", fullname);
+			return DUK_RET_TYPE_ERROR;
+		}
+		return 1;
+	}
+	return DUK_RET_TYPE_ERROR;
+}
+
+static void duk_r2_init(duk_context* ctx) {
+	duk_push_c_function (ctx, duk_internal_require, 1);
+	duk_put_global_string (ctx, "___internal_require");
+	duk_push_c_function (ctx, duk_r2cmd, 1);
+	duk_put_global_string (ctx, "r2cmd");
+	duk_eval_string (ctx, "r2cmdj = function(m){return libdec.JSON.parse(r2cmd(m));}");
+	//module.exports
+	duk_eval_string (ctx, "require = function(x){try{var module={exports:null};eval(___internal_require(x));return module.exports;}catch(ee){console.log(ee.stack);}}");
+}
+
+static void duk_eval_file(duk_context* ctx, const char* file) {
+	char* text = r2dec_read_file (file);
+	if (text) {
+		duk_eval_string (ctx, text);
+		free (text);
+	}
+}
+
+static void r2dec_fatal_function (void *udata, const char *msg) {
+    fprintf(stderr, "*** FATAL ERROR: %s\n", (msg ? msg : "no message"));
+    fflush(stderr);
+    abort();
+}
+
+static void call_js(RCore *core, const char *input) {
+	char args[1024] = {0};
+	core_link = core;
+	duk_context *ctx = duk_create_heap (0, 0, 0, 0, r2dec_fatal_function);
+	duk_console_init (ctx, 0);
+	Long_init (ctx);
+	duk_r2_init (ctx);
+	duk_eval_file (ctx, "r2dec-duk.js");
+	if (*input) {
+		snprintf (args, sizeof(args), "r2dec_main(\"%s\".split(/\\s+/))", input);
+	} else {
+		snprintf (args, sizeof(args), "r2dec_main(\"\".split(/\\s+/))");
+	}
+	duk_eval_string(ctx, args);
 	duk_destroy_heap(ctx);
+	core_link = 0;
 }
 
 static void _cmd_pdd(RCore *core, const char *input) {
@@ -42,6 +120,7 @@ static void _cmd_pdd(RCore *core, const char *input) {
 		eprintf (" pdd?  - show this help\n");
 		eprintf (" pddu  - install/upgrade r2dec via r2pm\n");
 		eprintf (" pddi  - generates the issue data\n");
+		eprintf (" pddt  - duktape test\n");
 		break;
 	case 'u':
 		// update
@@ -50,6 +129,11 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	case 'i':
 		// --issue
 		r_core_cmd0 (core, "#!pipe r2dec --issue");
+		break;
+	case 't':
+		// duktape
+		input++;
+		call_js(core, input);
 		break;
 	default:
 		// decompile

@@ -17,11 +17,11 @@
 
 
 module.exports = (function() {
-    var Branch = require('./Branch');
-    var Scope = require('./Scope');
-    var Base = require('../arch/base');
-    var cfg = require('../config');
-    Utils = require('./Utils');
+    var Branch = require('libdec/core/Branch');
+    var Scope = require('libdec/core/Scope');
+    var Base = require('libdec/arch/base');
+    var cfg = require('libdec/config');
+    Utils = require('libdec/core/Utils');
 
     var _label_counter = 0;
 

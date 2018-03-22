@@ -1,4 +1,4 @@
-CFLAGS+=-g
+CFLAGS+=-g -O3
 CFLAGS+=$(shell pkg-config --cflags r_util r_io r_cons r_core) -I./duktape
 LDFLAGS+=$(shell pkg-config --libs r_util r_io r_cons r_core) -lm -std=c99
 LIBEXT=$(shell r2 -H LIBEXT)

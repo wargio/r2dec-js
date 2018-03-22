@@ -26,8 +26,9 @@ module.exports = (function() {
         types: 'green'
     };
 
-    const _colors = require('colors/safe');
-    _colors.setTheme(colortheme);
+    const Colors = require('libdec/colors/ansi');
+    //_colors.setTheme(colortheme);
+    var _colors = Colors.make(colortheme);
 
     var _regexs = {
         ctrlflow: /\bif\b|\belse\b|\bwhile\b|\bfor\b|\bdo\b|\breturn\b/g,

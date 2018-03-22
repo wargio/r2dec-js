@@ -16,7 +16,7 @@
  */
 
 module.exports = (function() {
-    Utils = require('./Utils');
+    Utils = require('libdec/core/Utils');
 
     var _compare = function(a, b) {
         if (a.eq(b.loc)) {
