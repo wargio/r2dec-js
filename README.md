@@ -22,7 +22,7 @@ done
 
 * open with radare2 your file
 * analize the function you want to disassemble (`af`)
-* run the plugin via `pdd` or via `#!pipe r2dec`
+* run the plugin via `pdd`
 * done.
 
 # Arguments
