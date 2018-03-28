@@ -2,7 +2,7 @@ language: generic
 
 os:
   - linux
-  - osx
+#  - osx
 
 script:
   - chmod +x travis-test.sh
