@@ -1,0 +1,7 @@
+language: node_js
+branches:
+  only:
+  - master
+  - stable
+git:
+  depth: 3
