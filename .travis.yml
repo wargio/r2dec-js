@@ -1,0 +1,12 @@
+language: generic
+
+os:
+  - linux
+  - osx
+
+script:
+  - chmod +x travis-test.sh
+  - ./travis-test.sh
+
+git:
+  depth: 3
