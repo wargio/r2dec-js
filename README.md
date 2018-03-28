@@ -28,7 +28,15 @@ done
 # Arguments
 
 ```
-#!pipe r2dec [options]
+[0x00000000]> pdd?
+Usage: pdd [args] - core plugin for r2dec
+ pdd   - decompile current function
+ pdd?  - show this help
+ pdda  - decompile current function with side assembly
+ pddu  - install/upgrade r2dec via r2pm
+ pddi  - generates the issue data
+[0x00000000]> pdd --help
+r2dec [options]
        --help       | this help message
        --colors     | enables syntax colors
        --assembly   | shows pseudo next to the assembly
