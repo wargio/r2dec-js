@@ -120,7 +120,8 @@ r2dec_main = function(args) {
             console.log(
                 '\n\nr2dec has crashed.\n' +
                 'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
-                'Use the option \'--issue\' to generate the needed data for the issue.'
+                'Use the option \'--issue\' or the command \'pddi\' to generate \n' +
+                'the needed data for the issue.'
             );
         }
     }
