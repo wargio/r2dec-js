@@ -1,8 +1,9 @@
+[![Build Status](https://travis-ci.org/wargio/wargio.svg?branch=master)](https://travis-ci.org/wargio/wargio)
+
 r2dec
 =====
 
 Converts asm to pseudo-C code.
-[![Build Status](https://travis-ci.org/wargio/wargio.svg?branch=master)](https://travis-ci.org/wargio/wargio)
 
 # Software Requirements
 
