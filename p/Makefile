@@ -1,5 +1,7 @@
 CFLAGS+=-g -O3
+CFLAGS_TEST=-g -O3 -I./duktape
 CFLAGS+=$(shell pkg-config --cflags r_util r_io r_cons r_core) -I./duktape
+LDFLAGS_TEST=-lm -std=c99
 LDFLAGS+=$(shell pkg-config --libs r_util r_io r_cons r_core) -lm -std=c99
 LIBEXT=$(shell r2 -H LIBEXT)
 PLUGDIR=$(shell r2 -H USER_PLUGINS)
@@ -17,4 +19,7 @@ uninstall:
 	rm -rf $(PLUGDIR)/core_pdd.$(LIBEXT)*
 
 clean:
-	rm -rf core_pdd.$(LIBEXT)*
+	rm -rf core_pdd.$(LIBEXT)* r2dec-test
+
+testbin:
+	$(CC) $(CFLAGS_TEST) -o r2dec-test -fPIC duktape/duktape.c duktape/duk_console.c r2dec-test.c $(LDFLAGS_TEST)

@@ -3,6 +3,10 @@ r2dec
 
 Converts asm to pseudo-C code.
 
+# Software Requirements
+
+Requires radare2 version 2.1 or newer.
+
 # Install
 
 Follow the following steps to install r2dec via r2pm

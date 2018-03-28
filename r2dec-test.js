@@ -24,46 +24,40 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-const libdec = require('./libdec/libdec.js');
-var fs = require('fs');
-// r2dec options
-const options = {
-    color: null,
-    casts: true,
-    assembly: true,
-    ident: null
-};
 
-function load_text(filename) {
+function r2dec_main(filename) {
     try {
-        return fs.readFileSync(filename, 'utf8');
+        var libdec = require('./libdec/libdec');
+        var options = {
+            color: null,
+            casts: true,
+            assembly: true,
+            ident: null
+        };
+        if (filename) {
+            var jsonstr = read_file(filename).trim();
+            var data = libdec.JSON.parse(jsonstr);
+            var architecture = libdec.archs[data.arch];
+            if (!architecture) {
+                console.log(architecture + " is not currently supported.");
+                libdec.supported();
+            } else {
+                var xrefs = data.isj;
+                var strings = data.izj;
+                var graph = data.agj;
+
+                var routine = libdec.analyzer.make(graph);
+
+                libdec.analyzer.strings(routine, strings);
+                libdec.analyzer.analyze(routine, architecture);
+                libdec.analyzer.xrefs(routine, xrefs);
+
+                routine.print(console.log, options);
+            }
+        } else {
+            console.log('missing JSON to test.');
+        }
     } catch (e) {
-        console.log(e.message);
-        return null;
+        console.log(e.stack);
     }
-}
-
-var filename = process.argv[2];
-
-if (filename) {
-    const data = libdec.JSON.parse(load_text(filename));
-    const architecture = libdec.archs[data.arch];
-    if (!architecture) {
-        console.log(architecture + " is not currently supported.");
-        libdec.supported();
-    } else {
-        const xrefs = data.isj;
-        const strings = data.izj;
-        const graph = data.agj;
-
-        let routine = libdec.analyzer.make(graph);
-
-        libdec.analyzer.strings(routine, strings);
-        libdec.analyzer.analyze(routine, architecture);
-        libdec.analyzer.xrefs(routine, xrefs);
-
-        routine.print(console.log, options);
-    }
-} else {
-    console.log('node ' + process.argv[1] + ' <test.json>');
 }
