@@ -180,13 +180,18 @@ module.exports = (function() {
         /* infinite loop */
         var scope = new Scope();
         var bounds = new AddressBounds(first.jump, first.loc);
-        var cond = first.cond ? Branch.generate(first.cond.a, first.cond.b, first.cond.type, Branch.FLOW_DEFAULT, Base) : Branch.true(Base);
         var instr = Utils.search(first.jump, instructions, _compare_loc);
         if (!instr) {
             return false;
         }
+        var cond = null;
         var start = instructions.indexOf(instr);
         var is_while = (instructions[start - 1] && bounds.isInside(instructions[start - 1].jump));
+        if (is_while) {
+            cond = first.cond ? Branch.generate(first.cond.a, first.cond.b, first.cond.type, Branch.FLOW_INVERTED, Base) : Branch.false(Base)
+        } else {
+            cond = first.cond ? Branch.generate(first.cond.a, first.cond.b, first.cond.type, Branch.FLOW_DEFAULT, Base) : Branch.true(Base);
+        }
         if (instructions[start].scope.level > first.scope.level) {
             _set_label(instructions, index, !context.limits.isInside(first.jump));
             return true;
