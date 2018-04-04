@@ -82,7 +82,7 @@ r2dec_main = function(args) {
         var architecture = libdec.archs[arch];
 
         if (architecture) {
-            r2cmd('af');
+            // af seems to break renaming.
             /* asm.pseudo breaks things.. */
             if (honorpseudo) {
                 r2cmd('e asm.pseudo = false');
@@ -97,12 +97,15 @@ r2dec_main = function(args) {
                 var xrefs = r2cmdj('isj');
                 var strings = r2cmdj('izj');
                 var data = r2cmdj('agj');
-                var routine = libdec.analyzer.make(data);
-
-                libdec.analyzer.strings(routine, strings);
-                libdec.analyzer.analyze(routine, architecture);
-                libdec.analyzer.xrefs(routine, xrefs);
-                routine.print(console.log, options);
+                if (data && data.length > 0) {
+                    var routine = libdec.analyzer.make(data);
+                    libdec.analyzer.strings(routine, strings);
+                    libdec.analyzer.analyze(routine, architecture);
+                    libdec.analyzer.xrefs(routine, xrefs);
+                    routine.print(console.log, options);
+                } else {
+                    console.log('Error: no data available.\nPlease analyze the function/binary first.');
+                }
             }
 
             if (honorpseudo) {
@@ -115,7 +118,7 @@ r2dec_main = function(args) {
         }
     } catch (e) {
         if (has_option(args, '--debug')) {
-            console.log(e.stack);
+            console.log('Exception', e);
         } else {
             console.log(
                 '\n\nr2dec has crashed.\n' +
