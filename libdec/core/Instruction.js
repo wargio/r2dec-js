@@ -49,7 +49,7 @@ module.exports = (function() {
         this.cond = null;
         this.xrefs = op.xrefs ? op.xrefs.slice() : [];
         this.print = function(p, ident, options, asmpadding) {
-            if (this.comments.length > 0) {
+            if (this.comments && this.comments.length > 0) {
                 if (this.comments.length == 1) {
                     if (options.color) {
                         p(asmpadding + ident + options.color.comment('/* ' + this.comments[0] + ' */'));

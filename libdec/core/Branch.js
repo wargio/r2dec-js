@@ -19,10 +19,13 @@ module.exports = (function() {
     var _is_str = function(s) {
         return typeof s == 'string';
     };
+    var _is_null = function(s) {
+        return typeof s == 'undefined' || s === null;
+    };
 
     var _condition = function(a, b, compare, base) {
-        this.a = _is_str(a) ? new base.common(a) : a;
-        this.b = _is_str(b) ? new base.common(b) : b;
+        this.a = _is_str(a) ? new base.common(a) : (_is_null(a) ? '(null)' : a);
+        this.b = _is_str(b) ? new base.common(b) : (_is_null(b) ? '(null)' : b);
         this.compare = compare;
         this.toString = function(options) {
             return '(' + this.a.toString(options) + (this.compare ? (this.compare + this.b.toString(options)) : '') + ')';
