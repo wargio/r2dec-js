@@ -75,7 +75,7 @@ module.exports = (function() {
             }
             if (this.pseudo && this.valid) {
                 p.append(ident);
-                this.pseudo.printable(p, spacesize);
+                this.pseudo.printable(p, spacesize, ident);
                 p.append(';');
             }
         };

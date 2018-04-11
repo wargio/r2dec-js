@@ -30,11 +30,11 @@ module.exports = (function() {
     var _pseudocode = function(context, dependencies) {
         this.ctx = context;
         this.deps = dependencies || new _dependency();
-        this.printable = function(p, spacesize) {
+        this.printable = function(p, spacesize, ident) {
             if (typeof this.ctx == 'string') {
                 p.appendColorize(this.ctx);
             } else {
-                this.ctx.printable(p, spacesize);
+                this.ctx.printable(p, spacesize, ident);
             }
         }
         this.toString = function(options) {
@@ -81,7 +81,7 @@ module.exports = (function() {
         return (is_memory ? '*(' : '') + input + (is_memory ? ')' : '');
     }
 
-    _bits_argument = function(value, bits, is_signed, is_pointer, is_memory) {
+    var _bits_argument = function(value, bits, is_signed, is_pointer, is_memory) {
         this.bits = bits;
         this.value = value;
         this.is_signed = is_signed || false;
@@ -348,13 +348,15 @@ module.exports = (function() {
         };
     };
 
-    var _common_macro_c = function(macro) {
+    var _common_macro_c = function(macro, data) {
         this.macro = macro;
+        this.data = data;
         this.printable = function(p) {
             p.appendMacro(this.macro);
+            p.appendColorize(this.data);
         };
         this.toString = function(options) {
-            return this.macro;
+            return this.macro + (this.data ? this.data : '');
         };
     };
 
@@ -371,13 +373,13 @@ module.exports = (function() {
 
     var _composed_extended_op = function(extended) {
         this.extended = extended;
-        this.printable = function(p, spacesize) {
+        this.printable = function(p, spacesize, ident) {
             for (var i = 0; i < this.extended.length; i++) {
                 if (i > 0) {
                     p.append(';');
                     p.appendEndline();
                     p.appendSpacedPipe(spacesize);
-                    p.append(cfg.ident);
+                    p.append(ident);
                 }
                 this.extended[i].printable(p, spacesize);
             }
@@ -593,8 +595,8 @@ module.exports = (function() {
             push: function(data) {
                 return new _pseudocode(data);
             },
-            macro: function(macro_name, macro) {
-                return new _pseudocode(new _common_macro_c(macro_name), new _dependency([macro], []));
+            macro: function(macro_name, data, macro) {
+                return new _pseudocode(new _common_macro_c(macro_name, data), new _dependency([macro], []));
             },
             special: function(data) {
                 return new _pseudocode(data);
