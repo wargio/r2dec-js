@@ -17,20 +17,27 @@
 
 module.exports = (function() {
     var cfg = require('libdec/config');
+    var Printable = require('./libdec/printable');
 
-    var _colorize = function(input, color) {
-        if (!color) return input;
-        return color.colorize(input);
-    }
-
-    var _colorize_call = function(input, color) {
-        if (!color) return input;
-        return color.callname(input);
-    }
-
-    var _colorize_define = function(input, color) {
-        if (!color) return input;
-        return color.text(input);
+    var _printify = function(bits, name, returns, args, data, spacesize) {
+        var p = new Printable();
+        p.appendEndline();
+        p.appendSpacedPipe(spacesize);
+        p.appendTypes(returns.replace(/###/g, bits.toString()));
+        p.append(' ');
+        p.appendCallname(name.replace(/###/g, bits.toString()));
+        p.append(' (');
+        p.appendColorize(args.replace(/###/g, bits.toString()));
+        p.append(') {\n');
+        for (var i = 0; i < data.length; i++) {
+            p.appendSpacedPipe(spacesize);
+            p.appendColorize(data[i].replace(/###/g, bits.toString()));
+            p.appendEndline();
+        }
+        p.appendSpacedPipe(spacesize);
+        p.append('}\n');
+        p.appendSpacedPipe(spacesize);
+        return p;
     }
 
     return {
@@ -42,19 +49,12 @@ module.exports = (function() {
                 this.returns = 'uint###_t';
                 this.args = 'uint###_t value, uint32_t count';
                 this.data = [
-                    cfg.ident + 'const uint###_t mask = (CHAR_BIT * sizeof (value)) - 1;\n',
-                    cfg.ident + 'count &= mask;\n',
-                    cfg.ident + 'return (value << count) | (value >> (-count & mask));\n',
-                    '}\n'
+                    cfg.ident + 'const uint###_t mask = (CHAR_BIT * sizeof (value)) - 1;',
+                    cfg.ident + 'count &= mask;',
+                    cfg.ident + 'return (value << count) | (value >> (-count & mask));'
                 ];
-                this.toString = function(options) {
-                    var s = _colorize(this.returns.replace(/###/g, this.bits.toString()), options.color);
-                    s += ' ' + _colorize_call(this.name.replace(/###/g, this.bits.toString()), options.color);
-                    s += ' (' + _colorize(this.args.replace(/###/g, this.bits.toString()), options.color) + ') {\n';
-                    for (var i = 0; i < this.data.length; i++) {
-                        s += _colorize(this.data[i].replace(/###/g, this.bits.toString()), options.color);
-                    }
-                    return s;
+                this.printable = function(spacesize) {
+                    return _printify(this.bits, this.name, this.returns, this.args, this.data, spacesize);
                 };
             }
         },
@@ -66,19 +66,12 @@ module.exports = (function() {
                 this.returns = 'uint###_t';
                 this.args = 'uint###_t value, uint32_t count';
                 this.data = [
-                    cfg.ident + 'const uint###_t mask = (CHAR_BIT * sizeof (value)) - 1;\n',
-                    cfg.ident + 'count &= mask;\n',
-                    cfg.ident + 'return (value >> count) | (value << (-count & mask));\n',
-                    '}'
+                    cfg.ident + 'const uint###_t mask = (CHAR_BIT * sizeof (value)) - 1;',
+                    cfg.ident + 'count &= mask;',
+                    cfg.ident + 'return (value >> count) | (value << (-count & mask));'
                 ];
-                this.toString = function(options) {
-                    var s = _colorize(this.returns.replace(/###/g, this.bits.toString()), options.color);
-                    s += ' ' + _colorize_call(this.name.replace(/###/g, this.bits.toString()), options.color);
-                    s += ' (' + _colorize(this.args.replace(/###/g, this.bits.toString()), options.color) + ') {\n';
-                    for (var i = 0; i < this.data.length; i++) {
-                        s += _colorize(this.data[i].replace(/###/g, this.bits.toString()), options.color);
-                    }
-                    return s;
+                this.printable = function(spacesize) {
+                    return _printify(this.bits, this.name, this.returns, this.args, this.data, spacesize);
                 };
             }
         },

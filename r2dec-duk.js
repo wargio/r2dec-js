@@ -24,7 +24,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 var libdec = require('./libdec/libdec');
-var colorme = require('./libdec/colorme');
 var padding = '            ';
 var usages = {
     "--help": "this help message",
@@ -33,6 +32,7 @@ var usages = {
     "--hide-casts": "hides all casts in the pseudo code",
     "--issue": "generates the json used for the test suite",
     "--debug": "do not catch exceptions",
+    "--html": "outputs html data instead of text",
 }
 
 function has_option(args, name) {
@@ -69,15 +69,18 @@ r2dec_main = function(args) {
         var arch = r2cmd('e asm.arch').trim();
         var bits = r2cmd('e asm.bits').trim();
         var honorpseudo = r2cmd('e asm.pseudo').trim() == 'true';
+        var honorhtml = r2cmd('e scr.html').trim() == 'true';
         var honorcolor = parseInt(r2cmd('e scr.color').trim()) > 0;
 
         // r2dec options
         var options = {
-            color: (honorcolor || has_option(args, '--colors')) ? colorme : null,
+            color: (honorcolor || has_option(args, '--colors')),
             casts: !has_option(args, '--hide-casts'),
             assembly: has_option(args, '--assembly'),
+            html: (honorhtml || has_option(args, '--html')),
             ident: null
         };
+
 
         var architecture = libdec.archs[arch];
 

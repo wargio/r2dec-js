@@ -19,14 +19,34 @@ module.exports = (function() {
     var _is_str = function(s) {
         return typeof s == 'string';
     };
+    var _is_str_or_num = function(s) {
+        return typeof s == 'string' ||  typeof s == 'number';
+    };
     var _is_null = function(s) {
         return typeof s == 'undefined' || s === null;
     };
 
     var _condition = function(a, b, compare, base) {
-        this.a = _is_str(a) ? new base.common(a) : (_is_null(a) ? '(null)' : a);
-        this.b = _is_str(b) ? new base.common(b) : (_is_null(b) ? '(null)' : b);
+        this.a = _is_str_or_num(a) ? new base.common(a) : (_is_null(a) ? '(null)' : a);
+        this.b = _is_str_or_num(b) ? new base.common(b) : (_is_null(b) ? '(null)' : b);
         this.compare = compare;
+        this.printable = function(p) {
+            p.append('(');
+            if (_is_str_or_num(this.a)) {
+                p.append(this.a);
+            } else {
+                this.a.printable(p);
+            }
+            if (this.compare) {
+                p.append(this.compare);
+                if (_is_str_or_num(this.b)) {
+                    p.append(this.b);
+                } else if (!_is_null(this.b)) {
+                    this.b.printable(p);
+                }
+            }
+            p.append(')');
+        };
         this.toString = function(options) {
             return '(' + this.a.toString(options) + (this.compare ? (this.compare + this.b.toString(options)) : '') + ')';
         };

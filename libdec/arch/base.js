@@ -16,14 +16,11 @@
  */
 
 module.exports = (function() {
+    var cfg = require('libdec/config');
+    var Printable = require('libdec/printable');
     var Branch = require('libdec/core/Branch');
     const _call_c = require('libdec/db/c_calls');
     const _call_common = require('libdec/db/macros');
-
-    var _colorize = function(input, color) {
-        if (!color) return input;
-        return color.colorize(input);
-    }
 
     var _dependency = function(macros, code) {
         this.macros = macros || [];
@@ -33,12 +30,19 @@ module.exports = (function() {
     var _pseudocode = function(context, dependencies) {
         this.ctx = context;
         this.deps = dependencies || new _dependency();
+        this.printable = function(p, spacesize) {
+            if (typeof this.ctx == 'string') {
+                p.appendColorize(this.ctx);
+            } else {
+                this.ctx.printable(p, spacesize);
+            }
+        }
         this.toString = function(options) {
             if (!options) {
                 options = {};
             }
             if (typeof this.ctx == 'string') {
-                return _colorize(this.ctx.toString(), options.color);
+                return this.ctx;
             }
             return this.ctx.toString(options);
         };
@@ -54,24 +58,27 @@ module.exports = (function() {
         CMP_GE: [' >= ', ' < ']
     };
 
-    var _is_str = function(s) {
-        return typeof s == 'string';
+    var _is_str_or_num = function(s) {
+        return typeof s == 'string' || typeof s == 'number';
     };
 
     var _castme = function(bits, is_signed) {
         return bits ? ((is_signed ? '' : 'u') + 'int' + bits + '_t') : null;
     }
 
-    var _apply_bits = function(input, bits, options, is_signed, is_pointer, is_memory) {
-        if (!options) {
-            options = {};
-        }
+    var _apply_bits = function(input, bits, is_signed, is_pointer, is_memory, options) {
         var pointer = is_pointer ? '*' : '';
-        bits = _castme(bits, is_signed);
-        if (options.casts && bits) {
-            return (is_memory ? '*(' : '') + '(' + _colorize(bits, options.color) + pointer + ') ' + _colorize(input, options.color) + (is_memory ? ')' : '');
+        if (options && options.casts) {
+            bits = _castme(bits, is_signed);
+        } else if (!options) {
+            bits = _castme(bits, is_signed);
+        } else {
+            bits = '';
         }
-        return (is_memory ? '*(' : '') + _colorize(input, options.color) + (is_memory ? ')' : '');
+        if (bits) {
+            return (is_memory ? '*(' : '') + '(' + bits + pointer + ') ' + input + (is_memory ? ')' : '');
+        }
+        return (is_memory ? '*(' : '') + input + (is_memory ? ')' : '');
     }
 
     _bits_argument = function(value, bits, is_signed, is_pointer, is_memory) {
@@ -83,53 +90,87 @@ module.exports = (function() {
         this.is = function(x) {
             return x ? x.value == this.value : false;
         }
+        this.printable = function(p) {
+            p.appendObject(this);
+        };
         this.toString = function(options) {
-            return _apply_bits(this.value, this.bits, options, this.is_signed, this.is_pointer, this.is_memory);
+            return _apply_bits(this.value, this.bits, this.is_signed, this.is_pointer, this.is_memory, options);
         };
     };
 
     var _common_math = function(op, destination, source_a, source_b) {
         this.op = op;
-        this.dst = _is_str(destination) ? new _bits_argument(destination, false, false, false) : destination;
-        this.srcA = _is_str(source_a) ? new _bits_argument(source_a, false, false, false) : source_a;
-        this.srcB = _is_str(source_b) ? new _bits_argument(source_b, false, false, false) : source_b;
-        this.toString = function(options) {
+        this.dst = _is_str_or_num(destination) ? new _bits_argument(destination, false, false, false) : destination;
+        this.srcA = _is_str_or_num(source_a) ? new _bits_argument(source_a, false, false, false) : source_a;
+        this.srcB = _is_str_or_num(source_b) ? new _bits_argument(source_b, false, false, false) : source_b;
+        this.printable = function(p) {
             if (this.srcA.is(this.dst)) {
-                return this.dst.toString(options) + ' ' + this.op + '= ' + this.srcB.toString(options);
+                this.dst.printable(p);
+                p.append(' ' + this.op + '= ');
+                this.srcB.printable(p);
+            } else {
+                this.dst.printable(p);
+                p.append(' = ');
+                this.srcA.printable(p);
+                p.append(' ' + this.op + ' ');
+                this.srcB.printable(p);
             }
-            return this.dst.toString(options) + ' = ' + this.srcA.toString(options) + ' ' + this.op + ' ' + this.srcB.toString(options);
+        };
+        this.toString = function() {
+            if (this.srcA.is(this.dst)) {
+                return this.dst.toString() + ' ' + this.op + '= ' + this.srcB.toString();
+            }
+            return this.dst.toString() + ' = ' + this.srcA.toString() + ' ' + this.op + ' ' + this.srcB.toString();
         };
     };
 
     var _common_pre_op = function(op, destination, source) {
         this.op = op;
-        this.dst = _is_str(destination) ? new _bits_argument(destination, false, false, false) : destination;
-        this.src = _is_str(source) ? new _bits_argument(source, false, false, false) : source;
-        this.toString = function(options) {
-            return this.dst.toString(options) + ' = ' + this.op + this.src.toString(options);
+        this.dst = _is_str_or_num(destination) ? new _bits_argument(destination, false, false, false) : destination;
+        this.src = _is_str_or_num(source) ? new _bits_argument(source, false, false, false) : source;
+        this.printable = function(p) {
+            this.dst.printable(p);
+            p.append(' = ' + this.op);
+            this.src.printable(p);
+        };
+        this.toString = function() {
+            return this.dst.toString() + ' = ' + this.op + this.src.toString();
         };
     };
 
     var _common_memory = function(bits, is_signed, pointer, register, is_write) {
-        this.reg = _is_str(register) ? new _bits_argument(register, false, false, false, false) : register;
-        this.pointer = _is_str(pointer) ? new _bits_argument(pointer, bits, is_signed, true, true) : pointer;
+        this.reg = _is_str_or_num(register) ? new _bits_argument(register, false, false, false, false) : register;
+        this.pointer = _is_str_or_num(pointer) ? new _bits_argument(pointer, bits, is_signed, true, true) : pointer;
         this.is_signed = is_signed;
         this.bits = bits || null;
         if (is_write) {
-            this.toString = function(options) {
-                return this.pointer.toString(options) + ' = ' + this.reg.toString(options);
+            this.printable = function(p) {
+                this.pointer.printable(p);
+                p.append(' = ');
+                this.reg.printable(p);
+            };
+            this.toString = function() {
+                return this.pointer.toString() + ' = ' + this.reg.toString();
             };
         } else {
-            this.toString = function(options) {
-                return this.reg.toString(options) + ' = ' + this.pointer.toString(options);
+            this.printable = function(p) {
+                this.reg.printable(p);
+                p.append(' = ');
+                this.pointer.printable(p);
+            };
+            this.toString = function() {
+                return this.reg.toString() + ' = ' + this.pointer.toString();
             };
         }
     };
 
     var _common_data = function(data) {
         this.data = data;
-        this.toString = function(options) {
-            return _colorize(this.data, options.color);
+        this.printable = function(p) {
+            p.appendColorize(data);
+        };
+        this.toString = function() {
+            return this.data;
         };
     };
 
@@ -148,31 +189,67 @@ module.exports = (function() {
 
     var _common_bitmask = function(destination, source_a, source_b) {
         this.call = 'BIT_MASK';
-        this.dst = _is_str(destination) ? new _bits_argument(destination, false, false, false) : destination;
-        this.srcA = _is_str(source_a) ? new _bits_argument(source_a, false, false, false) : source_a;
-        this.srcB = _is_str(source_b) ? new _bits_argument(source_b, false, false, false) : source_b;
-        this.toString = function(options) {
-            return this.dst.toString(options) + ' = ' + (options.color ? options.color.callname(this.call) : this.call) + ' (' + this.srcA.toString(options) + ', ' + this.srcB.toString(options) + ')';
+        this.dst = _is_str_or_num(destination) ? new _bits_argument(destination, false, false, false) : destination;
+        this.srcA = _is_str_or_num(source_a) ? new _bits_argument(source_a, false, false, false) : source_a;
+        this.srcB = _is_str_or_num(source_b) ? new _bits_argument(source_b, false, false, false) : source_b;
+        this.printable = function(p) {
+            this.dst.printable(p);
+            p.append(' = ');
+            p.appendCallname(this.call);
+            p.append(' (');
+            this.srcA.printable(p);
+            p.append(', ');
+            this.srcB.printable(p);
+            p.append(')');
+        };
+        this.toString = function() {
+            return this.dst.toString() + ' = ' + this.call + ' (' + this.srcA.toString() + ', ' + this.srcB.toString() + ')';
         };
     };
 
     var _common_rotate = function(destination, source_a, source_b, bits, is_left) {
         this.call = 'rotate_' + (is_left ? 'left' : 'right') + bits;
-        this.dst = _is_str(destination) ? new _bits_argument(destination, false, false, false) : destination;
-        this.srcA = _is_str(source_a) ? new _bits_argument(source_a, false, false, false) : source_a;
-        this.srcB = _is_str(source_b) ? new _bits_argument(source_b, false, false, false) : source_b;
-        this.toString = function(options) {
-            return this.dst.toString(options) + ' = ' + (options.color ? options.color.callname(this.call) : this.call) + ' (' + this.srcA.toString(options) + ', ' + this.srcB.toString(options) + ')';
+        this.dst = _is_str_or_num(destination) ? new _bits_argument(destination, false, false, false) : destination;
+        this.srcA = _is_str_or_num(source_a) ? new _bits_argument(source_a, false, false, false) : source_a;
+        this.srcB = _is_str_or_num(source_b) ? new _bits_argument(source_b, false, false, false) : source_b;
+        this.printable = function(p) {
+            this.dst.printable(p);
+            p.append(' = ');
+            p.appendCallname(this.call);
+            p.append(' (');
+            this.srcA.printable(p);
+            p.append(', ');
+            this.srcB.printable(p);
+            p.append(')');
+        };
+        this.toString = function() {
+            return this.dst.toString() + ' = ' + this.call + ' (' + this.srcA.toString() + ', ' + this.srcB.toString() + ')';
         };
     };
 
     var _common_assign = function(destination, source, bits) {
-        this.dst = _is_str(destination) ? new _bits_argument(destination, false, false, false) : destination;
-        this.src = _is_str(source) ? new _bits_argument(source, bits || false, true, false) : source;
-        this.toString = function(options) {
-            return this.dst.toString(options) + ' = ' + this.src.toString(options);
+        this.dst = _is_str_or_num(destination) ? new _bits_argument(destination, false, false, false) : destination;
+        this.src = _is_str_or_num(source) ? new _bits_argument(source, bits || false, true, false) : source;
+        this.printable = function(p) {
+            this.dst.printable(p);
+            p.append(' = ');
+            this.src.printable(p);
+        };
+        this.toString = function() {
+            return this.dst.toString() + ' = ' + this.src.toString();
         };
     };
+
+    var _cast_object = function(bits, is_signed) {
+        this.bits = bits;
+        this.is_signed = is_signed;
+        this.toString = function(options) {
+            if (options.casts) {
+                return _castme(this.bits, this.is_signed) + ' ';
+            }
+            return '';
+        };
+    }
 
     var _common_call = function(caller, args, is_pointer, returns, bits, is_signed) {
         this.caller = caller;
@@ -181,29 +258,56 @@ module.exports = (function() {
         this.returns = returns;
         this.bits = bits;
         this.is_signed = is_signed;
-        this.toString = function(options) {
+        this.printable = function(p) {
+            var caller = this.caller;
+            if (this.returns) {
+                if (this.returns == 'return') {
+                    p.appendFlow('return');
+                    p.append(' ');
+                } else {
+                    if (this.bits) {
+                        p.appendObject(new _cast_object(this.bits, this.is_signed));
+                    }
+                    if (typeof this.returns == 'string') {
+                        p.appendColorize(this.returns + ' = ');
+                    } else {
+                        this.returns.printable(p);
+                        p.append(' = ');
+                    }
+                }
+            }
+            if (is_pointer) {
+                p.appendColorize('(*(void(*)(' + (this.args.length > 0 ? '...' : '') + ')) ' + caller + ')');
+            } else {
+                p.appendCallname(caller);
+            }
+            p.append(' (');
+            for (var i = 0; i < this.args.length; i++) {
+                var x = this.args[i]
+                if (i > 0) {
+                    p.append(', ');
+                }
+                if (_is_str_or_num(x)) {
+                    p.appendColorize(x);
+                } else {
+                    x.printable(p);
+                }
+            }
+            p.append(')');
+        };
+        this.toString = function() {
             var s = '';
             var caller = this.caller;
-            var args = this.args.map(function(x) {
-                if (typeof x == 'string') {
-                    return _colorize(x, options.color);
-                }
-                return x.toString(options);
-            });
+            var args = this.args;
             if (is_pointer) {
-                caller = '(*(' + (options.color ? options.color.types('void') : 'void') + '(*)(' + (this.args.length > 0 ? '...' : '') + ')) ' + caller + ')';
-            } else if (options.color) {
-                caller = options.color.callname(caller);
+                caller = '(*(void(*)(' + (this.args.length > 0 ? '...' : '') + ')) ' + caller + ')';
             }
             if (this.returns) {
                 if (this.returns == 'return') {
-                    s = (options.color ? options.color.flow('return') : 'return') + ' ';
+                    s = 'return ';
                 } else {
-                    var cast = '';
-                    if (options.casts && this.bits) {
-                        cast = _colorize(_castme(this.bits, this.is_signed), options.color) + ' ';
-                    }
-                    s = _colorize(this.returns, options.color) + ' = ' + cast;
+                    var cast = this.bits ? (_castme(this.bits, this.is_signed) + ' ') : '';
+                    s = this.returns + ' = ' + cast;
                 }
             }
             return s + caller + ' (' + args.join(', ') + ')';
@@ -212,19 +316,33 @@ module.exports = (function() {
 
     var _common_goto = function(reg) {
         this.reg = reg;
+        this.printable = function(p) {
+            p.appendFlow('goto');
+            p.append(' ');
+            p.appendColorize(this.reg);
+        };
         this.toString = function(options) {
-            var r = options.color ? options.color.flow('goto') : 'goto';
-            r += ' ' + (options.color ? _colorize(this.reg, options.color) : this.reg);
-            return r;
+            return 'goto ' + this.reg;
         };
     };
 
     var _common_return = function(reg) {
         this.reg = reg;
-        this.toString = function(options) {
-            var r = options.color ? options.color.flow('return') : 'return';
+        this.printable = function(p) {
+            p.appendFlow('return');
             if (this.reg) {
-                r += ' ' + (options.color ? _colorize(this.reg, options.color) : this.reg);
+                p.append(' ');
+                if (typeof this.reg == 'string') {
+                    p.appendColorize(this.reg);
+                } else {
+                    this.reg.printable(p);
+                }
+            }
+        };
+        this.toString = function(options) {
+            var r = 'return';
+            if (this.reg) {
+                r += ' ' + this.reg;
             }
             return r;
         };
@@ -232,37 +350,64 @@ module.exports = (function() {
 
     var _common_macro_c = function(macro) {
         this.macro = macro;
+        this.printable = function(p) {
+            p.appendMacro(this.macro);
+        };
         this.toString = function(options) {
-            return (options.color ? options.color.text(this.macro) : this.macro);
+            return this.macro;
         };
     };
 
     var _common_asm = function(opcode) {
         this.opcode = opcode;
+        this.printable = function(p) {
+            p.appendCallname('__asm');
+            p.append(' (' + this.opcode + ')');
+        };
         this.toString = function(options) {
-            return (options.color ? options.color.callname('__asm') : '__asm') + ' (' + this.opcode + ')';
+            return '__asm (' + this.opcode + ')';
         };
     };
 
     var _composed_extended_op = function(extended) {
         this.extended = extended;
-        this.toString = function(options) {
-            var s = this.extended[0].toString(options);
+        this.printable = function(p, spacesize) {
+            for (var i = 0; i < this.extended.length; i++) {
+                if (i > 0) {
+                    p.append(';');
+                    p.appendEndline();
+                    p.appendSpacedPipe(spacesize);
+                    p.append(cfg.ident);
+                }
+                this.extended[i].printable(p, spacesize);
+            }
+        };
+        this.toString = function() {
+            var s = this.extended[0].toString();
             for (var i = 1; i < this.extended.length; i++) {
-                s += ';\n' + options.ident + this.extended[i].toString(options);
+                s += ';\n' + this.extended[i].toString();
             }
             return s;
         };
     }
 
     var _inline_assign_if = function(destination, source_a, source_b, cond, src_true, src_false) {
-        this.dst = _is_str(destination) ? new _bits_argument(destination) : destination;
-        this.srcA = src_true;
-        this.srcB = src_false;
+        this.dst = _is_str_or_num(destination) ? new _bits_argument(destination.toString()) : destination;
+        this.srcA = _is_str_or_num(src_true) ? new _bits_argument(src_true.toString()) : src_true;
+        this.srcB = _is_str_or_num(src_false) ? new _bits_argument(src_false.toString()) : src_false;
         this.condition = Branch.generate(source_a, source_b, cond, Branch.FLOW_DEFAULT, _base);
-        this.toString = function(options) {
-            var s = this.dst.toString(options);
-            s += ' = ' + this.condition.toString(options) + ' ? ' + this.srcA.toString(options) + ' : ' + this.srcB.toString(options);
+        this.printable = function(p) {
+            this.dst.printable(p);
+            p.append(' = ');
+            p.appendObject(this.condition);
+            p.append(' ? ');
+            this.srcA.printable(p);
+            p.append(' : ');
+            this.srcB.printable(p);
+        };
+        this.toString = function() {
+            var s = this.dst.toString();
+            s += ' = ' + this.condition.toString() + ' ? ' + this.srcA.toString() + ' : ' + this.srcB.toString();
             return s;
         };
     }
@@ -301,10 +446,22 @@ module.exports = (function() {
             }
             return new _pseudocode(new _composed_extended_op(extended), new _dependency(macros, codes));
         },
-        macro: function(value) {
+        string: function(value) {
             this.value = value;
+            this.printable = function(p) {
+                p.appendText(this.value);
+            };
             this.toString = function(options) {
                 return (options && options.color ? options.color.text(this.value) : this.value);
+            };
+        },
+        macro: function(value) {
+            this.value = value;
+            this.printable = function(p) {
+                p.appendMacro(this.value);
+            };
+            this.toString = function(options) {
+                return (options && options.color ? options.color.macro(this.value) : this.value);
             };
         },
         add_macro: function(op, macro) {

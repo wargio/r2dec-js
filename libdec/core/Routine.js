@@ -19,10 +19,11 @@ module.exports = (function() {
     var cfg = require('libdec/config');
     var Flow = require('libdec/core/Flow');
     var Scope = require('libdec/core/Scope');
+    var Printable = require('./libdec/printable');
 
     var _padding = '                                                                                                    ';
 
-    var _print_deps = function(p, instructions, options, asm_pad) {
+    var _print_deps = function(p, instructions, options, spacesize) {
         var color = options.color;
         var macros = [];
         var codes = [];
@@ -44,20 +45,19 @@ module.exports = (function() {
                 }
             }
         }
-        for (var i = 0; i < macros.length; i++) {
-            if (color) {
-                p(asm_pad + color.text(macros[i]));
-            } else {
-                p(asm_pad + macros[i]);
+        var printable = new Printable();
+        if (macros.length > 0) {
+            for (var i = 0; i < macros.length; i++) {
+                printable.appendSpacedPipe(spacesize);
+                printable.appendMacro(macros[i]);
+                printable.appendEndline();
             }
-        }
-        if (macros.length) {
-            p(asm_pad);
+            printable.appendSpacedPipe(spacesize);
         }
         for (var i = 0; i < codes.length; i++) {
-            /* TODO: missing colors.. :| */
-            p(asm_pad + codes[i].toString(options).replace(/\n/g, '\n' + asm_pad) + '\n' + asm_pad);
+            printable.appendPrintable(codes[i].printable(spacesize));
         }
+        printable.print(p, options);
     };
 
     var _fix_routine_name = function(name) {
@@ -70,7 +70,7 @@ module.exports = (function() {
         return name.replace(cfg.anal.replace, '').replace(/\.|:/g, '_').replace(/__+/g, '_').replace(/^_/, '').replace(/_[0-9a-f]+$/, '');
     }
 
-    var _resize_pad = function(instructions) {
+    var _max_pad = function(instructions) {
         var max = 0;
         for (var i = 0; i < instructions.length; i++) {
             if (instructions[i].assembly.length > max) {
@@ -80,8 +80,12 @@ module.exports = (function() {
         var addrlen = instructions[0].loc.toString(16).length;
         /* 4 spaces + 0x + addr + 2 spaces */
         max += 8 + (addrlen <= 8 ? 8 : addrlen)
-        return _padding.substr(0, max) + ' | ';
+        return max + 1;
     };
+
+    var _resize_pad = function(maxpad) {
+        return _padding.substr(0, maxpad) + ' | ';
+    }
 
     /*
      * Expects name and instructions as input.
@@ -96,38 +100,38 @@ module.exports = (function() {
             var current = this.instructions[0].scope;
             var scopes = [current];
             var ident = cfg.ident;
-            var asm_pad = options.assembly ? _resize_pad(this.instructions) : '';
+            var paddingsize = options.assembly ? _max_pad(instructions) : 0;
+            var line = new Printable();
             if (options.assembly) {
                 var legenda2 = '    ; assembly';
                 var legenda1 = '/* r2dec pseudo C output */'
-                if (options.color) {
-                    p(options.color.comment(legenda2) + asm_pad.substr(legenda2.length, asm_pad.length) + options.color.comment(legenda1))
-                } else {
-                    p(legenda2 + asm_pad.substr(legenda2.length, asm_pad.length) + legenda1)
-                }
+                line.appendComment(legenda2);
+                line.appendSpacedPipe(paddingsize - legenda2.length);
+                line.appendComment(legenda1);
+                line.print(p, options);
+                line.clean();
             }
-            _print_deps(p, this.instructions, options, asm_pad);
-            if (options.color) {
-                var pre = '';
-                if (options.assembly) {
-                    var aname = '(fcn) ' + this.name + ':';
-                    pre = options.color.callname(aname) + asm_pad.substr(aname.length, asm_pad.length);
-                }
-                p(pre + options.color.types(this.returnType) + ' ' + options.color.callname(_fix_routine_name(this.name)) + ' (' + this.args.join(', ') + ') {');
-            } else {
-                var pre = '';
-                if (options.assembly) {
-                    var aname = '(fcn) ' + this.name;
-                    pre = aname + asm_pad.substr(aname.length, asm_pad.length);
-                }
-                p(pre + this.returnType + ' ' + _fix_routine_name(this.name) + ' (' + this.args.join(', ') + ') {');
+            _print_deps(p, this.instructions, options, paddingsize);
+            if (options.assembly) {
+                var aname = '(fcn) ' + this.name + ':';
+                line.appendCallname(aname);
+                line.appendSpacedPipe(paddingsize - aname.length);
             }
+            line.appendTypes(this.returnType);
+            line.append(' ');
+            line.appendCallname(_fix_routine_name(this.name));
+            line.append(' (');
+            line.appendColorize(this.args.join(', '));
+            line.append(') {');
+            line.print(p, options);
+
             for (var i = 0; i < this.instructions.length; i++) {
+                line.clean();
                 var instr = this.instructions[i];
                 if (current != instr.scope) {
                     if (current.level < instr.scope.level) {
                         scopes.push(current);
-                        instr.scope.printHeader(p, asm_pad + ident, options);
+                        instr.scope.printableHeader(line, paddingsize, ident);
                         ident += cfg.ident;
                         current = instr.scope;
                     } else if (current.level > instr.scope.level) {
@@ -135,34 +139,36 @@ module.exports = (function() {
                             if (ident.length > cfg.ident.length) {
                                 ident = ident.substr(0, ident.length - cfg.ident.length);
                             }
-                            current.printTrailer(p, asm_pad + ident, options);
+                            current.printableTrailer(line, paddingsize, ident);
                             current = scopes.pop();
                         }
                     } else {
                         var tmpident = ident.substr(0, ident.length - cfg.ident.length);
-                        current.printTrailer(p, asm_pad + tmpident, options);
+                        current.printableTrailer(line, paddingsize, tmpident);
                         current = instr.scope;
-                        current.printHeader(p, asm_pad + tmpident, options);
+                        instr.scope.printableHeader(line, paddingsize, tmpident);
                     }
                 }
                 if (instr.label > -1) {
-                    options.ident = asm_pad + ident;
-                    if (options.color) {
-                        p(asm_pad + /*ident.substr(0, ident.length - cfg.ident.length) + */ options.color.labels('label_' + instr.label) + ':');
-                    } else {
-                        p(asm_pad + /*ident.substr(0, ident.length - cfg.ident.length) + */ 'label_' + instr.label + ':');
-                    }
+                    line.appendSpacedPipe(paddingsize);
+                    line.appendLabels('label_' + instr.label);
+                    line.append(':');
+                    line.appendEndline();
                 }
-                instr.print(p, ident, options, asm_pad);
+                instr.printable(line, paddingsize, ident, options);
+                line.print(p, options);
             }
+            line.clean();
             while (ident.length > 1 && current) {
                 if (ident.length > cfg.ident.length) {
                     ident = ident.substr(0, ident.length - cfg.ident.length);
                 }
-                current.printTrailer(p, asm_pad + ident, options);
+                current.printableTrailer(line, paddingsize, ident);
                 current = scopes.pop();
             }
-            p(asm_pad + '}');
+            line.appendSpacedPipe(paddingsize);
+            line.append('}');
+            line.print(p, options);
         };
     };
     return Routine;

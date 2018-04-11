@@ -21,6 +21,7 @@ module.exports = (function() {
     var Scope = require('libdec/core/Scope');
     var Base = require('libdec/arch/base');
     var cfg = require('libdec/config');
+    var Printable = require('libdec/printable');
     Utils = require('libdec/core/Utils');
 
     var _label_counter = 0;
@@ -34,6 +35,30 @@ module.exports = (function() {
         this.name = name || '';
         this.is_head = is_head;
         this.condition = condition;
+        this.printable = function(spacesize) {
+            var p = new Printable();
+            if (this.is_head) {
+                p.appendFlow(this.name);
+                if (this.condition) {
+                    p.append(' ');
+                    this.condition.printable(p);
+                }
+                p.append(' {');
+            } else {
+                if (this.name) {
+                    p.append('} ');
+                    p.appendFlow(this.name);
+                } else {
+                    p.append('}');
+                }
+                if (this.condition) {
+                    p.append(' ');
+                    this.condition.printable(p);
+                    p.append(';');
+                }
+            }
+            return p;
+        };
         this.toString = function(options) {
             return (this.is_head ? '' : '} ') + _colorize(this.name, options.color) + (this.condition ? (' ' + this.condition.toString(options)) : '') + (this.is_head ? ' {' : (this.condition ? ';' : ''));
         }
@@ -46,6 +71,14 @@ module.exports = (function() {
     var ControlFlowPanic = function(name, is_head, condition) {
         this.name = name || '';
         this.condition = condition;
+        this.printable = function(spacesize) {
+            var p = new Printable();
+            p.appendFlow(this.name);
+            p.append(' ');
+            p.appendObject(this.condition);
+            p.append(';');
+            return p;
+        };
         this.toString = function(options) {
             return _colorize(this.name, options.color) + ' ' + this.condition.toString(options) + ';';
         }
