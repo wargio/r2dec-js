@@ -28,14 +28,14 @@ done
 # Arguments
 
 ```
-[0x00000000]> pdd?
+[0x00000c60]> pdd?
 Usage: pdd [args] - core plugin for r2dec
  pdd   - decompile current function
  pdd?  - show this help
  pdda  - decompile current function with side assembly
  pddu  - install/upgrade r2dec via r2pm
  pddi  - generates the issue data
-[0x00000000]> pdd --help
+[0x00000c60]> pdd --help
 r2dec [options]
        --help       | this help message
        --colors     | enables syntax colors
@@ -43,6 +43,7 @@ r2dec [options]
        --hide-casts | hides all casts in the pseudo code
        --issue      | generates the json used for the test suite
        --debug      | do not catch exceptions
+       --html       | outputs html data instead of text
 ```
 
 # Report an Issue
