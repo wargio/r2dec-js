@@ -24,6 +24,8 @@ module.exports = (function() {
         'lsr': '>>',
         'asl': '<<',
         'asr': '>>',
+        'ror': '>>>',
+        'rrx': '>>>'
     }
 
     var _is_register = function(name) {
@@ -39,10 +41,14 @@ module.exports = (function() {
         } else if (e.length == 4) {
             return op(e[1], e[2], e[3]);
         }
-        if (_operands[e[4]]) {
-            e[4] = _operands[e[4]];
+        var p = e.slice(3);
+        if (_operands[p[1]]) {
+            p[1] = _operands[p[1]];
+            if (p.length == 2) {
+                p[2] = e[2];
+            }
         }
-        return op(e[1], e[2], '(' + e.slice(3).join(' ') + ')');
+        return op(e[1], e[2], '(' + p.join(' ') + ')');
     };
 
     var _load = function(instr, bits) {
@@ -58,11 +64,11 @@ module.exports = (function() {
         if (e.length == 3) {
             if (_is_register(e[2])) {
                 if (instr.string) {
-                    return Base.instructions.assign(e[1], instr.string);
+                    return Base.instructions.assign(e[1], new Base.string(instr.string));
                 }
                 return Base.instructions.read_memory(e[1], e[2], bits, false);
             }
-            return Base.instructions.assign(e[1], instr.string ? instr.string : e[2]);
+            return Base.instructions.assign(e[1], instr.string ? new Base.string(instr.string) : e[2]);
         } else if (e.length == 4) {
             return new Base.common(e[1] + cast + e[2] + ' + ' + e[3] + castend);
         } else if (e.length == 5 && e[3] != '-' && e[3] != '+') {
@@ -92,7 +98,7 @@ module.exports = (function() {
         var castend = (bits == 8) ? ') = ' : ')) = ';
         if (e.length == 3) {
             if (instr.string) {
-                return Base.instructions.assign(e[1], instr.string);
+                return Base.instructions.assign(e[1], new Base.string(instr.string));
             }
             return Base.instructions.write_memory(e[2], e[1], bits, false);
         } else if (e.length == 4) {
@@ -132,11 +138,11 @@ module.exports = (function() {
         var t = instr.pseudo.toString();
         if (t.match(/^.+[+-|&^*/%]=\s/)) {
             instr.valid = false;
-            return instr.string ? nstr.string : instr.parsed[1];
+            return instr.string ? new Base.string(instr.string) : instr.parsed[1];
         }
         t = t.replace(/^.+\s=\s/, '').trim();
         instr.valid = false;
-        return new Base.bits_argument(instr.string ? instr.string : t);
+        return new Base.bits_argument(instr.string ? new Base.string(instr.string) : t);
     };
 
     var _call = function(instr, context, instructions) {
@@ -152,7 +158,7 @@ module.exports = (function() {
             regnum = known_args_n - 1;
         }
         var arg0 = null;
-        var start = instructions.indexOf(instr)
+        var start = instructions.indexOf(instr);
         for (var i = start - 1; i >= 0 && regnum >= 0; i--) {
             var op = instructions[i].parsed[0];
             arg0 = instructions[i].parsed[1];
@@ -306,7 +312,7 @@ module.exports = (function() {
                     return Base.instructions.nop();
                 }
                 if (instr.string) {
-                    return Base.instructions.assign(dst, instr.string);
+                    return Base.instructions.assign(dst, new Base.string(instr.string));
                 }
                 if (instr.parsed[2] == '0') {
                     instr.parsed = ['nop'];

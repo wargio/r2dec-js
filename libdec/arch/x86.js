@@ -183,8 +183,11 @@ module.exports = (function() {
                 if (op == 'push' && !_is_stack_reg(arg0)) {
                     if (instrs[i].string) {
                         instrs[i].valid = false;
+                        console.log('pl')
+                        args.push(new Base.string(instrs[i].string));
+                    } else {
+                        args.push(new Base.bits_argument(arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
                     }
-                    args.push(new Base.bits_argument(instrs[i].string || arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
                     context.pusharg = true;
                 } else if (op == 'call' || instrs[i].jump) {
                     break;
@@ -218,8 +221,10 @@ module.exports = (function() {
                 if (instrs[i].string) {
                     instrs[i].valid = false;
                     bits = null;
+                    args.push(new Base.string(instrs[i].string));
+                } else {
+                    args.push(new Base.bits_argument(arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
                 }
-                args.push(new Base.bits_argument(instrs[i].string || arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
             }
             args = _call_fix_args(args);
         }
@@ -230,7 +235,8 @@ module.exports = (function() {
         if (instr.parsed[1].match(/^[er]?[sb]p$/)) {
             return null;
         } else if (instr.parsed.length == 3) {
-            return Base.instructions.assign(instr.parsed[1], instr.string || instr.parsed[2]);
+            var str = instr.string ? new Base.string(instr.string) : instr.parsed[2];
+            return Base.instructions.assign(instr.parsed[1], str);
         } else if (_bits_types[instr.parsed[1]]) {
             return Base.instructions.write_memory(instr.parsed[2], instr.parsed[3], _bits_types[instr.parsed[1]], true);
         }
@@ -306,7 +312,8 @@ module.exports = (function() {
                 return Base.instructions.not(instr.parsed[1], instr.parsed[1]);
             },
             lea: function(instr) {
-                return Base.instructions.assign(instr.parsed[1], instr.string || instr.parsed[2].replace(/\./g, '_'));
+                var arg = instr.string ? new Base.string(instr.string) : instr.parsed[2].replace(/\./g, '_');
+                return Base.instructions.assign(instr.parsed[1], arg);
             },
             call: _call_function,
             cmova: function(instr, context, instructions) {
@@ -479,7 +486,7 @@ module.exports = (function() {
                     /* 0x0000 push 1; 0x0002 pop eax ===> eax = 1 */
                     var src = previous.parsed[1];
                     previous.parsed = ['nop'];
-                    return Base.instructions.assign(instr.parsed[1], previous.string || src);
+                    return Base.instructions.assign(instr.parsed[1], previous.string ? new Base.string(previous.string) : src);
                 }
                 return Base.instructions.nop();
             },

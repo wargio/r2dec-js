@@ -48,6 +48,37 @@ module.exports = (function() {
         this.string = null;
         this.cond = null;
         this.xrefs = op.xrefs ? op.xrefs.slice() : [];
+        this.printable = function(p, spacesize, ident, options) {
+            if (this.comments && this.comments.length > 0) {
+                if (this.comments.length == 1) {
+                    p.appendSpacedPipe(spacesize);
+                    p.appendComment(ident + '/* ' + this.comments[0] + ' */');
+                    p.appendEndline();
+                } else {
+                    p.appendSpacedPipe(spacesize);
+                    p.appendComment(ident + '/*');
+                    p.appendEndline();
+                    for (var j = 0; j < this.comments.length; j++) {
+                        p.appendSpacedPipe(spacesize);
+                        p.appendComment(ident + ' * ' + this.comments[j]);
+                        p.appendEndline();
+                    }
+                    p.appendSpacedPipe(spacesize);
+                    p.appendComment(ident + ' */');
+                    p.appendEndline();
+                }
+            }
+            if (options.assembly) {
+                var c = '    ' + _align32(this.loc) + '  ' + this.assembly;
+                p.appendColorize(c)
+                p.appendSpacedPipe(spacesize - c.length);
+            }
+            if (this.pseudo && this.valid) {
+                p.append(ident);
+                this.pseudo.printable(p, spacesize);
+                p.append(';');
+            }
+        };
         this.print = function(p, ident, options, asmpadding) {
             if (this.comments && this.comments.length > 0) {
                 if (this.comments.length == 1) {

@@ -26,8 +26,13 @@ module.exports = (function() {
         types: 'green'
     };
 
-    const Colors = require('libdec/colors/ansi');
-    var _colors = Colors.make(colortheme);
+    const Colors = {
+        ansi: require('libdec/colors/ansi'),
+        html: require('libdec/colors/html'),
+        text: require('libdec/colors/invalid'),
+    };
+
+    var _colors = Colors.ansi.make(colortheme);
 
     var _regexs = {
         ctrlflow: /\bif\b|\belse\b|\bwhile\b|\bfor\b|\bdo\b|\breturn\b/g,
@@ -93,6 +98,15 @@ module.exports = (function() {
         return input;
     };
     return {
+        setOption: function(options) {
+            if (options.html && options.color) {
+                _colors = Colors.html.make(colortheme);
+            } else if (options.color) {
+                _colors = Colors.ansi.make(colortheme);
+            } else {
+                _colors = Colors.text.make(colortheme);
+            }
+        },
         colorize: _colorize,
         callname: function(input) {
             return _colors.callname(input);
