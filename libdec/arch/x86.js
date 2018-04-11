@@ -34,7 +34,20 @@ module.exports = (function() {
 
     var _is_stack_reg = function(val) {
         return val ? (val.match(/^[er]?[sb]p$/) != null) : false;
-    }
+    };
+
+    var _find_bits = function(reg) {
+        reg = reg.toLowerCase();
+        var c = reg.charAt(0);
+        if (c == 'r') {
+            return 64;
+        } else if (c == 'e') {
+            return 32;
+        } else if (['ax', 'cx', 'dx', 'bx', 'sp', 'bp', 'si', 'di'].indexOf(reg) >= 0) {
+            return 16;
+        }
+        return 8;
+    };
 
     var _clean_save_reg = function(instr, size, instructions) {
         var index = instructions.indexOf(instr);
@@ -356,6 +369,9 @@ module.exports = (function() {
                 _conditional_inline(instr, context, instructions, 'NE');
                 return _standard_mov(instr);
             },
+            bswap: function(instr) {
+                return Base.instructions.swap_endian(instr.parsed[1], instr.parsed[1], _find_bits(instr.parsed[1]));
+            },
             mov: _standard_mov,
             movabs: _standard_mov,
             cbw: function() {
@@ -426,6 +442,16 @@ module.exports = (function() {
             },
             leave: function(instr, context) {
                 return Base.instructions.nop();
+            },
+            rol: function(instr, context) {
+                var e = instr.parsed;
+                var bits = _find_bits(e[1]);
+                return Base.instructions.rotate_left(e[1], e[1], e[2], bits);
+            },
+            ror: function(instr, context) {
+                var e = instr.parsed;
+                var bits = _find_bits(e[1]);
+                return Base.instructions.rotate_right(e[1], e[1], e[2], bits);
             },
             jmp: function(instr, context, instructions) {
                 var e = instr.parsed;

@@ -389,7 +389,21 @@ module.exports = (function() {
             }
             return s;
         };
-    }
+    };
+
+    var _macro_call = function(macro, args, returns) {
+        this.macro = macro;
+        this.args = args;
+        this.returns = returns;
+        this.printable = function(p) {
+            p.append(this.returns + ' = ');
+            p.appendMacro(this.macro);
+            p.appendColorize(this.args);
+        };
+        this.toString = function(options) {
+            return this.returns + ' = ' + this.macro + this.args;
+        };
+    };
 
     var _inline_assign_if = function(destination, source_a, source_b, cond, src_true, src_false) {
         this.dst = _is_str_or_num(destination) ? new _bits_argument(destination.toString()) : destination;
@@ -598,6 +612,29 @@ module.exports = (function() {
             },
             special: function(data) {
                 return new _pseudocode(data);
+            },
+            swap_endian: function(value, returns, bits) {
+                var macro = [];
+                if (bits == 16) {
+                    macro.push('#define SWAP16(n) ((uint16_t) (((n & 0xFF) << 8) | \\');
+                    macro.push('                               ((n & 0xFF00) >> 8)))');
+                } else if (bits == 32) {
+                    macro.push('#define SWAP32(n) ((uint32_t) (((n & 0xFF) << 24) | \\');
+                    macro.push('                               ((n & 0xFF00) << 8) | \\');
+                    macro.push('                               ((n & 0xFF0000) >> 8) | \\');
+                    macro.push('                               ((n & 0xFF000000) >> 24)))');
+                } else {
+                    bits = 64;
+                    macro.push('#define SWAP64(val) ((uint64_t) (((val & 0x00000000000000ffull) << 56) | \\');
+                    macro.push('                                 ((val & 0x000000000000ff00ull) << 40) | \\');
+                    macro.push('                                 ((val & 0x0000000000ff0000ull) << 24) | \\');
+                    macro.push('                                 ((val & 0x00000000ff000000ull) <<  8) | \\');
+                    macro.push('                                 ((val & 0x000000ff00000000ull) >>  8) | \\');
+                    macro.push('                                 ((val & 0x0000ff0000000000ull) >> 24) | \\');
+                    macro.push('                                 ((val & 0x00ff000000000000ull) >> 40) | \\');
+                    macro.push('                                 ((val & 0xff00000000000000ull) >> 56)))');
+                }
+                return new _pseudocode(new _macro_call('SWAP' + bits, ' (' + value + ')', returns), new _dependency(macro, []));
             },
             unknown: function(data) {
                 return new _pseudocode(new _common_asm(data));
