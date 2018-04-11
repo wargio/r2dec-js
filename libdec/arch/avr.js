@@ -20,6 +20,10 @@ module.exports = (function() {
     var Base = require('libdec/arch/base');
     const AVR_MEM_BITS = 16;
 
+    var _store = function(instr, bits) {
+
+    }
+
     var _common_math = function(instr, op) {
         var e = instr.parsed;
         return op(e[1], e[1], e[2]);
@@ -60,7 +64,19 @@ module.exports = (function() {
                 _compare(instr.parsed[1], instr.parsed[2], context);
                 return _common_math(instr, Base.instructions.add);
             },
+            adiw: function(instr, context) {
+                var a1 = instr.parsed[1];
+                var a2 = _next_register(instr.parsed[1]);
+                var b = instr.parsed[2];
+                _compare_values(a1, b, a2, b, context);
+                var op1 = Base.instructions.add(a1, a1, b);
+                var op2 = Base.instructions.add(a2, a2, b);
+                return Base.composed([op1, op2]);
+            },
             and: function(instr, context) {
+                return _common_math(instr, Base.instructions.and);
+            },
+            andi: function(instr, context) {
                 return _common_math(instr, Base.instructions.and);
             },
             brbc: function(instr, context) {
@@ -86,11 +102,18 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             bset: function(instr) {
-                return Base.instructions.macro('SREG_SET_BIT', ' (' + instr.parsed[1] + ')', '#define SREG_SET_BIT (x) __asm(bset (x))');
+                return Base.instructions.macro('SREG_SET_BIT', ' (' + instr.parsed[1] + ')', '#define SREG_SET_BIT(x) __asm(bset (x))');
             },
             call: function(instr, context) {
+                instr.invalidate_jump();
                 //name, args, is_pointer, returns, bits
-                return Base.instructions.call(instr.parsed[1]);
+                if (instr.parsed[1].indexOf('0x') == 0) {
+                    return Base.instructions.call(instr.parsed[1], [], true, null, 16);
+                }
+                return Base.instructions.call(instr.parsed[1], [], false, null, null);
+            },
+            cli: function(instr) {
+                return Base.instructions.macro('DISABLE_INTERRUPTS', null, '#define SREG_SET_BIT __asm(cli)');
             },
             clr: function(instr) {
                 return Base.instructions.assign(instr.parsed[1], '0');
@@ -113,7 +136,7 @@ module.exports = (function() {
             },
             in: function(instr) {
                 var e = instr.parsed;
-                return Base.instructions.macro('READ_FROM_IO', ' (' + e[1] + ', ' + e[2] + ')', '#define READ_FROM_IO (x,y) __asm(in (x), (y))');
+                return Base.instructions.macro('READ_FROM_IO', ' (' + e[1] + ', ' + e[2] + ')', '#define READ_FROM_IO(x,y) __asm(in (x), (y))');
             },
             iret: function(instr) {
                 return Base.instructions.macro('RETURN_FROM_INTERRUPT', null, '#define RETURN_FROM_INTERRUPT __asm(iret)');
@@ -121,15 +144,27 @@ module.exports = (function() {
             mov: function(instr) {
                 return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
             },
+            movw: function(instr, context) {
+                var a1 = instr.parsed[1];
+                var a2 = _next_register(instr.parsed[1]);
+                var b1 = instr.parsed[2];
+                var b2 = _next_register(instr.parsed[2]);
+                var op1 = Base.instructions.assign(a1, b1);
+                var op2 = Base.instructions.assign(a2, b2);
+                return Base.composed([op1, op2]);
+            },
             nop: function() {
                 return Base.instructions.nop();
             },
             or: function(instr, context) {
                 return _common_math(instr, Base.instructions.or);
             },
+            ori: function(instr, context) {
+                return _common_math(instr, Base.instructions.or);
+            },
             out: function(instr) {
                 var e = instr.parsed;
-                return Base.instructions.macro('WRITE_TO_IO', ' (' + e[1] + ', ' + e[2] + ')', '#define WRITE_TO_IO (x,y) __asm(in (x), (y))');
+                return Base.instructions.macro('WRITE_TO_IO', ' (' + e[1] + ', ' + e[2] + ')', '#define WRITE_TO_IO(x,y) __asm(in (x), (y))');
             },
             pop: function(instr) {
                 return Base.instructions.nop();
