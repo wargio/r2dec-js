@@ -57,7 +57,9 @@ module.exports = (function() {
         printable.print(p, options);
         printable.clean();
         for (var i = 0; i < codes.length; i++) {
-            printable.appendEndline();
+            if (i > 0) {
+                printable.appendEndline();
+            }
             printable.appendPrintable(codes[i].printable(spacesize));
         }
         printable.print(p, options);
@@ -73,8 +75,8 @@ module.exports = (function() {
         return name.replace(cfg.anal.replace, '').replace(/\.|:/g, '_').replace(/__+/g, '_').replace(/^_/, '').replace(/_[0-9a-f]+$/, '');
     }
 
-    var _max_pad = function(instructions) {
-        var max = 0;
+    var _max_pad = function(instructions, name) {
+        var max = name.length;
         for (var i = 0; i < instructions.length; i++) {
             if (instructions[i].assembly.length > max) {
                 max = instructions[i].assembly.length;
@@ -99,10 +101,8 @@ module.exports = (function() {
             var current = this.instructions[0].scope;
             var scopes = [current];
             var ident = cfg.ident;
-            var paddingsize = options.assembly ? _max_pad(instructions) : 0;
+            var paddingsize = options.assembly ? _max_pad(instructions, this.name.trim()) : 0;
             var line = new Printable();
-            line.appendEndline();
-            line.appendSpacedPipe(paddingsize);
             if (options.assembly) {
                 var legenda2 = '    ; assembly';
                 var legenda1 = '/* r2dec pseudo C output */'

@@ -80,6 +80,7 @@ module.exports = (function() {
 
     var _conditional = function(instr, context, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
+        context.cond.instr.valid = false;
     };
 
     var _next_register = function(reg) {
@@ -91,10 +92,12 @@ module.exports = (function() {
         instructions: {
             adc: function(instr, context) {
                 _compare(instr.parsed[1], instr.parsed[2], context);
+                context.cond.instr = instr;
                 return _common_math(instr, Base.instructions.add);
             },
             add: function(instr, context) {
                 _compare(instr.parsed[1], instr.parsed[2], context);
+                context.cond.instr = instr;
                 return _common_math(instr, Base.instructions.add);
             },
             adiw: function(instr, context) {
@@ -102,6 +105,7 @@ module.exports = (function() {
                 var a1 = instr.parsed[1];
                 var a2 = _next_register(instr.parsed[1]);
                 _compare_values(a1, b, a2, b, context);
+                context.cond.instr = instr;
                 if (b == '0x00' || b == '0') {
                     return Base.instructions.nop();
                 }
@@ -122,6 +126,9 @@ module.exports = (function() {
             andi: function(instr, context) {
                 return _common_math(instr, Base.instructions.and);
             },
+            asr: function(instr) {
+                return Base.instructions.shift_right(instr.parsed[1], instr.parsed[1], '1');
+            },
             brbc: function(instr, context) {
                 var old_b = context.cond.b;
                 context.cond.b = '0';
@@ -137,6 +144,10 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             brcc: function(instr, context) {
+                _conditional(instr, context, 'LT');
+                return Base.instructions.nop();
+            },
+            brcs: function(instr, context) {
                 _conditional(instr, context, 'GE');
                 return Base.instructions.nop();
             },
@@ -144,8 +155,28 @@ module.exports = (function() {
                 _conditional(instr, context, 'NE');
                 return Base.instructions.nop();
             },
+            brlo: function(instr, context) {
+                _conditional(instr, context, 'GE');
+                return Base.instructions.nop();
+            },
+            brlt: function(instr, context) {
+                _conditional(instr, context, 'GE');
+                return Base.instructions.nop();
+            },
+            brmi: function(instr, context) {
+                _conditional(instr, context, 'GE');
+                return Base.instructions.nop();
+            },
             brne: function(instr, context) {
                 _conditional(instr, context, 'EQ');
+                return Base.instructions.nop();
+            },
+            brpl: function(instr, context) {
+                _conditional(instr, context, 'LE');
+                return Base.instructions.nop();
+            },
+            brsh: function(instr) {
+                _conditional(instr, context, 'GT');
                 return Base.instructions.nop();
             },
             bset: function(instr) {
@@ -165,17 +196,30 @@ module.exports = (function() {
             clr: function(instr) {
                 return Base.instructions.assign(instr.parsed[1], '0');
             },
+            clt: function() {
+                return Base.instructions.macro('CLEAR_TRANSFER_FLAG', null, '#define CLEAR_TRANSFER_FLAG __asm(clt)');
+            },
+            com: function(instr) {
+                return Base.instructions.subtract(instr.parsed[1], '0xff', instr.parsed[1]);
+            },
             cp: function(instr, context) {
                 _compare(instr.parsed[1], instr.parsed[2], context);
+                context.cond.instr = instr;
                 return Base.instructions.nop();
             },
             cpc: function(instr, context, instructions) {
                 var p = instructions.indexOf(instr);
-                if (instructions[p - 1] && instructions[p - 1].parsed[0] == 'cp') {
+                if (instructions[p - 1] && instructions[p - 1].parsed[0].indexOf('cp') == 0) {
                     _compare_bytes(instr.parsed[1], instr.parsed[2], context);
                 } else {
                     _compare(instr.parsed[1], instr.parsed[2], context);
                 }
+                context.cond.instr = instr;
+                return Base.instructions.nop();
+            },
+            cpi: function(instr, context) {
+                _compare(instr.parsed[1], instr.parsed[2], context);
+                context.cond.instr = instr;
                 return Base.instructions.nop();
             },
             dec: function(instr) {
@@ -199,7 +243,7 @@ module.exports = (function() {
             },
             in: function(instr) {
                 var e = instr.parsed;
-                return Base.instructions.macro('READ_FROM_IO', ' (' + e[1] + ', ' + e[2] + ')', '#define READ_FROM_IO(x,y) __asm(in (x), (y))');
+                return Base.instructions.macro('READ_FROM_IO', ' (' + e[2] + ', ' + e[1] + ')', '#define READ_FROM_IO(x,y) __asm(in (y), (x))');
             },
             inc: function(instr) {
                 return Base.instructions.increase(instr.parsed[1], '1');
@@ -300,6 +344,8 @@ module.exports = (function() {
                 return Base.instructions.call(name, [], true, null, AVR_MEM_BITS);
             },
             ret: function(instr, context) {
+                // returns r1:r0
+                // but if pop r0 then return void.
                 return Base.instructions.return(context.returns);
             },
             rjmp: function() {
@@ -313,10 +359,12 @@ module.exports = (function() {
             },
             sbc: function(instr, context) {
                 _compare(instr.parsed[1], instr.parsed[2], context);
+                context.cond.instr = instr;
                 return _common_math(instr, Base.instructions.subtract);
             },
             sbci: function(instr, context) {
                 _compare(instr.parsed[1], instr.parsed[2], context);
+                context.cond.instr = instr;
                 return _common_math(instr, Base.instructions.subtract);
             },
             sbiw: function(instr, context) {
@@ -324,6 +372,7 @@ module.exports = (function() {
                 var a1 = instr.parsed[1];
                 var a2 = _next_register(instr.parsed[1]);
                 _compare_values(a1, b, a2, b, context);
+                context.cond.instr = instr;
                 if (b == '0x00' || b == '0') {
                     return Base.instructions.nop();
                 }
@@ -340,6 +389,12 @@ module.exports = (function() {
             },
             sei: function() {
                 return Base.instructions.macro('ENABLE_INTERRUPTS', null, '#define ENABLE_INTERRUPTS __asm(sei)');
+            },
+            ser: function(instr) {
+                return Base.instructions.assign(instr.parsed[1], '0xff');
+            },
+            set: function() {
+                return Base.instructions.macro('SET_TRANSFER_FLAG', null, '#define SET_TRANSFER_FLAG __asm(set)');
             },
             st: function(instr) {
                 var ptr = instr.parsed[1];
@@ -385,10 +440,12 @@ module.exports = (function() {
             },
             sub: function(instr, context) {
                 _compare(instr.parsed[1], instr.parsed[2], context);
+                context.cond.instr = instr;
                 return _common_math(instr, Base.instructions.subtract);
             },
             subi: function(instr, context) {
                 _compare(instr.parsed[1], instr.parsed[2], context);
+                context.cond.instr = instr;
                 if (instr.parsed[2] == '0x00' || instr.parsed[2] == '0') {
                     return Base.instructions.nop();
                 }
@@ -396,6 +453,7 @@ module.exports = (function() {
             },
             tst: function(instr, context) {
                 _compare(instr.parsed[1], '0', context);
+                context.cond.instr = instr;
             },
             wdr: function() {
                 return Base.instructions.macro('CLEAR_WATCHDOG', null, '#define CLEAR_WATCHDOG __asm(wdr)');
@@ -416,7 +474,8 @@ module.exports = (function() {
             return {
                 cond: {
                     a: null,
-                    b: null
+                    b: null,
+                    instr: null
                 },
                 returns: null
             }
