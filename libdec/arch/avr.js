@@ -19,10 +19,43 @@ module.exports = (function() {
 
     var Base = require('libdec/arch/base');
     const AVR_MEM_BITS = 16;
+    const AVR_X_MACRONAME = 'MEM_X';
+    const AVR_Y_MACRONAME = 'MEM_Y';
+    const AVR_Z_MACRONAME = 'MEM_Z';
+    const AVR_X_MACRO = '#define ' + AVR_X_MACRONAME + ' ((uint16_t*)((r27 << 8) | r26))';
+    const AVR_Y_MACRO = '#define ' + AVR_Y_MACRONAME + ' ((uint16_t*)((r29 << 8) | r28))';
+    const AVR_Z_MACRO = '#define ' + AVR_Z_MACRONAME + ' ((uint16_t*)((r31 << 8) | r30))';
+    const AVR_MEMORY = {
+        'x': {
+            name: AVR_X_MACRONAME,
+            macro: AVR_X_MACRO,
+            high: 'r27',
+            low: 'r26'
+        },
+        'y': {
+            name: AVR_Y_MACRONAME,
+            macro: AVR_Y_MACRO,
+            high: 'r29',
+            low: 'r28'
+        },
+        'z': {
+            name: AVR_Z_MACRONAME,
+            macro: AVR_Z_MACRO,
+            high: 'r31',
+            low: 'r30'
+        }
+    };
 
-    var _store = function(instr, bits) {
-
-    }
+    var _to_16bit = function(high, low) {
+        if ((high == '0x00' || high == '0') && (low == '0x00' || low == '0')) {
+            return '0';
+        } else if (low == '0x00' || low == '0') {
+            return '(' + high + ' << 8)';
+        } else if (high == '0x00' || high == '0') {
+            return low;
+        }
+        return '(' + low + ' | (' + high + ' << 8))';
+    };
 
     var _common_math = function(instr, op) {
         var e = instr.parsed;
@@ -35,8 +68,8 @@ module.exports = (function() {
     };
 
     var _compare_values = function(a1, b1, a2, b2, context) {
-        context.cond.a = '(' + a1 + ' | (' + a2 + ' << 8))';
-        context.cond.b = '(' + b1 + ' | (' + b2 + ' << 8))';
+        context.cond.a = _to_16bit(a2, a1);
+        context.cond.b = _to_16bit(b2, b1);
     };
 
     var _compare_bytes = function(a, b, context) {
@@ -65,12 +98,22 @@ module.exports = (function() {
                 return _common_math(instr, Base.instructions.add);
             },
             adiw: function(instr, context) {
+                var b = instr.parsed[2];
                 var a1 = instr.parsed[1];
                 var a2 = _next_register(instr.parsed[1]);
-                var b = instr.parsed[2];
                 _compare_values(a1, b, a2, b, context);
-                var op1 = Base.instructions.add(a1, a1, b);
-                var op2 = Base.instructions.add(a2, a2, b);
+                if (b == '0x00' || b == '0') {
+                    return Base.instructions.nop();
+                }
+                var op1 = null;
+                var op2 = null;
+                if (b == '0x01' || b == '1') {
+                    op1 = Base.instructions.increase(a1, '1');
+                    op2 = Base.instructions.increase(a2, '1');
+                } else {
+                    op1 = Base.instructions.add(a1, a1, b);
+                    op2 = Base.instructions.add(a2, a2, b);
+                }
                 return Base.composed([op1, op2]);
             },
             and: function(instr, context) {
@@ -97,6 +140,10 @@ module.exports = (function() {
                 _conditional(instr, context, 'GE');
                 return Base.instructions.nop();
             },
+            breq: function(instr, context) {
+                _conditional(instr, context, 'NE');
+                return Base.instructions.nop();
+            },
             brne: function(instr, context) {
                 _conditional(instr, context, 'EQ');
                 return Base.instructions.nop();
@@ -113,7 +160,7 @@ module.exports = (function() {
                 return Base.instructions.call(instr.parsed[1], [], false, null, null);
             },
             cli: function(instr) {
-                return Base.instructions.macro('DISABLE_INTERRUPTS', null, '#define SREG_SET_BIT __asm(cli)');
+                return Base.instructions.macro('DISABLE_INTERRUPTS', null, '#define DISABLE_INTERRUPTS __asm(cli)');
             },
             clr: function(instr) {
                 return Base.instructions.assign(instr.parsed[1], '0');
@@ -131,15 +178,85 @@ module.exports = (function() {
                 }
                 return Base.instructions.nop();
             },
+            dec: function(instr) {
+                return Base.instructions.decrease(instr.parsed[1], '1');
+            },
             eor: function(instr, context) {
                 return _common_math(instr, Base.instructions.xor);
+            },
+            icall: function(instr, context) {
+                instr.invalidate_jump();
+                //name, args, is_pointer, returns, bits
+                var op = Base.instructions.call(AVR_MEMORY.z.name, [], true);
+                Base.add_macro(op, AVR_MEMORY.z.macro);
+                return op;
+            },
+            ijmp: function(instr, context) {
+                instr.invalidate_jump();
+                var op = Base.instructions.goto(AVR_MEMORY.z.name);
+                Base.add_macro(op, AVR_MEMORY.z.macro);
+                return op;
             },
             in: function(instr) {
                 var e = instr.parsed;
                 return Base.instructions.macro('READ_FROM_IO', ' (' + e[1] + ', ' + e[2] + ')', '#define READ_FROM_IO(x,y) __asm(in (x), (y))');
             },
+            inc: function(instr) {
+                return Base.instructions.increase(instr.parsed[1], '1');
+            },
             iret: function(instr) {
                 return Base.instructions.macro('RETURN_FROM_INTERRUPT', null, '#define RETURN_FROM_INTERRUPT __asm(iret)');
+            },
+            ld: function(instr) {
+                var ptr = instr.parsed[2];
+                if (ptr.indexOf('-') >= 0) {
+                    ptr = ptr.replace('-', '');
+                    //pointer, register, bits, is_signed
+                    var m = [
+                        Base.instructions.read_memory(AVR_MEMORY[ptr].name, instr.parsed[1], 8, false),
+                        Base.instructions.subtract(AVR_MEMORY[ptr].high, AVR_MEMORY[ptr].high, 1),
+                        Base.instructions.subtract(AVR_MEMORY[ptr].low, AVR_MEMORY[ptr].low, 1)
+                    ];
+                    var op = Base.composed(m);
+                    Base.add_macro(op, AVR_MEMORY[ptr].macro);
+                    return op;
+                } else if (ptr.indexOf('+') >= 0) {
+                    ptr = ptr.replace('+', '');
+                    //pointer, register, bits, is_signed
+                    var m = [
+                        Base.instructions.read_memory(AVR_MEMORY[ptr].name, instr.parsed[1], 8, false),
+                        Base.instructions.add(AVR_MEMORY[ptr].high, AVR_MEMORY[ptr].high, 1),
+                        Base.instructions.add(AVR_MEMORY[ptr].low, AVR_MEMORY[ptr].low, 1)
+                    ];
+                    var op = Base.composed(m);
+                    Base.add_macro(op, AVR_MEMORY[ptr].macro);
+                    return op;
+                }
+                //pointer, register, bits, is_signed
+                var op = Base.instructions.read_memory(AVR_MEMORY[ptr].name, instr.parsed[1], 8, false);
+                Base.add_macro(op, AVR_MEMORY[ptr].macro);
+                return op;
+            },
+            ldd: function(instr) {
+                var ptr = instr.parsed[2].match(/([xyz]|[\+\-0-9]+)/g);
+                var offset = ptr[1].replace(/(\-)/, ' - ').replace(/(\+)/, ' + ');
+                //pointer, register, bits, is_signed
+                var op = Base.instructions.read_memory(AVR_MEMORY[ptr[0]].name + offset, instr.parsed[1], 8, false);
+                Base.add_macro(op, AVR_MEMORY[ptr[0]].macro);
+                return op;
+            },
+            ldi: function(instr) {
+                return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
+            },
+            lds: function(instr) {
+                //pointer, register, bits, is_signed
+                return Base.instructions.read_memory(instr.parsed[2], instr.parsed[1], 8, false);
+            },
+            lsl: function(instr) {
+                return Base.instructions.shift_left(instr.parsed[1], instr.parsed[1], '1');
+            },
+            lsr: function(instr) {
+                return Base.instructions.shift_right(instr.parsed[1], instr.parsed[1], '1');
             },
             mov: function(instr) {
                 return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
@@ -188,6 +305,12 @@ module.exports = (function() {
             rjmp: function() {
                 return Base.instructions.nop();
             },
+            rol: function(instr) {
+                return Base.instructions.rotate_left(instr.parsed[1], instr.parsed[1], '1', 8);
+            },
+            ror: function(instr) {
+                return Base.instructions.rotate_right(instr.parsed[1], instr.parsed[1], '1', 8);
+            },
             sbc: function(instr, context) {
                 _compare(instr.parsed[1], instr.parsed[2], context);
                 return _common_math(instr, Base.instructions.subtract);
@@ -197,13 +320,68 @@ module.exports = (function() {
                 return _common_math(instr, Base.instructions.subtract);
             },
             sbiw: function(instr, context) {
+                var b = instr.parsed[2];
                 var a1 = instr.parsed[1];
                 var a2 = _next_register(instr.parsed[1]);
-                var b = instr.parsed[2];
                 _compare_values(a1, b, a2, b, context);
-                var op1 = Base.instructions.subtract(a1, a1, b);
-                var op2 = Base.instructions.subtract(a2, a2, b);
+                if (b == '0x00' || b == '0') {
+                    return Base.instructions.nop();
+                }
+                var op1 = null;
+                var op2 = null;
+                if (b == '0x01' || b == '1') {
+                    op1 = Base.instructions.decrease(a1, '1');
+                    op2 = Base.instructions.decrease(a2, '1');
+                } else {
+                    op1 = Base.instructions.subtract(a1, a1, b);
+                    op2 = Base.instructions.subtract(a2, a2, b);
+                }
                 return Base.composed([op1, op2]);
+            },
+            sei: function() {
+                return Base.instructions.macro('ENABLE_INTERRUPTS', null, '#define ENABLE_INTERRUPTS __asm(sei)');
+            },
+            st: function(instr) {
+                var ptr = instr.parsed[1];
+                if (ptr.indexOf('-') >= 0) {
+                    ptr = ptr.replace('-', '');
+                    //pointer, register, bits, is_signed
+                    var m = [
+                        Base.instructions.write_memory(AVR_MEMORY[ptr].name, instr.parsed[2], 8, false),
+                        Base.instructions.subtract(AVR_MEMORY[ptr].high, AVR_MEMORY[ptr].high, 1),
+                        Base.instructions.subtract(AVR_MEMORY[ptr].low, AVR_MEMORY[ptr].low, 1)
+                    ];
+                    var op = Base.composed(m);
+                    Base.add_macro(op, AVR_MEMORY[ptr].macro);
+                    return op;
+                } else if (ptr.indexOf('+') >= 0) {
+                    ptr = ptr.replace('+', '');
+                    //pointer, register, bits, is_signed
+                    var m = [
+                        Base.instructions.write_memory(AVR_MEMORY[ptr].name, instr.parsed[2], 8, false),
+                        Base.instructions.add(AVR_MEMORY[ptr].high, AVR_MEMORY[ptr].high, 1),
+                        Base.instructions.add(AVR_MEMORY[ptr].low, AVR_MEMORY[ptr].low, 1)
+                    ];
+                    var op = Base.composed(m);
+                    Base.add_macro(op, AVR_MEMORY[ptr].macro);
+                    return op;
+                }
+                //pointer, register, bits, is_signed
+                var op = Base.instructions.write_memory(AVR_MEMORY[ptr].name, instr.parsed[2], 8, false);
+                Base.add_macro(op, AVR_MEMORY[ptr].macro);
+                return op;
+            },
+            std: function(instr) {
+                var ptr = instr.parsed[1].match(/([xyz]|[\+\-0-9]+)/g);
+                var offset = ptr[1].replace(/(\-)/, ' - ').replace(/(\+)/, ' + ');
+                //pointer, register, bits, is_signed
+                var op = Base.instructions.write_memory(AVR_MEMORY[ptr[0]].name + offset, instr.parsed[2], 8, false);
+                Base.add_macro(op, AVR_MEMORY[ptr[0]].macro);
+                return op;
+            },
+            sts: function(instr) {
+                //pointer, register, bits, is_signed
+                return Base.instructions.write_memory(instr.parsed[1], instr.parsed[2], 8, false);
             },
             sub: function(instr, context) {
                 _compare(instr.parsed[1], instr.parsed[2], context);
@@ -211,6 +389,9 @@ module.exports = (function() {
             },
             subi: function(instr, context) {
                 _compare(instr.parsed[1], instr.parsed[2], context);
+                if (instr.parsed[2] == '0x00' || instr.parsed[2] == '0') {
+                    return Base.instructions.nop();
+                }
                 return _common_math(instr, Base.instructions.subtract);
             },
             tst: function(instr, context) {

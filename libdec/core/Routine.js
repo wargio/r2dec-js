@@ -19,13 +19,12 @@ module.exports = (function() {
     var cfg = require('libdec/config');
     var Flow = require('libdec/core/Flow');
     var Scope = require('libdec/core/Scope');
-    var Printable = require('./libdec/printable');
-
-    var _padding = '                                                                                                    ';
+    var Printable = require('libdec/printable');
 
     var _print_deps = function(p, instructions, options, spacesize) {
         var color = options.color;
         var macros = [];
+        var codesname = [];
         var codes = [];
         if (options.casts) {
             macros.push('#include <stdint.h>');
@@ -40,8 +39,9 @@ module.exports = (function() {
                 }
             }
             for (var j = 0; j < instructions[i].pseudo.deps.code.length; j++) {
-                if (codes.indexOf(instructions[i].pseudo.deps.code[j]) < 0) {
+                if (codesname.indexOf(instructions[i].pseudo.deps.code[j].toString()) < 0) {
                     codes.push(instructions[i].pseudo.deps.code[j]);
+                    codesname.push(instructions[i].pseudo.deps.code[j].toString())
                 }
             }
         }
@@ -54,7 +54,10 @@ module.exports = (function() {
             }
             printable.appendSpacedPipe(spacesize);
         }
+        printable.print(p, options);
+        printable.clean();
         for (var i = 0; i < codes.length; i++) {
+            printable.appendEndline();
             printable.appendPrintable(codes[i].printable(spacesize));
         }
         printable.print(p, options);
@@ -83,10 +86,6 @@ module.exports = (function() {
         return max + 1;
     };
 
-    var _resize_pad = function(maxpad) {
-        return _padding.substr(0, maxpad) + ' | ';
-    }
-
     /*
      * Expects name and instructions as input.
      */
@@ -102,6 +101,8 @@ module.exports = (function() {
             var ident = cfg.ident;
             var paddingsize = options.assembly ? _max_pad(instructions) : 0;
             var line = new Printable();
+            line.appendEndline();
+            line.appendSpacedPipe(paddingsize);
             if (options.assembly) {
                 var legenda2 = '    ; assembly';
                 var legenda1 = '/* r2dec pseudo C output */'

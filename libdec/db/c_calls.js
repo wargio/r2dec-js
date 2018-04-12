@@ -21,7 +21,6 @@ module.exports = (function() {
 
     var _printify = function(bits, name, returns, args, data, spacesize) {
         var p = new Printable();
-        p.appendEndline();
         p.appendSpacedPipe(spacesize);
         p.appendTypes(returns.replace(/###/g, bits.toString()));
         p.append(' ');
@@ -36,7 +35,6 @@ module.exports = (function() {
         }
         p.appendSpacedPipe(spacesize);
         p.append('}\n');
-        p.appendSpacedPipe(spacesize);
         return p;
     }
 
@@ -56,6 +54,9 @@ module.exports = (function() {
                 this.printable = function(spacesize) {
                     return _printify(this.bits, this.name, this.returns, this.args, this.data, spacesize);
                 };
+                this.toString = function(){
+                    return this.name.replace(/###/g, this.bits.toString());
+                }
             }
         },
         rotate_right: {
@@ -73,10 +74,16 @@ module.exports = (function() {
                 this.printable = function(spacesize) {
                     return _printify(this.bits, this.name, this.returns, this.args, this.data, spacesize);
                 };
+                this.toString = function(){
+                    return this.name.replace(/###/g, this.bits.toString());
+                }
             }
         },
         bit_mask: {
-            macros: ['#include <limits.h>', '#define BIT_MASK(__TYPE__, __ONE_COUNT__) \\\n    ((__TYPE__) (-((__ONE_COUNT__) != 0))) \\\n    & (((__TYPE__) -1) >> ((sizeof(__TYPE__) * CHAR_BIT) - (__ONE_COUNT__)))'],
+            macros: [
+                '#include <limits.h>',
+                '#define BIT_MASK(t,v) ((t)(-((v)!= 0)))&(((t)-1)>>((sizeof(t)*CHAR_BIT)-(v)))'
+            ],
             fcn: null
         }
     };

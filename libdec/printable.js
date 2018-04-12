@@ -225,6 +225,7 @@
             this.data.push(new uObject(x));
         };
         this.appendEndline = function() {
+            //console.log((new Error('l')).stack)
             this.data.push(new uString('\n'));
         };
         this.appendPipe = function() {
@@ -264,7 +265,7 @@
             if (options.html) {
                 p(s + '</br>');
             } else {
-                p(s);
+                p(s.replace(/\s+$/,''));
             }
         };
     };

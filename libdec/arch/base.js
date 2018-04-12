@@ -98,6 +98,18 @@ module.exports = (function() {
         };
     };
 
+    var _common_math_opt = function(op, destination) {
+        this.op = op;
+        this.dst = _is_str_or_num(destination) ? new _bits_argument(destination, false, false, false) : destination;
+        this.printable = function(p) {
+                this.dst.printable(p);
+                p.append(this.op);
+        };
+        this.toString = function() {
+            return this.dst.toString() + this.op;
+        };
+    };
+
     var _common_math = function(op, destination, source_a, source_b) {
         this.op = op;
         this.dst = _is_str_or_num(destination) ? new _bits_argument(destination, false, false, false) : destination;
@@ -457,13 +469,15 @@ module.exports = (function() {
                 return (options && options.color ? options.color.text(this.value) : this.value);
             };
         },
-        macro: function(value) {
+        macro: function(value, extra) {
             this.value = value;
+            this.extra = extra;
             this.printable = function(p) {
                 p.appendMacro(this.value);
+                p.appendColorize(this.extra);
             };
             this.toString = function(options) {
-                return (options && options.color ? options.color.macro(this.value) : this.value);
+                return this.value + (this.extra ? this.extra : '');
             };
         },
         add_macro: function(op, macro) {
@@ -493,9 +507,15 @@ module.exports = (function() {
         },
         instructions: {
             increase: function(destination, source) {
+                if (source == '1') {
+                    return new _pseudocode(new _common_math_opt('++', destination));
+                }
                 return new _pseudocode(new _common_math('+', destination, destination, source));
             },
             decrease: function(destination, source) {
+                if (source == '1') {
+                    return new _pseudocode(new _common_math_opt('--', destination));
+                }
                 return new _pseudocode(new _common_math('-', destination, destination, source));
             },
             conditional_assign: function(destination, source_a, source_b, cond, src_true, src_false) {
