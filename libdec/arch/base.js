@@ -102,8 +102,8 @@ module.exports = (function() {
         this.op = op;
         this.dst = _is_str_or_num(destination) ? new _bits_argument(destination, false, false, false) : destination;
         this.printable = function(p) {
-                this.dst.printable(p);
-                p.append(this.op);
+            this.dst.printable(p);
+            p.append(this.op);
         };
         this.toString = function() {
             return this.dst.toString() + this.op;
@@ -533,6 +533,7 @@ module.exports = (function() {
             goto: function(address) {
                 if (typeof address != 'string') {
                     address = '0x' + address.toString(16);
+                    return _base.instructions.call(address, [], true, null, null);
                 }
                 return new _pseudocode(new _common_goto(address));
             },

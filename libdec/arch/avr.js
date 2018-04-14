@@ -45,6 +45,7 @@ module.exports = (function() {
             low: 'r30'
         }
     };
+    var AVR_CTR = 0;
 
     var _to_16bit = function(high, low) {
         if ((high == '0x00' || high == '0') && (low == '0x00' || low == '0')) {
@@ -90,19 +91,41 @@ module.exports = (function() {
         return 'r' + num;
     };
 
+    var _returns_r0 = function(instr, context, inverted) {
+        if (inverted && instr.parsed[2] == 'r0') {
+            context.returns = 'r0';
+        } else if (!inverted && instr.parsed[1] == 'r0') {
+            context.returns = 'r0';
+        }
+    };
+
+    var _conditional_next = function(instr, context, instructions, type) {
+        instr.conditional(context.cond.a, context.cond.b, type);
+        var next = instructions[instructions.indexOf(instr) + 1];
+        if (next) {
+            instr.jump = next.loc;
+        }
+        if (context.cond.instr) {
+            context.cond.instr.valid = false;
+        }
+    };
+
     return {
         instructions: {
             adc: function(instr, context) {
+                _returns_r0(instr, context);
                 _compare(instr.parsed[1], instr.parsed[2], context);
                 context.cond.instr = instr;
                 return _common_math(instr, Base.instructions.add);
             },
             add: function(instr, context) {
+                _returns_r0(instr, context);
                 _compare(instr.parsed[1], instr.parsed[2], context);
                 context.cond.instr = instr;
                 return _common_math(instr, Base.instructions.add);
             },
             adiw: function(instr, context) {
+                _returns_r0(instr, context);
                 var b = instr.parsed[2];
                 var a1 = instr.parsed[1];
                 var a2 = _next_register(instr.parsed[1]);
@@ -123,15 +146,19 @@ module.exports = (function() {
                 return Base.composed([op1, op2]);
             },
             and: function(instr, context) {
+                _returns_r0(instr, context);
                 return _common_math(instr, Base.instructions.and);
             },
             andi: function(instr, context) {
+                _returns_r0(instr, context);
                 return _common_math(instr, Base.instructions.and);
             },
-            asr: function(instr) {
+            asr: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.shift_right(instr.parsed[1], instr.parsed[1], '1');
             },
             brbc: function(instr, context) {
+                _returns_r0(instr, context);
                 var old_b = context.cond.b;
                 context.cond.b = '0';
                 _conditional(instr, context, 'NE');
@@ -139,6 +166,7 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             brbs: function(instr, context) {
+                _returns_r0(instr, context);
                 var old_b = context.cond.b;
                 context.cond.b = '(1 << ' + instr.parsed[1] + ')';
                 _conditional(instr, context, 'NE');
@@ -146,45 +174,56 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             brcc: function(instr, context) {
+                _returns_r0(instr, context);
                 _conditional(instr, context, 'LT');
                 return Base.instructions.nop();
             },
             brcs: function(instr, context) {
+                _returns_r0(instr, context);
                 _conditional(instr, context, 'GE');
                 return Base.instructions.nop();
             },
             breq: function(instr, context) {
+                _returns_r0(instr, context);
                 _conditional(instr, context, 'NE');
                 return Base.instructions.nop();
             },
             brlo: function(instr, context) {
+                _returns_r0(instr, context);
                 _conditional(instr, context, 'GE');
                 return Base.instructions.nop();
             },
             brlt: function(instr, context) {
+                _returns_r0(instr, context);
                 _conditional(instr, context, 'GE');
                 return Base.instructions.nop();
             },
             brmi: function(instr, context) {
+                _returns_r0(instr, context);
                 _conditional(instr, context, 'GE');
                 return Base.instructions.nop();
             },
             brne: function(instr, context) {
+                _returns_r0(instr, context);
                 _conditional(instr, context, 'EQ');
                 return Base.instructions.nop();
             },
             brpl: function(instr, context) {
+                _returns_r0(instr, context);
                 _conditional(instr, context, 'LE');
                 return Base.instructions.nop();
             },
-            brsh: function(instr) {
+            brsh: function(instr, context) {
+                _returns_r0(instr, context);
                 _conditional(instr, context, 'GT');
                 return Base.instructions.nop();
             },
-            bset: function(instr) {
+            bset: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.macro('SREG_SET_BIT', ' (' + instr.parsed[1] + ')', '#define SREG_SET_BIT(x) __asm(bset (x))');
             },
             call: function(instr, context) {
+                _returns_r0(instr, context);
                 instr.invalidate_jump();
                 //name, args, is_pointer, returns, bits
                 if (instr.parsed[1].indexOf('0x') == 0) {
@@ -192,16 +231,18 @@ module.exports = (function() {
                 }
                 return Base.instructions.call(instr.parsed[1], [], false, null, null);
             },
-            cli: function(instr) {
+            cli: function() {
                 return Base.instructions.macro('DISABLE_INTERRUPTS', null, '#define DISABLE_INTERRUPTS __asm(cli)');
             },
-            clr: function(instr) {
+            clr: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.assign(instr.parsed[1], '0');
             },
             clt: function() {
                 return Base.instructions.macro('CLEAR_TRANSFER_FLAG', null, '#define CLEAR_TRANSFER_FLAG __asm(clt)');
             },
-            com: function(instr) {
+            com: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.subtract(instr.parsed[1], '0xff', instr.parsed[1]);
             },
             cp: function(instr, context) {
@@ -225,14 +266,17 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             dec: function(instr, context) {
+                _returns_r0(instr, context);
                 _compare('--' + instr.parsed[1], '0', context);
                 context.cond.instr = instr;
                 return Base.instructions.decrease(instr.parsed[1], '1');
             },
             eor: function(instr, context) {
+                _returns_r0(instr, context);
                 return _common_math(instr, Base.instructions.xor);
             },
             icall: function(instr, context) {
+                _returns_r0(instr, context);
                 instr.invalidate_jump();
                 //name, args, is_pointer, returns, bits
                 var op = Base.instructions.call(AVR_MEMORY.z.name, [], true);
@@ -240,24 +284,28 @@ module.exports = (function() {
                 return op;
             },
             ijmp: function(instr, context) {
+                _returns_r0(instr, context);
                 instr.invalidate_jump();
                 var op = Base.instructions.goto(AVR_MEMORY.z.name);
                 Base.add_macro(op, AVR_MEMORY.z.macro);
                 return op;
             },
-            in: function(instr) {
+            in: function(instr, context) {
+                _returns_r0(instr, context);
                 var e = instr.parsed;
                 return Base.instructions.macro('READ_FROM_IO', ' (' + e[2] + ', ' + e[1] + ')', '#define READ_FROM_IO(x,y) __asm(in (y), (x))');
             },
             inc: function(instr, context) {
+                _returns_r0(instr, context);
                 _compare('++' + instr.parsed[1], '0', context);
                 context.cond.instr = instr;
                 return Base.instructions.increase(instr.parsed[1], '1');
             },
-            iret: function(instr) {
+            iret: function() {
                 return Base.instructions.macro('RETURN_FROM_INTERRUPT', null, '#define RETURN_FROM_INTERRUPT __asm(iret)');
             },
-            ld: function(instr) {
+            ld: function(instr, context) {
+                _returns_r0(instr, context);
                 var ptr = instr.parsed[2];
                 if (ptr.indexOf('-') >= 0) {
                     ptr = ptr.replace('-', '');
@@ -287,7 +335,8 @@ module.exports = (function() {
                 Base.add_macro(op, AVR_MEMORY[ptr].macro);
                 return op;
             },
-            ldd: function(instr) {
+            ldd: function(instr, context) {
+                _returns_r0(instr, context);
                 var ptr = instr.parsed[2].match(/([xyz]|[\+\-0-9]+)/g);
                 var offset = ptr[1].replace(/(\-)/, ' - ').replace(/(\+)/, ' + ');
                 //pointer, register, bits, is_signed
@@ -295,23 +344,29 @@ module.exports = (function() {
                 Base.add_macro(op, AVR_MEMORY[ptr[0]].macro);
                 return op;
             },
-            ldi: function(instr) {
+            ldi: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
             },
-            lds: function(instr) {
+            lds: function(instr, context) {
+                _returns_r0(instr, context);
                 //pointer, register, bits, is_signed
                 return Base.instructions.read_memory(instr.parsed[2], instr.parsed[1], 8, false);
             },
-            lsl: function(instr) {
+            lsl: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.shift_left(instr.parsed[1], instr.parsed[1], '1');
             },
-            lsr: function(instr) {
+            lsr: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.shift_right(instr.parsed[1], instr.parsed[1], '1');
             },
-            mov: function(instr) {
+            mov: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
             },
             movw: function(instr, context) {
+                _returns_r0(instr, context);
                 var a1 = instr.parsed[1];
                 var a2 = _next_register(instr.parsed[1]);
                 var b1 = instr.parsed[2];
@@ -320,26 +375,69 @@ module.exports = (function() {
                 var op2 = Base.instructions.assign(a2, b2);
                 return Base.composed([op1, op2]);
             },
+            mul: function(instr, context) {
+                context.returns = 'r0';
+                var name = 'value' + (++AVR_CTR);
+                var ops = [];
+                ops.push(Base.instructions.multiply('uint16_t ' + name, instr.parsed[1], instr.parsed[2]));
+                ops.push(Base.instructions.assign('r0', '(' + name + ' & 0xFF)'));
+                ops.push(Base.instructions.assign('r1', '(' + name + ' >> 8)'));
+                return Base.composed(ops);
+            },
+            muls: function(instr, context) {
+                context.returns = 'r0';
+                var name = 'value' + (++AVR_CTR);
+                var ops = [];
+                ops.push(Base.instructions.multiply('int16_t ' + name, instr.parsed[1], instr.parsed[2]));
+                ops.push(Base.instructions.assign('r0', '(' + name + ' & 0xFF)'));
+                ops.push(Base.instructions.assign('r1', '(' + name + ' >> 8)'));
+                return Base.composed(ops);
+            },
+            mulsu: function(instr, context) {
+                context.returns = 'r0';
+                var name = 'value' + (++AVR_CTR);
+                var ops = [];
+                ops.push(Base.instructions.multiply('uint16_t ' + name, instr.parsed[1], instr.parsed[2]));
+                ops.push(Base.instructions.assign('r0', '(' + name + ' & 0xFF)'));
+                ops.push(Base.instructions.assign('r1', '(' + name + ' >> 8)'));
+                return Base.composed(ops);
+            },
+            neg: function(instr, context) {
+                _returns_r0(instr, context);
+                return Base.instructions.negate(instr.parsed[1], instr.parsed[1]);
+            },
             nop: function() {
                 return Base.instructions.nop();
             },
+            not: function(instr, context) {
+                _returns_r0(instr, context);
+                return Base.instructions.not(instr.parsed[1], instr.parsed[1]);
+            },
             or: function(instr, context) {
+                _returns_r0(instr, context);
                 return _common_math(instr, Base.instructions.or);
             },
             ori: function(instr, context) {
+                _returns_r0(instr, context);
                 return _common_math(instr, Base.instructions.or);
             },
-            out: function(instr) {
+            out: function(instr, context) {
+                _returns_r0(instr, context, true);
                 var e = instr.parsed;
                 return Base.instructions.macro('WRITE_TO_IO', ' (' + e[1] + ', ' + e[2] + ')', '#define WRITE_TO_IO(x,y) __asm(in (x), (y))');
             },
-            pop: function(instr) {
+            pop: function(instr, context) {
+                if (instr.parsed[1] == 'r0') {
+                    // if pops an r0, then the return value is void.
+                    context.returns = null;
+                }
                 return Base.instructions.nop();
             },
-            push: function(instr) {
+            push: function(instr, context) {
                 return Base.instructions.nop();
             },
             rcall: function(instr, context) {
+                _returns_r0(instr, context);
                 var name = instr.parsed[1];
                 /*
                 if (name.indexOf('0x') == 0) {
@@ -350,30 +448,40 @@ module.exports = (function() {
                 return Base.instructions.call(name, [], true, null, AVR_MEM_BITS);
             },
             ret: function(instr, context) {
+                _returns_r0(instr, context);
                 // returns r1:r0
                 // but if pop r0 then return void.
                 return Base.instructions.return(context.returns);
             },
-            rjmp: function() {
+            reti: function() {
+                return Base.instructions.macro('RETURN_FROM_INTERRUPT', null, '#define RETURN_FROM_INTERRUPT __asm(reti)');
+            },
+            rjmp: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.nop();
             },
-            rol: function(instr) {
+            rol: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.rotate_left(instr.parsed[1], instr.parsed[1], '1', 8);
             },
-            ror: function(instr) {
+            ror: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.rotate_right(instr.parsed[1], instr.parsed[1], '1', 8);
             },
             sbc: function(instr, context) {
+                _returns_r0(instr, context);
                 _compare(instr.parsed[1], instr.parsed[2], context);
                 context.cond.instr = instr;
                 return _common_math(instr, Base.instructions.subtract);
             },
             sbci: function(instr, context) {
+                _returns_r0(instr, context);
                 _compare(instr.parsed[1], instr.parsed[2], context);
                 context.cond.instr = instr;
                 return _common_math(instr, Base.instructions.subtract);
             },
             sbiw: function(instr, context) {
+                _returns_r0(instr, context);
                 var b = instr.parsed[2];
                 var a1 = instr.parsed[1];
                 var a2 = _next_register(instr.parsed[1]);
@@ -393,16 +501,33 @@ module.exports = (function() {
                 }
                 return Base.composed([op1, op2]);
             },
+            sbr: function(instr, context) {
+                _returns_r0(instr, context);
+                return Base.instructions.or(instr.parsed[1], instr.parsed[2]);
+            },
+            sbrc: function(instr, context, instructions) {
+                var next = instructions[instructions.indexOf(instr) + 1];
+                if (next) {
+                    _compare('(' + instr.parsed[1] + ' & (1 << ' + instr.parsed[2] + '))', '0', context);
+                    context.cond.instr = instr;
+                    _conditional_next(next, context, instructions, 'EQ');
+                    return Base.instructions.or(instr.parsed[1], instr.parsed[2]);
+                }
+                return Base.instructions.nop();
+            },
             sei: function() {
                 return Base.instructions.macro('ENABLE_INTERRUPTS', null, '#define ENABLE_INTERRUPTS __asm(sei)');
             },
-            ser: function(instr) {
+            ser: function(instr, context) {
+                _returns_r0(instr, context);
                 return Base.instructions.assign(instr.parsed[1], '0xff');
             },
             set: function() {
+                _returns_r0(instr, context);
                 return Base.instructions.macro('SET_TRANSFER_FLAG', null, '#define SET_TRANSFER_FLAG __asm(set)');
             },
-            st: function(instr) {
+            st: function(instr, context) {
+                _returns_r0(instr, context);
                 var ptr = instr.parsed[1];
                 if (ptr.indexOf('-') >= 0) {
                     ptr = ptr.replace('-', '');
@@ -432,7 +557,8 @@ module.exports = (function() {
                 Base.add_macro(op, AVR_MEMORY[ptr].macro);
                 return op;
             },
-            std: function(instr) {
+            std: function(instr, context) {
+                _returns_r0(instr, context);
                 var ptr = instr.parsed[1].match(/([xyz]|[\+\-0-9]+)/g);
                 var offset = ptr[1].replace(/(\-)/, ' - ').replace(/(\+)/, ' + ');
                 //pointer, register, bits, is_signed
@@ -440,16 +566,19 @@ module.exports = (function() {
                 Base.add_macro(op, AVR_MEMORY[ptr[0]].macro);
                 return op;
             },
-            sts: function(instr) {
+            sts: function(instr, context) {
+                _returns_r0(instr, context);
                 //pointer, register, bits, is_signed
                 return Base.instructions.write_memory(instr.parsed[1], instr.parsed[2], 8, false);
             },
             sub: function(instr, context) {
+                _returns_r0(instr, context);
                 _compare(instr.parsed[1], instr.parsed[2], context);
                 context.cond.instr = instr;
                 return _common_math(instr, Base.instructions.subtract);
             },
             subi: function(instr, context) {
+                _returns_r0(instr, context);
                 _compare(instr.parsed[1], instr.parsed[2], context);
                 context.cond.instr = instr;
                 if (instr.parsed[2] == '0x00' || instr.parsed[2] == '0') {
@@ -461,7 +590,7 @@ module.exports = (function() {
                 _compare(instr.parsed[1], '0', context);
                 context.cond.instr = instr;
             },
-            wdr: function() {
+            wdr: function(instr, context) {
                 return Base.instructions.macro('CLEAR_WATCHDOG', null, '#define CLEAR_WATCHDOG __asm(wdr)');
             },
             invalid: function() {
@@ -487,7 +616,7 @@ module.exports = (function() {
             }
         },
         returns: function(context) {
-            return 'void';
+            return context.returns == null ? 'void' : 'uint8_t';
         }
     };
 })();

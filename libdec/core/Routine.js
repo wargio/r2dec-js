@@ -98,7 +98,7 @@ module.exports = (function() {
         this.name = name;
 
         this.print = function(p, options) {
-            var current = this.instructions[0].scope;
+            var current  = new Scope();
             var scopes = [current];
             var ident = cfg.ident;
             var paddingsize = options.assembly ? _max_pad(instructions, this.name.trim()) : 0;
@@ -125,7 +125,6 @@ module.exports = (function() {
             line.appendColorize(this.args.join(', '));
             line.append(') {');
             line.print(p, options);
-
             for (var i = 0; i < this.instructions.length; i++) {
                 line.clean();
                 var instr = this.instructions[i];

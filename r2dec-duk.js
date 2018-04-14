@@ -71,7 +71,8 @@ Duktape.errCreate = function (err) {
     }
     return err;
 };
-r2dec_main = function(args) {
+
+function r2dec_main(args) {
     if (has_invalid_args(args)) {
         args.push('--help');
     }
