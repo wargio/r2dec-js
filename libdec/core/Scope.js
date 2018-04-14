@@ -37,6 +37,7 @@ module.exports = (function() {
                 printable.appendSpacedPipe(spacesize);
                 printable.append(ident);
                 printable.appendPrintable(this.header.printable(spacesize));
+                // printable.appendComment(this.toString()); // debug only
                 printable.appendEndline();
             }
         };
@@ -45,6 +46,7 @@ module.exports = (function() {
                 printable.appendSpacedPipe(spacesize);
                 printable.append(ident);
                 printable.appendPrintable(this.trailer.printable(spacesize));
+                // printable.appendComment(this.toString()); // debug only
                 printable.appendEndline();
             }
         };
@@ -59,7 +61,7 @@ module.exports = (function() {
             }
         };
         this.toString = function() {
-            return this.uid + ' ' + this.level + ' ' + this.header + ' ' + this.trailer;
+            return ' // uid: ' + this.uid + '; level: ' + this.level;
         };
     };
     return Scope;

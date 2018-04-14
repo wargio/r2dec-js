@@ -19,13 +19,12 @@ module.exports = (function() {
     var cfg = require('libdec/config');
     var Flow = require('libdec/core/Flow');
     var Scope = require('libdec/core/Scope');
-    var Printable = require('./libdec/printable');
-
-    var _padding = '                                                                                                    ';
+    var Printable = require('libdec/printable');
 
     var _print_deps = function(p, instructions, options, spacesize) {
         var color = options.color;
         var macros = [];
+        var codesname = [];
         var codes = [];
         if (options.casts) {
             macros.push('#include <stdint.h>');
@@ -40,8 +39,9 @@ module.exports = (function() {
                 }
             }
             for (var j = 0; j < instructions[i].pseudo.deps.code.length; j++) {
-                if (codes.indexOf(instructions[i].pseudo.deps.code[j]) < 0) {
+                if (codesname.indexOf(instructions[i].pseudo.deps.code[j].toString()) < 0) {
                     codes.push(instructions[i].pseudo.deps.code[j]);
+                    codesname.push(instructions[i].pseudo.deps.code[j].toString())
                 }
             }
         }
@@ -54,7 +54,12 @@ module.exports = (function() {
             }
             printable.appendSpacedPipe(spacesize);
         }
+        printable.print(p, options);
+        printable.clean();
         for (var i = 0; i < codes.length; i++) {
+            if (i > 0) {
+                printable.appendEndline();
+            }
             printable.appendPrintable(codes[i].printable(spacesize));
         }
         printable.print(p, options);
@@ -70,8 +75,8 @@ module.exports = (function() {
         return name.replace(cfg.anal.replace, '').replace(/\.|:/g, '_').replace(/__+/g, '_').replace(/^_/, '').replace(/_[0-9a-f]+$/, '');
     }
 
-    var _max_pad = function(instructions) {
-        var max = 0;
+    var _max_pad = function(instructions, name) {
+        var max = name.length;
         for (var i = 0; i < instructions.length; i++) {
             if (instructions[i].assembly.length > max) {
                 max = instructions[i].assembly.length;
@@ -83,10 +88,6 @@ module.exports = (function() {
         return max + 1;
     };
 
-    var _resize_pad = function(maxpad) {
-        return _padding.substr(0, maxpad) + ' | ';
-    }
-
     /*
      * Expects name and instructions as input.
      */
@@ -97,10 +98,10 @@ module.exports = (function() {
         this.name = name;
 
         this.print = function(p, options) {
-            var current = this.instructions[0].scope;
+            var current  = new Scope();
             var scopes = [current];
             var ident = cfg.ident;
-            var paddingsize = options.assembly ? _max_pad(instructions) : 0;
+            var paddingsize = options.assembly ? _max_pad(instructions, this.name.trim()) : 0;
             var line = new Printable();
             if (options.assembly) {
                 var legenda2 = '    ; assembly';
@@ -124,7 +125,6 @@ module.exports = (function() {
             line.appendColorize(this.args.join(', '));
             line.append(') {');
             line.print(p, options);
-
             for (var i = 0; i < this.instructions.length; i++) {
                 line.clean();
                 var instr = this.instructions[i];

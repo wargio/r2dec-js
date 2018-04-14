@@ -959,9 +959,9 @@ rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
             },
             wrteei: function(instr) {
                 if (instr.parsed[1] != '0') {
-                    return Base.instructions.macro('DISABLE_INTERRUPTS', '#define DISABLE_INTERRUPTS __asm(wrteei 0)')
+                    return Base.instructions.macro('DISABLE_INTERRUPTS', null, '#define DISABLE_INTERRUPTS __asm(wrteei 0)')
                 } else if (instr.parsed[1] != '1') {
-                    return Base.instructions.macro('ENABLE_INTERRUPTS', '#define ENABLE_INTERRUPTS __asm(wrteei 1)')
+                    return Base.instructions.macro('ENABLE_INTERRUPTS', null, '#define ENABLE_INTERRUPTS __asm(wrteei 1)')
                 }
                 return Base.instructions.unknown(instr.opcode);
             },

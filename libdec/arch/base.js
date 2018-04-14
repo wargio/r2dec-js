@@ -30,11 +30,11 @@ module.exports = (function() {
     var _pseudocode = function(context, dependencies) {
         this.ctx = context;
         this.deps = dependencies || new _dependency();
-        this.printable = function(p, spacesize) {
+        this.printable = function(p, spacesize, ident) {
             if (typeof this.ctx == 'string') {
                 p.appendColorize(this.ctx);
             } else {
-                this.ctx.printable(p, spacesize);
+                this.ctx.printable(p, spacesize, ident);
             }
         }
         this.toString = function(options) {
@@ -81,7 +81,7 @@ module.exports = (function() {
         return (is_memory ? '*(' : '') + input + (is_memory ? ')' : '');
     }
 
-    _bits_argument = function(value, bits, is_signed, is_pointer, is_memory) {
+    var _bits_argument = function(value, bits, is_signed, is_pointer, is_memory) {
         this.bits = bits;
         this.value = value;
         this.is_signed = is_signed || false;
@@ -95,6 +95,18 @@ module.exports = (function() {
         };
         this.toString = function(options) {
             return _apply_bits(this.value, this.bits, this.is_signed, this.is_pointer, this.is_memory, options);
+        };
+    };
+
+    var _common_math_opt = function(op, destination) {
+        this.op = op;
+        this.dst = _is_str_or_num(destination) ? new _bits_argument(destination, false, false, false) : destination;
+        this.printable = function(p) {
+            this.dst.printable(p);
+            p.append(this.op);
+        };
+        this.toString = function() {
+            return this.dst.toString() + this.op;
         };
     };
 
@@ -348,13 +360,15 @@ module.exports = (function() {
         };
     };
 
-    var _common_macro_c = function(macro) {
+    var _common_macro_c = function(macro, data) {
         this.macro = macro;
+        this.data = data;
         this.printable = function(p) {
             p.appendMacro(this.macro);
+            p.appendColorize(this.data);
         };
         this.toString = function(options) {
-            return this.macro;
+            return this.macro + (this.data ? this.data : '');
         };
     };
 
@@ -371,13 +385,13 @@ module.exports = (function() {
 
     var _composed_extended_op = function(extended) {
         this.extended = extended;
-        this.printable = function(p, spacesize) {
+        this.printable = function(p, spacesize, ident) {
             for (var i = 0; i < this.extended.length; i++) {
                 if (i > 0) {
                     p.append(';');
                     p.appendEndline();
                     p.appendSpacedPipe(spacesize);
-                    p.append(cfg.ident);
+                    p.append(ident);
                 }
                 this.extended[i].printable(p, spacesize);
             }
@@ -469,13 +483,15 @@ module.exports = (function() {
                 return (options && options.color ? options.color.text(this.value) : this.value);
             };
         },
-        macro: function(value) {
+        macro: function(value, extra) {
             this.value = value;
+            this.extra = extra;
             this.printable = function(p) {
                 p.appendMacro(this.value);
+                p.appendColorize(this.extra);
             };
             this.toString = function(options) {
-                return (options && options.color ? options.color.macro(this.value) : this.value);
+                return this.value + (this.extra ? this.extra : '');
             };
         },
         add_macro: function(op, macro) {
@@ -505,9 +521,15 @@ module.exports = (function() {
         },
         instructions: {
             increase: function(destination, source) {
+                if (source == '1') {
+                    return new _pseudocode(new _common_math_opt('++', destination));
+                }
                 return new _pseudocode(new _common_math('+', destination, destination, source));
             },
             decrease: function(destination, source) {
+                if (source == '1') {
+                    return new _pseudocode(new _common_math_opt('--', destination));
+                }
                 return new _pseudocode(new _common_math('-', destination, destination, source));
             },
             conditional_assign: function(destination, source_a, source_b, cond, src_true, src_false) {
@@ -525,6 +547,7 @@ module.exports = (function() {
             goto: function(address) {
                 if (typeof address != 'string') {
                     address = '0x' + address.toString(16);
+                    return _base.instructions.call(address, [], true, null, null);
                 }
                 return new _pseudocode(new _common_goto(address));
             },
@@ -607,8 +630,8 @@ module.exports = (function() {
             push: function(data) {
                 return new _pseudocode(data);
             },
-            macro: function(macro_name, macro) {
-                return new _pseudocode(new _common_macro_c(macro_name), new _dependency([macro], []));
+            macro: function(macro_name, data, macro) {
+                return new _pseudocode(new _common_macro_c(macro_name, data), new _dependency([macro], []));
             },
             special: function(data) {
                 return new _pseudocode(data);

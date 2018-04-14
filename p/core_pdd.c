@@ -76,7 +76,7 @@ static void duk_r2_init(duk_context* ctx) {
 	duk_push_c_function (ctx, duk_r2cmd, 1);
 	duk_put_global_string (ctx, "r2cmd");
 	duk_eval_string_noresult (ctx, "r2cmdj = function(m){var x=r2cmd(m);return x.length > 0 ? libdec.JSON.parse(x) : null;}");
-	duk_eval_string_noresult (ctx, "require = function(x){try{var module={exports:null};eval(___internal_require(x));return module.exports;}catch(ee){console.log(ee.stack);}}");
+	duk_eval_string_noresult (ctx, "require = function(x){try{var module={exports:null};eval(___internal_require(x));return module.exports;}catch(ee){console.log('Exception from ' + x);console.log(ee.stack);}}");
 }
 
 static void duk_eval_file(duk_context* ctx, const char* file) {
