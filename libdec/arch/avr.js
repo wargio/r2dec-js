@@ -80,7 +80,9 @@ module.exports = (function() {
 
     var _conditional = function(instr, context, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
-        context.cond.instr.valid = false;
+        if (context.cond.instr) {
+            context.cond.instr.valid = false;
+        }
     };
 
     var _next_register = function(reg) {
@@ -222,7 +224,9 @@ module.exports = (function() {
                 context.cond.instr = instr;
                 return Base.instructions.nop();
             },
-            dec: function(instr) {
+            dec: function(instr, context) {
+                _compare('--' + instr.parsed[1], '0', context);
+                context.cond.instr = instr;
                 return Base.instructions.decrease(instr.parsed[1], '1');
             },
             eor: function(instr, context) {
@@ -245,7 +249,9 @@ module.exports = (function() {
                 var e = instr.parsed;
                 return Base.instructions.macro('READ_FROM_IO', ' (' + e[2] + ', ' + e[1] + ')', '#define READ_FROM_IO(x,y) __asm(in (y), (x))');
             },
-            inc: function(instr) {
+            inc: function(instr, context) {
+                _compare('++' + instr.parsed[1], '0', context);
+                context.cond.instr = instr;
                 return Base.instructions.increase(instr.parsed[1], '1');
             },
             iret: function(instr) {

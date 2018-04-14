@@ -61,6 +61,7 @@ module.exports = (function() {
         for (var i = 0; i < instructions.length; i++) {
             instr = instructions[i];
             fcn = arch.instructions[instr.parsed[0]];
+            console.log(instr.opcode)
             if (fcn) {
                 instr.pseudo = fcn(instr, context, instructions);
             } else {

@@ -57,6 +57,20 @@ function usage() {
     }
 }
 
+Duktape.errCreate = function (err) {
+    try {
+        if (typeof err === 'object') {
+            var p = {
+                message: '' + err.message,
+                stack: '' + err.stack,
+                lineNumber: '' + err.lineNumber
+            };
+            return p;
+        }
+    } catch (e) {
+    }
+    return err;
+};
 r2dec_main = function(args) {
     if (has_invalid_args(args)) {
         args.push('--help');
@@ -121,7 +135,7 @@ r2dec_main = function(args) {
         }
     } catch (e) {
         if (has_option(args, '--debug')) {
-            console.log('Exception', e);
+            console.log('Exception:', e.stack);
         } else {
             console.log(
                 '\n\nr2dec has crashed.\n' +

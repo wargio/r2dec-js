@@ -17,7 +17,6 @@
 
 module.exports = (function() {
     var Long = require('libdec/long');
-    var base64 = require('./libdec/base64');
     var _colorize = function(input, color) {
         if (!color) return input;
         return color.colorize(input);
@@ -41,7 +40,7 @@ module.exports = (function() {
         this.label = -1;
         this.opcode = op.disasm ? op.disasm : (op.opcode ? op.opcode : 'invalid');
         this.assembly = op.opcode ? op.opcode : 'invalid';
-        this.comments = op.comment ? [base64.atob(op.comment)] : [];
+        this.comments = op.comment ? [new TextDecoder().decode(Duktape.dec('base64', op.comment))] : [];
         this.pseudo = this.opcode; //null;
         this.parsed = null;
         this.valid = true;
