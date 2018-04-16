@@ -17,6 +17,11 @@
 
 module.exports = (function() {
     var Base = require('libdec/arch/base');
+    var PPCCTR = 0;
+
+    function ppc_value() {
+        return 'value' + (PPCCTR++);
+    }
 
     var sprs = {
         SPR_MQ: {
@@ -379,22 +384,23 @@ module.exports = (function() {
         return Base.instructions.rotate_right(e[1], e[1], e[2], bits);
     };
 
-    var mask32 = function(mb, me) {
-        if (mb < me + 1) {
-            var mask = 0;
-            for (var i = mb; i <= me; ++i) {
-                mask |= 1 << (31 - i);
-            }
-            return mask >>> 0;
-        } else if (mb == me + 1) {
-            return 0xFFFFFFFF;
+    function mask32(mb, me) {
+        if (mb == (me + 1)) {
+            return '0xffffffff';
         }
-        var mask_lo = mask32(0, me);
-        var mask_hi = mask32(mb, 31);
-        return (mask_lo | mask_hi) >>> 0;
-    };
+        var maskmb = 0xffffffff >> mb;
+        var maskme = 0xffffffff << (31 - me);
+        return (mb <= me) ? (maskmb & maskme) : (maskmb | maskme);
+    }
+
+    function mask32inv(mb, me) {
+        return (~mask32(mb, me)) & 0xffffffff;
+    }
 
     var mask64 = function(mb, me) {
+        if (mb == (me + 1)) {
+            return '0xffffffffffffffff';
+        }
         if (mb < me + 1) {
             var mask = [0, 0];
             for (var i = mb; i <= me; ++i) {
@@ -507,7 +513,7 @@ module.exports = (function() {
     var _ppc_return = function(instr, context, instructions) {
         var start = instructions.indexOf(instr);
         if (start >= 0) {
-            for (var i = start - 1; i >= start - 4; i--) {
+            for (var i = start - 1; i >= start - 4 && i >= 0 && i < instructions.length; i--) {
                 if (instructions[i].parsed.length < 2) {
                     continue;
                 }
@@ -902,29 +908,44 @@ module.exports = (function() {
             extsw: function(instr) {
                 return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 64);
             },
-            /*
             rlwinm: function(instr) {
-                function _mask32(mb){}
                 var dst = instr.parsed[1];
                 var src = instr.parsed[2];
                 var sh = parseInt(instr.parsed[3]);
                 var mb = parseInt(instr.parsed[4]);
                 var me = parseInt(instr.parsed[5]);
+                var m = (mask32(mb, me) >>> 0).toString(16);
                 if (sh == 0) {
-                    var m = mask32() 
-                    return Base.instructions.and(instr.parsed[1], instr.parsed[1], instr.parsed[4]);
+                    return Base.instructions.and(instr.parsed[1], instr.parsed[1], m);
                 }
-                var rol = Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], instr.parsed[3], 32);
-                var and = Base.instructions.and(instr.parsed[1], instr.parsed[1], instr.parsed[4]);
+                var rol = Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], sh, 32);
+                var and = Base.instructions.and(instr.parsed[1], instr.parsed[1], m);
                 return Base.composed([rol, and]);
             },
-to be redone. this is wrong.
-clrlwi %r0, %r0, 31       # %r0 = %r0 & 1
-rldicr %r10, %r10, 24,39  # %r10 = ((%r10 << 24) | (%r10 >> 40)) & 0xFFFFFFFFFF000000
-rldicl %r4, %r4, 0,48     # %r4 = %r4 & 0xFFFF
-rldicl %r0, %r0, 0,59     # %r0 = %r0 & 0x1F
-rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
-*/
+            rlwimi: function(instr) {
+                var dst = instr.parsed[1];
+                var src = instr.parsed[2];
+                var sh = parseInt(instr.parsed[3]);
+                var mb = parseInt(instr.parsed[4]);
+                var me = parseInt(instr.parsed[5]);
+                var m = (mask32(mb, me) >>> 0).toString(16);
+                var minv = (mask32inv(mb, me) >>> 0).toString(16);
+                var value0 = ppc_value();
+                var value1 = ppc_value();
+                var rol = Base.instructions.rotate_left('uint32_t ' + value0, instr.parsed[2], sh, 32);
+                var and = Base.instructions.and(value0, value0, m);
+                var andinv = Base.instructions.and('uint32_t ' + value1, instr.parsed[1], minv);
+                var or = Base.instructions.or(instr.parsed[1], value1, value0);
+                return Base.composed([rol, and, andinv, or]);
+            },
+            /*
+            to be redone. this is wrong.
+            clrlwi %r0, %r0, 31       # %r0 = %r0 & 1
+            rldicr %r10, %r10, 24,39  # %r10 = ((%r10 << 24) | (%r10 >> 40)) & 0xFFFFFFFFFF000000
+            rldicl %r4, %r4, 0,48     # %r4 = %r4 & 0xFFFF
+            rldicl %r0, %r0, 0,59     # %r0 = %r0 & 0x1F
+            rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
+            */
             rldic: function(instr) {
                 var rol = Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], instr.parsed[3], 64);
                 var and = Base.instructions.and(instr.parsed[1], instr.parsed[1], instr.parsed[4])
