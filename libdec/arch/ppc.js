@@ -521,7 +521,11 @@ module.exports = (function() {
 
     return {
         instructions: {
-            b: function() {
+            b: function(instr, context, instructions) {
+                if (instructions.indexOf(instr) == instructions.length - 1) {
+                    //name, args, is_pointer, returns, bits
+                    return Base.instructions.call(instr.parsed[1], [], instr.parsed[1].indexOf('0x') == 0, 'return');
+                }
                 return Base.instructions.nop();
             },
             'bne': function(instr, context) {
@@ -664,6 +668,9 @@ module.exports = (function() {
             },
             lwz: function(instr) {
                 return load_bits(instr.parsed, 32, false);
+            },
+            lwzu: function(instr) {
+                return load_bits(instr.parsed, 32, true);
             },
             lmw: function(instr) {
                 return load_bits(instr.parsed, 32, true);
@@ -896,6 +903,21 @@ module.exports = (function() {
                 return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 64);
             },
             /*
+            rlwinm: function(instr) {
+                function _mask32(mb){}
+                var dst = instr.parsed[1];
+                var src = instr.parsed[2];
+                var sh = parseInt(instr.parsed[3]);
+                var mb = parseInt(instr.parsed[4]);
+                var me = parseInt(instr.parsed[5]);
+                if (sh == 0) {
+                    var m = mask32() 
+                    return Base.instructions.and(instr.parsed[1], instr.parsed[1], instr.parsed[4]);
+                }
+                var rol = Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], instr.parsed[3], 32);
+                var and = Base.instructions.and(instr.parsed[1], instr.parsed[1], instr.parsed[4]);
+                return Base.composed([rol, and]);
+            },
 to be redone. this is wrong.
 clrlwi %r0, %r0, 31       # %r0 = %r0 & 1
 rldicr %r10, %r10, 24,39  # %r10 = ((%r10 << 24) | (%r10 >> 40)) & 0xFFFFFFFFFF000000
