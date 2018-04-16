@@ -525,6 +525,32 @@ module.exports = (function() {
         return Base.instructions.return();
     };
 
+    var _rlwimi = function(dst, src, sh, mb, me) {
+        var m = (mask32(mb, me) >>> 0);
+        var minv = (mask32inv(mb, me) >>> 0);
+        var ops = [];
+        // (dst & ~mask) | (rotl32(src, sh) & mask)
+        if (m == 0) {
+            ops.push(Base.instructions.and(dst, dst, minv.toString(16)));
+        } else if (minv == 0) {
+            if (sh == 0) {
+                ops.push(Base.instructions.and(src, src, m.toString(16)));
+            } else {
+                var value = ppc_value();
+                ops.push(Base.instructions.rotate_left(value, src, sh, 32));
+                ops.push(Base.instructions.and(instr.parsed[1], value, m.toString(16)));
+            }
+        } else {
+            var value0 = ppc_value();
+            var value1 = ppc_value();
+            ops.push(Base.instructions.rotate_left('uint32_t ' + value0, src, sh, 32));
+            ops.push(Base.instructions.and(value0, value0, m.toString(16)));
+            ops.push(Base.instructions.and('uint32_t ' + value1, dst, minv.toString(16)));
+            ops.push(Base.instructions.or(dst, value1, value0));
+        }
+        return Base.composed(ops);
+    };
+
     return {
         instructions: {
             b: function(instr, context, instructions) {
@@ -928,15 +954,23 @@ module.exports = (function() {
                 var sh = parseInt(instr.parsed[3]);
                 var mb = parseInt(instr.parsed[4]);
                 var me = parseInt(instr.parsed[5]);
-                var m = (mask32(mb, me) >>> 0).toString(16);
-                var minv = (mask32inv(mb, me) >>> 0).toString(16);
-                var value0 = ppc_value();
-                var value1 = ppc_value();
-                var rol = Base.instructions.rotate_left('uint32_t ' + value0, instr.parsed[2], sh, 32);
-                var and = Base.instructions.and(value0, value0, m);
-                var andinv = Base.instructions.and('uint32_t ' + value1, instr.parsed[1], minv);
-                var or = Base.instructions.or(instr.parsed[1], value1, value0);
-                return Base.composed([rol, and, andinv, or]);
+                return _rlwimi(dst, src, sh, mb, me);
+            },
+            clrlwi: function(instr) {
+                var dst = instr.parsed[1];
+                var src = instr.parsed[2];
+                var sh = 0;
+                var mb = parseInt(instr.parsed[3]);
+                var me = 31;
+                return _rlwimi(dst, src, sh, mb, me);
+            },
+            clrrwi: function(instr) {
+                var dst = instr.parsed[1];
+                var src = instr.parsed[2];
+                var sh = 0;
+                var mb = 0;
+                var me = 31 - parseInt(instr.parsed[3]);
+                return _rlwimi(dst, src, sh, mb, me);
             },
             /*
             to be redone. this is wrong.
