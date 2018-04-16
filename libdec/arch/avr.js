@@ -304,6 +304,9 @@ module.exports = (function() {
             iret: function() {
                 return Base.instructions.macro('RETURN_FROM_INTERRUPT', null, '#define RETURN_FROM_INTERRUPT __asm(iret)');
             },
+            jmp: function(instr, context) {
+                return Base.instructions.nop();
+            },
             ld: function(instr, context) {
                 _returns_r0(instr, context);
                 var ptr = instr.parsed[2];

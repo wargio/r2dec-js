@@ -57,7 +57,12 @@ function usage() {
     }
 }
 
-Duktape.errCreate = function (err) {
+function r2cmdj(m, empty) {
+    var x = r2cmd(m).trim();
+    return x.length > 0 ? libdec.JSON.parse(x) : empty;
+}
+
+Duktape.errCreate = function(err) {
     try {
         if (typeof err === 'object') {
             var p = {
@@ -67,8 +72,7 @@ Duktape.errCreate = function (err) {
             };
             return p;
         }
-    } catch (e) {
-    }
+    } catch (e) {}
     return err;
 };
 
@@ -110,11 +114,20 @@ function r2dec_main(args) {
                 var xrefs = (r2cmd('isj')).trim();
                 var strings = (r2cmd('izj')).trim();
                 var data = (r2cmd('agj')).trim();
+                if (xrefs.length == 0) {
+                    xrefs = '[]'
+                }
+                if (strings.length == 0) {
+                    strings = '[]'
+                }
+                if (data.length == 0) {
+                    data = '[]'
+                }
                 console.log('{"name":"issue_' + (new Date()).getTime() + '","arch":"' + arch + '","agj":' + data + ',"isj":' + xrefs + ',"izj":' + strings + '}');
             } else {
-                var xrefs = r2cmdj('isj');
-                var strings = r2cmdj('izj');
-                var data = r2cmdj('agj');
+                var xrefs = r2cmdj('isj', []);
+                var strings = r2cmdj('izj', []);
+                var data = r2cmdj('agj', []);
                 if (data && data.length > 0) {
                     var routine = libdec.analyzer.make(data);
                     libdec.analyzer.strings(routine, strings);
