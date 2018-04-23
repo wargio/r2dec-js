@@ -182,7 +182,7 @@ module.exports = (function() {
                 returnval = 'r0';
             }
         }
-        return Base.instructions.call(callname, args, _is_register(callname), returnval);
+        return Base.instructions.call(callname, args, _is_register(callname) || callname.indexOf('0x') == 0, returnval);
     };
 
     var _arm_conditional_execution = function(condition, p) {
@@ -231,6 +231,12 @@ module.exports = (function() {
                 }
                 instr.invalidate_jump();
                 return Base.instructions.call(instr.parsed[1], [], true, 'return');
+            },
+            bpl: function(instr, context) {
+                return _conditional(instr, context, 'LT');
+            },
+            bls: function(instr, context) {
+                return _conditional(instr, context, 'GT');
             },
             bne: function(instr, context) {
                 return _conditional(instr, context, 'EQ');

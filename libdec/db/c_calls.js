@@ -17,7 +17,7 @@
 
 module.exports = (function() {
     var cfg = require('libdec/config');
-    var Printable = require('./libdec/printable');
+    var Printable = require('libdec/printable');
 
     var _printify = function(bits, name, returns, args, data, spacesize) {
         var p = new Printable();

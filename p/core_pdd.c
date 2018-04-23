@@ -22,6 +22,8 @@ mv core_test.so ~/.config/radare2/plugins
 
 #include "long_js.c"
 
+#define REQUIRE_JS "var require = function(x) {try {if (arguments.callee.loaded[x]) {return arguments.callee.loaded[x];}var module = {exports: null};eval(___internal_require(x));arguments.callee.loaded[x] = module.exports;return module.exports;} catch (ee) {console.log('Exception from ' + x);console.log(ee.stack);}}; require.loaded = {};"
+
 static RCore *core_link = 0;
 
 static char* r2dec_read_file(const char* file) {
@@ -75,7 +77,7 @@ static void duk_r2_init(duk_context* ctx) {
 	duk_put_global_string (ctx, "___internal_require");
 	duk_push_c_function (ctx, duk_r2cmd, 1);
 	duk_put_global_string (ctx, "r2cmd");
-	duk_eval_string_noresult (ctx, "require = function(x){try{var module={exports:null};eval(___internal_require(x));return module.exports;}catch(ee){console.log('Exception from ' + x);console.log(ee.stack);}}");
+	duk_eval_string_noresult (ctx, REQUIRE_JS);
 }
 
 static void duk_eval_file(duk_context* ctx, const char* file) {

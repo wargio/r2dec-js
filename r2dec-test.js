@@ -27,7 +27,7 @@
 
 function r2dec_main(filename) {
     try {
-        var libdec = require('./libdec/libdec');
+        var libdec = require('libdec/libdec');
         var options = {
             color: null,
             casts: true,

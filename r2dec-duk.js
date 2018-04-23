@@ -23,7 +23,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-var libdec = require('./libdec/libdec');
+var libdec = require('libdec/libdec');
 var padding = '            ';
 var usages = {
     "--help": "this help message",
