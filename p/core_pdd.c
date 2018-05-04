@@ -24,7 +24,13 @@ mv core_test.so ~/.config/radare2/plugins
 
 #define REQUIRE_JS "var require = function(x) {try {if (arguments.callee.loaded[x]) {return arguments.callee.loaded[x];}var module = {exports: null};eval(___internal_require(x));arguments.callee.loaded[x] = module.exports;return module.exports;} catch (ee) {console.log('Exception from ' + x);console.log(ee.stack);}}; require.loaded = {};"
 
+typedef struct {
+	bool hidecasts;
+	bool assembly;
+} e_r2dec_t;
+
 static RCore *core_link = 0;
+static e_r2dec_t config = {0};
 
 static char* r2dec_read_file(const char* file) {
 	if (!file) {
@@ -148,6 +154,50 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	}
 }
 
+static void custom_config(bool *p, const char* input) {
+	if (strchr (input, '=')) {
+		if(strchr (input, 't')) {
+			*p = true;
+		} else if(strchr (input, 'f')) {
+			*p = false;
+		}
+	} else {
+		r_cons_printf ("%s\n", ((*p) ? "true" : "false"));
+	}
+}
+
+static bool is_option(const char* input) {
+	if (!strncmp (input, "e ", 2)) {
+		input += 2;
+		if (!strncmp (input, "r2dec.hidecasts", 15)) {
+			custom_config (&config.hidecasts, input + 15);
+			return true;
+		} else if (!strncmp (input, "r2dec.assembly", 14)) {
+			custom_config (&config.assembly, input + 14);
+			return true;
+		}
+	} else if (!strncmp (input, "e! ", 3)) {
+		input += 3;
+		if (!strncmp (input, "r2dec.hidecasts", 15)) {
+			config.hidecasts = !config.hidecasts;
+			return true;
+		} else if (!strncmp (input, "r2dec.assembly", 14)) {
+			config.assembly = !config.assembly;
+			return true;
+		}
+	} else if (!strncmp (input, "e? ", 3)) {
+		input += 3;
+		if (!strncmp (input, "r2dec.hidecasts", 15)) {
+			r_cons_printf ("     r2dec.hidecasts: if true, hides all casts in the pseudo code\n");
+			return true;
+		} else if (!strncmp (input, "r2dec.assembly", 14)) {
+			r_cons_printf ("      r2dec.assembly: if true, shows pseudo next to the assembly\n");
+			return true;
+		}
+	}
+	return false;
+}
+
 static int r_cmd_pdd(void *user, const char *input) {
 	RCore *core = (RCore *) user;
 	if (!strncmp (input, "e cmd.pdc", 9)) {
@@ -159,12 +209,17 @@ static int r_cmd_pdd(void *user, const char *input) {
 	if (!strncmp (input, "pdd", 3)) {
 		_cmd_pdd (core, input + 3);
 		return true;
+	} else if (!strncmp (input, "r2dec", 5)) {
+		duk_r2dec(core, input + 5);
+		return true;
+	} else if (is_option (input)) {
+		return true;
 	}
 	return false;
 }
 
 RCorePlugin r_core_plugin_test = {
-	.name = "r2dec-c",
+	.name = "r2dec",
 	.desc = "experimental pseudo-C decompiler for radare2",
 	.license = "Apache",
 	.call = r_cmd_pdd,
