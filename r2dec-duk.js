@@ -88,18 +88,19 @@ function r2dec_main(args) {
         var arch = r2cmd('e asm.arch').trim();
         var bits = r2cmd('e asm.bits').trim();
         var honorpseudo = r2cmd('e asm.pseudo').trim() == 'true';
+        var honorcast = r2cmd('e r2dec.hidecasts').trim() == 'true';
+        var honorasm = r2cmd('e r2dec.assembly').trim() == 'true';
         var honorhtml = r2cmd('e scr.html').trim() == 'true';
         var honorcolor = parseInt(r2cmd('e scr.color').trim()) > 0;
 
         // r2dec options
         var options = {
             color: (honorcolor || has_option(args, '--colors')),
-            casts: !has_option(args, '--hide-casts'),
-            assembly: has_option(args, '--assembly'),
+            casts: (!honorcast || !has_option(args, '--hide-casts')),
+            assembly: (honorasm || has_option(args, '--assembly')),
             html: (honorhtml || has_option(args, '--html')),
             ident: null
         };
-
 
         var architecture = libdec.archs[arch];
 
