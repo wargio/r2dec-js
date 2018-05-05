@@ -29,7 +29,7 @@ var usages = {
     "--help": "this help message",
     "--colors": "enables syntax colors",
     "--assembly": "shows pseudo next to the assembly",
-    "--hide-casts": "hides all casts in the pseudo code",
+    "--casts": "shows all casts in the pseudo code",
     "--issue": "generates the json used for the test suite",
     "--debug": "do not catch exceptions",
     "--html": "outputs html data instead of text",
@@ -88,15 +88,15 @@ function r2dec_main(args) {
         var arch = r2cmd('e asm.arch').trim();
         var bits = r2cmd('e asm.bits').trim();
         var honorpseudo = r2cmd('e asm.pseudo').trim() == 'true';
-        var honorcast = r2cmd('e r2dec.hidecasts').trim() == 'true';
-        var honorasm = r2cmd('e r2dec.assembly').trim() == 'true';
+        var honorcast = r2cmd('e r2dec.casts').trim() == 'true';
+        var honorasm = r2cmd('e r2dec.asm').trim() == 'true';
         var honorhtml = r2cmd('e scr.html').trim() == 'true';
         var honorcolor = parseInt(r2cmd('e scr.color').trim()) > 0;
 
         // r2dec options
         var options = {
             color: (honorcolor || has_option(args, '--colors')),
-            casts: (!honorcast || !has_option(args, '--hide-casts')),
+            casts: (honorcast || has_option(args, '--casts')),
             assembly: (honorasm || has_option(args, '--assembly')),
             html: (honorhtml || has_option(args, '--html')),
             ident: null

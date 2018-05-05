@@ -40,10 +40,21 @@ r2dec [options]
        --help       | this help message
        --colors     | enables syntax colors
        --assembly   | shows pseudo next to the assembly
-       --hide-casts | hides all casts in the pseudo code
+       --casts      | shows all casts in the pseudo code
        --issue      | generates the json used for the test suite
        --debug      | do not catch exceptions
        --html       | outputs html data instead of text
+```
+
+# Radare2 Evaluable vars
+
+You can use these in your `.radare2rc` file.
+
+```
+e r2dec.casts       | shows all casts in the pseudo code
+e r2dec.asm         | shows pseudo next to the assembly
+e scr.html          | outputs html data instead of text
+e scr.color         | enables syntax colors
 ```
 
 # Report an Issue

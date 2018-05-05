@@ -20,6 +20,11 @@ mv core_test.so ~/.config/radare2/plugins
 #undef R_IPI
 #define R_IPI static
 
+/* for compatibility. */
+#ifndef R2_HOME_CONFIGDIR
+#define R2_HOME_CONFIGDIR R2_HOMEDIR
+#endif
+
 #include "long_js.c"
 
 #define REQUIRE_JS "var require = function(x) {try {if (arguments.callee.loaded[x]) {return arguments.callee.loaded[x];}var module = {exports: null};eval(___internal_require(x));arguments.callee.loaded[x] = module.exports;return module.exports;} catch (ee) {console.log('Exception from ' + x);console.log(ee.stack);}}; require.loaded = {};"
@@ -169,29 +174,29 @@ static void custom_config(bool *p, const char* input) {
 static bool is_option(const char* input) {
 	if (!strncmp (input, "e ", 2)) {
 		input += 2;
-		if (!strncmp (input, "r2dec.hidecasts", 15)) {
-			custom_config (&config.hidecasts, input + 15);
+		if (!strncmp (input, "r2dec.casts", 11)) {
+			custom_config (&config.hidecasts, input + 11);
 			return true;
-		} else if (!strncmp (input, "r2dec.assembly", 14)) {
-			custom_config (&config.assembly, input + 14);
+		} else if (!strncmp (input, "r2dec.asm", 9)) {
+			custom_config (&config.assembly, input + 9);
 			return true;
 		}
 	} else if (!strncmp (input, "e! ", 3)) {
 		input += 3;
-		if (!strncmp (input, "r2dec.hidecasts", 15)) {
+		if (!strncmp (input, "r2dec.casts", 11)) {
 			config.hidecasts = !config.hidecasts;
 			return true;
-		} else if (!strncmp (input, "r2dec.assembly", 14)) {
+		} else if (!strncmp (input, "r2dec.asm", 9)) {
 			config.assembly = !config.assembly;
 			return true;
 		}
 	} else if (!strncmp (input, "e? ", 3)) {
 		input += 3;
-		if (!strncmp (input, "r2dec.hidecasts", 15)) {
-			r_cons_printf ("     r2dec.hidecasts: if true, hides all casts in the pseudo code\n");
+		if (!strncmp (input, "r2dec.casts", 11)) {
+			r_cons_printf ("         r2dec.casts: if true, hides all casts in the pseudo code\n");
 			return true;
-		} else if (!strncmp (input, "r2dec.assembly", 14)) {
-			r_cons_printf ("      r2dec.assembly: if true, shows pseudo next to the assembly\n");
+		} else if (!strncmp (input, "r2dec.asm", 9)) {
+			r_cons_printf ("           r2dec.asm: if true, shows pseudo next to the assembly\n");
 			return true;
 		}
 	}
