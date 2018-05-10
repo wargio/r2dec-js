@@ -23,6 +23,21 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+Duktape.errCreate = function(err) {
+    try {
+        if (typeof err === 'object') {
+            var p = {
+                message: '' + err.message,
+                stack: '' + err.stack,
+                lineNumber: '' + err.lineNumber
+            };
+            return p;
+        }
+    } catch (e) {}
+    return err;
+};
+
 var libdec = require('libdec/libdec');
 var padding = '            ';
 var usages = {
@@ -61,20 +76,6 @@ function r2cmdj(m, empty) {
     var x = r2cmd(m).trim();
     return x.length > 0 ? libdec.JSON.parse(x) : empty;
 }
-
-Duktape.errCreate = function(err) {
-    try {
-        if (typeof err === 'object') {
-            var p = {
-                message: '' + err.message,
-                stack: '' + err.stack,
-                lineNumber: '' + err.lineNumber
-            };
-            return p;
-        }
-    } catch (e) {}
-    return err;
-};
 
 function r2dec_main(args) {
     if (has_invalid_args(args)) {

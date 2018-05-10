@@ -24,6 +24,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+Duktape.errCreate = function(err) {
+    try {
+        if (typeof err === 'object') {
+            var p = {
+                message: '' + err.message,
+                stack: '' + err.stack,
+                lineNumber: '' + err.lineNumber
+            };
+            return p;
+        }
+    } catch (e) {}
+    return err;
+};
 
 function r2dec_main(filename) {
     try {
@@ -36,7 +49,13 @@ function r2dec_main(filename) {
         };
         if (filename) {
             var jsonstr = read_file(filename).trim();
-            var data = libdec.JSON.parse(jsonstr);
+            var data = null;
+            try {
+                data = libdec.JSON.parse(jsonstr);
+            } catch (e) {
+                console.log('Broken JSON..');
+                return;
+            }
             var architecture = libdec.archs[data.arch];
             if (!architecture) {
                 console.log(architecture + " is not currently supported.");
@@ -58,6 +77,6 @@ function r2dec_main(filename) {
             console.log('missing JSON to test.');
         }
     } catch (e) {
-        console.log(e.stack);
+        console.log('Exception:', e.stack);
     }
 }
