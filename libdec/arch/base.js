@@ -22,6 +22,10 @@ module.exports = (function() {
     const _call_c = require('libdec/db/c_calls');
     const _call_common = require('libdec/db/macros');
 
+    var _is_address = function(value) {
+        return value && value.indexOf('0x') == 0;
+    };
+
     var _dependency = function(macros, code) {
         this.macros = macros || [];
         this.code = code || [];
@@ -625,7 +629,7 @@ module.exports = (function() {
                         macros = new _dependency(macros);
                     }
                 }
-                return new _pseudocode(new _common_call(name, args, is_pointer, returns, bits), macros);
+                return new _pseudocode(new _common_call(name, args, is_pointer || _is_address(name), returns, bits), macros);
             },
             push: function(data) {
                 return new _pseudocode(data);

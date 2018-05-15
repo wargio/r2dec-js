@@ -21,10 +21,9 @@ mv core_test.so ~/.config/radare2/plugins
 #define R_IPI static
 
 /* for compatibility. */
-#ifndef R2_HOME_CONFIGDIR
-#define R2_HOME_CONFIGDIR R2_HOMEDIR
+#ifndef R2_HOME_DATADIR
+#define R2_HOME_DATADIR R2_HOMEDIR
 #endif
-
 #include "long_js.c"
 
 #define REQUIRE_JS "var require = function(x) {try {if (arguments.callee.loaded[x]) {return arguments.callee.loaded[x];}var module = {exports: null};eval(___internal_require(x));arguments.callee.loaded[x] = module.exports;return module.exports;} catch (ee) {console.log('Exception from ' + x);console.log(ee.stack);}}; require.loaded = {};"
@@ -41,7 +40,7 @@ static char* r2dec_read_file(const char* file) {
 	if (!file) {
 		return 0;
 	}
-	char *r2dec_home = r_str_home (R2_HOME_CONFIGDIR R_SYS_DIR "r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js" R_SYS_DIR);
+	char *r2dec_home = r_str_home (R2_HOME_DATADIR R_SYS_DIR "r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js" R_SYS_DIR);
 	int len = 0;
 	char filepath[1024];
 	if (!r2dec_home) {
@@ -114,9 +113,9 @@ static void duk_r2dec(RCore *core, const char *input) {
 	duk_r2_init (ctx);
 	duk_eval_file (ctx, "r2dec-duk.js");
 	if (*input) {
-		snprintf (args, sizeof(args), "r2dec_main(\"%s\".split(/\\s+/))", input);
+		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main(\"%s\".split(/\\s+/));}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}", input);
 	} else {
-		snprintf (args, sizeof(args), "r2dec_main(\"\".split(/\\s+/))");
+		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main(\"\".split(/\\s+/));}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}");
 	}
 	duk_eval_string_noresult (ctx, args);
 	duk_destroy_heap (ctx);

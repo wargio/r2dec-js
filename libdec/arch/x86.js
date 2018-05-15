@@ -26,6 +26,9 @@ module.exports = (function() {
     };
 
     var _call_fix_name = function(name) {
+        if (typeof name != 'string') {
+            return name;
+        }
         if (name.indexOf('fcn.') == 0 || name.indexOf('func.') == 0) {
             return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
         }
@@ -136,7 +139,7 @@ module.exports = (function() {
     };
 
     var _requires_pointer = function(string, arg) {
-        return string == null && (arg.indexOf('local_') == 0 || arg == 'esp');
+        return string == null && arg && (arg.indexOf('local_') == 0 || arg == 'esp');
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
@@ -156,7 +159,7 @@ module.exports = (function() {
                 callname = callname.replace(/reloc\./g, '');
                 known_args_n = Base.arguments(callname);
             } else if (callname.indexOf('0x') == 0) {
-                callname = new Base.bits_argument(callname, _bits_types[e[1]], false, true, true);
+                callname = new Base.bits_argument(callname, _bits_types[instr.parsed[1]], false, true, true);
             } else {
                 known_args_n = Base.arguments(callname);
             }
@@ -190,13 +193,12 @@ module.exports = (function() {
                 var arg0 = instrs[i].parsed[1];
                 var bits = null;
                 if (_bits_types[arg0]) {
-                    arg0 = instr.parsed[2];
+                    arg0 = instrs[i].parsed[2];
                     bits = _bits_types[instrs[i].parsed[1]];
                 }
                 if (op == 'push' && !_is_stack_reg(arg0)) {
                     if (instrs[i].string) {
                         instrs[i].valid = false;
-                        console.log('pl')
                         args.push(new Base.string(instrs[i].string));
                     } else {
                         args.push(new Base.bits_argument(arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
