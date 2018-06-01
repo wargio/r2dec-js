@@ -22,6 +22,8 @@ module.exports = (function() {
     const _call_c = require('libdec/db/c_calls');
     const _call_common = require('libdec/db/macros');
 
+    var _internal_variable_cnt = 0;
+
     var _is_address = function(value) {
         return value && value.indexOf('0x') == 0;
     };
@@ -243,10 +245,15 @@ module.exports = (function() {
         };
     };
 
-    var _common_assign = function(destination, source, bits) {
+    var _common_assign = function(destination, source, bits, define_dst) {
         this.dst = _is_str_or_num(destination) ? new _bits_argument(destination, false, false, false) : destination;
         this.src = _is_str_or_num(source) ? new _bits_argument(source, bits || false, true, false) : source;
+        this.def = define_dst ? true : false;
         this.printable = function(p) {
+            if (this.def && this.dst.bits) {
+                var d = _castme(this.dst.bits, this.dst.is_signed);
+                p.append(d + (this.dst.is_pointer ? '* ' : ' '));
+            }
             this.dst.printable(p);
             p.append(' = ');
             this.src.printable(p);
@@ -442,7 +449,53 @@ module.exports = (function() {
             s += ' = ' + this.condition.toString() + ' ? ' + this.srcA.toString() + ' : ' + this.srcB.toString();
             return s;
         };
-    }
+    };
+
+    var _inline_add_if = function(destination, cond_a, cond_b, cond, addend_a, addend_b) {
+        this.dst = _is_str_or_num(destination) ? new _bits_argument(destination.toString()) : destination;
+        this.addA = _is_str_or_num(addend_a) ? new _bits_argument(addend_a.toString()) : addend_a;
+        this.addB = _is_str_or_num(addend_b) ? new _bits_argument(addend_b.toString()) : addend_b;
+        this.condition = Branch.generate(cond_a, cond_b, cond, Branch.FLOW_DEFAULT, _base);
+        this.printable = function(p) {
+            this.dst.printable(p);
+            p.append(' = ');
+            p.appendObject(this.condition);
+            p.append(' ? (');
+            this.addA.printable(p);
+            p.append(' + ');
+            this.addB.printable(p);
+            p.append(') : ');
+            this.dst.printable(p);
+        };
+        this.toString = function() {
+            var s = this.dst.toString();
+            s += ' = ' + this.condition.toString() + ' ? (' + this.subA.toString() + ' + ' + this.subB.toString() + ') : ' + s;
+            return s;
+        };
+    };
+
+    var _inline_subtract_if = function(destination, cond_a, cond_b, cond, minuend, subtrahend) {
+        this.dst = _is_str_or_num(destination) ? new _bits_argument(destination.toString()) : destination;
+        this.subA = _is_str_or_num(minuend) ? new _bits_argument(minuend.toString()) : minuend;
+        this.subB = _is_str_or_num(subtrahend) ? new _bits_argument(subtrahend.toString()) : subtrahend;
+        this.condition = Branch.generate(cond_a, cond_b, cond, Branch.FLOW_DEFAULT, _base);
+        this.printable = function(p) {
+            this.dst.printable(p);
+            p.append(' = ');
+            p.appendObject(this.condition);
+            p.append(' ? (');
+            this.subA.printable(p);
+            p.append(' - ');
+            this.subB.printable(p);
+            p.append(') : ');
+            this.dst.printable(p);
+        };
+        this.toString = function() {
+            var s = this.dst.toString();
+            s += ' = ' + this.condition.toString() + ' ? (' + this.subA.toString() + ' - ' + this.subB.toString() + ') : ' + s;
+            return s;
+        };
+    };
 
     var _base = {
         swap_instructions: function(instructions, index) {
@@ -460,6 +513,9 @@ module.exports = (function() {
             b.fail = oldfail;
             instructions[index] = b;
             instructions[index + 1] = a;
+        },
+        variable: function(bits, is_signed, is_pointer) {
+            return 'value' + (_internal_variable_cnt++);
         },
         bits_argument: _bits_argument,
         arguments: function(name) {
@@ -539,8 +595,17 @@ module.exports = (function() {
             conditional_assign: function(destination, source_a, source_b, cond, src_true, src_false) {
                 return new _pseudocode(new _inline_assign_if(destination, source_a, source_b, cond, src_true, src_false));
             },
+            conditional_add: function(destination, cond_a, cond_b, cond, addend_a, addend_b) {
+                return new _pseudocode(new _inline_add_if(destination, cond_a, cond_b, cond, addend_a, addend_b));
+            },
+            conditional_subtract: function(destination, cond_a, cond_b, cond, minuend, subtrahend) {
+                return new _pseudocode(new _inline_subtract_if(destination, cond_a, cond_b, cond, minuend, subtrahend));
+            },
             assign: function(destination, source) {
                 return new _pseudocode(new _common_assign(destination, source, false));
+            },
+            assign_variable: function(destination, source) {
+                return new _pseudocode(new _common_assign(destination, source, false, true));
             },
             extend: function(destination, source, bits) {
                 return new _pseudocode(new _common_assign(destination, source, bits));
@@ -562,6 +627,11 @@ module.exports = (function() {
                 return new _pseudocode(new _common_math('&', destination, source_a, source_b));
             },
             or: function(destination, source_a, source_b) {
+                if (source_a == '0' && source_b != destination) {
+                    return new _pseudocode(new _common_assign(destination, source_b, false));
+                } else if (source_b == '0' && source_a != destination) {
+                    return new _pseudocode(new _common_assign(destination, source_a, false));
+                }
                 return new _pseudocode(new _common_math('|', destination, source_a, source_b));
             },
             xor: function(destination, source_a, source_b) {

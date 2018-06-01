@@ -17,11 +17,6 @@
 
 module.exports = (function() {
     var Base = require('libdec/arch/base');
-    var PPCCTR = 0;
-
-    function ppc_value() {
-        return 'value' + (PPCCTR++);
-    }
 
     var sprs = {
         SPR_MQ: {
@@ -536,13 +531,13 @@ module.exports = (function() {
             if (sh == 0) {
                 ops.push(Base.instructions.and(src, src, m.toString(16)));
             } else {
-                var value = ppc_value();
+                var value = Base.variable();
                 ops.push(Base.instructions.rotate_left(value, src, sh, 32));
                 ops.push(Base.instructions.and(instr.parsed[1], value, m.toString(16)));
             }
         } else {
-            var value0 = ppc_value();
-            var value1 = ppc_value();
+            var value0 = Base.variable();
+            var value1 = Base.variable();
             ops.push(Base.instructions.rotate_left('uint32_t ' + value0, src, sh, 32));
             ops.push(Base.instructions.and(value0, value0, m.toString(16)));
             ops.push(Base.instructions.and('uint32_t ' + value1, dst, minv.toString(16)));
