@@ -308,7 +308,7 @@ module.exports = (function() {
                 }
                 return Base.instructions.call(instr.parsed[1].replace(/\./g, '_'), [], false, null, null);
             },
-            cli: function() {
+            cli: function(instr) {
                 instr.invalidate_jump();
                 return Base.instructions.macro('DISABLE_INTERRUPTS', null, '#define DISABLE_INTERRUPTS __asm(cli)');
             },
@@ -317,7 +317,7 @@ module.exports = (function() {
                 _returns_r0(instr, context);
                 return Base.instructions.assign(instr.parsed[1], '0');
             },
-            clt: function() {
+            clt: function(instr) {
                 instr.invalidate_jump();
                 return Base.instructions.macro('CLEAR_TRANSFER_FLAG', null, '#define CLEAR_TRANSFER_FLAG __asm(clt)');
             },
@@ -386,7 +386,7 @@ module.exports = (function() {
                 context.cond.instr = instr;
                 return Base.instructions.increase(instr.parsed[1], '1');
             },
-            iret: function() {
+            iret: function(instr) {
                 return Base.instructions.macro('RETURN_FROM_INTERRUPT', null, '#define RETURN_FROM_INTERRUPT __asm(iret)');
             },
             jmp: function(instr, context) {
@@ -517,7 +517,7 @@ module.exports = (function() {
                 // but if pop r0 then return void.
                 return Base.instructions.return(context.returns);
             },
-            reti: function() {
+            reti: function(instr) {
                 return Base.instructions.macro('RETURN_FROM_INTERRUPT', null, '#define RETURN_FROM_INTERRUPT __asm(reti)');
             },
             rjmp: function(instr, context) {
@@ -584,7 +584,7 @@ module.exports = (function() {
                 }
                 return Base.instructions.nop();
             },
-            sei: function() {
+            sei: function(instr) {
                 instr.invalidate_jump();
                 return Base.instructions.macro('ENABLE_INTERRUPTS', null, '#define ENABLE_INTERRUPTS __asm(sei)');
             },
@@ -593,7 +593,7 @@ module.exports = (function() {
                 _returns_r0(instr, context);
                 return Base.instructions.assign(instr.parsed[1], '0xff');
             },
-            set: function() {
+            set: function(instr) {
                 instr.invalidate_jump();
                 _returns_r0(instr, context);
                 return Base.instructions.macro('SET_TRANSFER_FLAG', null, '#define SET_TRANSFER_FLAG __asm(set)');
@@ -640,7 +640,7 @@ module.exports = (function() {
                 instr.invalidate_jump();
                 return Base.instructions.macro('CLEAR_WATCHDOG', null, '#define CLEAR_WATCHDOG __asm(wdr)');
             },
-            invalid: function() {
+            invalid: function(instr) {
                 instr.invalidate_jump();
                 return Base.instructions.nop();
             }
