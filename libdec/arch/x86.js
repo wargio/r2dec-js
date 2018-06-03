@@ -147,7 +147,7 @@ module.exports = (function() {
         var regs32 = ['ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp'];
         var regs64 = ['rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9'];
         var args = [];
-        var returnval = null;
+        var returnval = instrs.indexOf(instr) == (instrs.length - 1) ? 'return' : null;
         var bad_ax = true;
         var end = instrs.indexOf(instr) - regs64.length;
         var start = instrs.indexOf(instr);
@@ -266,6 +266,14 @@ module.exports = (function() {
     var _conditional_inline = function(instr, context, instructions, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
         instr.jump = instructions[instructions.indexOf(instr) + 1].loc;
+    };
+
+    var _is_last_instruction = function(instr, instructions) {
+        return instructions.indexOf(instr) == (instructions.length - 1);
+    }
+
+    var _is_jumping_externally = function(e, a) {
+        return e.jump && (e.jump.gt(a[(a.length - 1)].loc) || e.jump.lt(a[0].loc))
     };
 
     return {
@@ -462,6 +470,8 @@ module.exports = (function() {
                     return Base.instructions.call(_call_fix_name(e[2]));
                 } else if (e.length == 2 && (e[1] == 'eax' || e[1] == 'rax')) {
                     return _call_function(instr, context, instructions, true);
+                } else if (_is_last_instruction(instr, instructions) && _is_jumping_externally(instr, instructions)) {
+                    return _call_function(instr, context, instructions, _requires_pointer(instr.string, e[1]));
                 }
                 return Base.instructions.nop()
             },
