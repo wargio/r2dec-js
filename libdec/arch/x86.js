@@ -181,7 +181,7 @@ module.exports = (function() {
         }
 
         var known_args_n = Base.arguments(callname);
-        if (known_args_n == 0) {
+        if (known_args_n == 0 || !start) {
             return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
         }
         if (instrs[start - 1].parsed[0] == 'push' || context.pusharg) {
@@ -470,7 +470,8 @@ module.exports = (function() {
                     return Base.instructions.call(_call_fix_name(e[2]));
                 } else if (e.length == 2 && (e[1] == 'eax' || e[1] == 'rax')) {
                     return _call_function(instr, context, instructions, true);
-                } else if (_is_last_instruction(instr, instructions) && _is_jumping_externally(instr, instructions)) {
+                } else if (_is_last_instruction(instr, instructions) && (
+                        _is_jumping_externally(instr, instructions) || _bits_types[e[1]])) {
                     return _call_function(instr, context, instructions, _requires_pointer(instr.string, e[1]));
                 }
                 return Base.instructions.nop()
