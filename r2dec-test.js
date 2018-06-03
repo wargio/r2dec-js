@@ -42,9 +42,10 @@ function r2dec_main(filename) {
     try {
         var libdec = require('libdec/libdec');
         var options = {
-            color: null,
+            color: false,
             casts: true,
             assembly: true,
+            html: false,
             ident: null
         };
         if (filename) {

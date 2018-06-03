@@ -299,10 +299,14 @@ module.exports = (function() {
                     }
                 }
             }
-            if (is_pointer) {
-                p.appendColorize('(*(void(*)(' + (this.args.length > 0 ? '...' : '') + ')) ' + caller + ')');
+            if (typeof caller == 'string') {
+                if (is_pointer) {
+                    p.appendColorize('(*(void(*)(' + (this.args.length > 0 ? '...' : '') + ')) ' + caller + ')');
+                } else {
+                    p.appendCallname(caller);
+                }
             } else {
-                p.appendCallname(caller);
+                caller.printable(p);
             }
             p.append(' (');
             for (var i = 0; i < this.args.length; i++) {
