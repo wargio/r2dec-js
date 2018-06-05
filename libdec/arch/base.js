@@ -717,13 +717,13 @@ module.exports = (function() {
             swap_endian: function(value, returns, bits) {
                 var macro = [];
                 if (bits == 16) {
-                    macro.push('#define SWAP16(n) ((uint16_t) (((n & 0xFF) << 8) | \\');
-                    macro.push('                               ((n & 0xFF00) >> 8)))');
+                    macro.push('#define SWAP16(n) ((uint16_t) (((n & 0x00ff) << 8) | \\');
+                    macro.push('                               ((n & 0xff00) >> 8)))');
                 } else if (bits == 32) {
-                    macro.push('#define SWAP32(n) ((uint32_t) (((n & 0xFF) << 24) | \\');
-                    macro.push('                               ((n & 0xFF00) << 8) | \\');
-                    macro.push('                               ((n & 0xFF0000) >> 8) | \\');
-                    macro.push('                               ((n & 0xFF000000) >> 24)))');
+                    macro.push('#define SWAP32(n) ((uint32_t) (((n & 0x000000ff) << 24) | \\');
+                    macro.push('                               ((n & 0x0000ff00) <<  8) | \\');
+                    macro.push('                               ((n & 0x00ff0000) >>  8) | \\');
+                    macro.push('                               ((n & 0xff000000) >> 24)))');
                 } else {
                     bits = 64;
                     macro.push('#define SWAP64(val) ((uint64_t) (((val & 0x00000000000000ffull) << 56) | \\');
