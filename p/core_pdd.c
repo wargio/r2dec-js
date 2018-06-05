@@ -19,14 +19,14 @@ mv core_test.so ~/.config/radare2/plugins
 #define R_API static
 #undef R_IPI
 #define R_IPI static
+#define SETDESC(x,y) r_config_node_desc (x,y)
+#define SETPREF(x,y,z) SETDESC (r_config_set (cfg,x,y), z)
 
 /* for compatibility. */
 #ifndef R2_HOME_DATADIR
 #define R2_HOME_DATADIR R2_HOMEDIR
 #endif
 #include "long_js.c"
-
-#define REQUIRE_JS "var require = function(x) {try {if (arguments.callee.loaded[x]) {return arguments.callee.loaded[x];}var module = {exports: null};eval(___internal_require(x));arguments.callee.loaded[x] = module.exports;return module.exports;} catch (ee) {console.log('Exception from ' + x);console.log(ee.stack);}}; require.loaded = {};"
 
 typedef struct {
 	bool hidecasts;
@@ -65,6 +65,22 @@ static duk_ret_t duk_r2cmd(duk_context *ctx) {
 	return DUK_RET_TYPE_ERROR;
 }
 
+static duk_ret_t duk_internal_load(duk_context *ctx) {
+	if (duk_is_string (ctx, 0)) {
+		const char* fullname = duk_safe_to_string (ctx, 0);
+		char* text = r2dec_read_file (fullname);
+		if (text) {
+			duk_push_string (ctx, text);
+			free (text);
+		} else {
+			printf("Error: '%s' not found.\n", fullname);
+			return DUK_RET_TYPE_ERROR;
+		}
+		return 1;
+	}
+	return DUK_RET_TYPE_ERROR;
+}
+
 static duk_ret_t duk_internal_require(duk_context *ctx) {
 	char fullname[256];
 	if (duk_is_string (ctx, 0)) {
@@ -85,9 +101,10 @@ static duk_ret_t duk_internal_require(duk_context *ctx) {
 static void duk_r2_init(duk_context* ctx) {
 	duk_push_c_function (ctx, duk_internal_require, 1);
 	duk_put_global_string (ctx, "___internal_require");
+	duk_push_c_function (ctx, duk_internal_load, 1);
+	duk_put_global_string (ctx, "___internal_load");
 	duk_push_c_function (ctx, duk_r2cmd, 1);
 	duk_put_global_string (ctx, "r2cmd");
-	duk_eval_string_noresult (ctx, REQUIRE_JS);
 }
 
 static void duk_eval_file(duk_context* ctx, const char* file) {
@@ -111,6 +128,7 @@ static void duk_r2dec(RCore *core, const char *input) {
 	duk_console_init (ctx, 0);
 //	Long_init (ctx);
 	duk_r2_init (ctx);
+	duk_eval_file (ctx, "require.js");
 	duk_eval_file (ctx, "r2dec-duk.js");
 	if (*input) {
 		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main(\"%s\".split(/\\s+/));}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}", input);
@@ -170,38 +188,6 @@ static void custom_config(bool *p, const char* input) {
 	}
 }
 
-static bool is_option(const char* input) {
-	if (!strncmp (input, "e ", 2)) {
-		input += 2;
-		if (!strncmp (input, "r2dec.casts", 11)) {
-			custom_config (&config.hidecasts, input + 11);
-			return true;
-		} else if (!strncmp (input, "r2dec.asm", 9)) {
-			custom_config (&config.assembly, input + 9);
-			return true;
-		}
-	} else if (!strncmp (input, "e! ", 3)) {
-		input += 3;
-		if (!strncmp (input, "r2dec.casts", 11)) {
-			config.hidecasts = !config.hidecasts;
-			return true;
-		} else if (!strncmp (input, "r2dec.asm", 9)) {
-			config.assembly = !config.assembly;
-			return true;
-		}
-	} else if (!strncmp (input, "e? ", 3)) {
-		input += 3;
-		if (!strncmp (input, "r2dec.casts", 11)) {
-			r_cons_printf ("         r2dec.casts: if true, hides all casts in the pseudo code\n");
-			return true;
-		} else if (!strncmp (input, "r2dec.asm", 9)) {
-			r_cons_printf ("           r2dec.asm: if true, shows pseudo next to the assembly\n");
-			return true;
-		}
-	}
-	return false;
-}
-
 static int r_cmd_pdd(void *user, const char *input) {
 	RCore *core = (RCore *) user;
 	if (!strncmp (input, "e cmd.pdc", 9)) {
@@ -216,10 +202,19 @@ static int r_cmd_pdd(void *user, const char *input) {
 	} else if (!strncmp (input, "r2dec", 5)) {
 		duk_r2dec(core, input + 5);
 		return true;
-	} else if (is_option (input)) {
-		return true;
 	}
 	return false;
+}
+
+int r_cmd_pdd_init(void *user, const char *cmd) {
+	RCmd *rcmd = (RCmd*) user;
+	RCore *core = (RCore *) rcmd->data;
+	RConfig *cfg = core->config;
+	r_config_lock (cfg, false);
+	SETPREF("r2dec.casts", "false", "if true, hides all casts in the pseudo code.");
+	SETPREF("r2dec.asm", "false", "if true, shows pseudo next to the assembly.");
+	SETPREF("r2dec.theme", "default", "defines the color theme to be used on r2dec.");
+	r_config_lock (cfg, true);
 }
 
 RCorePlugin r_core_plugin_test = {
@@ -227,6 +222,7 @@ RCorePlugin r_core_plugin_test = {
 	.desc = "experimental pseudo-C decompiler for radare2",
 	.license = "Apache",
 	.call = r_cmd_pdd,
+	.init = r_cmd_pdd_init
 };
 
 #ifndef CORELIB

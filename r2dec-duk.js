@@ -96,6 +96,7 @@ function r2dec_main(args) {
 
         // r2dec options
         var options = {
+            theme: r2cmd('e r2dec.theme').trim(),
             color: (honorcolor || has_option(args, '--colors')),
             casts: (honorcast || has_option(args, '--casts')),
             assembly: (honorasm || has_option(args, '--assembly')),

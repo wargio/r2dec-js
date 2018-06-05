@@ -16,16 +16,19 @@
  */
 
 (function() {
-    const colortheme = {
-        callname: 'gray',
-        comment: 'red',
-        flow: 'magenta',
-        integers: 'cyan',
-        labels: 'green',
-        text: 'yellow',
-        types: 'green',
-        macro: 'yellow'
+    // const defaulttheme = JSON.parse(include('themes/default.json'));
+    // Just to be sure this won't impact anybody..
+    const defaulttheme = {
+        "callname": "gray",
+        "integers": "cyan",
+        "comment": "red",
+        "labels": "green",
+        "types": "green",
+        "macro": "yellow",
+        "flow": "magenta",
+        "text": "yellow"
     };
+    var colortheme = defaulttheme;
 
     const Colors = {
         ansi: require('libdec/colors/ansi'),
@@ -33,7 +36,7 @@
         text: require('libdec/colors/invalid'),
     };
 
-    var _theme_colors = Colors.text.make(colortheme);
+    var _theme_colors = Colors.text.make(defaulttheme);
 
     const _autoregex = /(\bif\b|\belse\b|\bwhile\b|\bfor\b|\bdo\b|\breturn\b|[ui]+nt[123468]+\_t|\bvoid\b|\bconst\b|\bsizeof\b|0x[0-9A-Fa-f]+|\b\d+\b)/g
 
@@ -265,12 +268,30 @@
             if (options.html) {
                 p(s + '</br>');
             } else {
-                p(s.replace(/\s+$/,''));
+                p(s.replace(/\s+$/, ''));
             }
         };
     };
 
+    var _themefy = function(x) {
+        if (typeof x != 'string' || x.indexOf('/') >= 0) {
+            console.log('Invalid theme name. using \'default\' theme.')
+        }
+        try {
+            colortheme = JSON.parse(include('themes/' + x + '.json'));
+            for (var key in defaulttheme) {
+                if (!colortheme[key]) {
+                    colortheme[key] = defaulttheme[key];
+                }
+            }
+        } catch (e) {
+            console.log('Invalid theme name \'' + x + '\'. using \'default\' theme.');
+            colortheme = defaulttheme;
+        }
+    };
+
     var _set_options = function(options) {
+        _themefy(options.theme);
         if (options.html) {
             _theme_colors = Colors.html.make(colortheme);
         } else if (options.color) {

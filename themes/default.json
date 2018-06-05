@@ -1,0 +1,10 @@
+{
+    "callname": "gray",
+    "integers": "cyan",
+    "comment": "red",
+    "labels": "green",
+    "types": "green",
+    "macro": "yellow",
+    "flow": "magenta",
+    "text": "yellow"
+}
