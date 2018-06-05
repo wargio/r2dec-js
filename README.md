@@ -53,6 +53,7 @@ You can use these in your `.radare2rc` file.
 ```
 e r2dec.casts       | shows all casts in the pseudo code
 e r2dec.asm         | shows pseudo next to the assembly
+e r2dec.theme       | defines the color theme to be used
 e scr.html          | outputs html data instead of text
 e scr.color         | enables syntax colors
 ```

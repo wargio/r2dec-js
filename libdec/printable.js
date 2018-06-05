@@ -275,7 +275,8 @@
 
     var _themefy = function(x) {
         if (typeof x != 'string' || x.indexOf('/') >= 0) {
-            console.log('Invalid theme name. using \'default\' theme.')
+            colortheme = defaulttheme;
+            return;
         }
         try {
             colortheme = JSON.parse(include('themes/' + x + '.json'));
@@ -285,7 +286,6 @@
                 }
             }
         } catch (e) {
-            console.log('Invalid theme name \'' + x + '\'. using \'default\' theme.');
             colortheme = defaulttheme;
         }
     };

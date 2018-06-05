@@ -42,6 +42,7 @@ function r2dec_main(filename) {
     try {
         var libdec = require('libdec/libdec');
         var options = {
+            theme: "default",
             color: false,
             casts: true,
             assembly: true,
