@@ -20,8 +20,8 @@
         callname: 'gray',
         comment: 'red',
         flow: 'magenta',
-        integers: 'blue',
-        labels: 'cyan',
+        integers: 'cyan',
+        labels: 'green',
         text: 'yellow',
         types: 'green',
         macro: 'yellow'
