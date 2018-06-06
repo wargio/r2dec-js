@@ -274,7 +274,7 @@
     };
 
     var _themefy = function(x) {
-        if (typeof x != 'string' || x.indexOf('/') >= 0) {
+        if (typeof x != 'string' || x.indexOf('/') >= 0 || x == 'default') {
             colortheme = defaulttheme;
             return;
         }
