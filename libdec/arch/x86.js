@@ -588,12 +588,17 @@ module.exports = (function() {
             if (!asm) {
                 return [];
             }
+            asm = '' + asm;
             var mem = '';
             if (asm.match(/\[.+\]/)) {
                 mem = asm.match(/\[.+\]/)[0].replace(/\[|\]/g, '');
                 // searching for rbx + rcx*4 or similars
                 if (mem.match(/[a-z]+\*[0-9]+/)) {
                     mem = mem.replace(/[a-z]+\*[0-9]+/, '(' + mem.match(/[a-z]+\*[0-9]+/)[0].replace(/\*/, ' * ') + ')');
+                }
+                if (asm.match(/[a-zA-Z]+:\[.+\]/)) {
+                    mem = asm.match(/[a-zA-Z]+:\[.+\]/)[0].replace(/:\[.+\]/g, '') + ' + ' + mem;
+                    asm = asm.replace(/[a-zA-Z]+:/g, '')
                 }
             }
             var ret = asm.replace(/\[.+\]/g, '{#}').replace(/,/g, ' ');
