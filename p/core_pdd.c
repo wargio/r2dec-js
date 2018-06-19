@@ -215,6 +215,18 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	SETPREF("r2dec.asm", "false", "if true, shows pseudo next to the assembly.");
 	SETPREF("r2dec.theme", "default", "defines the color theme to be used on r2dec.");
 	r_config_lock (cfg, true);
+
+	// autocomplete here..
+	RCoreAutocomplete *pdd = r_core_autocomplete_add (core->autocomplete, "pdd");
+	r_core_autocomplete_add (core->autocomplete, "pdda");
+	r_core_autocomplete_add (core->autocomplete, "pddi");
+	r_core_autocomplete_add (core->autocomplete, "pddu");
+	r_core_autocomplete_add (pdd, "--assembly");
+	r_core_autocomplete_add (pdd, "--casts");
+	r_core_autocomplete_add (pdd, "--colors");
+	r_core_autocomplete_add (pdd, "--debug");
+	r_core_autocomplete_add (pdd, "--html");
+	r_core_autocomplete_add (pdd, "--issue");
 }
 
 RCorePlugin r_core_plugin_test = {
