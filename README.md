@@ -69,8 +69,10 @@ e scr.color         | enables syntax colors
 # Supported Arch
 
     arm
-    ppc
+    avr
     mips
+    ppc
+    v850
     x86 (intel)
 
 ## Example
