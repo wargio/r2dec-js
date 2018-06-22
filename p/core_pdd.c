@@ -217,16 +217,16 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_config_lock (cfg, true);
 
 	// autocomplete here..
-	RCoreAutocomplete *pdd = r_core_autocomplete_add (core->autocomplete, "pdd");
-	r_core_autocomplete_add (core->autocomplete, "pdda");
-	r_core_autocomplete_add (core->autocomplete, "pddi");
-	r_core_autocomplete_add (core->autocomplete, "pddu");
-	r_core_autocomplete_add (pdd, "--assembly");
-	r_core_autocomplete_add (pdd, "--casts");
-	r_core_autocomplete_add (pdd, "--colors");
-	r_core_autocomplete_add (pdd, "--debug");
-	r_core_autocomplete_add (pdd, "--html");
-	r_core_autocomplete_add (pdd, "--issue");
+	RCoreAutocomplete *pdd = r_core_autocomplete_add (core->autocomplete, "pdd", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pdda", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (pdd, "--assembly", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--casts", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--colors", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--debug", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--html", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--issue", R_CORE_AUTOCMPLT_OPTN, true);
 }
 
 RCorePlugin r_core_plugin_test = {
