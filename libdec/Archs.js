@@ -19,8 +19,9 @@ module.exports = (function() {
     return {
         arm: require('libdec/arch/arm'),
         avr: require('libdec/arch/avr'),
+        mips: require('libdec/arch/mips'),
         ppc: require('libdec/arch/ppc'),
-        x86: require('libdec/arch/x86'),
-        mips: require('libdec/arch/mips')
+        v850: require('libdec/arch/v850'),
+        x86: require('libdec/arch/x86')
     };
 })();

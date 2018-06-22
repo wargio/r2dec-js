@@ -53,6 +53,7 @@ module.exports = (function() {
     };
 
     return {
+        TYPE_CUST: ['', ''],
         TYPE_INF: ['1', '0'],
         TYPE_EQ: [' == ', ' != '],
         TYPE_NE: [' != ', ' == '],
