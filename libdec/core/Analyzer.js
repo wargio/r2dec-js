@@ -30,7 +30,15 @@ module.exports = (function() {
             if (e.ref && e.ptr) {
                 var str = xrefs.search(e.ptr);
                 if (str) {
-                    e.comments.push(str ? str.value : cfg.strings.xref + instr.xrefs[k].addr.toString(16));
+                    e.comments.push(str ? str.value : cfg.strings.xref + e.ptr.toString(16));
+                }
+            }
+            for (var i = 0; i < e.xrefs.length; i++) {
+                var str = xrefs.search(e.xrefs[i].addr);
+                if (str) {
+                    e.comments.push(str ? str.value : cfg.strings.xref + e.xrefs[i].addr.toString(16));
+                } else {
+                    e.comments.push(cfg.strings.xref + e.xrefs[i].addr.toString(16) + ' ' + e.xrefs[i].type);
                 }
             }
         });

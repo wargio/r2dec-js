@@ -463,7 +463,7 @@ module.exports = (function() {
         if (e[2] == '0') {
             return Base.instructions.read_memory(e[3], e[1], bits, !unsigned);
         }
-        return Base.instructions.read_memory('(' + arg[2] + ' + ' + arg[3] + ')', e[1], bits, !unsigned);
+        return Base.instructions.read_memory('(' + e[2] + ' + ' + e[3] + ')', e[1], bits, !unsigned);
     };
 
     var store_idx_bits = function(instr, bits, unsigned) {
@@ -750,6 +750,12 @@ module.exports = (function() {
             mfmsrd: function(instr) {
                 return Base.instructions.call('_mfmsrd', [], false, instr.parsed[1], 64, false);
             },
+            mtmsr: function(instr) {
+                return Base.instructions.call('_mtmsr', [instr.parsed[1]]);
+            },
+            mfmsr: function(instr) {
+                return Base.instructions.call('_mfmsr', [], false, instr.parsed[1], 64, false);
+            },
             mfcr: function(instr) {
                 return Base.instructions.call('_mfcr', [], false, instr.parsed[1]);
             },
@@ -784,7 +790,7 @@ module.exports = (function() {
                 return Base.instructions.call('_mtdccr', [instr.parsed[1]]);
             },
             mfspr: function(instr) {
-                instr.comments.push("SPR num: " + parseInt(e[2]));
+                instr.comments.push("SPR num: " + parseInt(instr.parsed[2]));
                 var spr = get_spr(instr.parsed[2]);
                 var bits = get_bits(spr);
                 var arg0 = spr.indexOf('0x') != 0 ? new Base.macro(spr) : spr;
