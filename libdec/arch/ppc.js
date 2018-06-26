@@ -941,7 +941,7 @@ module.exports = (function() {
                 var sh = parseInt(instr.parsed[3]);
                 var mb = parseInt(instr.parsed[4]);
                 var me = parseInt(instr.parsed[5]);
-                var m = (mask32(mb, me) >>> 0).toString(16);
+                var m = '0x' + (mask32(mb, me) >>> 0).toString(16);
                 if (sh == 0) {
                     return Base.instructions.and(instr.parsed[1], instr.parsed[1], m);
                 }

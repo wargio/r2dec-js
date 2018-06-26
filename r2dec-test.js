@@ -46,6 +46,7 @@ function r2dec_main(filename) {
             color: false,
             casts: true,
             assembly: true,
+            xrefs: false,
             html: false,
             ident: null
         };
@@ -68,7 +69,7 @@ function r2dec_main(filename) {
                 var graph = data.agj;
 
                 var routine = libdec.analyzer.make(graph);
-
+                libdec.analyzer.setOptions(options);
                 libdec.analyzer.strings(routine, strings);
                 libdec.analyzer.analyze(routine, architecture);
                 libdec.analyzer.xrefs(routine, xrefs);

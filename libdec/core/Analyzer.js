@@ -25,7 +25,7 @@ module.exports = (function() {
     var Strings = require('libdec/core/Strings');
     var Routine = require('libdec/core/Routine');
 
-    var _resolve_xref = function(xrefs, instr) {
+    var _resolve_xref = function(xrefs, instr, options) {
         instr.forEach(function(e) {
             if (e.ref && e.ptr) {
                 var str = xrefs.search(e.ptr);
@@ -37,14 +37,14 @@ module.exports = (function() {
                 var str = xrefs.search(e.xrefs[i].addr);
                 if (str) {
                     e.comments.push(str ? str.value : cfg.strings.xref + e.xrefs[i].addr.toString(16));
-                } else {
+                } else if (options.xrefs) {
                     e.comments.push(cfg.strings.xref + e.xrefs[i].addr.toString(16) + ' ' + e.xrefs[i].type);
                 }
             }
         });
     };
 
-    var _resolve_strings = function(strings, instr) {
+    var _resolve_strings = function(strings, instr, options) {
         instr.forEach(function(e) {
             if (e.ref && e.ptr) {
                 var str = strings.search(e.ptr);
@@ -55,7 +55,7 @@ module.exports = (function() {
         });
     };
 
-    var _analyze_instructions = function(instructions, arch, context) {
+    var _analyze_instructions = function(instructions, arch, context, options) {
         var fcn, opcode, instr;
         for (var i = 0; i < instructions.length; i++) {
             instr = instructions[i];
@@ -85,6 +85,9 @@ module.exports = (function() {
      * Expects agj, isj and izj jsons as input.
      */
     var Analyzer = function() {
+        this.options = {
+            xrefs: false,
+        };
         this.make = function(agj) {
             var instructions = [];
             var scope = new Scope();
@@ -97,21 +100,24 @@ module.exports = (function() {
             var routine = new Routine(agj[0].name, instructions);
             return routine;
         };
+        this.setOptions = function(options) {
+            this.options.xrefs = options.xrefs;
+        };
         this.strings = function(routine, izj) {
             var instructions = routine.instructions;
             var strings = new Strings(izj);
-            _resolve_strings(strings, instructions);
+            _resolve_strings(strings, instructions, this.options);
         };
         this.analyze = function(routine, arch) {
             var context = arch.context();
-            _analyze_instructions(routine.instructions, arch, context);
+            _analyze_instructions(routine.instructions, arch, context, this.options);
             _analyze_flows(routine.instructions)
             routine.returnType = arch.returns(context);
         };
         this.xrefs = function(routine, isj) {
             var instructions = routine.instructions;
             var xrefs = new XRefs(isj);
-            _resolve_xref(xrefs, instructions);
+            _resolve_xref(xrefs, instructions, this.options);
         };
     };
     return new Analyzer();

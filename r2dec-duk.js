@@ -48,6 +48,7 @@ var usages = {
     "--issue": "generates the json used for the test suite",
     "--debug": "do not catch exceptions",
     "--html": "outputs html data instead of text",
+    "--xrefs": "shows all xrefs in the pseudo code",
 }
 
 function has_option(args, name) {
@@ -91,6 +92,7 @@ function r2dec_main(args) {
         var honorpseudo = r2cmd('e asm.pseudo').trim() == 'true';
         var honorcast = r2cmd('e r2dec.casts').trim() == 'true';
         var honorasm = r2cmd('e r2dec.asm').trim() == 'true';
+        var honorxrefs = r2cmd('e r2dec.xrefs').trim() == 'true';
         var honorhtml = r2cmd('e scr.html').trim() == 'true';
         var honorcolor = parseInt(r2cmd('e scr.color').trim()) > 0;
 
@@ -99,6 +101,7 @@ function r2dec_main(args) {
             theme: r2cmd('e r2dec.theme').trim(),
             color: (honorcolor || has_option(args, '--colors')),
             casts: (honorcast || has_option(args, '--casts')),
+            xrefs: (honorxrefs || has_option(args, '--xrefs')),
             assembly: (honorasm || has_option(args, '--assembly')),
             html: (honorhtml || has_option(args, '--html')),
             ident: null
@@ -133,6 +136,7 @@ function r2dec_main(args) {
                 var data = r2cmdj('agj', []);
                 if (data && data.length > 0) {
                     var routine = libdec.analyzer.make(data);
+                    libdec.analyzer.setOptions(options);
                     libdec.analyzer.strings(routine, strings);
                     libdec.analyzer.analyze(routine, architecture);
                     libdec.analyzer.xrefs(routine, xrefs);

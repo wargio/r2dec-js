@@ -26,7 +26,7 @@ mv core_test.so ~/.config/radare2/plugins
 #ifndef R2_HOME_DATADIR
 #define R2_HOME_DATADIR R2_HOMEDIR
 #endif
-#include "long_js.c"
+//#include "long_js.c"
 
 typedef struct {
 	bool hidecasts;
@@ -199,9 +199,6 @@ static int r_cmd_pdd(void *user, const char *input) {
 	if (!strncmp (input, "pdd", 3)) {
 		_cmd_pdd (core, input + 3);
 		return true;
-	} else if (!strncmp (input, "r2dec", 5)) {
-		duk_r2dec(core, input + 5);
-		return true;
 	}
 	return false;
 }
@@ -211,8 +208,9 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	RCore *core = (RCore *) rcmd->data;
 	RConfig *cfg = core->config;
 	r_config_lock (cfg, false);
-	SETPREF("r2dec.casts", "false", "if true, hides all casts in the pseudo code.");
+	SETPREF("r2dec.casts", "false", "if false, hides all casts in the pseudo code.");
 	SETPREF("r2dec.asm", "false", "if true, shows pseudo next to the assembly.");
+	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code");
 	SETPREF("r2dec.theme", "default", "defines the color theme to be used on r2dec.");
 	r_config_lock (cfg, true);
 
@@ -227,6 +225,7 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_core_autocomplete_add (pdd, "--debug", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--html", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--issue", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--xrefs", R_CORE_AUTOCMPLT_OPTN, true);
 }
 
 RCorePlugin r_core_plugin_test = {
