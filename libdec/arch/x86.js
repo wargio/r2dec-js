@@ -165,7 +165,7 @@ module.exports = (function() {
             }
         } else {
             known_args_n = Base.arguments(callname);
-            if (callname.match(/[er][abds][ix]/)) {
+            if (callname.match(/([er])?[abds][ixl]/)) {
                 is_pointer = true;
             }
         }
@@ -219,7 +219,7 @@ module.exports = (function() {
                     arg0 = instrs[i].parsed[2];
                     bits = _bits_types[instrs[i].parsed[1]];
                 }
-                if (bad_ax && (arg0 == 'eax' || arg0 == 'rax')) {
+                if (bad_ax && (arg0 == 'al' || arg0 == 'ax' || arg0 == 'eax' || arg0 == 'rax')) {
                     bad_ax = false;
                     continue;
                 }
