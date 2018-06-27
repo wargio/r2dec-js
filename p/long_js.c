@@ -66,7 +66,7 @@ int Long_get_argument_number(duk_context *ctx, uint64_t* number) {
 
 void Long_return_new_instance(duk_context *ctx, uint64_t number) {
 	char buf[256];
-	snprintf(buf, sizeof(buf), "new Long('0x%llx')", number);
+	snprintf(buf, sizeof(buf), "new Long('0x" PRIx64 ")", number);
 	duk_eval_string(ctx, buf);
 }
 
