@@ -17,6 +17,7 @@
 
 module.exports = (function() {
     var Base = require('libdec/arch/base');
+    var Long = require('libdec/long');
 
     var sprs = {
         SPR_MQ: {
@@ -507,17 +508,24 @@ module.exports = (function() {
 
     var _ppc_return = function(instr, context, instructions) {
         var start = instructions.indexOf(instr);
+        var reg = '';
         if (start >= 0) {
-            for (var i = start - 1; i >= start - 4 && i >= 0 && i < instructions.length; i--) {
-                if (instructions[i].parsed.length < 2) {
+            for (var i = (start - 10 < 0 ? 0 : (start - 10)); i < start && i < instructions.length; i++) {
+                var t = instructions[i];
+                if (t.parsed.length < 2) {
                     continue;
                 }
-                if (instructions[i].parsed[1] == 'r3') {
-                    return Base.instructions.return('r3');
+                var p = 0;
+                if (t.parsed[1] == 'r3') {
+                    reg = 'r3';
+                    context.returns = 'uint32_t';
+                } else if (t.parsed[0].indexOf('lw') == 0 && (p = t.assembly.indexOf('r3')) > 0 && t.assembly.indexOf('r1') > p) {
+                    reg = '';
+                    context.returns = 'void';
                 }
             }
         }
-        return Base.instructions.return();
+        return Base.instructions.return(reg);
     };
 
     var _rlwimi = function(dst, src, sh, mb, me) {
@@ -544,6 +552,165 @@ module.exports = (function() {
             ops.push(Base.instructions.or(dst, value1, value0));
         }
         return Base.composed(ops);
+    };
+
+    var _lis_instr = function(instr) {
+        if (instr.parsed[2] == '0') {
+            return Base.instructions.assign(instr.parsed[1], '0');
+        }
+        return Base.instructions.assign(instr.parsed[1], instr.parsed[2] + "0000");
+    };
+
+    var lis64_ppc = function(instr, start, instructions) {
+        var addr = null;
+        var check = [
+            function(e, r) {
+                return e[0] == 'lis' && e[1] == r;
+            },
+            function(e, r) {
+                if (e[0] == 'nop') {
+                    return true;
+                }
+                return (e[0] == 'ori' && e[1] == r && e[2] == r) || (e[0] == 'addi' && e[1] == r && e[2] == r);
+            },
+            function(e, r) {
+                var p = parseInt(e[3]);
+                return e[0] == 'sldi' && e[1] == r && e[2] == r && p == 32;
+            },
+            function(e, r) {
+                return e[0] == 'oris' && e[1] == r && e[2] == r;
+            },
+            function(e, r) {
+                if (e[0] == 'nop') {
+                    return true;
+                }
+                return (e[0] == 'ori' && e[1] == r && e[2] == r) || (e[0] == 'addi' && e[1] == r && e[2] == r);
+            }
+        ];
+        var address = [
+            function(e, addr) {
+                return Long.fromString(parseInt(e[2]).toString(16) + '0000', false, 16);
+            },
+            function(e, addr) {
+                var n = Long.fromString(parseInt(e[3]).toString(16), false, 16);
+                var op = e[0].replace(/i/, '');
+                return addr[op](n);
+            },
+            function(e, addr) {
+                return addr.shl(32);
+            },
+            function(e, addr) {
+                n = Long.fromString(parseInt(e[3]).toString(16) + '0000', true, 16);
+                return addr.or(n);
+            },
+            function(e, addr) {
+                return addr.or(Long.fromString(parseInt(e[3]).toString(16), true, 16));
+            }
+        ];
+        var step = 0;
+        var i;
+        for (i = start; i < instructions.length && step < check.length; ++i) {
+            var elem = instructions[i].parsed;
+            if (!check[step](elem, instr.parsed[1])) {
+                break;
+            }
+            addr = address[step](elem, addr);
+            step++;
+            instructions[i].pseudo = Base.instructions.nop();
+        }
+        --i;
+        addr = '0x' + addr.toString(16)
+        instr.pseudo = Base.instructions.assign(instr.parsed[1], addr.replace(/0x-/, '-0x'));
+        return i;
+    };
+
+    var vle_imm_check = {
+        "e_add16i": function(e, reg) {
+            return e[2] == e[1] && e[2] == reg;
+        },
+        "se_addi": function(e, reg) {
+            return e[1] == reg;
+        },
+        "e_or2i": function(e, reg) {
+            return e[1] == reg;
+        },
+        "e_ori": function(e, reg) {
+            return e[2] == e[1] && e[2] == reg;
+        },
+    }
+
+    var vle_imm = {
+        "e_add16i": function(e, addr) {
+            var n = Long.fromString((parseInt(e[3]) >> 0).toString(16), false, 16);
+            return addr.add(n);
+        },
+        "se_addi": function(e, addr) {
+            var n = Long.fromString((parseInt(e[2]) >> 0).toString(16), false, 16);
+            return addr.add(n);
+        },
+        "e_or2i": function(e, addr) {
+            var n = Long.fromString((parseInt(e[2]) >> 0).toString(16), false, 16);
+            return addr.or(n);
+        },
+        "e_ori": function(e, addr) {
+            var n = Long.fromString((parseInt(e[3]) >> 0).toString(16), false, 16);
+            return addr.or(n);
+        },
+    };
+
+    var lis64_vle = function(instr, start, instructions) {
+        var addr = null;
+        var check = [
+            function(e, r) {
+                return e[0] == 'e_lis' && e[1] == r;
+            },
+            function(e, r) {
+                if (e[0] == 'nop') {
+                    return true;
+                }
+                var op = vle_imm_check[e[0]];
+                return op && op(e, r);
+            },
+        ];
+        var address = [
+            function(e, addr) {
+                return Long.fromString(parseInt(e[2]).toString(16) + '0000', false, 16);
+            },
+            function(e, addr) {
+                if (e[0] == 'nop') {
+                    return addr;
+                }
+                return vle_imm[e[0]](e, addr);
+            },
+        ];
+        var step = 0;
+        var i;
+        for (i = start; i < instructions.length && step < check.length; ++i) {
+            var elem = instructions[i].parsed;
+            if (!check[step](elem, instr.parsed[1])) {
+                break;
+            }
+            addr = address[step](elem, addr);
+            step++;
+            instructions[i].pseudo = Base.instructions.nop();
+        }
+        --i;
+        addr = '0x' + addr.toString(16)
+        instr.pseudo = Base.instructions.assign(instr.parsed[1], addr.replace(/0x-/, '-0x'));
+        return i;
+    };
+
+    var _load_address_32_64 = function(start, instructions) {
+        var instr = instructions[start];
+        var op = instr.parsed[0];
+        if (op == 'lis') {
+            /* PPC */
+            return lis64_ppc(instr, start, instructions);
+        } else if (op == 'e_lis') {
+            /* PPC VLE */
+            return lis64_vle(instr, start, instructions);
+        }
+        return start;
     };
 
     return {
@@ -609,13 +776,27 @@ module.exports = (function() {
             'ble+': function(instr, context) {
                 return _conditional(instr, context, 'GT');
             },
-            bl: function(instr) {
+            bl: function(instr, context, instructions) {
                 var fcn_name = instr.parsed[1].replace(/\./g, '_');
                 if (fcn_name.indexOf('0x') == 0) {
                     fcn_name = fcn_name.replace(/0x/, 'fcn_');
                 }
                 instr.invalidate_jump();
-                return Base.instructions.call(fcn_name);
+                var args = [];
+                var regs = ['r10', 'r9', 'r8', 'r7', 'r6', 'r5', 'r4', 'r3'];
+                var found = 0;
+                for (var i = instructions.indexOf(instr) - 1; i >= 0; i--) {
+                    var reg = instructions[i].parsed[1];
+                    if (regs.indexOf(reg) >= 0) {
+                        var n = parseInt(reg.substr(1, 3))
+                        found = n - 2;
+                        break;
+                    }
+                }
+                for (var i = 0; i < found; i++) {
+                    args.push('r' + (i + 3));
+                }
+                return Base.instructions.call(fcn_name, args);
             },
             bdnz: function(instr, context) {
                 instr.conditional('(--ctr)', '0', 'NE');
@@ -709,6 +890,9 @@ module.exports = (function() {
                 return load_bits(instr.parsed, 16, false);
             },
             lbz: function(instr) {
+                return load_bits(instr.parsed, 8, true);
+            },
+            lbzu: function(instr) {
                 return load_bits(instr.parsed, 8, false);
             },
             std: function(instr) {
@@ -830,12 +1014,7 @@ module.exports = (function() {
             li: function(instr) {
                 return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
             },
-            lis: function(instr) {
-                if (instr.parsed[2] == '0') {
-                    return Base.instructions.assign(instr.parsed[1], '0');
-                }
-                return Base.instructions.assign(instr.parsed[1], instr.parsed[2] + "0000");
-            },
+            lis: _lis_instr,
             mr: function(instr) {
                 return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
             },
@@ -849,6 +1028,9 @@ module.exports = (function() {
                 return op_bits4(instr.parsed, Base.instructions.add);
             },
             addi: function(instr) {
+                if (instr.parsed[3] == '0') {
+                    return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
+                }
                 return op_bits4(instr.parsed, Base.instructions.add);
             },
             addis: function(instr) {
@@ -1605,13 +1787,20 @@ module.exports = (function() {
                         b: null
                     },
                 },
+                returns: 'void',
                 mtlr: {},
                 longaddr: [],
                 vars: []
             }
         },
+        custom_end: function(instructions, context) {
+            /* simplifies any load address 32/64 bit */
+            for (var i = 0; i < instructions.length; i++) {
+                i = _load_address_32_64(i, instructions, context);
+            }
+        },
         returns: function(context) {
-            return 'void';
+            return context.returns;
         }
     };
 })();

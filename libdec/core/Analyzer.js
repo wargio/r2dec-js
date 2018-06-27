@@ -63,8 +63,8 @@ module.exports = (function() {
             instr.opcode = instr.opcode.replace(cfg.anal.replace, '');
             instr.parsed = arch.parse(instr.opcode);
         }
-        if (arch.delayed_branch) {
-            arch.delayed_branch(instructions);
+        if (arch.custom_start) {
+            arch.custom_start(instructions, context);
         }
         for (var i = 0; i < instructions.length; i++) {
             instr = instructions[i];
@@ -77,8 +77,11 @@ module.exports = (function() {
         }
     };
 
-    var _analyze_flows = function(scopes, instructions) {
-        Flow(scopes, instructions);
+    var _analyze_flows = function(instructions, arch, context, options) {
+        Flow(instructions);
+        if (arch.custom_end) {
+            arch.custom_end(instructions, context);
+        }
     };
 
     /*
@@ -111,7 +114,7 @@ module.exports = (function() {
         this.analyze = function(routine, arch) {
             var context = arch.context();
             _analyze_instructions(routine.instructions, arch, context, this.options);
-            _analyze_flows(routine.instructions)
+            _analyze_flows(routine.instructions, arch, context, this.options)
             routine.returnType = arch.returns(context);
         };
         this.xrefs = function(routine, isj) {

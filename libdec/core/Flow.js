@@ -22,7 +22,7 @@ module.exports = (function() {
     var Base = require('libdec/arch/base');
     var cfg = require('libdec/config');
     var Printable = require('libdec/printable');
-    Utils = require('libdec/core/Utils');
+    var Utils = require('libdec/core/Utils');
 
     var _label_counter = 0;
 
