@@ -713,10 +713,14 @@ module.exports = (function() {
         return start;
     };
 
+    var _is_jumping_outside = function(instructions, instr){
+        return instr.jump.lt(instructions[0].loc) || instr.jump.gt(instr.loc);
+    };
+
     return {
         instructions: {
             b: function(instr, context, instructions) {
-                if (instructions.indexOf(instr) == instructions.length - 1) {
+                if (instructions.indexOf(instr) == instructions.length - 1 && _is_jumping_outside(instructions, instr)) {
                     //name, args, is_pointer, returns, bits
                     return Base.instructions.call(instr.parsed[1], [], instr.parsed[1].indexOf('0x') == 0, 'return');
                 }
