@@ -226,6 +226,14 @@ module.exports = (function() {
             add: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.add);
             },
+            adr: function(instr) {
+                var dst = instr.parsed[1];
+                return Base.instructions.assign(dst, instr.parsed[2]);
+            },
+            adrp: function(instr) {
+                var dst = instr.parsed[1];
+                return Base.instructions.assign(dst, instr.parsed[2]);
+            },
             and: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.and);
             },
@@ -244,14 +252,26 @@ module.exports = (function() {
                 instr.invalidate_jump();
                 return Base.instructions.call(instr.parsed[1], [], true, 'return');
             },
+            'b.pl': function(instr, context) {
+                return _conditional(instr, context, 'LT');
+            },
             bpl: function(instr, context) {
                 return _conditional(instr, context, 'LT');
+            },
+            'b.ls': function(instr, context) {
+                return _conditional(instr, context, 'GT');
             },
             bls: function(instr, context) {
                 return _conditional(instr, context, 'GT');
             },
+            'b.ne': function(instr, context) {
+                return _conditional(instr, context, 'EQ');
+            },
             bne: function(instr, context) {
                 return _conditional(instr, context, 'EQ');
+            },
+            'b.eq': function(instr, context) {
+                return _conditional(instr, context, 'NE');
             },
             beq: function(instr, context) {
                 return _conditional(instr, context, 'NE');
@@ -268,12 +288,16 @@ module.exports = (function() {
             ble: function(instr, context) {
                 return _conditional(instr, context, 'GT');
             },
+            'b.lo': function(instr, context) {
+                return _conditional(instr, context, 'LO');
+            },
             eor: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.xor);
             },
             bl: _call,
             blx: _call,
             cmp: _compare,
+            fcmp: _compare,
             cbz: function(instr, context, instructions) {
                 context.cond.a = instr.parsed[1];
                 context.cond.b = '0';
@@ -285,6 +309,9 @@ module.exports = (function() {
                 return _conditional(instr, context, 'NE');
             },
             ldr: function(instr) {
+                return _load(instr, '32');
+            },
+            ldur: function(instr) {
                 return _load(instr, '32');
             },
             ldrb: function(instr) {
@@ -409,8 +436,8 @@ module.exports = (function() {
             },
             ldp: function(instr) {
                 var e = instr.parsed;
-                return Base.instructions.read_memory(
-                    e[3] + ' + ' + e[4],
+                var src = e[4] == '+'? e[5]: e[3] + ' + ' + e[4];
+                return Base.instructions.read_memory(src,
                     e[1] + ', ' + e[2],
                     64, false);
             },
@@ -520,6 +547,9 @@ module.exports = (function() {
     }, {
         type: 'NE',
         ext: 'ne'
+    }, {
+        type: 'LO',
+        ext: 'lo'
     }, ];
 
     for (var i = 0; i < _conditional_instruction_list.length; i++) {
