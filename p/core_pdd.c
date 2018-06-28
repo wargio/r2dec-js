@@ -40,18 +40,26 @@ static char* r2dec_read_file(const char* file) {
 	if (!file) {
 		return 0;
 	}
-	char *r2dec_home = r_str_home (R2_HOME_DATADIR R_SYS_DIR "r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js" R_SYS_DIR);
+	char *r2dec_home;
+	char *env = r_sys_getenv ("R2DEC_HOME");
+	if (env) {
+		r2dec_home = env;
+	} else {
+		r2dec_home = r_str_home (R2_HOME_DATADIR R_SYS_DIR
+			"r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js");
+	}
 	int len = 0;
-	char filepath[1024];
 	if (!r2dec_home) {
 		return 0;
 	}
-	snprintf (filepath, sizeof(filepath), "%s%s", r2dec_home, file);
+	char *filepath = r_str_newf ("%s"R_SYS_DIR"%s", r2dec_home, file);
 	free (r2dec_home);
 	char* text = r_file_slurp (filepath, &len);
 	if (text && len > 0) {
+		free (filepath);
 		return text;
 	}
+	free (filepath);
 	return 0;
 }
 
