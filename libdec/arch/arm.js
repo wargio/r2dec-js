@@ -326,6 +326,10 @@ module.exports = (function() {
                 }
                 return Base.instructions.special(dst + ' = (' + dst + ' & 0xFFFF0000) | (' + instr.parsed[2] + ' & 0xFFFF)');
             },
+            movz: function(instr) {
+                var dst = instr.parsed[1];
+                return Base.instructions.assign(dst, instr.parsed[2]);
+            },
             mvn: function(instr) {
                 var dst = instr.parsed[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
@@ -335,6 +339,9 @@ module.exports = (function() {
             },
             mul: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.multiply);
+            },
+            nop: function(instr) {
+                return Base.instructions.nop();
             },
             orr: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.or);
@@ -372,6 +379,28 @@ module.exports = (function() {
             },
             rol: function(instr) {
                 return Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], parseInt(instr.parsed[3], 16).toString(), 32);
+            },
+            ret: function(instr, context, instructions) {
+                var start = instructions.indexOf(instr)
+                var returnval = null;
+                if (instructions[start - 1].parsed[1] == 'x0') {
+                    returnval = 'x0';
+                }
+                return Base.instructions.return(returnval);
+            },
+            stp: function(instr) {
+                var e = instr.parsed;
+                return Base.instructions.write_memory(
+                    e[3] + ' + ' + e[4],
+                    e[1] + ', ' + e[2],
+                    64, false);
+            },
+            ldp: function(instr) {
+                var e = instr.parsed;
+                return Base.instructions.read_memory(
+                    e[3] + ' + ' + e[4],
+                    e[1] + ', ' + e[2],
+                    64, false);
             },
             str: function(instr) {
                 return _store(instr, '32');
