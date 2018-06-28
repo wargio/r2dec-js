@@ -61,7 +61,9 @@ module.exports = (function() {
         }
         var cast = (bits == 8) ? ' = *((uint8_t*) ' : ' = *((uint' + bits + '_t*)((uint8_t*) ';
         var castend = (bits == 8) ? ');' : '))';
-        if (e.length == 3) {
+
+        switch (e.length) {
+        case 3:
             if (_is_register(e[2])) {
                 if (instr.string) {
                     return Base.instructions.assign(e[1], new Base.string(instr.string));
@@ -69,19 +71,29 @@ module.exports = (function() {
                 return Base.instructions.read_memory(e[1], e[2], bits, false);
             }
             return Base.instructions.assign(e[1], instr.string ? new Base.string(instr.string) : e[2]);
-        } else if (e.length == 4) {
+        case 4:
             return new Base.common(e[1] + cast + e[2] + ' + ' + e[3] + castend);
-        } else if (e.length == 5 && e[3] != '-' && e[3] != '+') {
-            return new Base.common(e[2] + ' += ' + e[3] + '; ' + e[1] + ' = ' + e[2] + '[0]');
-        } else if (e.length == 5) {
+        case 5:
+            if (e[3] != '-' && e[3] != '+') {
+              return new Base.common(e[2] + ' += ' + e[3] + '; ' + e[1] + ' = ' + e[2] + '[0]');
+            }
             if (e[2] == 'fp') {
                 return Base.instructions.extend(e[1], e[4], bits);
             }
             return new Base.common(e[1] + cast + e[2] + ' ' + e[3] + ' ' + e[4] + castend);
-        } else if (e.length == 6 && e[4].toLowerCase() == 'lsl') {
-            return new Base.common(e[1] + ' = ' + e[2] + '[' + e[3] + ' << ' + e[5] + ']');
-        } else if (e.length == 7 && e[4].toLowerCase() == 'lsl') {
-            return new Base.common(e[2] + ' += (' + e[3] + ' << ' + e[5] + '); ' + e[1] + ' = ' + e[2] + '[0]');
+        case 6:
+            if (e[4].toLowerCase() == 'lsl') {
+              return new Base.common(e[1] + ' = ' + e[2] + '[' + e[3] + ' << ' + e[5] + ']');
+            }
+            return new Base.common(e[1] + ' = ' + e[2] + '[' + e[3] + ' + ' + e[5] + ']');
+            // return Base.instructions.nop();
+            break;
+        case 7:
+            if (e[4].toLowerCase() == 'lsl') {
+              return new Base.common(e[2] + ' += (' + e[3] + ' << ' + e[5] + '); ' + e[1] + ' = ' + e[2] + '[0]');
+            }
+            return new Base.common(e[1] + ' = ' + e[2] + '[' + e[3] + ' ' + e[5] + ' ' + e[6] + ']');
+            break;
         }
         return instr.pseudo;
     };
