@@ -61,7 +61,9 @@ module.exports = (function() {
         }
         var cast = (bits == 8) ? ' = *((uint8_t*) ' : ' = *((uint' + bits + '_t*)((uint8_t*) ';
         var castend = (bits == 8) ? ');' : '))';
-        if (e.length == 3) {
+
+        switch (e.length) {
+        case 3:
             if (_is_register(e[2])) {
                 if (instr.string) {
                     return Base.instructions.assign(e[1], new Base.string(instr.string));
@@ -69,19 +71,29 @@ module.exports = (function() {
                 return Base.instructions.read_memory(e[1], e[2], bits, false);
             }
             return Base.instructions.assign(e[1], instr.string ? new Base.string(instr.string) : e[2]);
-        } else if (e.length == 4) {
+        case 4:
             return new Base.common(e[1] + cast + e[2] + ' + ' + e[3] + castend);
-        } else if (e.length == 5 && e[3] != '-' && e[3] != '+') {
-            return new Base.common(e[2] + ' += ' + e[3] + '; ' + e[1] + ' = ' + e[2] + '[0]');
-        } else if (e.length == 5) {
+        case 5:
+            if (e[3] != '-' && e[3] != '+') {
+              return new Base.common(e[2] + ' += ' + e[3] + '; ' + e[1] + ' = ' + e[2] + '[0]');
+            }
             if (e[2] == 'fp') {
                 return Base.instructions.extend(e[1], e[4], bits);
             }
             return new Base.common(e[1] + cast + e[2] + ' ' + e[3] + ' ' + e[4] + castend);
-        } else if (e.length == 6 && e[4].toLowerCase() == 'lsl') {
-            return new Base.common(e[1] + ' = ' + e[2] + '[' + e[3] + ' << ' + e[5] + ']');
-        } else if (e.length == 7 && e[4].toLowerCase() == 'lsl') {
-            return new Base.common(e[2] + ' += (' + e[3] + ' << ' + e[5] + '); ' + e[1] + ' = ' + e[2] + '[0]');
+        case 6:
+            if (e[4].toLowerCase() == 'lsl') {
+              return new Base.common(e[1] + ' = ' + e[2] + '[' + e[3] + ' << ' + e[5] + ']');
+            }
+            return new Base.common(e[1] + ' = ' + e[2] + '[' + e[3] + ' + ' + e[5] + ']');
+            // return Base.instructions.nop();
+            break;
+        case 7:
+            if (e[4].toLowerCase() == 'lsl') {
+              return new Base.common(e[2] + ' += (' + e[3] + ' << ' + e[5] + '); ' + e[1] + ' = ' + e[2] + '[0]');
+            }
+            return new Base.common(e[1] + ' = ' + e[2] + '[' + e[3] + ' ' + e[5] + ' ' + e[6] + ']');
+            break;
         }
         return instr.pseudo;
     };
@@ -125,8 +137,7 @@ module.exports = (function() {
     }
 
     var _conditional = function(instr, context, type) {
-        instr.conditional(context.cond.a, context.cond.b, type);
-        return Base.instructions.nop();
+        return instr.conditional(context.cond.a, context.cond.b, type);
     };
 
     var _conditional_inline = function(instr, context, instructions, type) {
@@ -214,6 +225,14 @@ module.exports = (function() {
             add: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.add);
             },
+            adr: function(instr) {
+                var dst = instr.parsed[1];
+                return Base.instructions.assign(dst, instr.parsed[2]);
+            },
+            adrp: function(instr) {
+                var dst = instr.parsed[1];
+                return Base.instructions.assign(dst, instr.parsed[2]);
+            },
             and: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.and);
             },
@@ -232,14 +251,26 @@ module.exports = (function() {
                 instr.invalidate_jump();
                 return Base.instructions.call(instr.parsed[1], [], true, 'return');
             },
+            'b.pl': function(instr, context) {
+                return _conditional(instr, context, 'LT');
+            },
             bpl: function(instr, context) {
                 return _conditional(instr, context, 'LT');
+            },
+            'b.ls': function(instr, context) {
+                return _conditional(instr, context, 'GT');
             },
             bls: function(instr, context) {
                 return _conditional(instr, context, 'GT');
             },
+            'b.ne': function(instr, context) {
+                return _conditional(instr, context, 'EQ');
+            },
             bne: function(instr, context) {
                 return _conditional(instr, context, 'EQ');
+            },
+            'b.eq': function(instr, context) {
+                return _conditional(instr, context, 'NE');
             },
             beq: function(instr, context) {
                 return _conditional(instr, context, 'NE');
@@ -256,12 +287,16 @@ module.exports = (function() {
             ble: function(instr, context) {
                 return _conditional(instr, context, 'GT');
             },
+            'b.lo': function(instr, context) {
+                return _conditional(instr, context, 'LO');
+            },
             eor: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.xor);
             },
             bl: _call,
             blx: _call,
             cmp: _compare,
+            fcmp: _compare,
             cbz: function(instr, context, instructions) {
                 context.cond.a = instr.parsed[1];
                 context.cond.b = '0';
@@ -273,6 +308,9 @@ module.exports = (function() {
                 return _conditional(instr, context, 'NE');
             },
             ldr: function(instr) {
+                return _load(instr, '32');
+            },
+            ldur: function(instr) {
                 return _load(instr, '32');
             },
             ldrb: function(instr) {
@@ -326,6 +364,10 @@ module.exports = (function() {
                 }
                 return Base.instructions.special(dst + ' = (' + dst + ' & 0xFFFF0000) | (' + instr.parsed[2] + ' & 0xFFFF)');
             },
+            movz: function(instr) {
+                var dst = instr.parsed[1];
+                return Base.instructions.assign(dst, instr.parsed[2]);
+            },
             mvn: function(instr) {
                 var dst = instr.parsed[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
@@ -335,6 +377,9 @@ module.exports = (function() {
             },
             mul: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.multiply);
+            },
+            nop: function(instr) {
+                return Base.instructions.nop();
             },
             orr: function(instr) {
                 return _common_math(instr.parsed, Base.instructions.or);
@@ -372,6 +417,28 @@ module.exports = (function() {
             },
             rol: function(instr) {
                 return Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], parseInt(instr.parsed[3], 16).toString(), 32);
+            },
+            ret: function(instr, context, instructions) {
+                var start = instructions.indexOf(instr)
+                var returnval = null;
+                if (instructions[start - 1].parsed[1] == 'x0') {
+                    returnval = 'x0';
+                }
+                return Base.instructions.return(returnval);
+            },
+            stp: function(instr) {
+                var e = instr.parsed;
+                return Base.instructions.write_memory(
+                    e[3] + ' + ' + e[4],
+                    e[1] + ', ' + e[2],
+                    64, false);
+            },
+            ldp: function(instr) {
+                var e = instr.parsed;
+                var src = e[4] == '+'? e[5]: e[3] + ' + ' + e[4];
+                return Base.instructions.read_memory(src,
+                    e[1] + ', ' + e[2],
+                    64, false);
             },
             str: function(instr) {
                 return _store(instr, '32');
@@ -479,6 +546,9 @@ module.exports = (function() {
     }, {
         type: 'NE',
         ext: 'ne'
+    }, {
+        type: 'LO',
+        ext: 'lo'
     }, ];
 
     for (var i = 0; i < _conditional_instruction_list.length; i++) {

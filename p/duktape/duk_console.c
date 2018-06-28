@@ -6,6 +6,13 @@
  *  https://developer.mozilla.org/en/docs/Web/API/console
  */
 
+#ifndef USE_RCONS
+#define USE_RCONS 1
+#endif
+#if USE_RCONS
+#include <r_cons.h>
+#endif
+
 #include <stdio.h>
 #include <stdarg.h>
 #include "duktape.h"
@@ -59,10 +66,15 @@ static duk_ret_t duk__console_log_helper(duk_context *ctx, const char *error_nam
 		duk_get_prop_string(ctx, -1, "stack");
 	}
 
+#if USE_RCONS
+	r_cons_strcat (duk_to_string (ctx, -1));
+	r_cons_newline ();
+#else
 	fprintf(stdout, "%s\n", duk_to_string(ctx, -1));
 	if (flags & DUK_CONSOLE_FLUSH) {
 		fflush(stdout);
 	}
+#endif
 	return 0;
 }
 

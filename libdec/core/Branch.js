@@ -61,6 +61,7 @@ module.exports = (function() {
         TYPE_LE: [' <= ', ' > '],
         TYPE_GT: [' > ', ' <= '],
         TYPE_GE: [' >= ', ' < '],
+        TYPE_LO: [' overflow ', ' !overflow '],
         FLOW_DEFAULT: 0,
         FLOW_INVERTED: 1,
         generate: function(a, b, type, as, base) {
