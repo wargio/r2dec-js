@@ -6,7 +6,9 @@
  *  https://developer.mozilla.org/en/docs/Web/API/console
  */
 
+#ifndef USE_RCONS
 #define USE_RCONS 1
+#endif
 #if USE_RCONS
 #include <r_cons.h>
 #endif

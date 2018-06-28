@@ -21,5 +21,5 @@ uninstall:
 clean:
 	rm -rf core_pdd.$(LIBEXT)* r2dec-test
 
-testbin:
-	$(CC) $(CFLAGS_TEST) -o r2dec-test -fPIC duktape/duktape.c duktape/duk_console.c r2dec-test.c $(LDFLAGS_TEST)
+testbin r2dec-test:
+	$(CC) $(CFLAGS_TEST) -DUSE_RCONS=0 -o r2dec-test -fPIC duktape/duktape.c duktape/duk_console.c r2dec-test.c $(LDFLAGS_TEST)
