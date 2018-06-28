@@ -1125,7 +1125,7 @@ module.exports = (function() {
                 var me = parseInt(instr.parsed[5]);
                 var m = '0x' + (mask32(mb, me) >>> 0).toString(16);
                 if (sh == 0) {
-                    return Base.instructions.and(instr.parsed[1], instr.parsed[1], m);
+                    return Base.instructions.and(instr.parsed[1], instr.parsed[2], m);
                 }
                 var rol = Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], sh, 32);
                 var and = Base.instructions.and(instr.parsed[1], instr.parsed[1], m);
