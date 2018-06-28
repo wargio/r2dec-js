@@ -18,6 +18,7 @@
 module.exports = (function() {
 
     var Base = require('libdec/arch/base');
+    var Long = require('libdec/long');
 
     var op_bits4 = function(instr, op, bits, unsigned, swap) {
         var e = instr.parsed;
@@ -33,13 +34,17 @@ module.exports = (function() {
         return op(e[1], a, b);
     };
 
-    var _move = function(instr, bits, unsigned) {
+    var _move = function(instr, bits, unsigned, shifted) {
         var e = instr.parsed;
         if (e[1] == '0') {
             return Base.instructions.nop();
         }
+        var val = e[2];
+        if (shifted) {
+            val += '0000';
+        }
         // value, bits, is_signed, is_pointer, is_memory
-        var reg = new Base.bits_argument(e[2], bits, false);
+        var reg = new Base.bits_argument(val, bits, false);
         return Base.instructions.assign(e[1], reg);
     };
 
@@ -100,6 +105,46 @@ module.exports = (function() {
         return Base.instructions.assign(instr.parsed[1], instr.parsed[2]);
     };
 
+    var lui32 = function(instr, start, instructions) {
+        var addr = null;
+        var check = [
+            function(e, r) {
+                return e[0] == 'lui' && e[1] == r;
+            },
+            function(e, r) {
+                if (e[0] == 'nop') {
+                    return true;
+                }
+                return (e[0] == 'ori' && e[1] == r && e[2] == r) || (e[0] == 'addi' && e[1] == r && e[2] == r) || (e[0] == 'addiu' && e[1] == r && e[2] == r);
+            },
+        ];
+        var address = [
+            function(e, addr) {
+                return Long.fromString(parseInt(e[2]).toString(16) + '0000', false, 16);
+            },
+            function(e, addr) {
+                var n = Long.fromString(parseInt(e[3]).toString(16), false, 16);
+                var op = e[0].replace(/[iu]/g, '');
+                return addr[op](n);
+            },
+        ];
+        var step = 0;
+        var i;
+        for (i = start; i < instructions.length && step < check.length; ++i) {
+            var elem = instructions[i].parsed;
+            if (!check[step](elem, instr.parsed[1])) {
+                break;
+            }
+            addr = address[step](elem, addr);
+            step++;
+            instructions[i].pseudo = Base.instructions.nop();
+        }
+        --i;
+        addr = '0x' + addr.toString(16)
+        instr.pseudo = Base.instructions.assign(instr.parsed[1], addr.replace(/0x-/, '-0x'));
+        return i;
+    };
+
     var _branch_list = [
         'b', 'bal', 'jr', 'jal', 'jalr',
         'beqz', 'bnez', 'bltz', 'blez',
@@ -115,13 +160,7 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             'lui': function(instr) {
-                if (instr.parsed[2] != '0') {
-                    if (instr.parsed[2].indexOf('0x') < 0) {
-                        instr.parsed[2] = '0x' + instr.parsed[2];
-                    }
-                    instr.parsed[2] += "0000";
-                }
-                return _move(instr);
+                return _move(instr, null, null, true);
             },
             'move': function(instr) {
                 return _move(instr);
@@ -358,6 +397,14 @@ module.exports = (function() {
                 if (_branch_list.indexOf(op) >= 0 && instructions[i + 1].parsed[0] != 'nop') {
                     Base.swap_instructions(instructions, i);
                     ++i;
+                }
+            }
+        },
+        custom_end: function(instructions, context) {
+            /* simplifies any load address 32/64 bit */
+            for (var i = 0; i < instructions.length; i++) {
+                if (instructions[i].parsed[0] == 'lui') {
+                    i = lui32(instructions[i], i, instructions);
                 }
             }
         },
