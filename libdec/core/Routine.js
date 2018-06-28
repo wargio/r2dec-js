@@ -106,6 +106,9 @@ module.exports = (function() {
             var ident = cfg.ident;
             var paddingsize = options.assembly ? _max_pad(instructions, this.name.trim()) : 0;
             var line = new Printable();
+            if (options.offset) {
+              paddingsize = 16;
+            }
             if (options.assembly) {
                 var legenda2 = '    ; assembly';
                 var legenda1 = '/* r2dec pseudo C output */'
@@ -116,7 +119,7 @@ module.exports = (function() {
                 line.clean();
             }
             _print_deps(p, this.instructions, options, paddingsize);
-            if (options.assembly) {
+            if (options.assembly || options.offset) {
                 var aname = '(fcn) ' + this.name + ':';
                 line.appendCallname(aname);
                 line.appendSpacedPipe(paddingsize - aname.length);

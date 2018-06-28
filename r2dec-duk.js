@@ -44,6 +44,7 @@ var usages = {
     "--help": "this help message",
     "--colors": "enables syntax colors",
     "--assembly": "shows pseudo next to the assembly",
+    "--offset": "shows pseudo next to the offset",
     "--casts": "shows all casts in the pseudo code",
     "--issue": "generates the json used for the test suite",
     "--debug": "do not catch exceptions",
@@ -103,6 +104,7 @@ function r2dec_main(args) {
             casts: (honorcast || has_option(args, '--casts')),
             xrefs: (honorxrefs || has_option(args, '--xrefs')),
             assembly: (honorasm || has_option(args, '--assembly')),
+            offset: (honorasm || has_option(args, '--offset')),
             html: (honorhtml || has_option(args, '--html')),
             ident: null
         };

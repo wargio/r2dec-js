@@ -67,6 +67,11 @@ module.exports = (function() {
                     p.appendEndline();
                 }
             }
+            if (options.offset) {
+                var c = '    ' + _align32(this.loc);
+                p.appendColorize(c)
+                p.appendSpacedPipe(spacesize - c.length);
+            }
             if (options.assembly) {
                 var c = '    ' + _align32(this.loc) + '  ' + this.assembly;
                 p.appendColorize(c)
@@ -104,6 +109,9 @@ module.exports = (function() {
             }
             if (this.pseudo && this.valid) {
                 var asm = '';
+                if (options.offset) {
+                    var c = '    ' + _align32(this.loc);
+                }
                 if (options.assembly) {
                     var c = '    ' + _align32(this.loc) + '  ' + this.assembly;
                     asm = _colorize(c, options.color) + asmpadding.substr(c.length, asmpadding.length);

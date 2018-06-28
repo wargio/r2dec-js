@@ -137,8 +137,7 @@ module.exports = (function() {
     }
 
     var _conditional = function(instr, context, type) {
-        instr.conditional(context.cond.a, context.cond.b, type);
-        return Base.instructions.nop();
+        return instr.conditional(context.cond.a, context.cond.b, type);
     };
 
     var _conditional_inline = function(instr, context, instructions, type) {

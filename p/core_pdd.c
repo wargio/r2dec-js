@@ -31,6 +31,7 @@ mv core_test.so ~/.config/radare2/plugins
 typedef struct {
 	bool hidecasts;
 	bool assembly;
+	bool offset;
 } e_r2dec_t;
 
 static RCore *core_link = 0;
@@ -155,6 +156,8 @@ static void usage(void) {
 	eprintf (" pdda  - decompile current function with side assembly\n");
 	eprintf (" pddu  - install/upgrade r2dec via r2pm\n");
 	eprintf (" pddi  - generates the issue data\n");
+	eprintf ("Environment\n");
+	eprintf (" R2DEC_HOME  defaults to the root directory of the r2dec repo\n");
 }
 
 static void _cmd_pdd(RCore *core, const char *input) {
@@ -176,6 +179,10 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	case 'a':
 		// --assembly
 		duk_r2dec(core, "--assembly");
+		break;
+	case 'o':
+		// --offset
+		duk_r2dec(core, "--offset");
 		break;
 	case '?':
 	default:
@@ -218,6 +225,7 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_config_lock (cfg, false);
 	SETPREF("r2dec.casts", "false", "if false, hides all casts in the pseudo code.");
 	SETPREF("r2dec.asm", "false", "if true, shows pseudo next to the assembly.");
+	SETPREF("r2dec.offset", "false", "if true, shows pseudo next to the offset.");
 	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code");
 	SETPREF("r2dec.theme", "default", "defines the color theme to be used on r2dec.");
 	r_config_lock (cfg, true);
@@ -228,6 +236,7 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_core_autocomplete_add (core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (pdd, "--assembly", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--offset", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--casts", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--colors", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--debug", R_CORE_AUTOCMPLT_OPTN, true);
