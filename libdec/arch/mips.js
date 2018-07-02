@@ -392,7 +392,7 @@ module.exports = (function() {
         },
         custom_start: function(instructions) {
             /* delayed branch fix */
-            for (var i = 0; i < instructions.length; i++) {
+            for (var i = 0; i < (instructions.length - 1); i++) {
                 var op = instructions[i].parsed[0];
                 if (_branch_list.indexOf(op) >= 0 && instructions[i + 1].parsed[0] != 'nop') {
                     Base.swap_instructions(instructions, i);
