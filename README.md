@@ -72,6 +72,7 @@ e scr.color         | enables syntax colors
     avr
     mips
     ppc
+    sparc
     v850
     x86 (intel)
 
