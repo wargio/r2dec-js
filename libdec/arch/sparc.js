@@ -20,6 +20,16 @@ module.exports = (function() {
     var Base = require('libdec/arch/base');
     var Long = require('libdec/long');
 
+    var _call_fix_name = function(name) {
+        if (typeof name != 'string') {
+            return name;
+        }
+        if (name.indexOf('fcn.') == 0 || name.indexOf('func.') == 0) {
+            return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
+        }
+        return name.replace(/\[reloc\.|\]/g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/_[0-9a-f]+$/, '').replace(/^_+/, '');
+    };
+
     var _load = function(instr, context, instruction, signed, bits) {
         var e = instr.parsed;
         if (e[1].indexOf('+') > 0) {
@@ -213,7 +223,7 @@ module.exports = (function() {
                 return _conditional(instr, context, 'GE');
             },
             call: function(instr, context, instructions) {
-                return Base.instructions.call(instr.parsed[1], []);
+                return Base.instructions.call(_call_fix_name(instr.parsed[1]), []);
             },
             cmp: _compare,
             ldub: function(instr, context, instructions) {
