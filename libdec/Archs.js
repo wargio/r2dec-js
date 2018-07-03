@@ -23,6 +23,7 @@ module.exports = (function() {
         ppc: require('libdec/arch/ppc'),
         sparc: require('libdec/arch/sparc'),
         v850: require('libdec/arch/v850'),
+        wasm: require('libdec/arch/wasm'),
         x86: require('libdec/arch/x86')
     };
 })();

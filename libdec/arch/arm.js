@@ -499,6 +499,12 @@ module.exports = (function() {
                 vars: []
             }
         },
+        localvars: function(context) {
+            return [];
+        },
+        arguments: function(context) {
+            return [];
+        },
         returns: function(context) {
             return 'void';
         }

@@ -97,6 +97,7 @@ module.exports = (function() {
     var Routine = function(name, instructions) {
         this.instructions = instructions;
         this.args = [];
+        this.locals = [];
         this.returnType = 'void';
         this.name = name;
 
@@ -107,7 +108,7 @@ module.exports = (function() {
             var paddingsize = options.assembly ? _max_pad(instructions, this.name.trim()) : 0;
             var line = new Printable();
             if (options.offset) {
-              paddingsize = 16;
+                paddingsize = 16;
             }
             if (options.assembly) {
                 var legenda2 = '    ; assembly';
@@ -131,6 +132,16 @@ module.exports = (function() {
             line.appendColorize(this.args.join(', '));
             line.append(') {');
             line.print(p, options);
+            if (this.locals.length > 0) {
+                line.clean();
+                for (var i = 0; i < this.locals.length; i++) {
+                    line.appendSpacedPipe(paddingsize);
+                    line.append(ident);
+                    line.appendColorize(this.locals[i]);
+                    line.appendEndline();
+                }
+                line.print(p, options);
+            }
             for (var i = 0; i < this.instructions.length; i++) {
                 line.clean();
                 var instr = this.instructions[i];

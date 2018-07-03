@@ -114,8 +114,10 @@ module.exports = (function() {
         this.analyze = function(routine, arch) {
             var context = arch.context();
             _analyze_instructions(routine.instructions, arch, context, this.options);
-            _analyze_flows(routine.instructions, arch, context, this.options)
+            _analyze_flows(routine.instructions, arch, context, this.options);
             routine.returnType = arch.returns(context);
+            routine.args = arch.arguments(context);
+            routine.locals = arch.localvars(context);
         };
         this.xrefs = function(routine, isj) {
             var instructions = routine.instructions;

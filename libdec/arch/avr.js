@@ -663,6 +663,12 @@ module.exports = (function() {
                 returns: null
             }
         },
+        localvars: function(context) {
+            return [];
+        },
+        arguments: function(context) {
+            return [];
+        },
         returns: function(context) {
             return context.returns == null ? 'void' : 'uint8_t';
         }

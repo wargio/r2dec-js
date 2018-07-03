@@ -395,6 +395,12 @@ module.exports = (function() {
                 }
             }
         },
+        localvars: function(context) {
+            return [];
+        },
+        arguments: function(context) {
+            return [];
+        },
         returns: function(context) {
             return 'void';
         }

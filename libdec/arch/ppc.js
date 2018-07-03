@@ -1803,6 +1803,12 @@ module.exports = (function() {
                 i = _load_address_32_64(i, instructions, context);
             }
         },
+        localvars: function(context) {
+            return [];
+        },
+        arguments: function(context) {
+            return [];
+        },
         returns: function(context) {
             return context.returns;
         }
