@@ -81,6 +81,10 @@ e scr.color         | enables syntax colors.
     wasm
     x86 (intel)
 
+# Developing on r2dec
+
+[Read DEVELOPERS.md](https://github.com/wargio/r2dec-js/blob/master/DEVELOPERS.md)
+
 ## Example
 
 This example shows a possible dump of the plugin.
