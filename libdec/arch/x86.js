@@ -65,6 +65,14 @@ module.exports = (function() {
         reg = reg.toLowerCase();
         var c = reg.charAt(0);
         if (c == 'r') {
+            var suffix = reg.charAt(reg.length - 1);
+            if (suffix == 'l') {
+                return 8;
+            } else if (suffix == 'w') {
+                return 16;
+            } else if (suffix == 'd') {
+                return 32;
+            }
             return 64;
         } else if (c == 'e') {
             return 32;
