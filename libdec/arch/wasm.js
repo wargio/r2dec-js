@@ -102,13 +102,17 @@ module.exports = (function() {
         lt_s: 'GE',
         lt_u: 'GE',
         le_s: 'GT',
-        le_u: 'GT'
+        le_u: 'GT',
+        gt: 'LE',
+        ge: 'LT',
+        lt: 'GE',
+        le: 'GT'
     };
 
     var _conditional = function(instr, context, instructions) {
         var cond = {};
-        cond.b = context.stack.pop();
-        cond.a = context.stack.pop();
+        cond.b = context.stack.pop().toString();
+        cond.a = context.stack.pop().toString();
         cond.cmp = _cmp[instr.parsed[1]];
         context.stack.push(cond);
         return Base.instructions.nop();
@@ -136,6 +140,10 @@ module.exports = (function() {
         lt_u: _conditional,
         le_s: _conditional,
         le_u: _conditional,
+        gt: _conditional,
+        ge: _conditional,
+        lt: _conditional,
+        le: _conditional,
         const: function(instr, context, instructions) {
             var s = _set_local(instr, context, instructions, 'const ' + _type(instr), false);
             context.stack.push(s);
@@ -179,6 +187,15 @@ module.exports = (function() {
         },
         or: function(instr, context, instructions) {
             return _math(instr, context, instructions, _type(instr), Base.instructions.or);
+        },
+        reinterpret: function(instr, context, instructions) {
+            var s = _set_local(instr, context, instructions, _type(instr), false);
+            var b = context.stack.pop();
+            context.stack.push(s);
+            if (_is_next_local(instr, instructions) < 0) {
+                return Base.instructions.assign(s.toString('arg'), b.toString());
+            }
+            return Base.instructions.assign(s.toString(), b.toString());
         },
         rem_s: function(instr, context, instructions) {
             return _math(instr, context, instructions, _type(instr), Base.instructions.module);
@@ -263,12 +280,20 @@ module.exports = (function() {
                 context.local[n] = context.stack[context.stack.length - 1];
                 return Base.instructions.nop();
             },
+            call: function(instr, context, instructions) {
+                if (instr.parsed[1].match(/^(0x)?[\dA-Fa-f]+$/)) {
+                    return Base.instructions.call(instr.parsed[1], [], true);
+                }
+                return Base.instructions.call(_call_fix_name(instr.parsed[1]));
+            },
             return: function(instr, context, instructions) {
                 var ret = null;
-                if (context.stack.length == 1) {
-                    ret = context.stack[0].toString();
-                } else if (context.stack.length > 1) {
-                    console.log('unimplemented..', context.stack)
+                if (context.stack.length > 0) {
+                    if (context.stack.length > 1) {
+                        console.log('unimplemented..', context.stack);
+                    }
+                    context.returned = context.stack.pop();
+                    ret = context.returned.toString();
                 }
                 return Base.instructions.return(ret);
             },
@@ -306,6 +331,7 @@ module.exports = (function() {
         },
         context: function() {
             return {
+                returned: null,
                 input: [],
                 local: [],
                 stack: [],
@@ -333,7 +359,14 @@ module.exports = (function() {
             }
         },
         localvars: function(context) {
-            return context.local.map(function(x) {
+            return context.local.filter(function(x) {
+                for (var i = 0; i < context.local.length; i++) {
+                    if (x == context.local[i]) {
+                        return false;
+                    }
+                }
+                return true;
+            }).map(function(x) {
                 return x.toString('arg') + ';';
             });
         },
@@ -343,8 +376,8 @@ module.exports = (function() {
             });
         },
         returns: function(context) {
-            if (context.stack.length == 1) {
-                return context.stack[0].type;
+            if (context.returned) {
+                return context.returned.type.replace(/const\s/, '');
             }
             return 'void';
         }
