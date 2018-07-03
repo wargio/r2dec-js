@@ -664,6 +664,12 @@ module.exports = (function() {
                 vars: []
             }
         },
+        localvars: function(context) {
+            return [];
+        },
+        arguments: function(context) {
+            return [];
+        },
         returns: function(context) {
             if (context.returns.bits > 0) {
                 return (context.returns.signed ? 'int' : 'uint') + context.returns.bits + '_t';
