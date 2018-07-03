@@ -281,10 +281,13 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             call: function(instr, context, instructions) {
+                var args = context.stack.slice().map(function(x) {
+                    return x.toString();
+                });
                 if (instr.parsed[1].match(/^(0x)?[\dA-Fa-f]+$/)) {
-                    return Base.instructions.call(instr.parsed[1], [], true);
+                    return Base.instructions.call(instr.parsed[1], args, true);
                 }
-                return Base.instructions.call(_call_fix_name(instr.parsed[1]));
+                return Base.instructions.call(_call_fix_name(instr.parsed[1]), args);
             },
             return: function(instr, context, instructions) {
                 var ret = null;
@@ -360,8 +363,8 @@ module.exports = (function() {
         },
         localvars: function(context) {
             return context.local.filter(function(x) {
-                for (var i = 0; i < context.local.length; i++) {
-                    if (x == context.local[i]) {
+                for (var i = 0; i < context.input.length; i++) {
+                    if (x == context.input[i]) {
                         return false;
                     }
                 }
