@@ -7,7 +7,7 @@ Converts asm to pseudo-C code.
 
 # Software Requirements
 
-Requires radare2 version 2.7 or newer.
+Requires radare2 version 2.6.9 or newer.
 
 # Install
 
@@ -37,13 +37,15 @@ Usage: pdd [args] - core plugin for r2dec
  pddi  - generates the issue data
 [0x00000c60]> pdd --help
 r2dec [options]
-       --help       | this help message
-       --colors     | enables syntax colors
-       --assembly   | shows pseudo next to the assembly
-       --casts      | shows all casts in the pseudo code
-       --issue      | generates the json used for the test suite
-       --debug      | do not catch exceptions
-       --html       | outputs html data instead of text
+       --help     | this help message
+       --colors   | enables syntax colors
+       --assembly | shows pseudo next to the assembly
+       --offset   | shows pseudo next to the offset
+       --casts    | shows all casts in the pseudo code
+       --issue    | generates the json used for the test suite
+       --debug    | do not catch exceptions
+       --html     | outputs html data instead of text
+       --xrefs    | shows all xrefs in the pseudo code
 ```
 
 # Radare2 Evaluable vars
@@ -51,11 +53,13 @@ r2dec [options]
 You can use these in your `.radare2rc` file.
 
 ```
-e r2dec.casts       | shows all casts in the pseudo code
-e r2dec.asm         | shows pseudo next to the assembly
-e r2dec.theme       | defines the color theme to be used
-e scr.html          | outputs html data instead of text
-e scr.color         | enables syntax colors
+r2dec.casts         | if false, hides all casts in the pseudo code.
+r2dec.asm           | if true, shows pseudo next to the assembly.
+r2dec.offset        | if true, shows pseudo next to the offset.
+r2dec.xrefs         | if true, shows all xrefs in the pseudo code.
+r2dec.theme         | defines the color theme to be used on r2dec.
+e scr.html          | outputs html data instead of text.
+e scr.color         | enables syntax colors.
 ```
 
 # Report an Issue
@@ -74,7 +78,12 @@ e scr.color         | enables syntax colors
     ppc
     sparc
     v850
+    wasm
     x86 (intel)
+
+# Developing on r2dec
+
+[Read DEVELOPERS.md](https://github.com/wargio/r2dec-js/blob/master/DEVELOPERS.md)
 
 ## Example
 
