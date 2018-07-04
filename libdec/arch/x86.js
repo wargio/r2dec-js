@@ -62,24 +62,47 @@ module.exports = (function() {
     };
 
     var _find_bits = function(reg) {
-        reg = reg.toLowerCase();
-        var c = reg.charAt(0);
-        if (c == 'r') {
-            var suffix = reg.charAt(reg.length - 1);
-            if (suffix == 'l') {
-                return 8;
-            } else if (suffix == 'w') {
-                return 16;
-            } else if (suffix == 'd') {
-                return 32;
+        elems = reg.match(/([re])?(.?[^dwhl]?)([dwhl])?/);
+
+        // reg string will be splitted into an array of 4, where:
+        //   [0]: match string
+        //   [1]: prefix (either 'r', 'e' or undefined)
+        //   [2]: reg name
+        //   [3]: suffix (either 'h', 'l', 'w', 'd' or undefined)
+        //
+        // when coming to determine the register size, the aforementioned elements are inspected in a certain order
+        // to look at the first that it isn't undefined: suffix -> prefix -> name
+
+        var sz;
+
+        if (elems[3] != undefined) {
+            sz = {
+                'h':  8,
+                'l':  8,
+                'w': 16,
+                'd': 32
+            }[elems[3]];
+        } else if (elems[1] != undefined) {
+            sz = {
+                'r': 64,
+                'e': 32
+            }[elems[1]];
+        } else {
+            // if neither suffix nor prefix are defined, test name for avx regs
+            var avx_elems = elems[2].match(/([xyz])mm\d+/);
+
+            if (avx_elems) {
+                sz = {
+                    'x': 128,
+                    'y': 256,
+                    'z': 512
+                }[avx_elems[1]];
+            } else {
+                sz = 16;
             }
-            return 64;
-        } else if (c == 'e') {
-            return 32;
-        } else if (['ax', 'cx', 'dx', 'bx', 'sp', 'bp', 'si', 'di'].indexOf(reg) >= 0) {
-            return 16;
         }
-        return 8;
+
+        return sz;
     };
 
     var _clean_save_reg = function(instr, size, instructions) {
