@@ -100,13 +100,21 @@ module.exports = (function() {
         if (_is_stack_reg(e[1])) {
             return null;
         }
-        if (e.length == 2) {
-            var arg = new Base.bits_argument(e[1], bits, false);
-            if (e[1].match(/r\wx/)) {
+        if (e.length == 2 || (e.length == 3 && _bits_types[e[1]])) {
+            var arg = null;
+            var reg = null;
+            if (e.length == 3) {
+                reg = e[2];
+                arg = new Base.bits_argument(e[2], _bits_types[e[1]], true, true, true);
+            } else {
+                reg = e[1];
+                arg = new Base.bits_argument(e[1], bits, false);
+            }
+            if (reg.match(/r\wx/)) {
                 context.returns.bits = 64;
                 context.returns.signed = true;
                 return op("rax", "rax", arg);
-            } else if (e[1].match(/r\wx/)) {
+            } else if (reg.match(/r\wx/)) {
                 context.returns.bits = 32;
                 context.returns.signed = true;
                 return op("edx:eax", "edx:eax", arg);
