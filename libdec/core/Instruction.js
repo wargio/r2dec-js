@@ -34,6 +34,7 @@ module.exports = (function() {
     var Instruction = function(op, scope) {
         this.scope = scope;
         this.loc = op.offset;
+        this.type = op.type;
         this.jump = (!op.jump || Long.ZERO.eq(op.jump)) ? null : op.jump;
         this.ptr = op.ptr ? op.ptr : null;
         this.ref = (op.refptr || (this.ptr && Long.ZERO.lt(op.ptr))) ? true : false;
@@ -46,6 +47,7 @@ module.exports = (function() {
         this.valid = true;
         this.string = null;
         this.cond = null;
+        this.callee = null;
         this.xrefs = op.xrefs ? op.xrefs.slice() : [];
         this.printable = function(p, spacesize, ident, options) {
             if (this.comments && this.comments.length > 0) {

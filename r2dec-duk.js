@@ -122,6 +122,7 @@ function r2dec_main(args) {
             if (has_option(args, '--issue')) {
                 var xrefs = (r2cmd('isj')).trim();
                 var strings = (r2cmd('izj')).trim();
+                var functions = (r2cmdj('aflj')).trim();
                 var data = (r2cmd('agj')).trim();
                 if (xrefs.length == 0) {
                     xrefs = '[]'
@@ -129,18 +130,28 @@ function r2dec_main(args) {
                 if (strings.length == 0) {
                     strings = '[]'
                 }
+                if (functions.length == 0) {
+                    functions = '[]'
+                }
                 if (data.length == 0) {
                     data = '[]'
                 }
-                console.log('{"name":"issue_' + (new Date()).getTime() + '","arch":"' + arch + '","agj":' + data + ',"isj":' + xrefs + ',"izj":' + strings + '}');
+                console.log('{"name":"issue_' + (new Date()).getTime() +
+                    '","arch":"' + arch +
+                    '","agj":' + data +
+                    ',"isj":' + xrefs +
+                    ',"izj":' + strings +
+                    ',"aflj":' + functions + '}');
             } else {
                 var xrefs = r2cmdj('isj', []);
                 var strings = r2cmdj('izj', []);
+                var functions = r2cmdj('aflj', []);
                 var data = r2cmdj('agj', []);
                 if (data && data.length > 0) {
                     var routine = libdec.analyzer.make(data);
                     libdec.analyzer.setOptions(options);
                     libdec.analyzer.strings(routine, strings);
+                    libdec.analyzer.functions(routine, functions);
                     libdec.analyzer.analyze(routine, architecture);
                     libdec.analyzer.xrefs(routine, xrefs);
                     routine.print(console.log, options);

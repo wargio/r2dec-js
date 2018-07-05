@@ -211,14 +211,106 @@ module.exports = (function() {
         return string == null && arg && (arg.indexOf('local_') == 0 || arg == 'esp');
     };
 
+    var _guess_cdecl_nargs = function(instrs) {
+        var nargs = 0;
+
+        for (var i = (instrs.length - 1); i >= 0; i--) {
+            var op   = instrs[i].parsed[0];
+            var arg0 = instrs[i].parsed[1];
+
+            // a "push" instruction which is not the function's prologue indicates
+            // that it is probably a function's argument 
+            if ((op == 'push') && !_is_stack_reg(arg0)) {
+                nargs++;
+            } else if ((op == 'add') && _is_stack_reg(arg0)) {
+                // reached the previous function call cleanup
+                break;
+            } else if (op == 'call') {
+                // reached the previous function call
+                break;
+            }
+        }
+
+        return nargs;
+    };
+
+    var _guess_amd64_nargs = function(instrs) {
+        var nargs = 0;
+
+        // TODO: implement this
+
+        return nargs;
+    };
+
+    var _populate_cdecl_call_args = function(instrs, nargs) {
+        var args = [];
+
+        for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
+            if (instrs[i].parsed[0] == 'push') {
+                var arg;
+
+                if (instrs[i].string) {
+                    arg = new Base.string(instrs[i].string);
+                } else {
+                    var opnd = instrs[i].parsed[1];
+                    var opnd_bits = _bits_types[opnd];
+
+                    // if parsed[1] is a qualifier, take the next one
+                    if (opnd_bits) {
+                        opnd = instrs[i].parsed[2];
+                    }
+
+                    arg = new Base.bits_argument(opnd, opnd_bits, false, true, _requires_pointer(null, opnd));
+                }
+
+                instrs[i].valid = false;
+                args.push(arg);
+                nargs--;
+            }
+        }
+
+        return args;
+    };
+
+    var _populate_amd64_call_args = function(instrs, nargs) {
+        var x64systemv = ['rdi', 'edi', 'rsi', 'esi', 'rdx', 'edx', 'rcx', 'ecx', 'r8', 'r8d', 'r9', 'r9d'];
+
+        var args = [];
+
+        for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
+            var dest = instrs[i].parsed[1];
+            var argidx = Math.floor(x64systemv.indexOf(dest) / 2);
+
+            if ((argidx >= 0) && (args[argidx] == undefined)) {
+                var arg;
+
+                if (instrs[i].string) {
+                    arg = new Base.string(instrs[i].string);
+                } else {
+                    var opnd = instrs[i].parsed[2];
+                    var opnd_bits = _bits_types[opnd];
+
+                    // if parsed[1] is a qualifier, take the next one
+                    if (opnd_bits) {
+                        opnd = instrs[i].parsed[3];
+                    }
+
+                    arg = new Base.bits_argument(opnd, opnd_bits, false, true, _requires_pointer(null, opnd));
+                }
+
+                instrs[i].valid = false;
+                args[argidx] = arg;
+                nargs--;
+            }
+        }
+
+        return args;
+    };
+
     var _call_function = function(instr, context, instrs, is_pointer) {
         instr.invalidate_jump();
-        var regs32 = ['ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp'];
-        var regs64 = ['rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9'];
-        var args = [];
+
         var returnval = instrs.indexOf(instr) == (instrs.length - 1) ? 'return' : null;
-        var bad_ax = true;
-        var end = instrs.indexOf(instr) - regs64.length;
         var start = instrs.indexOf(instr);
         var callname = instr.parsed[1];
 
@@ -246,118 +338,33 @@ module.exports = (function() {
             }
         }
 
-        // if function call is the first instruction, it has no arguments.
-        // otherwise, get the number of arguments out of a predefined list
+        var callee = instrs[start].callee;
+        var calltype = callee.calltype;
+
+        var guess_nargs = {
+            'cdecl': _guess_cdecl_nargs,
+            'amd64': _guess_amd64_nargs
+        };
+
+        var populate_call_args = {
+            'cdecl': _populate_cdecl_call_args,
+            'amd64': _populate_amd64_call_args
+        };
+
+        // get the number of arguments out of a predefined list
         // this may hold a value of (-1) which stands for "unknown number of arguments"
-        var known_args_n = start > 0 ? Base.arguments(callname) : 0;
+        var nargs = callee.name.startsWith('sym.imp.')
+            ? Base.arguments(callee.name.substring('sym.imp.'.length))
+            : callee.nargs;
 
         // if number of arguments is unknown (either an unrecognized or a variadic function),
-        // try to guess the number of arguments by walking up the stack and looking for any
-        // preceding "push" instructions
-        if (known_args_n == (-1)) {
-            known_args_n = 0;
-
-            for (var i = (start - 1); i >= 0; i--) {
-                var op   = instrs[i].parsed[0];
-                var arg0 = instrs[i].parsed[1];
-
-                // a "push" instruction which is not the function's prologue indicates
-                // that it is probably a function's argument 
-                if ((op == 'push') && !_is_stack_reg(arg0))
-                {
-                    known_args_n++;
-                } else if ((op == 'add') && _is_stack_reg(arg0)) {
-                    // reached the previous function call cleanup
-                    break;
-                } else if (op == 'call') {
-                    // reached the previous function call
-                    break;
-                }
-            }
+        // try to guess the number of arguments
+        if (nargs == (-1)) {
+            nargs = guess_nargs[calltype](instrs.slice(0, start));
         }
 
-        // populate the arguments list [32 bit stdcall]
-        for (var i = (start - 1); (i >= 0) && (known_args_n > 0); i--) {
-            var op   = instrs[i].parsed[0];
+        var args = populate_call_args[calltype](instrs.slice(0, start), nargs);
 
-            if (op == 'push')
-            {
-                instrs[i].valid = false;
-
-                if (instrs[i].string) {
-                    args.push(new Base.string(instrs[i].string));
-                } else {
-                    var arg0 = instrs[i].parsed[1];
-                    var bits = _bits_types[arg0];
-                    var ptr  = _requires_pointer(instrs[i].string, arg0);
-
-                    args.push(new Base.bits_argument(arg0, bits, false, true, ptr));
-                }
-
-                known_args_n--;
-            }
-        }
-/*
-        if (instrs[start - 1].parsed[0] == 'push' || context.pusharg) {
-            for (var i = start - 1; i >= 0; i--) {
-                if (known_args_n > 0 && args.length >= known_args_n) {
-                    break;
-                }
-                var op = instrs[i].parsed[0];
-                var arg0 = instrs[i].parsed[1];
-                var bits = null;
-                if (_bits_types[arg0]) {
-                    arg0 = instrs[i].parsed[2];
-                    bits = _bits_types[instrs[i].parsed[1]];
-                }
-                if (op == 'push' && !_is_stack_reg(arg0)) {
-                    if (instrs[i].string) {
-                        instrs[i].valid = false;
-                        args.push(new Base.string(instrs[i].string));
-                    } else {
-                        args.push(new Base.bits_argument(arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
-                    }
-                    context.pusharg = true;
-                } else if (op == 'call' || instrs[i].jump) {
-                    break;
-                }
-            }
-        } else {
-            for (var i = start - 1; i >= end; i--) {
-                if (known_args_n > 0 && args.length >= known_args_n) {
-                    break;
-                }
-                var arg0 = instrs[i].parsed[1];
-                var bits = null;
-                if (_bits_types[arg0]) {
-                    arg0 = instrs[i].parsed[2];
-                    bits = _bits_types[instrs[i].parsed[1]];
-                }
-                if (bad_ax && (arg0 == 'al' || arg0 == 'ax' || arg0 == 'eax' || arg0 == 'rax')) {
-                    bad_ax = false;
-                    continue;
-                }
-                if (!arg0 || (arg0.indexOf('local_') != 0 && arg0 != 'esp' && regs32.indexOf(arg0) < 0 && regs64.indexOf(arg0) < 0) ||
-                    !instrs[i].pseudo || instrs[i].pseudo[0] == 'call') {
-                    break;
-                }
-                bad_ax = false;
-                if (regs32.indexOf(arg0) > -1) {
-                    regs32.splice(regs32.indexOf(arg0), 1);
-                } else if (regs64.indexOf(arg0) > -1) {
-                    regs64.splice(regs64.indexOf(arg0), 1);
-                }
-                if (instrs[i].string) {
-                    instrs[i].valid = false;
-                    bits = null;
-                    args.push(new Base.string(instrs[i].string));
-                } else {
-                    args.push(new Base.bits_argument(arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
-                }
-            }
-            args = _call_fix_args(args);
-        }
-*/
         return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
     }
 
