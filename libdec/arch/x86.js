@@ -22,7 +22,8 @@ module.exports = (function() {
         'byte': 8,
         'word': 16,
         'dword': 32,
-        'qword': 64
+        'qword': 64,
+        'xmmword': 128
     };
 
     var _return_types = {
@@ -220,19 +221,15 @@ module.exports = (function() {
         var end = instrs.indexOf(instr) - regs64.length;
         var start = instrs.indexOf(instr);
         var callname = instr.parsed[1];
-        var known_args_n = -1;
+
         if (_bits_types[instr.parsed[1]]) {
             callname = instr.parsed[2];
             if (callname.indexOf("reloc.") == 0) {
                 callname = callname.replace(/reloc\./g, '');
-                known_args_n = Base.arguments(callname);
             } else if (callname.indexOf('0x') == 0) {
                 callname = new Base.bits_argument(callname, _bits_types[instr.parsed[1]], false, true, true);
-            } else {
-                known_args_n = Base.arguments(callname);
             }
         } else {
-            known_args_n = Base.arguments(callname);
             if (callname.match(/$([er])?[abds][ixl]^/)) {
                 is_pointer = true;
             }
@@ -249,10 +246,58 @@ module.exports = (function() {
             }
         }
 
-        var known_args_n = Base.arguments(callname);
-        if (known_args_n == 0 || !start) {
-            return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
+        // if function call is the first instruction, it has no arguments.
+        // otherwise, get the number of arguments out of a predefined list
+        // this may hold a value of (-1) which stands for "unknown number of arguments"
+        var known_args_n = start > 0 ? Base.arguments(callname) : 0;
+
+        // if number of arguments is unknown (either an unrecognized or a variadic function),
+        // try to guess the number of arguments by walking up the stack and looking for any
+        // preceding "push" instructions
+        if (known_args_n == (-1)) {
+            known_args_n = 0;
+
+            for (var i = (start - 1); i >= 0; i--) {
+                var op   = instrs[i].parsed[0];
+                var arg0 = instrs[i].parsed[1];
+
+                // a "push" instruction which is not the function's prologue indicates
+                // that it is probably a function's argument 
+                if ((op == 'push') && !_is_stack_reg(arg0))
+                {
+                    known_args_n++;
+                } else if ((op == 'add') && _is_stack_reg(arg0)) {
+                    // reached the previous function call cleanup
+                    break;
+                } else if (op == 'call') {
+                    // reached the previous function call
+                    break;
+                }
+            }
         }
+
+        // populate the arguments list [32 bit stdcall]
+        for (var i = (start - 1); (i >= 0) && (known_args_n > 0); i--) {
+            var op   = instrs[i].parsed[0];
+
+            if (op == 'push')
+            {
+                instrs[i].valid = false;
+
+                if (instrs[i].string) {
+                    args.push(new Base.string(instrs[i].string));
+                } else {
+                    var arg0 = instrs[i].parsed[1];
+                    var bits = _bits_types[arg0];
+                    var ptr  = _requires_pointer(instrs[i].string, arg0);
+
+                    args.push(new Base.bits_argument(arg0, bits, false, true, ptr));
+                }
+
+                known_args_n--;
+            }
+        }
+/*
         if (instrs[start - 1].parsed[0] == 'push' || context.pusharg) {
             for (var i = start - 1; i >= 0; i--) {
                 if (known_args_n > 0 && args.length >= known_args_n) {
@@ -312,12 +357,13 @@ module.exports = (function() {
             }
             args = _call_fix_args(args);
         }
+*/
         return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
     }
 
     var _standard_mov = function(instr, context) {
         _has_changed_return(instr.parsed[1], context.returns.signed, context);
-        if (instr.parsed[1].match(/^[er]?[sb]p$/)) {
+        if (_is_stack_reg(instr.parsed[1])) {
             return null;
         } else if (instr.parsed.length == 3) {
             var str = instr.string ? new Base.string(instr.string) : instr.parsed[2];
@@ -365,9 +411,9 @@ module.exports = (function() {
                 return _common_math(instr.parsed, Base.instructions.add, null, context);
             },
             sub: function(instr, context, instructions) {
-                if (_is_stack_reg(instr.parsed[1])) {
-                    _clean_save_reg(instr, parseInt(instr.parsed[2]), instructions);
-                }
+//                if (_is_stack_reg(instr.parsed[1])) {
+//                    _clean_save_reg(instr, parseInt(instr.parsed[2]), instructions);
+//                }
                 return _common_math(instr.parsed, Base.instructions.subtract, null, context);
             },
             sbb: function(instr, context, instructions) {
