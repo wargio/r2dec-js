@@ -308,8 +308,6 @@ module.exports = (function() {
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
-        instr.invalidate_jump();
-
         var returnval = instrs.indexOf(instr) == (instrs.length - 1) ? 'return' : null;
         var start = instrs.indexOf(instr);
         var callname = instr.parsed[1];

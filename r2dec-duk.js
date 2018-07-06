@@ -122,7 +122,7 @@ function r2dec_main(args) {
             if (has_option(args, '--issue')) {
                 var xrefs = (r2cmd('isj')).trim();
                 var strings = (r2cmd('izj')).trim();
-                var functions = (r2cmdj('aflj')).trim();
+                var functions = (r2cmd('aflj')).trim();
                 var data = (r2cmd('agj')).trim();
                 if (xrefs.length == 0) {
                     xrefs = '[]'
