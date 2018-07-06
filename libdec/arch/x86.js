@@ -22,7 +22,8 @@ module.exports = (function() {
         'byte': 8,
         'word': 16,
         'dword': 32,
-        'qword': 64
+        'qword': 64,
+        'xmmword': 128
     };
 
     var _return_types = {
@@ -62,24 +63,47 @@ module.exports = (function() {
     };
 
     var _find_bits = function(reg) {
-        reg = reg.toLowerCase();
-        var c = reg.charAt(0);
-        if (c == 'r') {
-            var suffix = reg.charAt(reg.length - 1);
-            if (suffix == 'l') {
-                return 8;
-            } else if (suffix == 'w') {
-                return 16;
-            } else if (suffix == 'd') {
-                return 32;
+        elems = reg.match(/([re])?(.?[^dwhl]?)([dwhl])?/);
+
+        // reg string will be splitted into an array of 4, where:
+        //   [0]: match string
+        //   [1]: prefix (either 'r', 'e' or undefined)
+        //   [2]: reg name
+        //   [3]: suffix (either 'h', 'l', 'w', 'd' or undefined)
+        //
+        // when coming to determine the register size, the aforementioned elements are inspected in a certain order
+        // to look at the first that it isn't undefined: suffix -> prefix -> name
+
+        var sz;
+
+        if (elems[3] != undefined) {
+            sz = {
+                'h':  8,
+                'l':  8,
+                'w': 16,
+                'd': 32
+            }[elems[3]];
+        } else if (elems[1] != undefined) {
+            sz = {
+                'r': 64,
+                'e': 32
+            }[elems[1]];
+        } else {
+            // if neither suffix nor prefix are defined, test name for avx regs
+            var avx_elems = elems[2].match(/([xyz])mm\d+/);
+
+            if (avx_elems) {
+                sz = {
+                    'x': 128,
+                    'y': 256,
+                    'z': 512
+                }[avx_elems[1]];
+            } else {
+                sz = 16;
             }
-            return 64;
-        } else if (c == 'e') {
-            return 32;
-        } else if (['ax', 'cx', 'dx', 'bx', 'sp', 'bp', 'si', 'di'].indexOf(reg) >= 0) {
-            return 16;
         }
-        return 8;
+
+        return sz;
     };
 
     var _clean_save_reg = function(instr, size, instructions) {
@@ -187,29 +211,115 @@ module.exports = (function() {
         return string == null && arg && (arg.indexOf('local_') == 0 || arg == 'esp');
     };
 
-    var _call_function = function(instr, context, instrs, is_pointer) {
-        instr.invalidate_jump();
-        var regs32 = ['ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp'];
-        var regs64 = ['rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9'];
+    var _guess_cdecl_nargs = function(instrs) {
+        var nargs = 0;
+
+        for (var i = (instrs.length - 1); i >= 0; i--) {
+            var op   = instrs[i].parsed[0];
+            var arg0 = instrs[i].parsed[1];
+
+            // a "push" instruction which is not the function's prologue indicates
+            // that it is probably a function's argument 
+            if ((op == 'push') && !_is_stack_reg(arg0)) {
+                nargs++;
+            } else if ((op == 'add') && _is_stack_reg(arg0)) {
+                // reached the previous function call cleanup
+                break;
+            } else if (op == 'call') {
+                // reached the previous function call
+                break;
+            }
+        }
+
+        return nargs;
+    };
+
+    var _guess_amd64_nargs = function(instrs) {
+        var nargs = 0;
+
+        // TODO: implement this
+
+        return nargs;
+    };
+
+    var _populate_cdecl_call_args = function(instrs, nargs) {
         var args = [];
+
+        for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
+            if (instrs[i].parsed[0] == 'push') {
+                var arg;
+
+                if (instrs[i].string) {
+                    arg = new Base.string(instrs[i].string);
+                } else {
+                    var opnd = instrs[i].parsed[1];
+                    var opnd_bits = _bits_types[opnd];
+
+                    // if parsed[1] is a qualifier, take the next one
+                    if (opnd_bits) {
+                        opnd = instrs[i].parsed[2];
+                    }
+
+                    arg = new Base.bits_argument(opnd, opnd_bits, false, true, _requires_pointer(null, opnd));
+                }
+
+                instrs[i].valid = false;
+                args.push(arg);
+                nargs--;
+            }
+        }
+
+        return args;
+    };
+
+    var _populate_amd64_call_args = function(instrs, nargs) {
+        var x64systemv = ['rdi', 'edi', 'rsi', 'esi', 'rdx', 'edx', 'rcx', 'ecx', 'r8', 'r8d', 'r9', 'r9d'];
+
+        var args = [];
+
+        for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
+            var dest = instrs[i].parsed[1];
+            var argidx = Math.floor(x64systemv.indexOf(dest) / 2);
+
+            if ((argidx >= 0) && (args[argidx] == undefined)) {
+                var arg;
+
+                if (instrs[i].string) {
+                    arg = new Base.string(instrs[i].string);
+                } else {
+                    var opnd = instrs[i].parsed[2];
+                    var opnd_bits = _bits_types[opnd];
+
+                    // if parsed[1] is a qualifier, take the next one
+                    if (opnd_bits) {
+                        opnd = instrs[i].parsed[3];
+                    }
+
+                    arg = new Base.bits_argument(opnd, opnd_bits, false, true, _requires_pointer(null, opnd));
+                }
+
+                instrs[i].valid = false;
+                args[argidx] = arg;
+                nargs--;
+            }
+        }
+
+        return args;
+    };
+
+    var _call_function = function(instr, context, instrs, is_pointer) {
         var returnval = instrs.indexOf(instr) == (instrs.length - 1) ? 'return' : null;
-        var bad_ax = true;
-        var end = instrs.indexOf(instr) - regs64.length;
         var start = instrs.indexOf(instr);
         var callname = instr.parsed[1];
-        var known_args_n = -1;
+
         if (_bits_types[instr.parsed[1]]) {
             callname = instr.parsed[2];
             if (callname.indexOf("reloc.") == 0) {
                 callname = callname.replace(/reloc\./g, '');
-                known_args_n = Base.arguments(callname);
             } else if (callname.indexOf('0x') == 0) {
                 callname = new Base.bits_argument(callname, _bits_types[instr.parsed[1]], false, true, true);
-            } else {
-                known_args_n = Base.arguments(callname);
             }
         } else {
-            known_args_n = Base.arguments(callname);
             if (callname.match(/$([er])?[abds][ixl]^/)) {
                 is_pointer = true;
             }
@@ -226,75 +336,39 @@ module.exports = (function() {
             }
         }
 
-        var known_args_n = Base.arguments(callname);
-        if (known_args_n == 0 || !start) {
-            return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
+        var callee = instrs[start].callee;
+        var calltype = callee.calltype;
+
+        var guess_nargs = {
+            'cdecl': _guess_cdecl_nargs,
+            'amd64': _guess_amd64_nargs
+        };
+
+        var populate_call_args = {
+            'cdecl': _populate_cdecl_call_args,
+            'amd64': _populate_amd64_call_args
+        };
+
+        // get the number of arguments out of a predefined list
+        // this may hold a value of (-1) which stands for "unknown number of arguments"
+        var nargs = callee.name.startsWith('sym.imp.')
+            ? Base.arguments(callee.name.substring('sym.imp.'.length))
+            : callee.nargs;
+
+        // if number of arguments is unknown (either an unrecognized or a variadic function),
+        // try to guess the number of arguments
+        if (nargs == (-1)) {
+            nargs = guess_nargs[calltype](instrs.slice(0, start));
         }
-        if (instrs[start - 1].parsed[0] == 'push' || context.pusharg) {
-            for (var i = start - 1; i >= 0; i--) {
-                if (known_args_n > 0 && args.length >= known_args_n) {
-                    break;
-                }
-                var op = instrs[i].parsed[0];
-                var arg0 = instrs[i].parsed[1];
-                var bits = null;
-                if (_bits_types[arg0]) {
-                    arg0 = instrs[i].parsed[2];
-                    bits = _bits_types[instrs[i].parsed[1]];
-                }
-                if (op == 'push' && !_is_stack_reg(arg0)) {
-                    if (instrs[i].string) {
-                        instrs[i].valid = false;
-                        args.push(new Base.string(instrs[i].string));
-                    } else {
-                        args.push(new Base.bits_argument(arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
-                    }
-                    context.pusharg = true;
-                } else if (op == 'call' || instrs[i].jump) {
-                    break;
-                }
-            }
-        } else {
-            for (var i = start - 1; i >= end; i--) {
-                if (known_args_n > 0 && args.length >= known_args_n) {
-                    break;
-                }
-                var arg0 = instrs[i].parsed[1];
-                var bits = null;
-                if (_bits_types[arg0]) {
-                    arg0 = instrs[i].parsed[2];
-                    bits = _bits_types[instrs[i].parsed[1]];
-                }
-                if (bad_ax && (arg0 == 'al' || arg0 == 'ax' || arg0 == 'eax' || arg0 == 'rax')) {
-                    bad_ax = false;
-                    continue;
-                }
-                if (!arg0 || (arg0.indexOf('local_') != 0 && arg0 != 'esp' && regs32.indexOf(arg0) < 0 && regs64.indexOf(arg0) < 0) ||
-                    !instrs[i].pseudo || instrs[i].pseudo[0] == 'call') {
-                    break;
-                }
-                bad_ax = false;
-                if (regs32.indexOf(arg0) > -1) {
-                    regs32.splice(regs32.indexOf(arg0), 1);
-                } else if (regs64.indexOf(arg0) > -1) {
-                    regs64.splice(regs64.indexOf(arg0), 1);
-                }
-                if (instrs[i].string) {
-                    instrs[i].valid = false;
-                    bits = null;
-                    args.push(new Base.string(instrs[i].string));
-                } else {
-                    args.push(new Base.bits_argument(arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
-                }
-            }
-            args = _call_fix_args(args);
-        }
+
+        var args = populate_call_args[calltype](instrs.slice(0, start), nargs);
+
         return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
     }
 
     var _standard_mov = function(instr, context) {
         _has_changed_return(instr.parsed[1], context.returns.signed, context);
-        if (instr.parsed[1].match(/^[er]?[sb]p$/)) {
+        if (_is_stack_reg(instr.parsed[1])) {
             return null;
         } else if (instr.parsed.length == 3) {
             var str = instr.string ? new Base.string(instr.string) : instr.parsed[2];
@@ -342,9 +416,9 @@ module.exports = (function() {
                 return _common_math(instr.parsed, Base.instructions.add, null, context);
             },
             sub: function(instr, context, instructions) {
-                if (_is_stack_reg(instr.parsed[1])) {
-                    _clean_save_reg(instr, parseInt(instr.parsed[2]), instructions);
-                }
+//                if (_is_stack_reg(instr.parsed[1])) {
+//                    _clean_save_reg(instr, parseInt(instr.parsed[2]), instructions);
+//                }
                 return _common_math(instr.parsed, Base.instructions.subtract, null, context);
             },
             sbb: function(instr, context, instructions) {

@@ -23,7 +23,24 @@ module.exports = (function() {
     var Instruction = require('libdec/core/Instruction');
     var XRefs = require('libdec/core/XRefs');
     var Strings = require('libdec/core/Strings');
+    var Functions = require('libdec/core/Functions');
     var Routine = require('libdec/core/Routine');
+
+    var _handle_functions = function(functions, instr, options) {
+        instr.forEach(function(e) {
+            if (['call', 'jmp'].includes(e.type)) { // 'ujmp' ?
+                var callee = functions.search(e.jump);
+
+                if (callee) {
+                    e.callee = {
+                        name: callee.name,
+                        calltype: callee.calltype,
+                        nargs: callee.nargs
+                    };
+                }
+            }
+        });
+    };
 
     var _resolve_xref = function(xrefs, instr, options) {
         instr.forEach(function(e) {
@@ -110,6 +127,11 @@ module.exports = (function() {
             var instructions = routine.instructions;
             var strings = new Strings(izj);
             _resolve_strings(strings, instructions, this.options);
+        };
+        this.functions = function(routine, aflj) {
+            var instructions = routine.instructions;
+            var functions = new Functions(aflj);
+            _handle_functions(functions, instructions, this.options);
         };
         this.analyze = function(routine, arch) {
             var context = arch.context();
