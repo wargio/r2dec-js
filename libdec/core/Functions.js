@@ -33,10 +33,17 @@ module.exports = (function() {
     var Functions = function(aflj) {
         this.data = aflj.sort(function(a, b) {
             return a.offset.lt(b.offset) ? -1 : (a.offset.eq(b.offset) ? 0 : 1);
+        }).map(function(x) {
+            return {
+                offset: x.offset,
+                name: x.name,
+                calltype: x.calltype,
+                nargs: x.nargs
+            };
         });
 
-        this.search = function(address) {
-            return Utils.search(address, this.data, _compare);
+        this.search = function(offset) {
+            return Utils.search(offset, this.data, _compare);
         };
     };
     return Functions;
