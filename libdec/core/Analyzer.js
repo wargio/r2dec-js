@@ -28,16 +28,8 @@ module.exports = (function() {
 
     var _handle_functions = function(functions, instr, options) {
         instr.forEach(function(e) {
-            if (['call', 'jmp'].includes(e.type)) { // 'ujmp' ?
-                var callee = functions.search(e.jump);
-
-                if (callee) {
-                    e.callee = {
-                        name: callee.name,
-                        calltype: callee.calltype,
-                        nargs: callee.nargs
-                    };
-                }
+            if (['call', 'jmp'].indexOf(e.type) >= 0) { // 'ujmp' ?
+                e.callee = functions.search(e.jump);
             }
         });
     };
