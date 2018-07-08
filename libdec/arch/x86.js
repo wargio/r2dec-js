@@ -273,15 +273,23 @@ module.exports = (function() {
     };
 
     var _populate_amd64_call_args = function(instrs, nargs) {
-        var x64systemv = ['rdi', 'edi', 'rsi', 'esi', 'rdx', 'edx', 'rcx', 'ecx', 'r8', 'r8d', 'r9', 'r9d'];
+        var amd64 = {
+            'rdi': 0,   'edi': 0,
+            'rsi': 1,   'esi': 1,
+            'rdx': 2,   'edx': 2,
+            'rcx': 3,   'ecx': 3,
+            'r10': 3,   'r10d': 3,  // kernel interface uses r10 instead of rcx
+            'r8' : 4,   'r8d': 4,
+            'r9' : 5,   'r9d': 5
+        };
 
         var args = [];
 
         for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
             var dest = instrs[i].parsed[1];
-            var argidx = Math.floor(x64systemv.indexOf(dest) / 2);
+            var argidx = amd64[dest];
 
-            if ((argidx >= 0) && (args[argidx] == undefined)) {
+            if (dest in amd64 && (args[argidx] == undefined)) {
                 var arg;
 
                 if (instrs[i].string) {
