@@ -41,6 +41,12 @@ module.exports = (function() {
         'rax': 64,
     };
 
+    // tests whether a given instruction token represents a memory access qualifier rather
+    // than an actual target or source
+    var _is_qualifier = function(s) {
+        return s in _bits_types;
+    }
+
     var _has_changed_return = function(reg, signed, context) {
         if (_return_regs_bits[reg] > context.returns.bits) {
             context.returns.bits = _return_regs_bits[reg];
@@ -106,25 +112,12 @@ module.exports = (function() {
         return sz;
     };
 
-    var _clean_save_reg = function(instr, size, instructions) {
-        var index = instructions.indexOf(instr);
-        var saved = [];
-        for (var i = index + 1; size > 0 && i < instructions.length; i++) {
-            if (instructions[i].parsed[0] == 'push' && saved.indexOf(instructions[i].parsed[1]) < 0) {
-                saved.push(instructions[i].parsed[1]);
-                instructions[i].parsed = ['nop'];
-            } else {
-                break;
-            }
-        }
-    };
-
     var _common_math = function(e, op, bits, context) {
         _has_changed_return(e[1], true, context);
         if (_is_stack_reg(e[1])) {
             return null;
         }
-        if (e.length == 2 || (e.length == 3 && _bits_types[e[1]])) {
+        if (e.length == 2 || (e.length == 3 && _is_qualifier(e[1]))) {
             var arg = null;
             var reg = null;
             if (e.length == 3) {
@@ -146,10 +139,10 @@ module.exports = (function() {
             context.returns.bits = 16;
             context.returns.signed = true;
             return op("dx:ax", "dx:ax", arg);
-        } else if (_bits_types[e[1]]) {
+        } else if (_is_qualifier(e[1])) {
             var arg = new Base.bits_argument(e[2], _bits_types[e[1]], true, true, true);
             return op(arg, arg, e[3]);
-        } else if (_bits_types[e[2]]) {
+        } else if (_is_qualifier(e[2])) {
             var arg = new Base.bits_argument(e[3], _bits_types[e[2]], true, true, true);
             return op(e[1], e[1], arg);
         }
@@ -158,10 +151,10 @@ module.exports = (function() {
     };
 
     var _memory_cmp = function(e, cond) {
-        if (_bits_types[e[1]]) {
+        if (_is_qualifier(e[1])) {
             cond.a = new Base.bits_argument(e[2].replace(/\[|\]/g, ''), _bits_types[e[1]], true, true, true);
             cond.b = e[3];
-        } else if (_bits_types[e[2]]) {
+        } else if (_is_qualifier(e[2])) {
             cond.a = e[1];
             cond.b = new Base.bits_argument(e[3].replace(/\[|\]/g, ''), _bits_types[e[2]], true, true, true);
         } else {
@@ -216,13 +209,13 @@ module.exports = (function() {
 
         for (var i = (instrs.length - 1); i >= 0; i--) {
             var op   = instrs[i].parsed[0];
-            var arg0 = instrs[i].parsed[1];
+            var dest = instrs[i].parsed[1];
 
             // a "push" instruction which is not the function's prologue indicates
             // that it is probably a function's argument 
-            if ((op == 'push') && !_is_stack_reg(arg0)) {
+            if ((op == 'push') && !_is_stack_reg(dest)) {
                 nargs++;
-            } else if ((op == 'add') && _is_stack_reg(arg0)) {
+            } else if ((op == 'add') && _is_stack_reg(dest)) {
                 // reached the previous function call cleanup
                 break;
             } else if (op == 'call') {
@@ -252,15 +245,12 @@ module.exports = (function() {
                 if (instrs[i].string) {
                     arg = new Base.string(instrs[i].string);
                 } else {
-                    var opnd = instrs[i].parsed[1];
-                    var opnd_bits = _bits_types[opnd];
-
                     // if parsed[1] is a qualifier, take the next one
-                    if (opnd_bits) {
-                        opnd = instrs[i].parsed[2];
-                    }
+                    var opnd = _is_qualifier(instrs[i].parsed[1])
+                        ? instrs[i].parsed[2]
+                        : instrs[i].parsed[1];
 
-                    arg = new Base.bits_argument(opnd, opnd_bits, false, true, _requires_pointer(null, opnd));
+                    arg = new Base.bits_argument(opnd, _bits_types[opnd], false, true, _requires_pointer(null, opnd));
                 }
 
                 instrs[i].valid = false;
@@ -295,15 +285,12 @@ module.exports = (function() {
                 if (instrs[i].string) {
                     arg = new Base.string(instrs[i].string);
                 } else {
-                    var opnd = instrs[i].parsed[2];
-                    var opnd_bits = _bits_types[opnd];
+                    // if parsed[2] is a qualifier, take the next one
+                    var opnd = _is_qualifier(instrs[i].parsed[2])
+                        ? instrs[i].parsed[3]
+                        : instrs[i].parsed[2];
 
-                    // if parsed[1] is a qualifier, take the next one
-                    if (opnd_bits) {
-                        opnd = instrs[i].parsed[3];
-                    }
-
-                    arg = new Base.bits_argument(opnd, opnd_bits, false, true, _requires_pointer(null, opnd));
+                    arg = new Base.bits_argument(opnd, _bits_types[opnd], false, true, _requires_pointer(null, opnd));
                 }
 
                 instrs[i].valid = false;
@@ -316,11 +303,11 @@ module.exports = (function() {
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
-        var returnval = instrs.indexOf(instr) == (instrs.length - 1) ? 'return' : null;
+        var returnval = _is_last_instruction(instr, instrs) ? 'return' : null;
         var start = instrs.indexOf(instr);
         var callname = instr.parsed[1];
 
-        if (_bits_types[instr.parsed[1]]) {
+        if (_is_qualifier(instr.parsed[1])) {
             callname = instr.parsed[2];
             if (callname.indexOf("reloc.") == 0) {
                 callname = callname.replace(/reloc\./g, '');
@@ -345,20 +332,19 @@ module.exports = (function() {
         }
 
         var callee = instrs[start].callee;
-        var calltype = callee.calltype;
 
         var guess_nargs = {
             'cdecl': _guess_cdecl_nargs,
             'amd64': _guess_amd64_nargs
-        };
+        }[callee.calltype];
 
         var populate_call_args = {
             'cdecl': _populate_cdecl_call_args,
             'amd64': _populate_amd64_call_args
-        };
+        }[callee.calltype];
 
-        // get the number of arguments out of a predefined list
-        // this may hold a value of (-1) which stands for "unknown number of arguments"
+        // every non-import callee has a known number of arguments
+        // for imported libc functions, get the number of arguments out of a predefined list
         var nargs = callee.name.startsWith('sym.imp.')
             ? Base.arguments(callee.name.substring('sym.imp.'.length))
             : callee.nargs;
@@ -366,10 +352,10 @@ module.exports = (function() {
         // if number of arguments is unknown (either an unrecognized or a variadic function),
         // try to guess the number of arguments
         if (nargs == (-1)) {
-            nargs = guess_nargs[calltype](instrs.slice(0, start));
+            nargs = guess_nargs(instrs.slice(0, start));
         }
 
-        var args = populate_call_args[calltype](instrs.slice(0, start), nargs);
+        var args = populate_call_args(instrs.slice(0, start), nargs);
 
         return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
     }
@@ -381,7 +367,7 @@ module.exports = (function() {
         } else if (instr.parsed.length == 3) {
             var str = instr.string ? new Base.string(instr.string) : instr.parsed[2];
             return Base.instructions.assign(instr.parsed[1], str);
-        } else if (_bits_types[instr.parsed[1]]) {
+        } else if (_is_qualifier(instr.parsed[1])) {
             return Base.instructions.write_memory(instr.parsed[2], instr.parsed[3], _bits_types[instr.parsed[1]], true);
         }
         return Base.instructions.read_memory(instr.parsed[3], instr.parsed[1], _bits_types[instr.parsed[2]], true);
@@ -623,7 +609,7 @@ module.exports = (function() {
                 } else if (e.length == 2 && (e[1] == 'eax' || e[1] == 'rax')) {
                     return _call_function(instr, context, instructions, true);
                 } else if (_is_last_instruction(instr, instructions) && (
-                        _is_jumping_externally(instr, instructions) || _bits_types[e[1]])) {
+                        _is_jumping_externally(instr, instructions) || _is_qualifier(e[1]))) {
                     return _call_function(instr, context, instructions, _requires_pointer(instr.string, e[1]));
                 }
                 return Base.instructions.nop()
@@ -649,7 +635,7 @@ module.exports = (function() {
             push: function(instr, context, instructions) {
                 instr.valid = false;
                 var value = instr.parsed[1];
-                if (_bits_types[value]) {
+                if (_is_qualifier(value)) {
                     return Base.bits_argument(instr.parsed[2], _bits_types[value], false, true, false);
                 }
                 return Base.bits_argument(value);
