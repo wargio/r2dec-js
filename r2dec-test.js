@@ -66,11 +66,13 @@ function r2dec_main(filename) {
             } else {
                 var xrefs = data.isj;
                 var strings = data.izj;
+                var functions = data.aflj;
                 var graph = data.agj;
 
                 var routine = libdec.analyzer.make(graph);
                 libdec.analyzer.setOptions(options);
                 libdec.analyzer.strings(routine, strings);
+                libdec.analyzer.functions(routine, functions);
                 libdec.analyzer.analyze(routine, architecture);
                 libdec.analyzer.xrefs(routine, xrefs);
 
