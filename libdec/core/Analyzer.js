@@ -65,25 +65,23 @@ module.exports = (function() {
     };
 
     var _analyze_instructions = function(instructions, arch, context, options) {
-        var fcn, opcode, instr;
-        for (var i = 0; i < instructions.length; i++) {
-            instr = instructions[i];
+        instructions.forEach(function(instr) {
             // removes just 'sym.[imp.]' strings..
             instr.opcode = instr.opcode.replace(cfg.anal.replace, '');
             instr.parsed = arch.parse(instr.opcode);
-        }
+        });
+
         if (arch.custom_start) {
             arch.custom_start(instructions, context);
         }
-        for (var i = 0; i < instructions.length; i++) {
-            instr = instructions[i];
-            fcn = arch.instructions[instr.parsed[0]];
-            if (fcn) {
-                instr.pseudo = fcn(instr, context, instructions);
-            } else {
-                instr.pseudo = Base.instructions.unknown(instr.opcode);
-            }
-        }
+
+        instructions.forEach(function(instr) {
+            var fcn = arch.instructions[instr.parsed.mnem];
+
+            instr.pseudo = fcn
+                ? fcn(instr, context, instructions)
+                : Base.instructions.unknown(instr.opcode);
+        });
     };
 
     var _analyze_flows = function(instructions, arch, context, options) {
