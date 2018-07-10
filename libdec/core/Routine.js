@@ -69,13 +69,15 @@ module.exports = (function() {
         if (!name) {
             return 'unknown_fcn';
         }
-        if (name.indexOf('sym.') == 0) {
-            name = name.replace(/sym\./, '');
+        if (name.startsWith('sym.')) {
+            name = name.substring('sym.'.length);
         }
-        if (name.indexOf('fcn.') == 0 || name.indexOf('func.') == 0 || name.indexOf('loc.') == 0) {
+        if (name.startsWith('fcn.')  ||
+            name.startsWith('func.') ||
+            name.startsWith('loc.')) {
             return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
         }
-        return name.replace(cfg.anal.replace, '').replace(/\.|:/g, '_').replace(/__+/g, '_').replace(/^_/, '').replace(/_[0-9a-f]+$/, '');
+        return name.replace(cfg.anal.replace, '').replace(/\.|:/g, '_').replace(/__+/g, '_').replace(/^_/, '');
     }
 
     var _max_pad = function(instructions, name) {
