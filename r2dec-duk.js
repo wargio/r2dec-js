@@ -76,7 +76,7 @@ function usage() {
 
 function r2cmdj(m, empty) {
     var x = r2cmd(m).trim();
-    return x.length > 0 ? libdec.JSON.parse(x) : empty;
+    return x.length > 0 ? libdec.JSON.parse(x.replace(/\n/g, '')) : empty;
 }
 
 function r2dec_main(args) {
@@ -124,35 +124,51 @@ function r2dec_main(args) {
                 var strings = (r2cmd('izj')).trim();
                 var functions = (r2cmd('aflj')).trim();
                 var data = (r2cmd('agj')).trim();
+                var fcnargs = (r2cmd('afvj').replace(/\n/g, '')).trim();
+                var archbits = (r2cmd('e asm.bits')).trim();
                 if (xrefs.length == 0) {
-                    xrefs = '[]'
+                    xrefs = '[]';
                 }
                 if (strings.length == 0) {
-                    strings = '[]'
+                    strings = '[]';
                 }
                 if (functions.length == 0) {
-                    functions = '[]'
+                    functions = '[]';
                 }
                 if (data.length == 0) {
-                    data = '[]'
+                    data = '[]';
+                }
+                if (fcnargs.length == 0) {
+                    fcnargs = '{"sp":[],"bp":[],"reg":[]}';
+                }
+                if (archbits.length == 0) {
+                    archbits = '32';
                 }
                 console.log('{"name":"issue_' + (new Date()).getTime() +
                     '","arch":"' + arch +
-                    '","agj":' + data +
+                    '","archbits":' + archbits +
+                    ',"agj":' + data +
                     ',"isj":' + xrefs +
                     ',"izj":' + strings +
+                    ',"afvj":' + fcnargs +
                     ',"aflj":' + functions + '}');
             } else {
                 var xrefs = r2cmdj('isj', []);
                 var strings = r2cmdj('izj', []);
                 var functions = r2cmdj('aflj', []);
                 var data = r2cmdj('agj', []);
+                var archbits = parseInt((r2cmd('e asm.bits')).trim());
+                var fcnargs = r2cmdj('afvj', {
+                    "sp": [],
+                    "bp": [],
+                    "reg": []
+                });
                 if (data && data.length > 0) {
                     var routine = libdec.analyzer.make(data);
                     libdec.analyzer.setOptions(options);
                     libdec.analyzer.strings(routine, strings);
                     libdec.analyzer.functions(routine, functions);
-                    libdec.analyzer.analyze(routine, architecture);
+                    libdec.analyzer.analyze(routine, architecture, archbits, fcnargs);
                     libdec.analyzer.xrefs(routine, xrefs);
                     routine.print(console.log, options);
                 } else {

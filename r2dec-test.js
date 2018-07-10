@@ -64,16 +64,18 @@ function r2dec_main(filename) {
                 console.log(architecture + " is not currently supported.");
                 libdec.supported();
             } else {
-                var xrefs = data.isj;
-                var strings = data.izj;
-                var functions = data.aflj;
-                var graph = data.agj;
-
+                var xrefs = data.isj || [];
+                var strings = data.izj || [];
+                var graph = data.agj || [];
+                var functions = data.aflj || [];
+                var fcnargs = data.afvj || ({"sp":[],"bp":[],"reg":[]});
+                var archbits = data.archbits || '32';
+                archbits = parseInt(archbits);
                 var routine = libdec.analyzer.make(graph);
                 libdec.analyzer.setOptions(options);
                 libdec.analyzer.strings(routine, strings);
                 libdec.analyzer.functions(routine, functions);
-                libdec.analyzer.analyze(routine, architecture);
+                libdec.analyzer.analyze(routine, architecture, archbits, fcnargs);
                 libdec.analyzer.xrefs(routine, xrefs);
 
                 routine.print(console.log, options);
