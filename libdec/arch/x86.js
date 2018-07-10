@@ -52,11 +52,12 @@ module.exports = (function() {
         if (typeof name != 'string') {
             return name;
         }
-        if (name.startsWith('fcn.') || name.startsWith('func.')) {
+        if (name.startsWith('fcn.') ||
+            name.startsWith('func.')) {
             return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
         }
 
-        return name.replace(/\[reloc\.|\]/g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/^_+/, '');
+        return name.replace(/reloc\./g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/^_+/, '');
     };
 
     var _is_stack_reg = function(val) {
@@ -124,7 +125,7 @@ module.exports = (function() {
                 ? new Base.bits_argument(dst.token, dst.mem_access, true, true, true)
                 : new Base.bits_argument(dst.token, bits, false);
 
-            context.returns.bits = dst.mem_access || _find_bits[dst.token];
+            context.returns.bits = dst.mem_access || _find_bits(dst.token);
             context.returns.signed = true;
 
             var oparg = {
@@ -274,7 +275,6 @@ module.exports = (function() {
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
-        var returnval = _is_last_instruction(instr, instrs) ? 'return' : null;
         var start = instrs.indexOf(instr);
 
         var callsite = instr.parsed.opd1;
@@ -292,20 +292,48 @@ module.exports = (function() {
             }
         }
 
-        // scan the instructions down the road to see whether the function's call return
-        // value is used or ignored. if it used, use that information to infer the return type
-        for (var i = (start + 1); i < instrs.length; i++) {
-            var dst = instrs[i].parsed.opd1.token;
-            var src = instrs[i].parsed.opd2.token;
+        // indicates the function call return type (if used)
+        var returnval = null;
 
-            if (src in _return_regs_bits) {
-                returnval = src;
+        // is this a tail call?
+        if (_is_last_instruction(instr, instrs)) {
+            returnval = 'return';
+        } else {
+            // scan the instructions down the road to see whether the function's call return
+            // value is used or ignored. if it used, use that information to infer the return type
+            // TODO: to do this properly, we need to follow possible branches rather than scan sequentially
+            for (var i = (start + 1); i < instrs.length; i++) {
+                var mnem = instrs[i].parsed.mnem;
+                var dst = instrs[i].parsed.opd1.token;
+                var src = instrs[i].parsed.opd2.token;
 
-                _has_changed_return(src, false, context);
-                break;
-            } else if (dst in _return_regs_bits) {
-                // register used to store returned value is overwritten
-                break;
+                // determiming whether an instruction reads or writes a gpr is not trivial at this point.
+                // assuming that the lhand (first) operator is always overwritten and the rhand (second)
+                // operator is always read, is far from being accurate as many instructions may read the
+                // lhand operand before overwriting it (i.e. when updating the first operand, but not only).
+                //
+                // the following code tries to work around this, quite poorly though, by listing all
+                // instructions that read both first and second operands
+
+                var insn_uses_dst_as_src = (mnem.match(/pop|lea|c?mov\w*|set\w+/) == null);
+
+                if (src in _return_regs_bits) {
+                    returnval = src;
+
+                    _has_changed_return(src, false, context);
+                    break;
+                } else if (insn_uses_dst_as_src && (dst in _return_regs_bits)) {
+                    returnval = dst;
+
+                    _has_changed_return(dst, false, context);
+                    break;
+                } else if (dst in _return_regs_bits) {
+                    // register used to store returned value is overwritten
+                    break;
+                } else if (['call', 'idiv', 'imul'].indexOf(mnem) > (-1)) {
+                    // register used to store returned value is clobbered
+                    break;
+                }
             }
         }
 
@@ -457,8 +485,8 @@ module.exports = (function() {
                 var val = instr.parsed.opd2;
 
                 // compilers like to perform calculations using 'lea' instructions in the
-                // following form: [reg * 4 + reg] --> reg * 5
-                var calc = val.token.match(/([er]?[abds][ixl])\s+\*\s+(\d)\s+\+\s+\1/);
+                // following form: [reg + reg*n] --> reg * (n+1)
+                var calc = val.token.match(/([er]?[abds][ixl])\s*\+\s*\1\s*\*(\d)/);
 
                 if (calc) {
                     return Base.instructions.multiply(dst.token, calc[1], calc[2] - 0 + 1 + "");
@@ -470,7 +498,7 @@ module.exports = (function() {
 
                 var arg = instr.string
                     ? new Base.string(instr.string)
-                    : '&' + val.token.replace(/\./g, '_');
+                    : val.token.replace(/\./g, '_');
 
                 _has_changed_return(dst.token, false, context);
                 return Base.instructions.assign(dst.token, arg);
