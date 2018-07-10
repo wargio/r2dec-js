@@ -25,7 +25,7 @@ module.exports = (function() {
     var _internal_variable_cnt = 0;
 
     var _is_address = function(value) {
-        return typeof value == 'string' && value.indexOf('0x') == 0;
+        return typeof value == 'string' && value.startsWith('0x');
     };
 
     var _dependency = function(macros, code) {

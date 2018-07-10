@@ -23,7 +23,16 @@ module.exports = (function() {
     var Instruction = require('libdec/core/Instruction');
     var XRefs = require('libdec/core/XRefs');
     var Strings = require('libdec/core/Strings');
+    var Functions = require('libdec/core/Functions');
     var Routine = require('libdec/core/Routine');
+
+    var _handle_functions = function(functions, instr, options) {
+        instr.forEach(function(e) {
+            if (['call', 'jmp'].indexOf(e.type) >= 0) { // 'ujmp' ?
+                e.callee = functions.search(e.jump);
+            }
+        });
+    };
 
     var _resolve_xref = function(xrefs, instr, options) {
         instr.forEach(function(e) {
@@ -56,25 +65,23 @@ module.exports = (function() {
     };
 
     var _analyze_instructions = function(instructions, arch, context, options) {
-        var fcn, opcode, instr;
-        for (var i = 0; i < instructions.length; i++) {
-            instr = instructions[i];
+        instructions.forEach(function(instr) {
             // removes just 'sym.[imp.]' strings..
             instr.opcode = instr.opcode.replace(cfg.anal.replace, '');
             instr.parsed = arch.parse(instr.opcode);
-        }
+        });
+
         if (arch.custom_start) {
             arch.custom_start(instructions, context);
         }
-        for (var i = 0; i < instructions.length; i++) {
-            instr = instructions[i];
-            fcn = arch.instructions[instr.parsed[0]];
-            if (fcn) {
-                instr.pseudo = fcn(instr, context, instructions);
-            } else {
-                instr.pseudo = Base.instructions.unknown(instr.opcode);
-            }
-        }
+
+        instructions.forEach(function(instr) {
+            var fcn = arch.instructions[instr.parsed.mnem];
+
+            instr.pseudo = fcn
+                ? fcn(instr, context, instructions)
+                : Base.instructions.unknown(instr.opcode);
+        });
     };
 
     var _analyze_flows = function(instructions, arch, context, options) {
@@ -110,6 +117,11 @@ module.exports = (function() {
             var instructions = routine.instructions;
             var strings = new Strings(izj);
             _resolve_strings(strings, instructions, this.options);
+        };
+        this.functions = function(routine, aflj) {
+            var instructions = routine.instructions;
+            var functions = new Functions(aflj);
+            _handle_functions(functions, instructions, this.options);
         };
         this.analyze = function(routine, arch) {
             var context = arch.context();
