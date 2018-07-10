@@ -41,12 +41,6 @@ module.exports = (function() {
         'rax': 64,
     };
 
-    // tests whether a given instruction token represents a memory access qualifier rather
-    // than an actual target or source
-    var _is_qualifier = function(s) {
-        return s in _bits_types;
-    }
-
     var _has_changed_return = function(reg, signed, context) {
         if (_return_regs_bits[reg] > context.returns.bits) {
             context.returns.bits = _return_regs_bits[reg];
@@ -58,12 +52,12 @@ module.exports = (function() {
         if (typeof name != 'string') {
             return name;
         }
-        if (name.indexOf('fcn.') == 0 || name.indexOf('func.') == 0) {
+        if (name.startsWith('fcn.') || name.startsWith('func.')) {
             return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
         }
 
         return name.replace(/\[reloc\.|\]/g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/^_+/, '');
-}
+    };
 
     var _is_stack_reg = function(val) {
         return val ? (val.match(/^[er]?[sb]p$/) != null) : false;
@@ -158,11 +152,11 @@ module.exports = (function() {
 
     var _memory_cmp = function(lhand, rhand, cond) {
         if (lhand.mem_access) {
-            cond.a = new Base.bits_argument(lhand.token.replace(/\[|\]/g, ''),lhand.mem_access, true, true, true);
+            cond.a = new Base.bits_argument(lhand.token, lhand.mem_access, true, true, true);
             cond.b = rhand.token;
         } else if (rhand.mem_access) {
             cond.a = lhand.token;
-            cond.b = new Base.bits_argument(rhand.token.replace(/\[|\]/g, ''), rhand.mem_access, true, true, true);
+            cond.b = new Base.bits_argument(rhand.token, rhand.mem_access, true, true, true);
         } else {
             cond.a = lhand.token;
             cond.b = rhand.token;
@@ -298,12 +292,20 @@ module.exports = (function() {
             }
         }
 
-        if (instrs[start + 1]) {
-            var reg = instrs[start + 1].parsed.opd2.token;
-            
-            if (['rax', 'eax', 'ax', 'al'].indexOf(reg) > (-1)) {
-                returnval = reg;
-                _has_changed_return(reg, false, context);
+        // scan the instructions down the road to see whether the function's call return
+        // value is used or ignored. if it used, use that information to infer the return type
+        for (var i = (start + 1); i < instrs.length; i++) {
+            var dst = instrs[i].parsed.opd1.token;
+            var src = instrs[i].parsed.opd2.token;
+
+            if (src in _return_regs_bits) {
+                returnval = src;
+
+                _has_changed_return(src, false, context);
+                break;
+            } else if (dst in _return_regs_bits) {
+                // register used to store returned value is overwritten
+                break;
             }
         }
 
@@ -652,7 +654,7 @@ module.exports = (function() {
             jmp: function(instr, context, instructions) {
                 var dst = instr.parsed.opd1;
 
-                if (dst.mem_access && dst.token.startsWith('[reloc.')) {
+                if (dst.mem_access && dst.token.startsWith('reloc.')) {
                     instr.invalidate_jump();
 
                     return Base.instructions.call(_call_fix_name(dst.token));
@@ -775,21 +777,29 @@ module.exports = (function() {
             }
         },
         parse: function(asm) {
-            if (!asm) {
-                return [];
-            }
-
             // asm string will be tokenized by the following regular expression:
             //
             // (\w+)                                       : instruction mnemonic
-            // (?:\s+(byte|(?:[dq]?|[xyz]mm)word))?        : first operand's memory access qualifier
-            // (?:\s*(\[?[^\[\],]+\]?)?)?                  : first operand
+            // (?:\s+
+            //     (byte|(?:[dq]|[xyz]mm)?word)            : first operand's memory access qualifier
+            // )?
+            // (?:\s*
+            //     (?:\[?)                                 : optional opening bracket (stripped)
+            //     ([^\[\],]+)                             : first operand
+            //     (?:\]?)                                 : optional closing bracket (stripped)
+            // )?
             // (?:,                                        : separating comma
-            //     (?:\s+(byte|(?:[dq]?|[xyz]mm)word))?    : second operand's memory access qualifier
-            //     (?:\s*(\[?[^\[\],]+\]?)?)?              : second operand
+            //     (?:\s+
+            //         (byte|(?:[dq]|[xyz]mm)?word)        : second operand's memory access qualifier
+            //     )?
+            //     (?:\s*
+            //         (?:\[?)                             : optional opening bracket (stripped)
+            //         ([^\[\],]+)                         : second operand
+            //         (?:\]?)                             : optional closing bracket (stripped)
+            //     )?
             // )?
 
-            var tokens = asm.match(/(\w+)(?:\s+(byte|(?:[dq]?|[xyz]mm)word))?(?:\s*(\[?[^\[\],]+\]?)?)?(?:,(?:\s+(byte|(?:[dq]?|[xyz]mm)word))?(?:\s*(\[?[^\[\],]+\]?)?)?)?/);
+            var tokens = asm.match(/(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*(?:\[?)([^\[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*(?:\[?)([^\[\],]+)(?:\]?))?)?/);
 
             // tokens[0]: match string; irrelevant
             // tokens[1]: instruction mnemonic
@@ -801,13 +811,13 @@ module.exports = (function() {
             var mnemonic = tokens[1];
 
             var operand1 = {
-                mem_access: _bits_types[tokens[2]],                 // memory access size (in bits) iff operand1 exists and accesses memory, undefined otherwise
-                token: tokens[3] && tokens[3].replace(/\[|\]/g, '') // operand1 token stripped off square brackets; undefined if instruction has no operands
+                mem_access: _bits_types[tokens[2]],     // memory access size (in bits) iff operand1 exists and accesses memory, undefined otherwise
+                token: tokens[3]                        // operand1 token stripped off square brackets; undefined if instruction has no operands
             };
 
             var operand2 = {
-                mem_access: _bits_types[tokens[4]],                 // memory access size (in bits) iff operand2 exists and accesses memory, undefined otherwise
-                token: tokens[5] && tokens[5].replace(/\[|\]/g, '') // operand2 token stripped off square brackets; undefined if instruction has no second operand
+                mem_access: _bits_types[tokens[4]],     // memory access size (in bits) iff operand2 exists and accesses memory, undefined otherwise
+                token: tokens[5]                        // operand2 token stripped off square brackets; undefined if instruction has no second operand
             };
 
             return {
