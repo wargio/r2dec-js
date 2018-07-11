@@ -384,20 +384,6 @@ module.exports = (function() {
 
         _has_changed_return(dst.token, context.returns.signed, context);
 
-        // TODO: the following observation should be applicable to all instructions, not only 'mov' [except 'lea' though]
-
-        // if dst is an argument or local variable, it should not appear as memory access
-        if (_is_func_arg(dst.token, context) ||
-            _is_local_var(dst.token, context)) {
-            dst.mem_access = undefined;
-        }
-
-        // if src is an argument or local variable, it should not appear as memory access
-        if (_is_func_arg(src.token, context) ||
-            _is_local_var(src.token, context)) {
-            src.mem_access = undefined;
-        }
-
         if (dst.mem_access) {
             return Base.instructions.write_memory(dst.token, src.token, dst.mem_access, true);
         } else if (src.mem_access) {
@@ -408,6 +394,15 @@ module.exports = (function() {
             return Base.instructions.assign(dst.token, src.token);
         }
     };
+
+    var _extended_mov = function(instr, context) {
+        var dst = instr.parsed.opd1;
+        var src = instr.parsed.opd2;
+
+        _has_changed_return(dst.token, true, context);
+
+        return Base.instructions.extend(dst.token, src.token, src.mem_access || _bits_types['dword']);
+    },
 
     var _conditional_inline = function(instr, context, instructions, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
@@ -496,7 +491,6 @@ module.exports = (function() {
             },
             lea: function(instr, context) {
                 // TODO: export to a function
-                // TODO: add '&' where necessary
 
                 var dst = instr.parsed.opd1;
                 var val = instr.parsed.opd2;
@@ -509,13 +503,12 @@ module.exports = (function() {
                     return Base.instructions.multiply(dst.token, calc[1], calc[2] - 0 + 1 + "");
                 }
 
-                if (val.token.indexOf(' ') > (-1)) {
-                    val.token = '(' + val.token + ')';
-                }
+                // if val is an argument or local variable, it is its address that is taken
+                var amp = _is_func_arg(val.token, context) || _is_local_var(val.token, context);
 
                 var arg = instr.string
                     ? new Base.string(instr.string)
-                    : val.token.replace(/\./g, '_');
+                    : (amp ? '&' : '') + val.token.replace(/\./g, '_');
 
                 _has_changed_return(dst.token, false, context);
                 return Base.instructions.assign(dst.token, arg);
@@ -584,30 +577,9 @@ module.exports = (function() {
                 _has_changed_return('rax', true, context);
                 return Base.instructions.extend('rax', 'eax', 64);
             },
-            movsx: function(instr, context) {
-                var dst = instr.parsed.opd1;
-                var src = instr.parsed.opd2;
-
-                _has_changed_return(dst.token, true, context);
-
-                return Base.instructions.extend(dst.token, src.token, src.mem_access || _bits_types['dword']);
-            },
-            movsxd: function(instr, context) {
-                var dst = instr.parsed.opd1;
-                var src = instr.parsed.opd2;
-
-                _has_changed_return(dst.token, true, context);
-
-                return Base.instructions.extend(dst.token, src.token, src.mem_access || _bits_types['dword']);
-            },
-            movzx: function(instr, context) {
-                var dst = instr.parsed.opd1;
-                var src = instr.parsed.opd2;
-
-                _has_changed_return(dst.token, true, context);
-
-                return Base.instructions.extend(dst.token, src.token, src.mem_access || _bits_types['dword']);
-            },
+            movsx: _extended_mov,
+            movsxd: _extended_mov,
+            movzx: _extended_mov,
             seta: function(instr, context) {
                 var dst = instr.parsed.opd1;
 
@@ -820,6 +792,24 @@ module.exports = (function() {
             invalid: function() {
                 return Base.instructions.nop();
             }
+        },
+        custom_start: function(instrs, context) {
+            instrs.forEach(function(i) {
+                var opd1 = i.parsed.opd1;
+                var opd2 = i.parsed.opd2;
+    
+                // if dst is an argument or local variable, it should not appear as memory access
+                if (_is_func_arg(opd1.token, context) ||
+                    _is_local_var(opd1.token, context)) {
+                    opd1.mem_access = undefined;
+                }
+    
+                // if src is an argument or local variable, it should not appear as memory access
+                if (_is_func_arg(opd2.token, context) ||
+                    _is_local_var(opd2.token, context)) {
+                    opd2.mem_access = undefined;
+                }
+            });
         },
         parse: function(asm) {
             // asm string will be tokenized by the following regular expression:

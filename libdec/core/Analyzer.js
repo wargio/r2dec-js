@@ -28,7 +28,7 @@ module.exports = (function() {
 
     var _handle_functions = function(functions, instr, options) {
         instr.forEach(function(e) {
-            if (['call', 'jmp'].indexOf(e.type) >= 0) { // 'ujmp' ?
+            if (['call', 'jmp'].indexOf(e.type) > (-1)) { // 'ujmp' ?
                 e.callee = functions.search(e.jump);
             }
         });
