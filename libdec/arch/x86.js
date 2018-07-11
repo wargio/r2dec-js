@@ -41,6 +41,18 @@ module.exports = (function() {
         'rax': 64,
     };
 
+    var _is_func_arg = function(name, context) {
+        return context.args.some(function(a) {
+            return (a.name == name);
+        });
+    };
+
+    var _is_local_var = function(name, context) {
+        return context.vars.some(function(v) {
+            return (v.name == name);
+        });
+    };
+
     var _has_changed_return = function(reg, signed, context) {
         if (_return_regs_bits[reg] > context.returns.bits) {
             context.returns.bits = _return_regs_bits[reg];
@@ -372,15 +384,17 @@ module.exports = (function() {
 
         _has_changed_return(dst.token, context.returns.signed, context);
 
+        // TODO: the following observation should be applicable to all instructions, not only 'mov' [except 'lea' though]
+
         // if dst is an argument or local variable, it should not appear as memory access
-        if (dst.token.startsWith('arg_') ||
-            dst.token.startsWith('local_')) {
+        if (_is_func_arg(dst.token, context) ||
+            _is_local_var(dst.token, context)) {
             dst.mem_access = undefined;
         }
 
         // if src is an argument or local variable, it should not appear as memory access
-        if (src.token.startsWith('arg_') ||
-            src.token.startsWith('local_')) {
+        if (_is_func_arg(src.token, context) ||
+            _is_local_var(src.token, context)) {
             src.mem_access = undefined;
         }
 
@@ -390,9 +404,9 @@ module.exports = (function() {
             return Base.instructions.read_memory(src.token, dst.token, src.mem_access, true);
         } else if (_is_stack_reg(dst.token)) {
             return null;
+        } else {
+            return Base.instructions.assign(dst.token, src.token);
         }
-
-        return Base.instructions.assign(dst.token, src.token);
     };
 
     var _conditional_inline = function(instr, context, instructions, type) {
@@ -481,6 +495,9 @@ module.exports = (function() {
                 return Base.instructions.not(dst.token, dst.token);
             },
             lea: function(instr, context) {
+                // TODO: export to a function
+                // TODO: add '&' where necessary
+
                 var dst = instr.parsed.opd1;
                 var val = instr.parsed.opd2;
 
