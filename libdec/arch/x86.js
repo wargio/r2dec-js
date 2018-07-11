@@ -19,11 +19,13 @@ module.exports = (function() {
     var Base = require('libdec/arch/base');
 
     var _bits_types = {
-        'byte': 8,
-        'word': 16,
-        'dword': 32,
-        'qword': 64,
-        'xmmword': 128
+        'byte'    :   8,
+        'word'    :  16,
+        'dword'   :  32,
+        'qword'   :  64,
+        'xmmword' : 128,
+        'ymmword' : 256,
+        'zmmword' : 512
     };
 
     var _return_types = {
