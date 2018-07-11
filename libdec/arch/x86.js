@@ -865,8 +865,14 @@ module.exports = (function() {
             };
         },
         context: function(archbits, fcnargs) {
-            console.log(fcnargs)
-            var vars_args = fcnargs.bp.concat(fcnargs.sp).concat(fcnargs.reg);
+            var vars_args = fcnargs.bp.concat(fcnargs.sp).concat(fcnargs.reg).map(function(x){
+                if (x.type == 'int' && archbits >= 32) {
+                    x.type = 'int32_t';
+                } else if (x.type == 'int' && archbits < 32) {
+                    x.type = 'int16_t';
+                }
+                return x;
+            });
 
             return {
                 archbits: archbits,
