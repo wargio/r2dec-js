@@ -397,14 +397,20 @@ module.exports = (function() {
         }
     };
 
-    var _extended_mov = function(instr, context) {
+    var _extended_mov = function(instr, is_signed, context) {
         var dst = instr.parsed.opd1;
         var src = instr.parsed.opd2;
 
         _has_changed_return(dst.token, true, context);
 
-        return Base.instructions.extend(dst.token, src.token, src.mem_access || _bits_types['dword']);
-    },
+        if (dst.mem_access) {
+            return Base.instructions.write_memory(dst.token, src.token, dst.mem_access, is_signed);
+        } else if (src.mem_access) {
+            return Base.instructions.read_memory(src.token, dst.token, src.mem_access, is_signed);
+        } else {
+            return Base.instructions.extend(dst.token, src.token, _bits_types['dword']);
+        }
+    };
 
     var _conditional_inline = function(instr, context, instructions, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
@@ -579,9 +585,15 @@ module.exports = (function() {
                 _has_changed_return('rax', true, context);
                 return Base.instructions.extend('rax', 'eax', 64);
             },
-            movsx: _extended_mov,
-            movsxd: _extended_mov,
-            movzx: _extended_mov,
+            movsx: function(instr, context) {
+                return _extended_mov(instr, true, context);
+            },
+            movsxd: function(instr, context) {
+                return _extended_mov(instr, true, context);
+            },
+            movzx: function(instr, context) {
+                return _extended_mov(instr, false, context);
+            },
             seta: function(instr, context) {
                 var dst = instr.parsed.opd1;
 

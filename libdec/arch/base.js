@@ -174,7 +174,7 @@ module.exports = (function() {
             this.printable = function(p) {
                 this.reg.printable(p);
                 p.append(' = ');
-                this.pointer.printable(p);
+                p.append(this.pointer);
             };
             this.toString = function() {
                 return this.reg.toString() + ' = ' + this.pointer.toString();
