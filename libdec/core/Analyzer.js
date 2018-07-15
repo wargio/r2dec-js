@@ -78,9 +78,9 @@ module.exports = (function() {
         instructions.forEach(function(instr) {
             var fcn = arch.instructions[instr.parsed.mnem];
 
-            instr.pseudo = fcn
-                ? fcn(instr, context, instructions)
-                : Base.instructions.unknown(instr.opcode);
+            instr.pseudo = fcn ?
+                fcn(instr, context, instructions) :
+                Base.instructions.unknown(instr.opcode);
         });
     };
 
@@ -123,8 +123,8 @@ module.exports = (function() {
             var functions = new Functions(aflj);
             _handle_functions(functions, instructions, this.options);
         };
-        this.analyze = function(routine, arch) {
-            var context = arch.context();
+        this.analyze = function(routine, arch, archbits, fcnargs) {
+            var context = arch.context(archbits, fcnargs);
             _analyze_instructions(routine.instructions, arch, context, this.options);
             _analyze_flows(routine.instructions, arch, context, this.options);
             routine.returnType = arch.returns(context);
