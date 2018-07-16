@@ -94,8 +94,8 @@ module.exports = (function() {
 
         if (elems[3] != undefined) {
             sz = {
-                'h':  8,
-                'l':  8,
+                'h': 8,
+                'l': 8,
                 'w': 16,
                 'd': 32
             }[elems[3]];
@@ -135,9 +135,9 @@ module.exports = (function() {
 
         // no value operand, only target
         if (val.token == undefined) {
-            var arg = dst.mem_access
-                ? new Base.bits_argument(dst.token, dst.mem_access, true, true, true)
-                : new Base.bits_argument(dst.token, bits, false);
+            var arg = dst.mem_access ?
+                new Base.bits_argument(dst.token, dst.mem_access, true, true, true) :
+                new Base.bits_argument(dst.token, bits, false);
 
             context.returns.bits = dst.mem_access || _find_bits(dst.token);
             context.returns.signed = true;
@@ -363,31 +363,32 @@ module.exports = (function() {
             }
         }
 
+        var args = [];
         var callee = instr.callee;
+        if (callee) {
+            var guess_nargs = {
+                'cdecl': _guess_cdecl_nargs,
+                'amd64': _guess_amd64_nargs
+            }[callee.calltype];
 
-        var guess_nargs = {
-            'cdecl': _guess_cdecl_nargs,
-            'amd64': _guess_amd64_nargs
-        }[callee.calltype];
+            var populate_call_args = {
+                'cdecl': _populate_cdecl_call_args,
+                'amd64': _populate_amd64_call_args
+            }[callee.calltype];
 
-        var populate_call_args = {
-            'cdecl': _populate_cdecl_call_args,
-            'amd64': _populate_amd64_call_args
-        }[callee.calltype];
+            // every non-import callee has a known number of arguments
+            // for imported libc functions, get the number of arguments out of a predefined list
+            var nargs = callee.name.startsWith('sym.imp.') ?
+                Base.arguments(callee.name.substring('sym.imp.'.length)) :
+                callee.nargs;
 
-        // every non-import callee has a known number of arguments
-        // for imported libc functions, get the number of arguments out of a predefined list
-        var nargs = callee.name.startsWith('sym.imp.')
-            ? Base.arguments(callee.name.substring('sym.imp.'.length))
-            : callee.nargs;
-
-        // if number of arguments is unknown (either an unrecognized or a variadic function),
-        // try to guess the number of arguments
-        if (nargs == (-1)) {
-            nargs = guess_nargs(instrs.slice(0, start));
+            // if number of arguments is unknown (either an unrecognized or a variadic function),
+            // try to guess the number of arguments
+            if (nargs == (-1)) {
+                nargs = guess_nargs(instrs.slice(0, start));
+            }
+            args = populate_call_args(instrs.slice(0, start), nargs);
         }
-
-        var args = populate_call_args(instrs.slice(0, start), nargs);
 
         return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
     }
@@ -726,7 +727,7 @@ module.exports = (function() {
             },
             ret: function(instr, context, instructions) {
                 var register = _return_types[context.returns.bits.toString()];
-                
+
                 if (_is_last_instruction(instr, instructions) && (register == '')) {
                     return Base.instructions.nop();
                 }
@@ -737,9 +738,9 @@ module.exports = (function() {
 
                 var val = instr.parsed.opd[0];
 
-                return val.mem_access
-                    ? Base.bits_argument(val.token, val.mem_access, false, true, false)
-                    : Base.bits_argument(val.token);
+                return val.mem_access ?
+                    Base.bits_argument(val.token, val.mem_access, false, true, false) :
+                    Base.bits_argument(val.token);
             },
             pop: function(instr, context, instructions) {
                 for (var i = instructions.indexOf(instr); i >= 0; i--) {
@@ -873,13 +874,13 @@ module.exports = (function() {
             var mnemonic = tokens[1];
 
             var operand1 = {
-                mem_access: _bits_types[tokens[2]],     // memory access size (in bits) iff operand1 exists and accesses memory, undefined otherwise
-                token: tokens[3]                        // operand1 token stripped off square brackets; undefined if instruction has no operands
+                mem_access: _bits_types[tokens[2]], // memory access size (in bits) iff operand1 exists and accesses memory, undefined otherwise
+                token: tokens[3] // operand1 token stripped off square brackets; undefined if instruction has no operands
             };
 
             var operand2 = {
-                mem_access: _bits_types[tokens[4]],     // memory access size (in bits) iff operand2 exists and accesses memory, undefined otherwise
-                token: tokens[5]                        // operand2 token stripped off square brackets; undefined if instruction has no second operand
+                mem_access: _bits_types[tokens[4]], // memory access size (in bits) iff operand2 exists and accesses memory, undefined otherwise
+                token: tokens[5] // operand2 token stripped off square brackets; undefined if instruction has no second operand
             };
 
             return {
@@ -887,23 +888,27 @@ module.exports = (function() {
                 opd: [operand1, operand2]
             };
         },
-        context: function() {
-            var JSON = require('libdec/json64');
-            var afvj = JSON.parse(r2cmd('afvj').trim());
-            var vars_args = afvj.bp.concat(afvj.sp).concat(afvj.reg);
+        context: function(archbits, fcnargs) {
+            var vars_args = fcnargs.bp.concat(fcnargs.sp).concat(fcnargs.reg).map(function(x){
+                if (x.type == 'int' && archbits >= 32) {
+                    x.type = 'int32_t';
+                } else if (x.type == 'int' && archbits < 32) {
+                    x.type = 'int16_t';
+                }
+                return x;
+            });
 
             return {
+                archbits: archbits,
                 cond: {
                     a: null,
                     b: null,
                     is_incdec: false
                 },
-
                 returns: {
                     bits: 0,
                     signed: true
                 },
-
                 vars: vars_args.filter(function(e) {
                     return (e.kind === 'var');
                 }),
@@ -918,11 +923,11 @@ module.exports = (function() {
             });
         },
         arguments: function(context) {
-            return context.args.length == 0
-                ? ['void']
-                : context.args.map(function(v) {
+            return context.args.length == 0 ?
+                ['void'] :
+                context.args.map(function(v) {
                     return v.type + ' ' + v.name;
-                  });
+                });
         },
         returns: function(context) {
             if (context.returns.bits > 0) {
