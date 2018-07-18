@@ -832,21 +832,33 @@ module.exports = (function() {
                     opd1.mem_access = undefined;
                 }
     
+                // attach segment override to operand token, if both exist
+                if (opd1.segovr && opd1.token) {
+                    opd1.token = opd1.segovr + opd1.token;
+                }
+
                 // if src is an argument or local variable, it should not appear as memory access
                 if (_is_func_arg(opd2.token, context) ||
                     _is_local_var(opd2.token, context)) {
                     opd2.mem_access = undefined;
+                }
+
+                // attach segment override to operand token, if both exist
+                if (opd2.segovr && opd2.token) {
+                    opd2.token = opd2.segovr + opd2.token;
                 }
             });
         },
         parse: function(asm) {
             // asm string will be tokenized by the following regular expression:
             //
+            // (?:(repn?[ez]?|lock)\s+)?                   : instruction prefix
             // (\w+)                                       : instruction mnemonic
             // (?:\s+
             //     (byte|(?:[dq]|[xyz]mm)?word)            : first operand's memory access qualifier
             // )?
             // (?:\s*
+            //     ([d-g]s:)?                              : optional segment override
             //     (?:\[?)                                 : optional opening bracket (stripped)
             //     ([^\[\],]+)                             : first operand
             //     (?:\]?)                                 : optional closing bracket (stripped)
@@ -856,45 +868,51 @@ module.exports = (function() {
             //         (byte|(?:[dq]|[xyz]mm)?word)        : second operand's memory access qualifier
             //     )?
             //     (?:\s*
+            //         ([d-g]s:)?                          : optional segment override
             //         (?:\[?)                             : optional opening bracket (stripped)
             //         ([^\[\],]+)                         : second operand
             //         (?:\]?)                             : optional closing bracket (stripped)
             //     )?
             // )?
-
-            var tokens = asm.match(/(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*(?:\[?)([^\[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*(?:\[?)([^\[\],]+)(?:\]?))?)?/);
+            var tokens = asm.match(/(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^\[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^\[\],]+)(?:\]?))?)?/);
 
             // tokens[0]: match string; irrelevant
-            // tokens[1]: instruction mnemonic
-            // tokens[2]: first operand's memory access qualifier; undefined if no qualifier or no operands
-            // tokens[3]: first operand; undefined if no operands
-            // tokens[4]: second operand's memory access qualifier; undefined if no qualifier or no second operand
-            // tokens[5]: second operand; undefined if no second operand
+            // tokens[1]: instruction prefix; undefined if no prefix
+            // tokens[2]: instruction mnemonic
+            // tokens[3]: first operand's memory access qualifier; undefined if no qualifier or no operands
+            // tokens[4]: segment override for first operand; undefined if no segment override or no operands
+            // tokens[5]: first operand; undefined if no operands
+            // tokens[6]: second operand's memory access qualifier; undefined if no qualifier or no second operand
+            // tokens[7]: segment override for second operand; undefined if no segment override or no second operand
+            // tokens[8]: second operand; undefined if no second operand
 
-            var mnemonic = tokens[1];
+            var prefix = tokens[1]
+            var mnemonic = tokens[2];
 
             var operand1 = {
-                mem_access: _bits_types[tokens[2]], // memory access size (in bits) iff operand1 exists and accesses memory, undefined otherwise
-                token: tokens[3] // operand1 token stripped off square brackets; undefined if instruction has no operands
+                mem_access: _bits_types[tokens[3]],
+                segovr: tokens[4],
+                token: tokens[5]
             };
 
             var operand2 = {
-                mem_access: _bits_types[tokens[4]], // memory access size (in bits) iff operand2 exists and accesses memory, undefined otherwise
-                token: tokens[5] // operand2 token stripped off square brackets; undefined if instruction has no second operand
+                mem_access: _bits_types[tokens[6]],
+                segovr: tokens[7],
+                token: tokens[8]
             };
 
             return {
+                pref: prefix,
                 mnem: mnemonic,
                 opd: [operand1, operand2]
             };
         },
         context: function(archbits, fcnargs) {
             var vars_args = fcnargs.bp.concat(fcnargs.sp).concat(fcnargs.reg).map(function(x){
-                if (x.type == 'int' && archbits >= 32) {
-                    x.type = 'int32_t';
-                } else if (x.type == 'int' && archbits < 32) {
-                    x.type = 'int16_t';
+                if (x.type === 'int') {
+                    x.type = (archbits >= 32) ? 'int32_t' : 'int16_t';
                 }
+
                 return x;
             });
 
