@@ -430,11 +430,6 @@ module.exports = (function() {
         instr.jump = instructions[instructions.indexOf(instr) + 1].loc;
     };
 
-    var _conditional_inline = function(instr, context, instructions, type) {
-        instr.conditional(context.cond.a, context.cond.b, type);
-        instr.jump = instructions[instructions.indexOf(instr) + 1].loc;
-    };
-
     var _is_last_instruction = function(instr, instructions) {
         return instructions.indexOf(instr) == (instructions.length - 1);
     }
@@ -493,7 +488,41 @@ module.exports = (function() {
                 return _common_math(instr.parsed, Base.instructions.xor, null, context);
             },
             idiv: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.divide, null, context);
+                var divisor = instr.parsed.opd[0];
+                var divisor_is_ptr = (divisor.mem_access != undefined);
+                var divisor_size = _find_bits(divisor.token);
+
+                var dividend = {
+                     8: ['ax'],
+                    16: ['dx',  'ax'],
+                    32: ['edx', 'eax'],
+                    64: ['rdx', 'rax']
+                }[divisor_size];
+
+                var remainder = {
+                     8: 'ah',
+                    16: 'dx',
+                    32: 'edx',
+                    64: 'rdx',
+                }[divisor_size];
+
+                var quotient = {
+                    8: 'al',
+                   16: 'ax',
+                   32: 'eax',
+                   64: 'rax'
+               }[divisor_size];
+
+               _has_changed_return(quotient, true, context);
+
+               var arg_dividend  = new Base.bits_argument(dividend.join(':'), divisor_size, true, divisor_is_ptr, divisor_is_ptr);
+               var arg_quotient  = new Base.bits_argument(quotient,  divisor_size, false, false, false);
+               var arg_remainder = new Base.bits_argument(remainder, divisor_size, false, false, false);
+
+               return Base.composed([
+                   new Base.instructions.divide(arg_quotient,  arg_dividend, divisor.token),
+                   new Base.instructions.module(arg_remainder, arg_dividend, divisor.token)
+               ]);
             },
             imul: function(instr, context, instructions) {
                 return _common_math(instr.parsed, Base.instructions.multiply, null, context);
