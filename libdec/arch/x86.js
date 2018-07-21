@@ -286,6 +286,7 @@ module.exports = (function() {
             var argidx = amd64[opd1.token];
 
             // destination operand is an amd64 systemv argument, and has not been considered yet
+            // TODO: being first operand doesn't necessarily mean it is a definition [e.g. 'div', 'mul']
             if (opd1.token in amd64 && (args[argidx] == undefined)) {
                 var arg = instrs[i].string
                     ? new Base.string(instrs[i].string)
@@ -356,7 +357,7 @@ module.exports = (function() {
                 } else if (dst in _return_regs_bits) {
                     // register used to store returned value is overwritten
                     break;
-                } else if (['call', 'idiv', 'imul'].indexOf(mnem) > (-1)) {
+                } else if (mnem.match(/\b(call|i?div|i?mul|lods[bwdq]?|in(?:s[bwd]?)?)\b/)) {
                     // register used to store returned value is clobbered
                     break;
                 }
@@ -485,6 +486,9 @@ module.exports = (function() {
                 return _common_math(instr.parsed, Base.instructions.or, null, context);
             },
             xor: function(instr, context, instructions) {
+                return _common_math(instr.parsed, Base.instructions.xor, null, context);
+            },
+            pxor: function(instr, context, instructions) {
                 return _common_math(instr.parsed, Base.instructions.xor, null, context);
             },
             idiv: function(instr, context, instructions) {
@@ -878,6 +882,9 @@ module.exports = (function() {
                 }
             });
         },
+        custom_end: function(instructions, context) {
+            // empty
+         },
         parse: function(asm) {
             // asm string will be tokenized by the following regular expression:
             //
