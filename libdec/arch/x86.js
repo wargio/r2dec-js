@@ -650,6 +650,9 @@ module.exports = (function() {
             div: function(instr, context, instructions) {
                 return _math_divide(instr.parsed, false, context);
             },
+            pxor: function(instr, context, instructions) {
+                return _common_math(instr.parsed, Base.instructions.xor, null, context);
+            },
             idiv: function(instr, context, instructions) {
                 return _math_divide(instr.parsed, true, context);
             },
