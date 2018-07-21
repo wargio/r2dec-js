@@ -21,10 +21,6 @@ module.exports = {
     JSON: require('libdec/json64'),
     supported: function() {
         console.log('Supported architectures:');
-        var s = [];
-        for (var arch in this.archs) {
-            s.push(arch);
-        }
-        console.log('    ' + s.join(', '));
+        console.log('\t' + Object.keys(this.archs).join(', '));
     }
 };
