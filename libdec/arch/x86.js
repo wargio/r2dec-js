@@ -43,16 +43,63 @@ module.exports = (function() {
         'rax': 64,
     };
 
+    /**
+     * Indicates whether a register name is the system's stack pointer.
+     * @param {string} name A string literal
+     * @returns {boolean}
+     */
+    var _is_stack_reg = function(name) {
+        return name && name.match(/^[re]?sp$/);
+    }
+
+    /**
+     * Indicates whether a register name is the system's frame pointer.
+     * @param {string} name A string literal
+     * @returns {boolean}
+     */
+    var _is_frame_reg = function(name) {
+        return name && name.match(/^[re]?bp$/);
+    }
+
+    /**
+     * Indicates whether the current function has an argument named `name`.
+     * @param {string} name A string literal
+     * @returns {boolean}
+     */
     var _is_func_arg = function(name, context) {
         return context.args.some(function(a) {
             return (a.name === name);
         });
     };
 
+    /**
+     * Indicates whether the current function has a local variable named `name`.
+     * @param {string} name A string literal
+     * @returns {boolean}
+     */
     var _is_local_var = function(name, context) {
         return context.vars.some(function(v) {
             return (v.name === name);
         });
+    };
+
+    var _is_stack_based_local_var = function(name, context) {
+        return context.vars.some(function(v) {
+            return (v.name === name) && (_is_stack_reg(v.ref.base));
+        });
+    };
+
+    var _get_var_offset = function(name, context) {
+        // TODO: could be done simply with 'find' on ES6
+        var info;
+
+        context.vars.forEach(function(v) {
+            if (v.name == name) {
+                info = v;
+            }
+        });
+
+        return info ? info.ref.offset.low : undefined;
     };
 
     var _has_changed_return = function(reg, signed, context) {
@@ -72,10 +119,6 @@ module.exports = (function() {
         }
 
         return name.replace(/reloc\./g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/^_+/, '');
-    };
-
-    var _is_stack_reg = function(val) {
-        return val ? (val.match(/^[er]?[sb]p$/) != null) : false;
     };
 
     var _find_bits = function(reg) {
@@ -129,7 +172,7 @@ module.exports = (function() {
         _has_changed_return(dst.token, true, context);
 
         // stack manipulations are ignored
-        if (_is_stack_reg(dst.token)) {
+        if (_is_stack_reg(dst.token) || _is_frame_reg(dst.token)) {
             return null;
         }
 
@@ -207,7 +250,7 @@ module.exports = (function() {
         return string == null && arg && (arg.startsWith('local_') || arg == 'esp');
     };
 
-    var _guess_cdecl_nargs = function(instrs) {
+    var _guess_cdecl_nargs = function(instrs, context) {
         var nargs = 0;
 
         for (var i = (instrs.length - 1); i >= 0; i--) {
@@ -216,7 +259,9 @@ module.exports = (function() {
 
             // a "push" instruction which is not the function's prologue indicates
             // that it is probably a function's argument 
-            if ((mnem === 'push') && !_is_stack_reg(opd1.token)) {
+            if ((mnem === 'push') && !_is_frame_reg(opd1.token)) {
+                nargs++;
+            } else if (mnem === 'mov' && ((opd1.mem_access && _is_stack_reg(opd1.token)) || _is_stack_based_local_var(opd1.token, context))) {
                 nargs++;
             } else if ((mnem === 'add') && _is_stack_reg(opd1.token)) {
                 // reached the previous function call cleanup
@@ -230,7 +275,7 @@ module.exports = (function() {
         return nargs;
     };
 
-    var _guess_amd64_nargs = function(instrs) {
+    var _guess_amd64_nargs = function(instrs, context) {
         var nargs = 0;
 
         // TODO: implement this
@@ -238,20 +283,51 @@ module.exports = (function() {
         return nargs;
     };
 
-    var _populate_cdecl_call_args = function(instrs, nargs) {
+    var _populate_cdecl_call_args = function(instrs, nargs, context) {
         var args = [];
+        var argidx = 0;
 
         for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
             var mnem = instrs[i].parsed.mnem;
             var opd1 = instrs[i].parsed.opd[0];
+            var opd2 = instrs[i].parsed.opd[1];
 
+            // passing argument by referring to stack pointer
+            if (mnem === 'mov') {
+                var offset;
+
+                // opd1.token may be set to a variable name, and therefore mask the stack pointer dereference. for that
+                // reason we also check whether it is appears as a stack variable, to extract its offset from stacl pointer.
+                // another option would be undefining that variable manually using "afvs-"
+
+                if (opd1.mem_access && _is_stack_reg(opd1.token)) {
+                    var ptr = opd1.token.match(/[er]?sp(?:\s+\+\s+(\d+))/);
+
+                    offset = ptr ? parseInt(ptr[1]) : 0;
+                } else if (_is_stack_based_local_var(opd1.token, context)) {
+                    offset = Math.abs(_get_var_offset(opd1.token, context));
+                } else {
+                    // an irrelevant 'mov' isntruction; nothing to do here
+                    continue;
+                }
+
+                var arg = instrs[i].string
+                    ? new Base.string(instrs[i].string)
+                    : new Base.bits_argument(opd2.token, opd2.mem_access, false, true, _requires_pointer(null, opd2.token));
+
+                instrs[i].valid = false;
+                args[offset / (context.archbits / 8)] = arg;
+                nargs--;
+            }
+
+            // passing argument by pushing them to stack
             if (mnem === 'push') {
                 var arg = instrs[i].string
                     ? new Base.string(instrs[i].string)
                     : new Base.bits_argument(opd1.token, opd1.mem_access, false, true, _requires_pointer(null, opd1.token));
 
                 instrs[i].valid = false;
-                args.push(arg);
+                args[argidx++] = arg;
                 nargs--;
             }
         }
@@ -259,7 +335,7 @@ module.exports = (function() {
         return args;
     };
 
-    var _populate_amd64_call_args = function(instrs, nargs) {
+    var _populate_amd64_call_args = function(instrs, nargs, context) {
         var amd64 = {
             'rdi' : 0,
             'edi' : 0,
@@ -366,6 +442,7 @@ module.exports = (function() {
 
         var args = [];
         var callee = instr.callee;
+
         if (callee) {
             var guess_nargs = {
                 'cdecl': _guess_cdecl_nargs,
@@ -386,9 +463,10 @@ module.exports = (function() {
             // if number of arguments is unknown (either an unrecognized or a variadic function),
             // try to guess the number of arguments
             if (nargs == (-1)) {
-                nargs = guess_nargs(instrs.slice(0, start));
+                nargs = guess_nargs(instrs.slice(0, start), context);
             }
-            args = populate_call_args(instrs.slice(0, start), nargs);
+
+            args = populate_call_args(instrs.slice(0, start), nargs, context);
         }
 
         return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
@@ -404,7 +482,7 @@ module.exports = (function() {
             return Base.instructions.write_memory(dst.token, src.token, dst.mem_access, true);
         } else if (src.mem_access) {
             return Base.instructions.read_memory(src.token, dst.token, src.mem_access, true);
-        } else if (_is_stack_reg(dst.token)) {
+        } else if (_is_stack_reg(dst.token) || _is_frame_reg(dst.token)) {
             return null;
         } else {
             return Base.instructions.assign(dst.token, src.token);
@@ -544,8 +622,6 @@ module.exports = (function() {
                 return Base.instructions.not(dst.token, dst.token);
             },
             lea: function(instr, context) {
-                // TODO: export to a function
-
                 var dst = instr.parsed.opd[0];
                 var val = instr.parsed.opd[1];
 
