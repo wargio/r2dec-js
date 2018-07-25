@@ -188,51 +188,121 @@ module.exports = (function() {
         return sz;
     };
 
-    var _common_math = function(e, op, bits, context) {
-        var dst = e.opd[0];   // target register or memory
-        var val = e.opd[1];   // value operand
+    var _math_common = function(p, op, context) {
+        var lhand = p.opd[0];
+        var rhand = p.opd[1];
 
-        _has_changed_return(dst.token, true, context);
+        _has_changed_return(lhand.token, true, context);
 
-        // stack manipulations are ignored
-        if (_is_stack_reg(dst.token)) {
+        // stack pointer manipulations are ignored
+        if (_is_stack_reg(lhand.token)) {
             return null;
         }
 
-        // no value operand, only target
-        if (val.token == undefined) {
-            var arg = dst.mem_access ?
-                new Base.bits_argument(dst.token, dst.mem_access, true, true, true) :
-                new Base.bits_argument(dst.token, bits, false);
+        var lhand_arg = lhand.mem_access ? new Base.bits_argument(lhand.token, lhand.mem_access, true, true, true) : lhand.token;
+        var rhand_arg = rhand.mem_access ? new Base.bits_argument(rhand.token, rhand.mem_access, true, true, true) : rhand.token;
 
-            context.returns.bits = dst.mem_access || _find_bits(dst.token);
-            context.returns.signed = true;
-
-            var oparg = {
-                16: 'dx:ax',
-                32: 'edx:eax',
-                64: 'rax'
-            }[context.returns.bits];
-
-            return op(oparg, oparg, arg);
-        } else if (dst.mem_access) {
-            var arg = new Base.bits_argument(dst.token, dst.mem_access, true, true, true);
-
-            return op(arg, arg, val.token);
-        } else if (val.mem_access) {
-            var arg = new Base.bits_argument(val.token, val.mem_access, true, true, true);
-
-            return op(dst.token, dst.token, arg);
-        }
-
-        // neither target nor value access memory
-        var arg = new Base.bits_argument(val.token, bits, false, false, false);
-
-        return op(dst.token, dst.token, arg);
+        // lhand = lhand op rhand
+        return op(lhand_arg, lhand_arg, rhand_arg);
     };
 
-    var _ternary_cond = function(cond, op) {
-        return '(' + cond.a + ' ' + op + ' ' + cond.b + ') ? 1 : 0';
+    /**
+     * Handles arithmetic divisions.
+     * @param {object} p Parsed instruction structure
+     * @param {boolean} is_signed Signed operation or operands
+     * @param {object} context Context object
+     */
+    var _math_divide = function(p, is_signed, context)
+    {
+        var divisor = p.opd[0];
+        var divisor_is_ptr = (divisor.mem_access != undefined);
+        var osize = divisor.mem_access || _find_bits(divisor.token);
+
+        var dividend = {
+             8: ['ax'],
+            16: ['dx',  'ax'],
+            32: ['edx', 'eax'],
+            64: ['rdx', 'rax']
+        }[osize];
+
+        var remainder = {
+             8: 'ah',
+            16: 'dx',
+            32: 'edx',
+            64: 'rdx',
+        }[osize];
+
+        var quotient = {
+            8: 'al',
+           16: 'ax',
+           32: 'eax',
+           64: 'rax'
+        }[osize];
+
+        _has_changed_return(quotient, is_signed, context);
+
+        var arg_dividend  = new Base.bits_argument(dividend.join(':'), osize, is_signed, divisor_is_ptr, divisor_is_ptr);
+        var arg_quotient  = new Base.bits_argument(quotient,  osize, is_signed, false, false);
+        var arg_remainder = new Base.bits_argument(remainder, osize, is_signed, false, false);
+
+        // quotient = dividend / divisor
+        // remainder = dividend % divisor
+        return Base.composed([
+            new Base.instructions.divide(arg_quotient,  arg_dividend, divisor.token),
+            new Base.instructions.module(arg_remainder, arg_dividend, divisor.token)
+        ]);
+    };
+
+    /**
+     * Handles arithmetic multiplications.
+     * @param {object} p Parsed instruction structure
+     * @param {boolean} is_signed Signed operation or operands
+     * @param {object} context Context object
+     */
+    var _math_multiply = function(p, is_signed, context)
+    {
+        // note: normally there is only one operand, where the multiplier is implicit and determined by the
+        // operation size. for some reason r2 has decided to emit the multiplicand register explicitly as the
+        // first operand. in order to remain consistent with the standard notation, we'll disregard the first
+        // operand and pick the multiplicand register manually.
+
+        var multiplier = p.opd[1]; // should have been opd[0]; see note above
+        var multiplier_is_ptr = (multiplier.mem_access != undefined);
+        var osize = multiplier.mem_access || _find_bits(multiplier.token);
+
+        var destination = {
+            8: ['ax'],
+            16: ['dx',  'ax'],
+            32: ['edx', 'eax'],
+            64: ['rdx', 'rax']
+        }[osize];
+
+        var multiplicand = {
+            8: 'al',
+            16: 'ax',
+            32: 'eax',
+            64: 'rax'
+        }[osize];
+
+        _has_changed_return(destination[destination.length - 1], is_signed, context);
+
+        var arg_destination  = new Base.bits_argument(destination.join(':'), osize * 2, is_signed, false, false);
+        var arg_multiplicand = new Base.bits_argument(multiplicand, osize, is_signed, false, false);
+        var arg_multiplier   = new Base.bits_argument(multiplier.token, osize, is_signed, multiplier_is_ptr, multiplier_is_ptr);
+
+        // destination = multiplicand * multiplier
+        return new Base.instructions.multiply(arg_destination, arg_multiplicand, arg_multiplier);
+    };
+
+    /**
+     * A convinient function to generate a ternary operator string representation.
+     * 
+     * @param {object} cond Cond object holding the left and right hand of condition
+     * @param {string} cmp Comparison operator
+     * @returns {string}
+     */
+    var _ternary_cond = function(cond, cmp) {
+        return '(' + cond.a + ' ' + cmp + ' ' + cond.b + ') ? 1 : 0';
     };
 
     var _conditional = function(instr, context, type, inv) {
@@ -545,77 +615,49 @@ module.exports = (function() {
                 return Base.instructions.decrease(dst.token, '1');
             },
             add: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.add, null, context);
+                return _math_common(instr.parsed, Base.instructions.add, context);
             },
             sub: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.subtract, null, context);
+                return _math_common(instr.parsed, Base.instructions.subtract, context);
             },
             sbb: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.subtract, null, context);
+                return _math_common(instr.parsed, Base.instructions.subtract, context);
             },
             sar: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.shift_right, null, context);
+                return _math_common(instr.parsed, Base.instructions.shift_right, context);
             },
             sal: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.shift_left, null, context);
+                return _math_common(instr.parsed, Base.instructions.shift_left, context);
             },
             shr: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.shift_right, null, context);
+                return _math_common(instr.parsed, Base.instructions.shift_right, context);
             },
             shl: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.shift_left, null, context);
+                return _math_common(instr.parsed, Base.instructions.shift_left, context);
             },
             and: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.and, null, context);
+                return _math_common(instr.parsed, Base.instructions.and, context);
             },
             or: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.or, null, context);
+                return _math_common(instr.parsed, Base.instructions.or, context);
             },
             xor: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.xor, null, context);
+                return _math_common(instr.parsed, Base.instructions.xor, context);
             },
             pxor: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.xor, null, context);
+                return _math_common(instr.parsed, Base.instructions.xor, context);
+            },
+            div: function(instr, context, instructions) {
+                return _math_divide(instr.parsed, false, context);
             },
             idiv: function(instr, context, instructions) {
-                var divisor = instr.parsed.opd[0];
-                var divisor_is_ptr = (divisor.mem_access != undefined);
-                var divisor_size = _find_bits(divisor.token);
-
-                var dividend = {
-                     8: ['ax'],
-                    16: ['dx',  'ax'],
-                    32: ['edx', 'eax'],
-                    64: ['rdx', 'rax']
-                }[divisor_size];
-
-                var remainder = {
-                     8: 'ah',
-                    16: 'dx',
-                    32: 'edx',
-                    64: 'rdx',
-                }[divisor_size];
-
-                var quotient = {
-                    8: 'al',
-                   16: 'ax',
-                   32: 'eax',
-                   64: 'rax'
-               }[divisor_size];
-
-               _has_changed_return(quotient, true, context);
-
-               var arg_dividend  = new Base.bits_argument(dividend.join(':'), divisor_size, true, divisor_is_ptr, divisor_is_ptr);
-               var arg_quotient  = new Base.bits_argument(quotient,  divisor_size, false, false, false);
-               var arg_remainder = new Base.bits_argument(remainder, divisor_size, false, false, false);
-
-               return Base.composed([
-                   new Base.instructions.divide(arg_quotient,  arg_dividend, divisor.token),
-                   new Base.instructions.module(arg_remainder, arg_dividend, divisor.token)
-               ]);
+                return _math_divide(instr.parsed, true, context);
+            },
+            mul: function(instr, context, instructions) {
+                return _math_multiply(instr.parsed, false, context);
             },
             imul: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.instructions.multiply, null, context);
+                return _math_multiply(instr.parsed, true, context);
             },
             neg: function(instr, context) {
                 var dst = instr.parsed.opd[0];
