@@ -628,6 +628,9 @@ module.exports = (function() {
                 return null;
             },
             and: function(destination, source_a, source_b) {
+                if (source_b == '0') {
+                    return new _pseudocode(new _common_assign(destination, '0', false));
+                }
                 return new _pseudocode(new _common_math('&', destination, source_a, source_b));
             },
             or: function(destination, source_a, source_b) {

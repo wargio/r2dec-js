@@ -16,7 +16,7 @@
  */
 
 module.exports = (function() {
-    Utils = require('libdec/core/Utils');
+    var Utils = require('libdec/core/Utils');
 
     var _compare = function(a, b) {
         if (a.eq(b.loc)) {
@@ -34,7 +34,8 @@ module.exports = (function() {
         this.data = isj.sort(function(a, b) {
             return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
         }).map(function(x) {
-            var name = x.name.indexOf('imp.') === 0 ? x.name.replace(/imp\./, '') : x.name;
+            var name = x.name.startsWith('imp.') ? x.name.substr('imp.'.length) : x.name;
+
             return {
                 loc: x.vaddr,
                 type: x.type,
