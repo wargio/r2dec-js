@@ -44,6 +44,12 @@ module.exports = (function() {
         64: 'rax',
     };
 
+    /**
+     * Maps a return register to its corresponding size in bits, This is used to
+     * determine the size of the returned value according to the register that is
+     * used to return it.
+     * @type {Object.<string,number>}
+     */
     var _return_regs_bits = {
         'al': 8,
         'ax': 16,
@@ -51,14 +57,18 @@ module.exports = (function() {
         'rax': 64,
     };
 
+    var _REGEX_STACK_REG = /^[re]?sp$/;
+
     /**
      * Indicates whether a register name is the system's stack pointer.
      * @param {string} name A string literal
      * @returns {boolean}
      */
     var _is_stack_reg = function(name) {
-        return name && name.match(/^[re]?sp$/);
+        return name && _REGEX_STACK_REG.test(name);
     }
+
+    var _REGEX_FRAME_REG = /^[re]?bp$/;
 
     /**
      * Indicates whether a register name is the system's frame pointer.
@@ -66,7 +76,7 @@ module.exports = (function() {
      * @returns {boolean}
      */
     var _is_frame_reg = function(name) {
-        return name && name.match(/^[re]?bp$/);
+        return name && _REGEX_FRAME_REG.test(name);
     }
 
     /**
@@ -113,7 +123,7 @@ module.exports = (function() {
     /**
      * Updates function's return value properties if necessary. This is used to
      * track the result register in order to determine what the function is going
-     * to return in terms of exact register name and size.
+     * to return (if any) in terms of exact register name and size.
      * If given register is not a return value register, nothing is changed.
      * 
      * @param {string} reg Modified register name
@@ -191,16 +201,17 @@ module.exports = (function() {
     var _math_common = function(p, op, context) {
         var lhand = p.opd[0];
         var rhand = p.opd[1];
+        var signed = context.returns.signed;
 
-        _has_changed_return(lhand.token, true, context);
+        _has_changed_return(lhand.token, signed, context);
 
         // stack pointer manipulations are ignored
         if (_is_stack_reg(lhand.token)) {
             return null;
         }
 
-        var lhand_arg = lhand.mem_access ? new Base.bits_argument(lhand.token, lhand.mem_access, true, true, true) : lhand.token;
-        var rhand_arg = rhand.mem_access ? new Base.bits_argument(rhand.token, rhand.mem_access, true, true, true) : rhand.token;
+        var lhand_arg = lhand.mem_access ? new Base.bits_argument(lhand.token, lhand.mem_access, signed, true, true) : lhand.token;
+        var rhand_arg = rhand.mem_access ? new Base.bits_argument(rhand.token, rhand.mem_access, signed, true, true) : rhand.token;
 
         // lhand = lhand op rhand
         return op(lhand_arg, lhand_arg, rhand_arg);
@@ -209,10 +220,10 @@ module.exports = (function() {
     /**
      * Handles arithmetic divisions.
      * @param {object} p Parsed instruction structure
-     * @param {boolean} is_signed Signed operation or operands
+     * @param {boolean} signed Signed operation or operands
      * @param {object} context Context object
      */
-    var _math_divide = function(p, is_signed, context)
+    var _math_divide = function(p, signed, context)
     {
         var divisor = p.opd[0];
         var divisor_is_ptr = (divisor.mem_access != undefined);
@@ -239,11 +250,11 @@ module.exports = (function() {
            64: 'rax'
         }[osize];
 
-        _has_changed_return(quotient, is_signed, context);
+        _has_changed_return(quotient, signed, context);
 
-        var arg_dividend  = new Base.bits_argument(dividend.join(':'), osize, is_signed, divisor_is_ptr, divisor_is_ptr);
-        var arg_quotient  = new Base.bits_argument(quotient,  osize, is_signed, false, false);
-        var arg_remainder = new Base.bits_argument(remainder, osize, is_signed, false, false);
+        var arg_dividend  = new Base.bits_argument(dividend.join(':'), osize, signed, divisor_is_ptr, divisor_is_ptr);
+        var arg_quotient  = new Base.bits_argument(quotient,  osize, signed, false, false);
+        var arg_remainder = new Base.bits_argument(remainder, osize, signed, false, false);
 
         // quotient = dividend / divisor
         // remainder = dividend % divisor
@@ -256,10 +267,10 @@ module.exports = (function() {
     /**
      * Handles arithmetic multiplications.
      * @param {object} p Parsed instruction structure
-     * @param {boolean} is_signed Signed operation or operands
+     * @param {boolean} signed Signed operation or operands
      * @param {object} context Context object
      */
-    var _math_multiply = function(p, is_signed, context)
+    var _math_multiply = function(p, signed, context)
     {
         // note: normally there is only one operand, where the multiplier is implicit and determined by the
         // operation size. for some reason r2 has decided to emit the multiplicand register explicitly as the
@@ -284,25 +295,43 @@ module.exports = (function() {
             64: 'rax'
         }[osize];
 
-        _has_changed_return(destination[destination.length - 1], is_signed, context);
+        _has_changed_return(destination[destination.length - 1], signed, context);
 
-        var arg_destination  = new Base.bits_argument(destination.join(':'), osize * 2, is_signed, false, false);
-        var arg_multiplicand = new Base.bits_argument(multiplicand, osize, is_signed, false, false);
-        var arg_multiplier   = new Base.bits_argument(multiplier.token, osize, is_signed, multiplier_is_ptr, multiplier_is_ptr);
+        var arg_destination  = new Base.bits_argument(destination.join(':'), osize * 2, signed, false, false);
+        var arg_multiplicand = new Base.bits_argument(multiplicand, osize, signed, false, false);
+        var arg_multiplier   = new Base.bits_argument(multiplier.token, osize, signed, multiplier_is_ptr, multiplier_is_ptr);
 
         // destination = multiplicand * multiplier
-        return new Base.instructions.multiply(arg_destination, arg_multiplicand, arg_multiplier);
+        return Base.instructions.multiply(arg_destination, arg_multiplicand, arg_multiplier);
+    };
+
+    var _bitwise_rotate = function(p, op, context) {
+        var lhand = p.opd[0];
+        var rhand = p.opd[1];
+        var signed = context.returns.signed;
+
+        _has_changed_return(lhand.token, signed, context);
+
+        var lhand_arg = lhand.mem_access ? new Base.bits_argument(lhand.token, lhand.mem_access, signed, true, true) : lhand.token;
+        var rhand_arg = rhand.mem_access ? new Base.bits_argument(rhand.token, rhand.mem_access, signed, true, true) : rhand.token;
+
+        // lhand = lhand op rhand
+        return op(lhand_arg, lhand_arg, rhand_arg, dst.mem_access || _find_bits(dst.token));
     };
 
     /**
-     * A convinient function to generate a ternary operator string representation.
-     * 
-     * @param {object} cond Cond object holding the left and right hand of condition
-     * @param {string} cmp Comparison operator
-     * @returns {string}
+     * Handles SETcc instructions.
+     * @param {object} p Parsed instruction structure
+     * @param {boolean} signed Signed operation or operands
+     * @param {string} op Operation string literal
+     * @param {object} context Context object
      */
-    var _ternary_cond = function(cond, cmp) {
-        return '(' + cond.a + ' ' + cmp + ' ' + cond.b + ') ? 1 : 0';
+    var _setcc_common = function(p, signed, op, context) {
+        var dest = p.opd[0];
+
+        _has_changed_return(dest.token, signed, context);
+
+        return Base.instructions.assign(dest.token, '(' + context.cond.a + ' ' + op + ' ' + context.cond.b + ') ? 1 : 0');
     };
 
     var _conditional = function(instr, context, type, inv) {
@@ -569,14 +598,14 @@ module.exports = (function() {
         }
     };
 
-    var _extended_mov = function(instr, is_signed, context) {
-        var dst = instr.parsed.opd[0];
-        var src = instr.parsed.opd[1];
+    var _extended_mov = function(p, signed, context) {
+        var dst = p.opd[0];
+        var src = p.opd[1];
 
-        _has_changed_return(dst.token, is_signed, context);
+        _has_changed_return(dst.token, signed, context);
 
         if (src.mem_access) {
-            return Base.instructions.read_memory(src.token, dst.token, src.mem_access, is_signed);
+            return Base.instructions.read_memory(src.token, dst.token, src.mem_access, signed);
         } else {
             return Base.instructions.extend(dst.token, src.token, _find_bits(dst.token));
         }
@@ -614,40 +643,40 @@ module.exports = (function() {
                 context.cond.is_incdec = true;
                 return Base.instructions.decrease(dst.token, '1');
             },
-            add: function(instr, context, instructions) {
+            add: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.add, context);
             },
-            sub: function(instr, context, instructions) {
+            sub: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.subtract, context);
             },
-            sbb: function(instr, context, instructions) {
+            sbb: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.subtract, context);
             },
-            sar: function(instr, context, instructions) {
+            sar: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.shift_right, context);
             },
-            sal: function(instr, context, instructions) {
+            sal: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.shift_left, context);
             },
-            shr: function(instr, context, instructions) {
+            shr: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.shift_right, context);
             },
-            shl: function(instr, context, instructions) {
+            shl: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.shift_left, context);
             },
-            and: function(instr, context, instructions) {
+            and: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.and, context);
             },
-            or: function(instr, context, instructions) {
+            or: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.or, context);
             },
-            xor: function(instr, context, instructions) {
+            xor: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.xor, context);
             },
-            pxor: function(instr, context, instructions) {
+            pxor: function(instr, context) {
                 return _math_common(instr.parsed, Base.instructions.xor, context);
             },
-            div: function(instr, context, instructions) {
+            div: function(instr, context) {
                 return _math_divide(instr.parsed, false, context);
             },
             pxor: function(instr, context, instructions) {
@@ -659,10 +688,10 @@ module.exports = (function() {
             idiv: function(instr, context, instructions) {
                 return _math_divide(instr.parsed, true, context);
             },
-            mul: function(instr, context, instructions) {
+            mul: function(instr, context) {
                 return _math_multiply(instr.parsed, false, context);
             },
-            imul: function(instr, context, instructions) {
+            imul: function(instr, context) {
                 return _math_multiply(instr.parsed, true, context);
             },
             neg: function(instr, context) {
@@ -686,7 +715,7 @@ module.exports = (function() {
                 var calc = val.token.match(/([er]?[abds][ixl])\s*\+\s*\1\s*\*(\d)/);
 
                 if (calc) {
-                    return Base.instructions.multiply(dst.token, calc[1], calc[2] - 0 + 1 + "");
+                    return Base.instructions.multiply(dst.token, calc[1], parseInt(calc[2]) + 1 + '');
                 }
 
                 // if val is an argument or local variable, it is its address that is taken
@@ -740,7 +769,7 @@ module.exports = (function() {
                 _conditional_inline(instr, context, instructions, 'NE');
                 return _standard_mov(instr, context);
             },
-            bswap: function(instr, context, instructions) {
+            bswap: function(instr, context) {
                 var dst = instr.parsed.opd[0];
 
                 return Base.instructions.swap_endian(dst.token, dst.token, _find_bits(dst.token));
@@ -764,73 +793,43 @@ module.exports = (function() {
                 return Base.instructions.extend('rax', 'eax', 64);
             },
             movsx: function(instr, context) {
-                return _extended_mov(instr, true, context);
+                return _extended_mov(instr.parsed, true, context);
             },
             movsxd: function(instr, context) {
-                return _extended_mov(instr, true, context);
+                return _extended_mov(instr.parsed, true, context);
             },
             movzx: function(instr, context) {
-                return _extended_mov(instr, false, context);
+                return _extended_mov(instr.parsed, false, context);
             },
             seta: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-
-                _has_changed_return(dst.token, true, context);
-                return Base.instructions.assign(dst.token, _ternary_cond(context.cond, '>'));
+                return _setcc_common(instr.parsed, false, '>', context);
             },
             setae: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-
-                _has_changed_return(dst.token, true, context);
-                return Base.instructions.assign(dst.token, _ternary_cond(context.cond, '>='));
+                return _setcc_common(instr.parsed, false, '>=', context);
             },
             setb: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-
-                _has_changed_return(dst.token, true, context);
-                return Base.instructions.assign(dst.token, _ternary_cond(context.cond, '<'));
+                return _setcc_common(instr.parsed, false, '<', context);
             },
             setbe: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-
-                _has_changed_return(dst.token, true, context);
-                return Base.instructions.assign(dst.token, _ternary_cond(context.cond, '<='));
-            },
-            sete: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-
-                _has_changed_return(dst.token, true, context);
-                return Base.instructions.assign(dst.token, _ternary_cond(context.cond, '=='));
+                return _setcc_common(instr.parsed, false, '<=', context);
             },
             setg: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-
-                _has_changed_return(dst.token, true, context);
-                return Base.instructions.assign(dst.token, _ternary_cond(context.cond, '>'));
+                return _setcc_common(instr.parsed, true, '>', context);
             },
             setge: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-
-                _has_changed_return(dst.token, true, context);
-                return Base.instructions.assign(dst.token, _ternary_cond(context.cond, '>='));
+                return _setcc_common(instr.parsed, true, '>=', context);
             },
             setl: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-
-                _has_changed_return(dst.token, true, context);
-                return Base.instructions.assign(dst.token, _ternary_cond(context.cond, '<'));
+                return _setcc_common(instr.parsed, true, '<', context);
             },
             setle: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-
-                _has_changed_return(dst.token, true, context);
-                return Base.instructions.assign(dst.token, _ternary_cond(context.cond, '<='));
+                return _setcc_common(instr.parsed, true, '<=', context);
+            },
+            sete: function(instr, context) {
+                return _setcc_common(instr.parsed, context.returns.signed, '==', context);
             },
             setne: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-
-                _has_changed_return(dst.token, true, context);
-                return Base.instructions.assign(dst.token, _ternary_cond(context.cond, '!='));
+                return _setcc_common(instr.parsed, context.returns.signed, '!=', context);
             },
             nop: function(instr, context, instructions) {
                 var index = instructions.indexOf(instr);
@@ -847,18 +846,10 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             rol: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-                var val = instr.parsed.opd[1];
-
-                _has_changed_return(dst.token, context.returns.signed, context);
-                return Base.instructions.rotate_left(dst.token, dst.token, val.token, _find_bits(dst.token));
+                return _bitwise_rotate(instr.parsed, Base.instructions.rotate_left, context);
             },
             ror: function(instr, context) {
-                var dst = instr.parsed.opd[0];
-                var val = instr.parsed.opd[1];
-
-                _has_changed_return(dst.token, context.returns.signed, context);
-                return Base.instructions.rotate_right(dst.token, dst.token, val.token, _find_bits(dst.token));
+                return _bitwise_rotate(instr.parsed, Base.instructions.rotate_right, context);
             },
             jmp: function(instr, context, instructions) {
                 var dst = instr.parsed.opd[0];
@@ -876,7 +867,7 @@ module.exports = (function() {
 
                 return Base.instructions.nop()
             },
-            cmp: function(instr, context, instructions) {
+            cmp: function(instr, context) {
                 var c = _get_cond_params(instr.parsed);
 
                 context.cond.a = c.a;
@@ -885,7 +876,7 @@ module.exports = (function() {
 
                 return Base.instructions.nop();
             },
-            test: function(instr, context, instructions) {
+            test: function(instr, context) {
                 var c = _get_cond_params(instr.parsed);
 
                 context.cond.a = (c.a === c.b) ? c.a : "(" + c.a + " & " + c.b + ")";
@@ -897,29 +888,30 @@ module.exports = (function() {
             ret: function(instr, context, instructions) {
                 var register = _return_types[context.returns.bits] || '';
 
+                // if the function is not returning anything, discard the empty "return" statement
                 if (_is_last_instruction(instr, instructions) && (register === '')) {
                     return Base.instructions.nop();
                 }
 
                 return Base.instructions.return(register);
             },
-            push: function(instr, context, instructions) {
+            push: function(instr, context) {
                 instr.valid = false;
 
                 var val = instr.parsed.opd[0];
 
-                return val.mem_access ?
-                    Base.bits_argument(val.token, val.mem_access, false, true, false) :
-                    Base.bits_argument(val.token);
+                return val.mem_access
+                    ? new Base.bits_argument(val.token, val.mem_access, false, true, false)
+                    : val.token;
             },
             pop: function(instr, context, instructions) {
                 for (var i = instructions.indexOf(instr); i >= 0; i--) {
                     var mnem = instructions[i].parsed.mnem;
                     var opd1 = instructions[i].parsed.opd[0];
 
-                    // push 1
-                    // ...       -->    eax = 1
-                    // pop eax
+                    // push n
+                    // ...       -->    reg = n
+                    // pop reg
                     if (mnem === 'push') {
                         mnem = 'nop';
 
