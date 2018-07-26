@@ -648,9 +648,17 @@ module.exports = (function() {
                 return new _pseudocode(new _common_math('^', destination, source_a, source_b));
             },
             add: function(destination, source_a, source_b) {
+                if ((destination == source_a) && (source_b === '1')) {
+                    return new _pseudocode(new _common_math_opt('++', destination));
+                }
+
                 return new _pseudocode(new _common_math('+', destination, source_a, source_b));
             },
             subtract: function(destination, source_a, source_b) {
+                if ((destination == source_a) && (source_b === '1')) {
+                    return new _pseudocode(new _common_math_opt('--', destination));
+                }
+
                 return new _pseudocode(new _common_math('-', destination, source_a, source_b));
             },
             multiply: function(destination, source_a, source_b) {
