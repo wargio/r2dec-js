@@ -198,20 +198,32 @@ module.exports = (function() {
         return sz;
     };
 
-    var _math_common = function(p, op, context) {
+    /**
+     * Handles most of arithmetic and bitwise operations.
+     * @param {object} p Parsed instruction structure
+     * @param {object} op Operator constructor to use
+     * @param {boolean} flags Whether this operation affects system's flags (for conditions)
+     * @param {object} context Context object
+     */
+    var _math_common = function(p, op, flags, context) {
         var lhand = p.opd[0];
         var rhand = p.opd[1];
         var signed = context.returns.signed;
-
-        _has_changed_return(lhand.token, signed, context);
 
         // stack pointer manipulations are ignored
         if (_is_stack_reg(lhand.token)) {
             return null;
         }
 
+        _has_changed_return(lhand.token, signed, context);
+
         var lhand_arg = lhand.mem_access ? new Base.bits_argument(lhand.token, lhand.mem_access, signed, true, true) : lhand.token;
         var rhand_arg = rhand.mem_access ? new Base.bits_argument(rhand.token, rhand.mem_access, signed, true, true) : rhand.token;
+
+        if (flags) {
+            context.cond.a = lhand_arg;
+            context.cond.b = '0';
+        }
 
         // lhand = lhand op rhand
         return op(lhand_arg, lhand_arg, rhand_arg);
@@ -627,54 +639,53 @@ module.exports = (function() {
     return {
         instructions: {
             inc: function(instr, context) {
-                var dst = instr.parsed.opd[0];
+                instr.parsed.opd[1].token = '1';    // dirty hack :(
 
-                _has_changed_return(dst.token, true, context);
-                context.cond.a = dst.token;
-                context.cond.b = '0';
-                return Base.instructions.increase(dst.token, '1');
+                return _math_common(instr.parsed, Base.instructions.add, true, context);
             },
             dec: function(instr, context) {
-                var dst = instr.parsed.opd[0];
+                instr.parsed.opd[1].token = '1';    // dirty hack :(
 
-                _has_changed_return(dst.token, true, context);
-                context.cond.a = dst.token;
-                context.cond.b = '0';
-                context.cond.is_incdec = true;
-                return Base.instructions.decrease(dst.token, '1');
+                return _math_common(instr.parsed, Base.instructions.subtract, true, context);
             },
             add: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.add, context);
+                return _math_common(instr.parsed, Base.instructions.add, true, context);
             },
             sub: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.subtract, context);
+                return _math_common(instr.parsed, Base.instructions.subtract, true, context);
             },
             sbb: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.subtract, context);
+                return _math_common(instr.parsed, Base.instructions.subtract, true, context);
             },
             sar: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.shift_right, context);
+                return _math_common(instr.parsed, Base.instructions.shift_right, true, context);
             },
             sal: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.shift_left, context);
+                return _math_common(instr.parsed, Base.instructions.shift_left, true, context);
             },
             shr: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.shift_right, context);
+                return _math_common(instr.parsed, Base.instructions.shift_right, true, context);
             },
             shl: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.shift_left, context);
+                return _math_common(instr.parsed, Base.instructions.shift_left, true, context);
             },
             and: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.and, context);
+                return _math_common(instr.parsed, Base.instructions.and, true, context);
             },
             or: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.or, context);
+                return _math_common(instr.parsed, Base.instructions.or, true, context);
             },
             xor: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.xor, context);
+                return _math_common(instr.parsed, Base.instructions.xor, false, context);
+            },
+            pand: function(instr, context) {
+                return _math_common(instr.parsed, Base.instructions.and, false, context);
+            },
+            por: function(instr, context) {
+                return _math_common(instr.parsed, Base.instructions.or, false, context);
             },
             pxor: function(instr, context) {
-                return _math_common(instr.parsed, Base.instructions.xor, context);
+                return _math_common(instr.parsed, Base.instructions.xor, false, context);
             },
             div: function(instr, context) {
                 return _math_divide(instr.parsed, false, context);
