@@ -347,9 +347,9 @@ module.exports = (function() {
     };
 
     var _conditional = function(instr, context, type, inv) {
-        if (context.cond.is_incdec) {
-            type = inv;
-        }
+        // if (context.cond.is_incdec) {
+        //     type = inv;
+        // }
 
         instr.conditional(context.cond.a, context.cond.b, type);
 
@@ -363,7 +363,6 @@ module.exports = (function() {
         return {
             a: lhand.mem_access ? new Base.bits_argument(lhand.token, lhand.mem_access, true, true, true) : lhand.token,
             b: rhand.mem_access ? new Base.bits_argument(rhand.token, rhand.mem_access, true, true, true) : rhand.token,
-            is_incdec: false
         };
     };
 
@@ -511,7 +510,8 @@ module.exports = (function() {
                 callname = new Base.bits_argument(callname, callsite.mem_access, false, true, true);
             }
         } else {
-            if (callname.match(/$[er]?[abds][ixl]^/)) {
+            // indirect call
+            if (/^[re]?(?:[abcd]x|[ds]i)|r(?:1[0-5]|[8-9])[lwd]?$/.test(callname)) {
                 is_pointer = true;
             }
         }
@@ -610,6 +610,12 @@ module.exports = (function() {
         }
     };
 
+    /**
+     * Hanldes assignments that require size extension.
+     * @param {object} p Parsed instruction structure
+     * @param {boolean} signed Signed operation
+     * @param {object} context Context structure
+     */
     var _extended_mov = function(p, signed, context) {
         var dst = p.opd[0];
         var src = p.opd[1];
@@ -632,8 +638,8 @@ module.exports = (function() {
         return instructions.indexOf(instr) == (instructions.length - 1);
     }
 
-    var _is_jumping_externally = function(e, a) {
-        return e.jump && (e.jump.gt(a[(a.length - 1)].loc) || e.jump.lt(a[0].loc))
+    var _is_jumping_externally = function(instr, a) {
+        return instr.jump && (instr.jump.gt(a[(a.length - 1)].loc) || instr.jump.lt(a[0].loc))
     };
 
     return {
@@ -723,7 +729,7 @@ module.exports = (function() {
 
                 // compilers like to perform calculations using 'lea' instructions in the
                 // following form: [reg + reg*n] --> reg * (n+1)
-                var calc = val.token.match(/([er]?[abds][ixl])\s*\+\s*\1\s*\*(\d)/);
+                var calc = val.token.match(/([re]?(?:[abcd]x|[ds]i)|r(?:1[0-5]|[8-9])[lwd]?)\s*\+\s*\1\s*\*(\d)/);
 
                 if (calc) {
                     return Base.instructions.multiply(dst.token, calc[1], parseInt(calc[2]) + 1 + '');
@@ -883,7 +889,6 @@ module.exports = (function() {
 
                 context.cond.a = c.a;
                 context.cond.b = c.b;
-                context.cond.is_incdec = false;
 
                 return Base.instructions.nop();
             },
@@ -892,7 +897,6 @@ module.exports = (function() {
 
                 context.cond.a = (c.a === c.b) ? c.a : "(" + c.a + " & " + c.b + ")";
                 context.cond.b = '0';
-                context.cond.is_incdec = false;
 
                 return Base.instructions.nop();
             },
@@ -1097,7 +1101,7 @@ module.exports = (function() {
                 cond: {
                     a: null,
                     b: null,
-                    is_incdec: false
+                    // is_incdec: false
                 },
                 returns: {
                     bits: 0,
