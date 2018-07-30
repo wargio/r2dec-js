@@ -16,15 +16,11 @@
  */
 
 module.exports = {
-    analyzer: require('libdec/core/Analyzer'),
-    archs: require('libdec/Archs'),
-    JSON: require('libdec/json64'),
+    core: require('libdec/core'),
+    archs: require('libdec/archs'),
+    context: require('libdec/context'),
     supported: function() {
         console.log('Supported architectures:');
-        var s = [];
-        for (var arch in this.archs) {
-            s.push(arch);
-        }
-        console.log('    ' + s.join(', '));
+        console.log('    ' + Object.keys(this.archs).join(', '));
     }
 };

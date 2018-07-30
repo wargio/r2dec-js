@@ -24,6 +24,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* this is required to be the first thing to be setup
+   when there is an exception i want to have the whole
+   stack to be printed. */
 Duktape.errCreate = function(err) {
     try {
         if (typeof err === 'object') {
@@ -38,135 +41,43 @@ Duktape.errCreate = function(err) {
     return err;
 };
 
+// world data.
+var evars = null;
+var context = null;
+// imports
 var libdec = require('libdec/libdec');
-var padding = '            ';
-var usages = {
-    "--help": "this help message",
-    "--colors": "enables syntax colors",
-    "--assembly": "shows pseudo next to the assembly",
-    "--offset": "shows pseudo next to the offset",
-    "--casts": "shows all casts in the pseudo code",
-    "--issue": "generates the json used for the test suite",
-    "--debug": "do not catch exceptions",
-    "--html": "outputs html data instead of text",
-    "--xrefs": "shows all xrefs in the pseudo code",
-}
-
-function has_option(args, name) {
-    return (args.indexOf(name) >= 0);
-}
-
-function has_invalid_args(args) {
-    for (var i = 0; i < args.length; i++) {
-        if (args[i] != '' && !usages[args[i]]) {
-            console.log('Invalid argument \'' + args[i] + '\'\n');
-            return true;
-        }
-    }
-    return false;
-}
-
-function usage() {
-    console.log("r2dec [options]");
-    for (var key in usages) {
-        var cmd = key + padding.substr(key.length, padding.length);
-        console.log("       " + cmd + " | " + usages[key]);
-    }
-}
-
-function r2cmdj(m, empty) {
-    var x = r2cmd(m).trim();
-    return x.length > 0 ? libdec.JSON.parse(x) : empty;
-}
+var r2util = require('libdec/r2util');
 
 function r2dec_main(args) {
-    if (has_invalid_args(args)) {
-        args.push('--help');
-    }
-    if (has_option(args, '--help')) {
-        usage();
-        return;
-    }
+    args.push('--debug')
     try {
-        var arch = r2cmd('e asm.arch').trim();
-        var bits = r2cmd('e asm.bits').trim();
-        var honorpseudo = r2cmd('e asm.pseudo').trim() == 'true';
-        var honorcast = r2cmd('e r2dec.casts').trim() == 'true';
-        var honorasm = r2cmd('e r2dec.asm').trim() == 'true';
-        var honoroffset = r2cmd('e r2dec.offset').trim() == 'true';
-        var honorxrefs = r2cmd('e r2dec.xrefs').trim() == 'true';
-        var honorhtml = r2cmd('e scr.html').trim() == 'true';
-        var honorcolor = parseInt(r2cmd('e scr.color').trim()) > 0;
+        if (r2util.check_args(args)) {
+            return;
+        }
 
-        // r2dec options
-        var options = {
-            theme: r2cmd('e r2dec.theme').trim(),
-            color: (honorcolor || has_option(args, '--colors')),
-            casts: (honorcast || has_option(args, '--casts')),
-            xrefs: (honorxrefs || has_option(args, '--xrefs')),
-            assembly: (honorasm || has_option(args, '--assembly')),
-            offset: (honoroffset || has_option(args, '--offset')),
-            html: (honorhtml || has_option(args, '--html')),
-            ident: null
-        };
+        evars = new r2util.evars(args);
+        r2util.sanitize(true, evars);
 
-        var architecture = libdec.archs[arch];
+        var architecture = libdec.archs[evars.arch];
 
         if (architecture) {
+            var data = new r2util.data();
+            context = new libdec.context();
             // af seems to break renaming.
             /* asm.pseudo breaks things.. */
-            if (honorpseudo) {
-                r2cmd('e asm.pseudo = false');
-            }
+            if (data.graph && data.graph.length > 0) {
+                var p = libdec.core.prepare(data);
 
-            if (has_option(args, '--issue')) {
-                var xrefs = (r2cmd('isj')).trim();
-                var strings = (r2cmd('izj')).trim();
-                var data = (r2cmd('agj')).trim();
-                if (xrefs.length == 0) {
-                    xrefs = '[]'
-                }
-                if (strings.length == 0) {
-                    strings = '[]'
-                }
-                if (data.length == 0) {
-                    data = '[]'
-                }
-                console.log('{"name":"issue_' + (new Date()).getTime() + '","arch":"' + arch + '","agj":' + data + ',"isj":' + xrefs + ',"izj":' + strings + '}');
             } else {
-                var xrefs = r2cmdj('isj', []);
-                var strings = r2cmdj('izj', []);
-                var data = r2cmdj('agj', []);
-                if (data && data.length > 0) {
-                    var routine = libdec.analyzer.make(data);
-                    libdec.analyzer.setOptions(options);
-                    libdec.analyzer.strings(routine, strings);
-                    libdec.analyzer.analyze(routine, architecture);
-                    libdec.analyzer.xrefs(routine, xrefs);
-                    routine.print(console.log, options);
-                } else {
-                    console.log('Error: no data available.\nPlease analyze the function/binary first.');
-                }
-            }
-
-            if (honorpseudo) {
-                r2cmd('e asm.pseudo = true');
+                console.log('Error: no data available.\nPlease analyze the function/binary first.');
             }
         } else {
             console.log(arch + ' is not currently supported.\n' +
                 'Please open an enhancement issue at https://github.com/wargio/r2dec-js/issues');
             libdec.supported();
         }
+        r2util.sanitize(false, evars);
     } catch (e) {
-        if (has_option(args, '--debug')) {
-            console.log('Exception:', e.stack);
-        } else {
-            console.log(
-                '\n\nr2dec has crashed.\n' +
-                'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
-                'Use the option \'--issue\' or the command \'pddi\' to generate \n' +
-                'the needed data for the issue.'
-            );
-        }
+        r2util.debug(evars, e);
     }
 }

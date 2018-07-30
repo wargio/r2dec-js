@@ -15,15 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
-    return {
-        arm: require('libdec/arch/arm'),
-        avr: require('libdec/arch/avr'),
-        mips: require('libdec/arch/mips'),
-        ppc: require('libdec/arch/ppc'),
-        sparc: require('libdec/arch/sparc'),
-        v850: require('libdec/arch/v850'),
-        wasm: require('libdec/arch/wasm'),
-        x86: require('libdec/arch/x86')
-    };
-})();
+module.exports = {
+    arm: require('libdec/arch/arm'),
+    avr: require('libdec/arch/avr'),
+    mips: require('libdec/arch/mips'),
+    ppc: require('libdec/arch/ppc'),
+    sparc: require('libdec/arch/sparc'),
+    v850: require('libdec/arch/v850'),
+    wasm: require('libdec/arch/wasm'),
+    x86: require('libdec/arch/x86')
+};

@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2017-2018 deroad
+ * Copyright (C) 2018 deroad
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,14 +15,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = {
-    ident: '    ',
-    strings: {
-        xref: 'DATA XREF from 0x'
-    },
-    anal: {
-        asmheader: '__asm(',
-        asmtrailer: ');',
-        replace: /sym\.imp\.|sym\.|obj\.|aav\.|sub\./
-    }
-};
+module.exports = (function() {
+	var Block = require('libdec/core/block');
+
+    var _post_analysis = function(data) {};
+    var _pre_analysis = function(data) {};
+    var _decompile = function(data) {};
+    var _print = function(data) {};
+
+    var _prepare = function(data) {
+    	this.blocks = [new Block()];
+    };
+
+    return {
+        decompile: _decompile,
+        prepare: _prepare,
+        analysis: {
+            pre: _pre_analysis,
+            post: _post_analysis
+        },
+        print: _print,
+    };
+})();
