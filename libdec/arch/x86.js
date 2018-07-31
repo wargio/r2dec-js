@@ -328,7 +328,7 @@ module.exports = (function() {
         var rhand_arg = rhand.mem_access ? new Base.bits_argument(rhand.token, rhand.mem_access, signed, true, true) : rhand.token;
 
         // lhand = lhand op rhand
-        return op(lhand_arg, lhand_arg, rhand_arg, dst.mem_access || _find_bits(dst.token));
+        return op(lhand_arg, lhand_arg, rhand_arg, lhand.mem_access || _find_bits(lhand.token));
     };
 
     /**
@@ -606,6 +606,10 @@ module.exports = (function() {
         } else if (_is_stack_reg(dst.token) || _is_frame_reg(dst.token)) {
             return null;
         } else {
+            var arg = instr.string
+                ? new Base.string(instr.string)
+                : new Base.bits_argument(src.token, src.mem_access, false, src.mem_access != undefined, src.mem_access != undefined);
+
             return Base.instructions.assign(dst.token, src.token);
         }
     };
@@ -919,24 +923,35 @@ module.exports = (function() {
                     ? new Base.bits_argument(val.token, val.mem_access, false, true, false)
                     : val.token;
             },
-            pop: function(instr, context, instructions) {
-                for (var i = instructions.indexOf(instr); i >= 0; i--) {
-                    var mnem = instructions[i].parsed.mnem;
-                    var opd1 = instructions[i].parsed.opd[0];
+            pop: function(instr, context, instrs) {
+                var dst = instr.parsed.opd[0];
 
-                    // push n
-                    // ...       -->    reg = n
-                    // pop reg
-                    if (mnem === 'push') {
-                        mnem = 'nop';
+                // unless this 'pop' restores the frame pointer, look for the
+                // assignment pattern, which is commonly used by compilers:
+                //      push n  \
+                //      ...      } reg = n
+                //      pop reg /
+                if (!_is_frame_reg(dst.token)) {
+                    for (var i = instrs.indexOf(instr); i >= 0; i--) {
+                        var mnem = instrs[i].parsed.mnem;
+                        var opd1 = instrs[i].parsed.opd[0];
 
-                        return Base.instructions.assign(instr.parsed.opd[0].token, previous.string ? new Base.string(previous.string) : opd1.token);
-                    } else if ((mnem === 'call') || _is_stack_reg(opd1.token)) {
-                        break;
+                        if (mnem === 'push') {
+                            mnem = 'nop';
+
+                            var value = instrs[i].string
+                                ? new Base.string(instrs[i].string)
+                                : opd1.token;
+
+                            return Base.instructions.assign(dst.opd[0].token, value);
+                        } else if ((mnem === 'call') || _is_stack_reg(opd1.token)) {
+                            break;
+                        }
                     }
                 }
 
-                if (instr.parsed.opd[0].token.match(/([er])?[abds][ixl]/)) {
+                // TODO: poping to gpr resets return value info? why?
+                if (dst.token.match(/[er]?[abcds][ixl]/)) {
                     context.returns.bits = 0;
                     context.returns.signed = false;
                 }
