@@ -232,8 +232,8 @@ module.exports = (function() {
         scope.level = instructions[start].scope.level + 1;
         scope.header = is_while ? (new ControlFlow('while', true, cond)) : new ControlFlow('do', true);
         if (first.jump.eq(first.loc)) {
-            scope.header = new ControlFlowPanic('while', true, cond);
-            scope.trailer = null;
+            scope.header = first.pseudo ? new ControlFlow('while', true, cond) : new ControlFlowPanic('while', true, cond);
+            scope.trailer = first.pseudo ? ControlFlow.end_brace() : null;
             instr.scope = scope;
             return true;
         }
