@@ -57,6 +57,19 @@ module.exports = (function() {
         'rax': 64,
     };
 
+    // /**
+    //  * A lookup table for inverting conditional codes
+    //  * @type {Object.<string,string>}
+    //  */
+    // var _inverse_cc = {
+    //     'EQ': 'NE',
+    //     'NE': 'EQ',
+    //     'LT': 'GE',
+    //     'GE': 'LT',
+    //     'GT': 'LE',
+    //     'LE': 'GT'
+    // };
+
     var _REGEX_STACK_REG = /^[re]?sp$/;
 
     /**
@@ -66,7 +79,7 @@ module.exports = (function() {
      */
     var _is_stack_reg = function(name) {
         return name && _REGEX_STACK_REG.test(name);
-    }
+    };
 
     var _REGEX_FRAME_REG = /^[re]?bp$/;
 
@@ -77,7 +90,7 @@ module.exports = (function() {
      */
     var _is_frame_reg = function(name) {
         return name && _REGEX_FRAME_REG.test(name);
-    }
+    };
 
     /**
      * Indicates whether the current function has an argument named `name`.
@@ -143,10 +156,10 @@ module.exports = (function() {
         }
         if (name.startsWith('fcn.') ||
             name.startsWith('func.')) {
-            return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
+            return name.replace(/[.:]/g, '_').replace(/__+/g, '_');
         }
 
-        return name.replace(/reloc\./g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/^_+/, '');
+        return name.replace(/reloc\./g, '').replace(/[.:]/g, '_').replace(/__+/g, '_').replace(/^_+/, '');
     };
 
     /**
@@ -155,7 +168,7 @@ module.exports = (function() {
      * @returns {!number}
      */
     var _find_bits = function(reg) {
-        elems = reg.match(/([re])?(.?[^dwhl]?)([dwhl])?/);
+        var elems = reg.match(/([re])?(.?[^dwhl]?)([dwhl])?/);
 
         // reg string will be splitted into an array of 4, where:
         //   [0]: match string
@@ -242,24 +255,24 @@ module.exports = (function() {
         var osize = divisor.mem_access || _find_bits(divisor.token);
 
         var dividend = {
-             8: ['ax'],
+            8:  ['ax'],
             16: ['dx',  'ax'],
             32: ['edx', 'eax'],
             64: ['rdx', 'rax']
         }[osize];
 
         var remainder = {
-             8: 'ah',
+            8:  'ah',
             16: 'dx',
             32: 'edx',
             64: 'rdx',
         }[osize];
 
         var quotient = {
-            8: 'al',
-           16: 'ax',
-           32: 'eax',
-           64: 'rax'
+            8:  'al',
+            16: 'ax',
+            32: 'eax',
+            64: 'rax'
         }[osize];
 
         _has_changed_return(quotient, signed, context);
@@ -346,9 +359,9 @@ module.exports = (function() {
         return Base.instructions.assign(dest.token, '(' + context.cond.a + ' ' + op + ' ' + context.cond.b + ') ? 1 : 0');
     };
 
-    var _conditional = function(instr, context, type, inv) {
+    var _conditional = function(instr, context, type) {
         // if (context.cond.is_incdec) {
-        //     type = inv;
+        //     type = _inverse_cc[type];
         // }
 
         instr.conditional(context.cond.a, context.cond.b, type);
@@ -591,7 +604,7 @@ module.exports = (function() {
         }
 
         return Base.instructions.call(_call_fix_name(callname), args, is_pointer || false, returnval);
-    }
+    };
 
     var _standard_mov = function(instr, context) {
         var dst = instr.parsed.opd[0];
@@ -610,7 +623,7 @@ module.exports = (function() {
                 ? new Base.string(instr.string)
                 : new Base.bits_argument(src.token, src.mem_access, false, src.mem_access != undefined, src.mem_access != undefined);
 
-            return Base.instructions.assign(dst.token, src.token);
+            return Base.instructions.assign(dst.token, arg);
         }
     };
 
@@ -640,10 +653,10 @@ module.exports = (function() {
 
     var _is_last_instruction = function(instr, instructions) {
         return instructions.indexOf(instr) == (instructions.length - 1);
-    }
+    };
 
     var _is_jumping_externally = function(instr, a) {
-        return instr.jump && (instr.jump.gt(a[(a.length - 1)].loc) || instr.jump.lt(a[0].loc))
+        return instr.jump && (instr.jump.gt(a[(a.length - 1)].loc) || instr.jump.lt(a[0].loc));
     };
 
     return {
@@ -700,13 +713,7 @@ module.exports = (function() {
             div: function(instr, context) {
                 return _math_divide(instr.parsed, false, context);
             },
-            pxor: function(instr, context, instructions) {
-                return _math_common(instr.parsed, Base.instructions.xor, context);
-            },
-            div: function(instr, context, instructions) {
-                return _math_divide(instr.parsed, false, context);
-            },
-            idiv: function(instr, context, instructions) {
+            idiv: function(instr, context) {
                 return _math_divide(instr.parsed, true, context);
             },
             mul: function(instr, context) {
@@ -881,12 +888,12 @@ module.exports = (function() {
                     return Base.instructions.call(_call_fix_name(dst.token));
                 } else if ((dst.mem_access == undefined) && (['rax', 'eax'].indexOf(dst.token) > (-1))) {
                     return _call_function(instr, context, instructions, true);
-                } else if (_is_last_instruction(instr, instructions) && (
-                        _is_jumping_externally(instr, instructions) || dst.mem_access)) {
+                } else if (_is_last_instruction(instr, instructions) &&
+                    (_is_jumping_externally(instr, instructions) || dst.mem_access)) {
                     return _call_function(instr, context, instructions, _requires_pointer(instr.string, dst.mem_access, context));
                 }
 
-                return Base.instructions.nop()
+                return Base.instructions.nop();
             },
             cmp: function(instr, context) {
                 var c = _get_cond_params(instr.parsed);
@@ -899,7 +906,7 @@ module.exports = (function() {
             test: function(instr, context) {
                 var c = _get_cond_params(instr.parsed);
 
-                context.cond.a = (c.a === c.b) ? c.a : "(" + c.a + " & " + c.b + ")";
+                context.cond.a = (c.a === c.b) ? c.a : '(' + c.a + ' & ' + c.b + ')';
                 context.cond.b = '0';
 
                 return Base.instructions.nop();
@@ -959,51 +966,51 @@ module.exports = (function() {
                 return Base.instructions.nop();
             },
             jne: function(i, c) {
-                _conditional(i, c, 'EQ', 'NE');
+                _conditional(i, c, 'EQ');
                 return Base.instructions.nop();
             },
             je: function(i, c) {
-                _conditional(i, c, 'NE', 'EQ');
+                _conditional(i, c, 'NE');
                 return Base.instructions.nop();
             },
             ja: function(i, c) {
-                _conditional(i, c, 'LE', 'GT');
+                _conditional(i, c, 'LE');
                 return Base.instructions.nop();
             },
             jae: function(i, c) {
-                _conditional(i, c, 'LT', 'GE');
+                _conditional(i, c, 'LT');
                 return Base.instructions.nop();
             },
             jb: function(i, c) {
-                _conditional(i, c, 'GE', 'LT');
+                _conditional(i, c, 'GE');
                 return Base.instructions.nop();
             },
             jbe: function(i, c) {
-                _conditional(i, c, 'GT', 'LE');
+                _conditional(i, c, 'GT');
                 return Base.instructions.nop();
             },
             jg: function(i, c) {
-                _conditional(i, c, 'LE', 'GT');
+                _conditional(i, c, 'LE');
                 return Base.instructions.nop();
             },
             jge: function(i, c) {
-                _conditional(i, c, 'LT', 'GE');
+                _conditional(i, c, 'LT');
                 return Base.instructions.nop();
             },
             jle: function(i, c) {
-                _conditional(i, c, 'GT', 'LE');
+                _conditional(i, c, 'GT');
                 return Base.instructions.nop();
             },
             jl: function(i, c) {
-                _conditional(i, c, 'GE', 'LT');
+                _conditional(i, c, 'GE');
                 return Base.instructions.nop();
             },
             js: function(i, c) {
-                _conditional(i, c, 'LT', 'GE');
+                _conditional(i, c, 'LT');
                 return Base.instructions.nop();
             },
             jns: function(i, c) {
-                _conditional(i, c, 'GE', 'LT');
+                _conditional(i, c, 'GE');
                 return Base.instructions.nop();
             },
             hlt: function() {
@@ -1043,7 +1050,7 @@ module.exports = (function() {
         },
         custom_end: function(instructions, context) {
             // empty
-         },
+        },
         parse: function(asm) {
             // asm string will be tokenized by the following regular expression:
             //
@@ -1081,7 +1088,7 @@ module.exports = (function() {
             // tokens[7]: segment override for second operand; undefined if no segment override or no second operand
             // tokens[8]: second operand; undefined if no second operand
 
-            var prefix = tokens[1]
+            var prefix = tokens[1];
             var mnemonic = tokens[2];
 
             var operand1 = {
@@ -1128,7 +1135,7 @@ module.exports = (function() {
                 args: vars_args.filter(function(e) {
                     return (e.kind === 'arg' || e.kind === 'reg');
                 })
-            }
+            };
         },
         localvars: function(context) {
             return context.vars.map(function(v) {
