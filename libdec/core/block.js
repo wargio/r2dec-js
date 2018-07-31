@@ -52,7 +52,7 @@ module.exports = (function() {
             }
         };
         this.print = function() {
-            for (var i = 0, j; i < this.instructions.length; i++) {
+            for (var i = 0, j = 0; i < this.instructions.length; i++) {
                 if (this.extra[j].isHead && this.extra[j].address.eq(this.instructions[i].location)) {
                     this.extra[j].print();
                     j++;

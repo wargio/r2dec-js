@@ -30,10 +30,10 @@ module.exports = (function() {
         return '0x' + zeros.substr(c.length, zeros.length) + c;
     };
 
-    return function(data) {
+    return function(data, arch) {
         this.code = null;
         this.valid = true;
-        this.parsed = null;
+        this.parsed = arch.parse(data.opcode);
         this.jump = data.jump;
         this.pointer = (data.ptr && Long.ZERO.lt(data.ptr)) ? data.ptr : null;
         this.location = data.offset;
@@ -41,8 +41,8 @@ module.exports = (function() {
         this.simplified = data.opcode;
         this.string = null;
         this.cond = null;
-        this.xrefs = op.xrefs ? op.xrefs.slice() : [];
-        this.comments = op.comment ? [new TextDecoder().decode(Duktape.dec('base64', op.comment))] : [];
+        this.xrefs = data.xrefs ? data.xrefs.slice() : [];
+        this.comments = data.comment ? [new TextDecoder().decode(Duktape.dec('base64', data.comment))] : [];
         this.conditional = function(a, b, type) {
             if (type) {
                 this.cond = {
@@ -55,6 +55,11 @@ module.exports = (function() {
         this.setBadJump = function() {
             this.jump = null;
         };
-        this.
+        this.print = function() {
+            var h = context.printer.html;
+            var t = context.printer.theme;
+            var a = context.printer.auto;
+            console.log(h(context.ident) + this.code + ';');
+        };
     }
 })();

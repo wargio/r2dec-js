@@ -66,13 +66,16 @@ function r2dec_main(args) {
             // af seems to break renaming.
             /* asm.pseudo breaks things.. */
             if (data.graph && data.graph.length > 0) {
-                var p = libdec.core.prepare(data);
-
+                var p = new libdec.core.prepare(data, architecture);
+                libdec.core.analysis.pre(p, architecture);
+                libdec.core.decompile(p, architecture);
+                libdec.core.analysis.post(p, architecture);
+                libdec.core.print(p);
             } else {
                 console.log('Error: no data available.\nPlease analyze the function/binary first.');
             }
         } else {
-            console.log(arch + ' is not currently supported.\n' +
+            console.log(evars.arch + ' is not currently supported.\n' +
                 'Please open an enhancement issue at https://github.com/wargio/r2dec-js/issues');
             libdec.supported();
         }

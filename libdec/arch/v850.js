@@ -17,7 +17,7 @@
 
 module.exports = (function() {
 
-    var Base = require('libdec/arch/base');
+    var Base = require('libdec/core/base');
 
     var _common_math = function(e, op, reversed) {
         if (e[2] == '0') {

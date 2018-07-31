@@ -17,7 +17,7 @@
 
 module.exports = (function() {
 
-    var Base = require('libdec/arch/base');
+    var Base = require('libdec/core/base');
     const AVR_MEM_BITS = 16;
     const AVR_X_MACRONAME = 'MEM_X';
     const AVR_Y_MACRONAME = 'MEM_Y';

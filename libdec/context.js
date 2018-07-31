@@ -27,9 +27,7 @@ module.exports = (function() {
             this.ident += '    ';
         };
         this.identOut = function(force) {
-            if (this.ident.lenght > 4 || force) {
-                this.ident = this.ident.substr(4, this.ident.lenght);
-            }
+            this.ident = this.ident.substr(4, this.ident.lenght);
         };
 
         // stack for instructions..

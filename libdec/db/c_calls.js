@@ -16,7 +16,7 @@
  */
 
 module.exports = (function() {
-    var cfg = require('libdec/config');
+    var mident = '    ';
     var Printable = require('libdec/printable');
 
     var _printify = function(bits, name, returns, args, data, spacesize) {
@@ -47,9 +47,9 @@ module.exports = (function() {
                 this.returns = 'uint###_t';
                 this.args = 'uint###_t value, uint32_t count';
                 this.data = [
-                    cfg.ident + 'const uint###_t mask = (CHAR_BIT * sizeof (value)) - 1;',
-                    cfg.ident + 'count &= mask;',
-                    cfg.ident + 'return (value << count) | (value >> (-count & mask));'
+                    mident + 'const uint###_t mask = (CHAR_BIT * sizeof (value)) - 1;',
+                    mident + 'count &= mask;',
+                    mident + 'return (value << count) | (value >> (-count & mask));'
                 ];
                 this.printable = function(spacesize) {
                     return _printify(this.bits, this.name, this.returns, this.args, this.data, spacesize);
@@ -67,9 +67,9 @@ module.exports = (function() {
                 this.returns = 'uint###_t';
                 this.args = 'uint###_t value, uint32_t count';
                 this.data = [
-                    cfg.ident + 'const uint###_t mask = (CHAR_BIT * sizeof (value)) - 1;',
-                    cfg.ident + 'count &= mask;',
-                    cfg.ident + 'return (value >> count) | (value << (-count & mask));'
+                    mident + 'const uint###_t mask = (CHAR_BIT * sizeof (value)) - 1;',
+                    mident + 'count &= mask;',
+                    mident + 'return (value >> count) | (value << (-count & mask));'
                 ];
                 this.printable = function(spacesize) {
                     return _printify(this.bits, this.name, this.returns, this.args, this.data, spacesize);

@@ -16,7 +16,6 @@
  */
 
 module.exports = (function() {
-    var cfg = require('libdec/config');
     var Printable = require('libdec/printable');
     var Branch = require('libdec/core/Branch');
     const _call_c = require('libdec/db/c_calls');

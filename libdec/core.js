@@ -16,15 +16,53 @@
  */
 
 module.exports = (function() {
-	var Block = require('libdec/core/block');
+    var Base = require('libdec/core/base');
+    var Block = require('libdec/core/block');
+    var Scope = require('libdec/core/scope');
+    var Instruction = require('libdec/core/instruction');
 
-    var _post_analysis = function(data) {};
-    var _pre_analysis = function(data) {};
-    var _decompile = function(data) {};
-    var _print = function(data) {};
+    var _post_analysis = function(data, arch) {};
+    var _pre_analysis = function(data, arch) {};
+    var _decompile = function(data, arch) {
+        var instructions = data.blocks[0].instructions;
+        for (var i = 0; i < instructions.length; i++) {
+            instr = instructions[i];
+            fcn = arch.instructions[instr.parsed.memn];
+            if (fcn) {
+                instr.code = fcn(instr, instructions);
+            } else {
+                instr.code = new Base.unknown(instr.simplified)
+            }
+        }
+    };
+    var _print = function(data) {
+        data.print();
+    };
 
-    var _prepare = function(data) {
-    	this.blocks = [new Block()];
+    var _prepare = function(data, arch) {
+        this.blocks = [new Block()];
+        data.graph[i]
+        var instructions = [];
+        for (var i = 0; i < data.graph[0].blocks.length; i++) {
+            var block = data.graph[0].blocks[i];
+            instructions = instructions.concat(block.ops.map(function(b) {
+                return new Instruction(b, arch);
+            }));
+        }
+        this.blocks[0].extra.push(new Scope.routine(instructions[0].location, {
+            returns: 'void',
+            name: data.graph[0].name,
+            args: [],
+            locals: []
+        }));
+        this.blocks[0].extra.push(new Scope.brace(instructions[instructions.length - 1].location));
+        this.blocks[0].instructions = instructions;
+
+        this.print = function() {
+            for (var i = 0; i < this.blocks.length; i++) {
+                this.blocks[i].print();
+            }
+        };
     };
 
     return {
