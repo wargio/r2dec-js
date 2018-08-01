@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2017-2018 deroad
+ * Copyright (C) 2017-2018 deroad, elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -251,7 +251,7 @@ module.exports = (function() {
     var _math_divide = function(p, signed, context)
     {
         var divisor = p.opd[0];
-        var divisor_is_ptr = (divisor.mem_access != undefined);
+        var divisor_is_ptr = !!divisor.mem_access;
         var osize = divisor.mem_access || _find_bits(divisor.token);
 
         var dividend = {
@@ -303,7 +303,7 @@ module.exports = (function() {
         // operand and pick the multiplicand register manually.
 
         var multiplier = p.opd[1]; // should have been opd[0]; see note above
-        var multiplier_is_ptr = (multiplier.mem_access != undefined);
+        var multiplier_is_ptr = !!multiplier.mem_access;
         var osize = multiplier.mem_access || _find_bits(multiplier.token);
 
         var destination = {
@@ -621,7 +621,7 @@ module.exports = (function() {
         } else {
             var arg = instr.string
                 ? new Base.string(instr.string)
-                : new Base.bits_argument(src.token, src.mem_access, false, src.mem_access != undefined, src.mem_access != undefined);
+                : new Base.bits_argument(src.token, src.mem_access, false, !!src.mem_access, !!src.mem_access);
 
             return Base.instructions.assign(dst.token, arg);
         }
@@ -644,6 +644,91 @@ module.exports = (function() {
         } else {
             return Base.instructions.extend(dst.token, src.token, _find_bits(dst.token));
         }
+    };
+
+    var _string_common = function(instr, context) {
+        
+        // possible instructions:
+        //  o lods  : lhand = rhand;            rhand += osize;
+        //  o stos  : lhand = rhand;            lhand += osize;
+        //  o movs  : lhand = rhand;            rhand += osize; lhand += osize;
+        //  o cmps  : $zf = cmp(lhand, rhand);  rhand += osize; lhand += osize;
+        //  o scas  : $zf = cmp(lhand, rhand);  rhand += osize;
+
+        var p = instr.parsed;
+        var lhand = p.opd[0];
+        var rhand = p.opd[1];
+
+        // scasd eax, dword es:[edi]
+        // cmpsd dword [esi], dword ptr es:[edi]
+        // lodsd eax, dword [esi]
+        // stosd dword es:[edi], eax
+        // movsd dword es:[edi], dword ptr [esi]
+
+        var reciept = {
+            'lods': [lhand, rhand, [rhand]],
+            'stos': [lhand, rhand, [lhand]],
+            'movs': [lhand, rhand, [rhand, lhand]],
+        //  'cmps': [$zf, cmp(lhand, rhand), [rhand, lhand]],
+        //  'scas': [$zf, cmp(lhand, rhand) ,[rhand]]
+        }[p.mnem.substr(0, 4)];
+
+        // TODO: the direction in which the source and destination pointers are going depedns on the value of the direction flag.
+        // normally the direction flag is cleared just before a string operation using the "cld" instruction, but this is not necessarily
+        // the case. however, since we do not keep track of the df value (yet), we have no way to know for sure whether it is set (pointers
+        // are decreasing) or cleared (pointers are increasing).
+        //
+        // tracking the "cld" and "std" instruction may not be sufficient since the flags register might be modified in various ways, e.g. by
+        // combinig a "pushf" and a "popf" instructions with some bitwise manipulation in between. until this is taken care of, we may just
+        // assume that the direction flag is cleared.
+        var dflag = 0;
+
+        var incdec = dflag
+            ? Base.instructions.decrease
+            : Base.instructions.increase;
+
+        var counter = {
+            16: 'cx',
+            32: 'ecx',
+            64: 'rcx'
+        }[context.archbits];
+
+        // possible prefixes:
+        //  o rep
+        //  o repe / repz
+        //  o repne / repnz
+
+        // TODO: e|z and ne|nz suffixes are relevant only for "scas" and "cmps", which are currently not supported
+        var loop = p.pref.match(/(rep)(n)?([ze])?/);
+
+        if (loop) {
+            instr.conditional(counter, '0', 'NE');
+            instr.jump = instr.loc;
+        }
+
+        var dst = reciept[0];
+        var src = reciept[1];
+        var inc = reciept[2];
+        var ops = [];
+
+        // assignment
+        ops.push(Base.instructions.assign(
+            new Base.bits_argument(dst.token, dst.mem_access, false, !!dst.mem_access, !!dst.mem_access),
+            new Base.bits_argument(src.token, src.mem_access, false, !!src.mem_access, !!src.mem_access)));
+
+        // loop counter decrement
+        if (loop) {
+            ops.push(Base.instructions.decrease(counter, 1));
+        }
+
+        // source and destination pointers increment / decrement
+        ops = ops.concat(inc.map(function(r) {
+            return incdec(r.token, (dst.mem_access || src.mem_access) / 8);
+        }));
+
+        // TODO: if (loop[3]) add a condition that tests $zf and break if (loop[2] ? clear : set)
+
+        return Base.composed(ops);
     };
 
     var _conditional_inline = function(instr, context, instructions, type) {
@@ -965,6 +1050,29 @@ module.exports = (function() {
 
                 return Base.instructions.nop();
             },
+            lodsb: _string_common,
+            lodsw: _string_common,
+            lodsd: _string_common,
+            lodsq: _string_common,
+            stosb: _string_common,
+            stosw: _string_common,
+            stosd: _string_common,
+            stosq: _string_common,
+            movsb: _string_common,
+            movsw: _string_common,
+            movsd: _string_common,
+            movsq: _string_common,
+
+            // TODO: these ones are not supported since they require an additional condition to break the loop
+            // cmpsb: _string_common,
+            // cmpsw: _string_common,
+            // cmpsd: _string_common,
+            // cmpsq: _string_common,
+            // scasb: _string_common,
+            // scasw: _string_common,
+            // scasd: _string_common,
+            // scasq: _string_common,
+
             jne: function(i, c) {
                 _conditional(i, c, 'EQ');
                 return Base.instructions.nop();
