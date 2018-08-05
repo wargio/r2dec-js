@@ -1074,52 +1074,40 @@ module.exports = (function() {
             // scasq: _string_common,
 
             jne: function(i, c) {
-                _conditional(i, c, 'EQ');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'EQ');
             },
             je: function(i, c) {
-                _conditional(i, c, 'NE');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'NE');
             },
             ja: function(i, c) {
-                _conditional(i, c, 'LE');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'LE');
             },
             jae: function(i, c) {
-                _conditional(i, c, 'LT');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'LT');
             },
             jb: function(i, c) {
-                _conditional(i, c, 'GE');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'GE');
             },
             jbe: function(i, c) {
-                _conditional(i, c, 'GT');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'GT');
             },
             jg: function(i, c) {
-                _conditional(i, c, 'LE');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'LE');
             },
             jge: function(i, c) {
-                _conditional(i, c, 'LT');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'LT');
             },
             jle: function(i, c) {
-                _conditional(i, c, 'GT');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'GT');
             },
             jl: function(i, c) {
-                _conditional(i, c, 'GE');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'GE');
             },
             js: function(i, c) {
-                _conditional(i, c, 'LT');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'LT');
             },
             jns: function(i, c) {
-                _conditional(i, c, 'GE');
-                return Base.instructions.nop();
+                return _conditional(i, c, 'GE');
             },
             hlt: function() {
                 return Base.instructions.call('_hlt', [], false, 'return');
