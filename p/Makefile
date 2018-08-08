@@ -4,7 +4,7 @@ CFLAGS+=$(shell pkg-config --cflags r_util r_io r_cons r_core) -I./duktape
 LDFLAGS_TEST=-lm -std=c99
 LDFLAGS+=$(shell pkg-config --libs r_util r_io r_cons r_core) -lm -std=c99
 LIBEXT=$(shell r2 -H LIBEXT)
-PLUGDIR=$(shell r2 -H USER_PLUGINS)
+PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
 
 all:
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -fPIC duktape/duktape.c duktape/duk_console.c core_pdd.c -o core_pdd.$(LIBEXT)
