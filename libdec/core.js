@@ -19,20 +19,26 @@ module.exports = (function() {
     var Base = require('libdec/core/base');
     var Block = require('libdec/core/block');
     var Scope = require('libdec/core/scope');
+    var Strings = require('libdec/core/strings');
     var Instruction = require('libdec/core/instruction');
 
-    var _post_analysis = function(data, arch) {};
-    var _pre_analysis = function(data, arch) {};
-    var _decompile = function(data, arch) {
+    var _post_analysis = function(data, arch, arch_context) {
+        if (arch.custom_end) {
+            arch.custom_end(data.instructions, arch_context)
+        }
+    };
+
+    var _pre_analysis = function(data, arch, arch_context) {
+        if (arch.custom_start) {
+            arch.custom_start(data.instructions, arch_context)
+        }
+    };
+    var _decompile = function(data, arch, arch_context) {
         var instructions = data.blocks[0].instructions;
         for (var i = 0; i < instructions.length; i++) {
-            instr = instructions[i];
-            fcn = arch.instructions[instr.parsed.memn];
-            if (fcn) {
-                instr.code = fcn(instr, instructions);
-            } else {
-                instr.code = new Base.unknown(instr.simplified)
-            }
+            var instr = instructions[i];
+            var fcn = arch.instructions[instr.parsed.mnem];
+            instr.code = fcn ? fcn(instr, arch_context, instructions) : new Base.unknown(instr.assembly)
         }
     };
     var _print = function(data) {
@@ -41,22 +47,29 @@ module.exports = (function() {
 
     var _prepare = function(data, arch) {
         this.blocks = [new Block()];
-        data.graph[i]
-        var instructions = [];
+        this.instructions = [];
+        var strings = new Strings(data.xrefs.strings)
+        var max_length = 0;
         for (var i = 0; i < data.graph[0].blocks.length; i++) {
             var block = data.graph[0].blocks[i];
-            instructions = instructions.concat(block.ops.map(function(b) {
-                return new Instruction(b, arch);
+            this.instructions = this.instructions.concat(block.ops.map(function(b) {
+                if (max_length < b.opcode.length) {
+                    max_length = b.opcode.length
+                }
+                var ins = new Instruction(b, arch);
+                ins.strings = strings.search(ins.pointer);
+                return ins;
             }));
         }
-        this.blocks[0].extra.push(new Scope.routine(instructions[0].location, {
+        Global.context.identAsmSet(max_length);
+        this.blocks[0].extra.push(new Scope.routine(this.instructions[0].location, {
             returns: 'void',
             name: data.graph[0].name,
             args: [],
             locals: []
         }));
-        this.blocks[0].extra.push(new Scope.brace(instructions[instructions.length - 1].location));
-        this.blocks[0].instructions = instructions;
+        this.blocks[0].extra.push(new Scope.brace(this.instructions[this.instructions.length - 1].location));
+        this.blocks[0].instructions = this.instructions.splice();
 
         this.print = function() {
             for (var i = 0; i < this.blocks.length; i++) {

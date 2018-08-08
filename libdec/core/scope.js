@@ -18,7 +18,7 @@
 module.exports = (function() {
     var _print_locals = function(locals) {
         for (var i = 0; i < locals.length; i++) {
-            console.log(h(context.ident) + locals[i].print() + ';');
+            console.log(Global.context.identfy() + locals[i].print() + ';');
         }
     };
 
@@ -27,8 +27,8 @@ module.exports = (function() {
         	this.isTail = true;
             this.address = address;
             this.print = function() {
-                context.identOut();
-                console.log(context.printer.html(context.ident) + '}');
+                Global.context.identOut();
+                console.log(Global.context.identfy() + '}');
             }
         },
         routine: function(address, extra) {
@@ -37,11 +37,11 @@ module.exports = (function() {
             this.extra = extra;
             this.print = function() {
                 var e = this.extra;
-                var h = context.printer.html;
-                var t = context.printer.theme;
-                var a = context.printer.auto;
-                console.log(h(context.ident) + t.types(e.returns), t.callname(e.name), '(' + e.args.join(', ') + ') {');
-                context.identIn();
+                var t = Global.printer.theme;
+                var a = Global.printer.auto;
+                var asmname = '; ' + e.name + ' ()';
+                console.log(Global.context.identfy(asmname.length, t.comment(asmname)) + t.types(e.returns), t.callname(e.name), '(' + e.args.join(', ') + ') {');
+                Global.context.identIn();
                 _print_locals(e.locals);
             }
         },
@@ -51,11 +51,10 @@ module.exports = (function() {
             this.condition = condition;
             this.locals = locals;
             this.print = function() {
-                var h = context.printer.html;
-                var t = context.printer.theme;
-                var a = context.printer.auto;
-                console.log(h(context.ident) + t.flow('if') + ' (' + this.condition.print() + ') {');
-                context.identIn();
+                var t = Global.printer.theme;
+                var a = Global.printer.auto;
+                console.log(Global.context.identfy() + t.flow('if') + ' (' + this.condition.print() + ') {');
+                Global.context.identIn();
                 _print_locals(locals);
             }
         },
@@ -64,11 +63,10 @@ module.exports = (function() {
             this.address = address;
             this.locals = locals;
             this.print = function() {
-                var h = context.printer.html;
-                var t = context.printer.theme;
-                var a = context.printer.auto;
-                console.log(h(context.ident) + '} ' + t.flow('else') + ' {');
-                context.identIn();
+                var t = Global.printer.theme;
+                var a = Global.printer.auto;
+                console.log(Global.context.identfy() + '} ' + t.flow('else') + ' {');
+                Global.context.identIn();
                 _print_locals(locals);
             }
         },
@@ -77,11 +75,10 @@ module.exports = (function() {
             this.address = address;
             this.locals = locals;
             this.print = function() {
-                var h = context.printer.html;
-                var t = context.printer.theme;
-                var a = context.printer.auto;
-                console.log(h(context.ident) + t.flow('do') + ' {');
-                context.identIn();
+                var t = Global.printer.theme;
+                var a = Global.printer.auto;
+                console.log(Global.context.identfy() + t.flow('do') + ' {');
+                Global.context.identIn();
                 _print_locals(locals);
             }
         },
@@ -91,11 +88,10 @@ module.exports = (function() {
             this.condition = condition;
             this.locals = locals;
             this.print = function() {
-                var h = context.printer.html;
-                var t = context.printer.theme;
-                var a = context.printer.auto;
-                console.log(h(context.ident) + t.flow('while') + ' (' + this.condition.print() + ') {');
-                context.identIn();
+                var t = Global.printer.theme;
+                var a = Global.printer.auto;
+                console.log(Global.context.identfy() + t.flow('while') + ' (' + this.condition.print() + ') {');
+                Global.context.identIn();
                 _print_locals(locals);
             }
         },
@@ -104,11 +100,10 @@ module.exports = (function() {
             this.address = address;
             this.condition = condition;
             this.print = function() {
-                context.identOut();
-                var h = context.printer.html;
-                var t = context.printer.theme;
-                var a = context.printer.auto;
-                console.log(h(context.ident) + '} ' + t.flow('while') + ' (' + this.condition.print() + ');');
+                Global.context.identOut();
+                var t = Global.printer.theme;
+                var a = Global.printer.auto;
+                console.log(Global.context.identfy() + '} ' + t.flow('while') + ' (' + this.condition.print() + ');');
             }
         }
     }

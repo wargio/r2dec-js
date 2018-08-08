@@ -76,7 +76,7 @@ module.exports = (function() {
     ];
 
     var _htmlize = function(text) {
-        if (!evars.honor.html) {
+        if (!Global.evars.honor.html) {
             return text;
         }
         var l = text.split(/([\ <>&"'\n])/g);
@@ -92,6 +92,9 @@ module.exports = (function() {
     var _apply_regex = function(input, type, regex) {
         var x = input.split(regex);
         var p = input.match(regex);
+        if (!p) {
+            return s;
+        }
         var s = '';
         var i = 0;
         for (i = 0; i < p.length; i++) {
@@ -147,10 +150,10 @@ module.exports = (function() {
     };
 
     var _set_options = function() {
-        _themefy(evars.extra.theme);
-        if (evars.honor.color && evars.honor.html) {
+        _themefy(Global.evars.extra.theme);
+        if (Global.evars.honor.color && Global.evars.honor.html) {
             _theme_colors = Colors.html.make(colortheme);
-        } else if (evars.honor.color) {
+        } else if (Global.evars.honor.color) {
             _theme_colors = Colors.ansi.make(colortheme);
         } else {
             _theme_colors = Colors.text.make(colortheme);

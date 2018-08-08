@@ -16,18 +16,19 @@
  */
 
 module.exports = (function() {
-    var _internal_variable_cnt = 0;
+    var Variable = require('libdec/core/variable');
+    var Extra = require('libdec/core/extra');
 
     var _generic_asm = function(asm) {
         this.asm = asm;
         this.toString = function() {
-            var t = context.printer.theme;
-            var a = context.printer.auto;
+            var t = Global.printer.theme;
+            var a = Global.printer.auto;
             return t.callname('__asm') + ' (' + a(this.asm) + ')';
         }
     };
 
-    var _assignment = function(destination, source) {
+    var _generic_assignment = function(destination, source) {
         this.destination = destination;
         this.source = source;
         this.toString = function() {
@@ -43,7 +44,7 @@ module.exports = (function() {
         this.source = source;
         this.cast = cast;
         this.toString = function() {
-            var t = context.printer.theme;
+            var t = Global.printer.theme;
             return this.destination + ' = (' + t.types(this.cast) + ') ' + this.source;
         };
     };
@@ -69,7 +70,74 @@ module.exports = (function() {
         };
     };
 
+    var _generic_memory = function(bits, is_signed, pointer, register, is_write) {
+        if (is_write) {
+            this.toString = function() {
+                return this.pointer + ' = ' + this.reg;
+            };
+        } else {
+            this.toString = function() {
+                return this.reg + ' = ' + this.pointer;
+            };
+        }
+    };
+
+    var _generic_call = function(function_name, arguments) {
+        this.function_name = function_name;
+        this.arguments = arguments || [];
+        this.toString = function() {
+            var fcn = this.function_name;
+            if (Extra.is.string(fcn)) {
+                fcn = Global.printer.theme.callname(fcn);
+            }
+            return fcn + ' (' + this.arguments.join(', ') + ')';
+        };
+    };
+
+    var _genric_return = function(value) {
+        this.value = value;
+        this.toString = function(options) {
+            var r = Global.printer.theme.flow('return');
+            if (this.value) {
+                r += ' ' + this.value;
+            }
+            return r;
+        };
+    };
+
     var _base = {
+        /* COMMON */
+        assign: function(destination, source) {
+            return new _generic_assignment(destination, source);
+        },
+        cast: function(destination, source, cast) {
+            return new _cast_register(destination, source, cast);
+        },
+        nop: function(asm) {
+            return null;
+        },
+        /* JUMPS */
+        call: function(function_name, function_arguments) {
+            return new _generic_call(function_name, function_arguments);
+        },
+        return: function(value) {
+            return new _genric_return(value);
+        },
+        /* BRANCHES */
+
+        /* MATH */
+        increase: function(destination, source) {
+            if (source == '1') {
+                return new _generic_inc_dec(destination, '++');
+            }
+            return new _generic_math(destination, destination, source, '+');
+        },
+        decrease: function(destination, source) {
+            if (source == '1') {
+                return new _generic_inc_dec(destination, '--');
+            }
+            return new _generic_math(destination, destination, source, '-');
+        },
         add: function(destination, source_a, source_b) {
             if (destination == source_a && source_b == '1') {
                 return new _generic_inc_dec(destination, '++');
@@ -81,9 +149,6 @@ module.exports = (function() {
                 return new _assignment(destination, '0');
             }
             return new _generic_math(destination, source_a, source_b, '^');
-        },
-        assign: function(destination, source) {
-            return new _assignment(destination, source);
         },
         subtract: function(destination, source_a, source_b) {
             if (destination == source_a && source_b == '1') {
@@ -97,6 +162,18 @@ module.exports = (function() {
             }
             return new _generic_math(destination, source_a, source_b, '^');
         },
+        /* MEMORY */
+        read_memory: function(pointer, register, bits, is_signed) {
+            var value = (Extra.is.string(register) || Extra.is.number(register)) ? register : Variable.variable(register, Extra.to.type(bits, is_signed));
+            var pointer = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? pointer : Variable.memory(pointer, Extra.to.type(bits, is_signed));
+            return new _generic_assignment(value, pointer);
+        },
+        write_memory: function(pointer, register, bits, is_signed) {
+            var value = (Extra.is.string(register) || Extra.is.number(register)) ? register : Variable.variable(register, Extra.to.type(bits, is_signed));
+            var pointer = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? pointer : Variable.memory(pointer, Extra.to.type(bits, is_signed));
+            return new _generic_assignment(pointer, value);
+        },
+        /* UNKNOWN */
         unknown: function(asm) {
             return new _generic_asm(asm);
         }

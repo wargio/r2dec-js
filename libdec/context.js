@@ -16,25 +16,38 @@
  */
 
 module.exports = (function() {
-    var Printer = require('libdec/printer');
-
     return function() {
-        // theme (requires to be initialized after evars)
-        this.printer = new Printer();
         // ident for print
+        this.identAsm = '';
+        this.identAsmSet = function(size) {
+            // size = 0x + addr + space + asm + space
+            size += 12;
+            while (this.identAsm.length < size) {
+                this.identAsm += '    ';
+            }
+        };
         this.ident = '';
         this.identIn = function() {
             this.ident += '    ';
         };
         this.identOut = function(force) {
-            this.ident = this.ident.substr(4, this.ident.lenght);
+            this.ident = this.ident.substr(4, this.ident.length);
+        };
+        this.identfy = function(s, p) {
+            var h = Global.printer.html;
+            if (Global.evars.honor.assembly) {
+                p = p || '';
+                s = s || 0;
+                return h('    ') + p + this.identAsm.substring(s, this.identAsm.length) + h(' | ') +  h(this.ident)
+            }
+            return h(this.ident)
         };
 
         // stack for instructions..
         this.scope = [];
         this.stack = [];
         this.local = function() {
-            var n = this.scope[this.scope.lenght - 1];
+            var n = this.scope[this.scope.length - 1];
             return this.stack.slice(this.stack.length - n, this.stack.length);
         };
         this.pushLocal = function() {
@@ -47,17 +60,17 @@ module.exports = (function() {
             }
         };
         this.push = function(x) {
-            if (this.scope.lenght < 1) {
+            if (this.scope.length < 1) {
                 throw new Error("Bad context stack (push with zero)")
             }
-            this.scope[this.scope.lenght - 1]++;
+            this.scope[this.scope.length - 1]++;
             this.stack.push(x);
         };
         this.pop = function() {
-            if (this.scope.lenght < 1 || this.scope[this.scope.lenght - 1] == 0) {
+            if (this.scope.length < 1 || this.scope[this.scope.length - 1] == 0) {
                 throw new Error("Bad context stack (pop with zero)")
             }
-            this.scope[this.scope.lenght - 1]--;
+            this.scope[this.scope.length - 1]--;
             return this.stack.pop();
         };
     };

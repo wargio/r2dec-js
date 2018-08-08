@@ -16,7 +16,7 @@
  */
 
 module.exports = (function() {
-    var Utils = require('libdec/core/Utils');
+    var Utils = require('libdec/core/utils');
 
     var _compare = function(a, b) {
         if (a.eq(b.loc)) {
@@ -30,7 +30,7 @@ module.exports = (function() {
     /*
      * Expects the izj json as input.
      */
-    var Strings = function(izj) {
+    return function(izj) {
         this.data = izj.sort(function(a, b) {
             return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
         }).map(function(x) {
@@ -41,8 +41,7 @@ module.exports = (function() {
         });
 
         this.search = function(address) {
-            return Utils.search(address, this.data, _compare);
+            return address ? Utils.search(address, this.data, _compare) : null;
         };
     };
-    return Strings;
 })();

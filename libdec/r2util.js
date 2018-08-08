@@ -142,6 +142,7 @@ module.exports = (function() {
         },
         evars: function(args) {
             this.arch = r2str('e asm.arch');
+            this.archbits = r2int('e asm.bits', 32);
             this.honor = {
                 casts: r2bool('e r2dec.casts') || has_option(args, '--casts'),
                 assembly: r2bool('e r2dec.asm') || has_option(args, '--assembly'),

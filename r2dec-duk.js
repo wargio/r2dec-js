@@ -42,45 +42,52 @@ Duktape.errCreate = function(err) {
 };
 
 // world data.
-var evars = null;
-var context = null;
+var Global = {
+    context: null,
+    evars: null,
+    printer: null
+};
 // imports
 var libdec = require('libdec/libdec');
 var r2util = require('libdec/r2util');
 
 function r2dec_main(args) {
+    var Printer = require('libdec/printer');
     args.push('--debug')
     try {
         if (r2util.check_args(args)) {
             return;
         }
+        Global.evars = new r2util.evars(args);
+        r2util.sanitize(true, Global.evars);
 
-        evars = new r2util.evars(args);
-        r2util.sanitize(true, evars);
+        // theme (requires to be initialized after evars)
+        Global.printer = new Printer();
 
-        var architecture = libdec.archs[evars.arch];
+        var architecture = libdec.archs[Global.evars.arch];
 
         if (architecture) {
             var data = new r2util.data();
-            context = new libdec.context();
+            Global.context = new libdec.context();
             // af seems to break renaming.
             /* asm.pseudo breaks things.. */
             if (data.graph && data.graph.length > 0) {
                 var p = new libdec.core.prepare(data, architecture);
-                libdec.core.analysis.pre(p, architecture);
-                libdec.core.decompile(p, architecture);
-                libdec.core.analysis.post(p, architecture);
+                var arch_context = architecture.context(data);
+                libdec.core.analysis.pre(p, architecture, arch_context);
+                libdec.core.decompile(p, architecture, arch_context);
+                libdec.core.analysis.post(p, architecture, arch_context);
                 libdec.core.print(p);
             } else {
                 console.log('Error: no data available.\nPlease analyze the function/binary first.');
             }
         } else {
-            console.log(evars.arch + ' is not currently supported.\n' +
+            console.log(Global.evars.arch + ' is not currently supported.\n' +
                 'Please open an enhancement issue at https://github.com/wargio/r2dec-js/issues');
             libdec.supported();
         }
-        r2util.sanitize(false, evars);
+        r2util.sanitize(false, Global.evars);
     } catch (e) {
-        r2util.debug(evars, e);
+        r2util.debug(Global.evars, e);
     }
 }

@@ -18,22 +18,31 @@
 module.exports = (function() {
     var Long = require('libdec/long');
 
-    var _align32 = function(x) {
-        var zeros = '00000000';
+    var _align = function(x) {
+        var zeros64 = '0000000000000000';
+        var zeros32 = '00000000';
         var c = x.toString(16);
-        return '0x' + zeros.substr(c.length, zeros.length) + c;
+        if (c.length > zeros32.length) {
+            return '0x' + zeros64.substr(c.length, zeros64.length) + c;
+        }
+        return '0x' + zeros32.substr(c.length, zeros32.length) + c;
     };
 
-    var _align64 = function(x) {
-        var zeros = '0000000000000000';
-        var c = x.toString(16);
-        return '0x' + zeros.substr(c.length, zeros.length) + c;
+    var _asm_view = function(instr) {
+        if (Global.evars.honor.assembly) {
+            var t = Global.printer.theme;
+            var b = Global.printer.auto;
+            var addr = _align(instr.location)
+            var s = 1 + addr.length + instr.simplified.length;
+            return Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + instr.code + ';';
+        }
+        return Global.context.identfy() + instr.code + ';';
     };
 
     return function(data, arch) {
         this.code = null;
         this.valid = true;
-        this.parsed = arch.parse(data.opcode);
+        this.parsed = arch.parse(data.disasm);
         this.jump = data.jump;
         this.pointer = (data.ptr && Long.ZERO.lt(data.ptr)) ? data.ptr : null;
         this.location = data.offset;
@@ -43,6 +52,12 @@ module.exports = (function() {
         this.cond = null;
         this.xrefs = data.xrefs ? data.xrefs.slice() : [];
         this.comments = data.comment ? [new TextDecoder().decode(Duktape.dec('base64', data.comment))] : [];
+        if (Global.evars.honor.xrefs) {
+            for (var i = 0; i < this.xrefs.length; i++) {
+                var e = 'XREF ' + this.xrefs[i].type + ": 0x" + this.xrefs[i].addr.toString(16);
+                this.comments.push(e)
+            }
+        }
         this.conditional = function(a, b, type) {
             if (type) {
                 this.cond = {
@@ -56,10 +71,21 @@ module.exports = (function() {
             this.jump = null;
         };
         this.print = function() {
-            var h = context.printer.html;
-            var t = context.printer.theme;
-            var a = context.printer.auto;
-            console.log(h(context.ident) + this.code + ';');
+            var t = Global.printer.theme;
+            var a = Global.printer.auto;
+            var empty = Global.context.identfy()
+            if (this.comments.length == 1) {
+                console.log(empty + t.comment('/* ' + this.comments[0] + ' */'));
+            } else if (this.comments.length > 1) {
+                console.log(empty + t.comment('/* ' + this.comments[0]));
+                for (var i = 1; i < this.comments.length; i++) {
+                    console.log(empty + t.comment(' * ' + this.comments[i]));
+                }
+                console.log(empty + t.comment(' */'));
+            }
+            if(this.code && this.valid) {
+                console.log(_asm_view(this));
+            }
         };
     }
 })();
