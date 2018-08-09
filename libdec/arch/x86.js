@@ -156,8 +156,7 @@ module.exports = (function() {
         return sz;
     };
 
-    var _common_math = function(instr, op, bits, context) {
-        var e = instr.parsed;
+    var _common_math = function(e, op, bits, context) {
         var dst = e.opd[0]; // target register or memory
         var val = e.opd[1]; // value operand
         _has_changed_return(dst.token, true, context);
@@ -169,7 +168,6 @@ module.exports = (function() {
 
         // no value operand, only target
         if (val.token == undefined) {
-            console.log('ook')
             var arg = dst.mem_access && !dst.is_frame ?
                 Variable.pointer(dst.token, Extra.to.type(dst.mem_access, true)) :
                 Variable.local(dst.token, Extra.to.type(bits, false));
@@ -195,9 +193,9 @@ module.exports = (function() {
         }
 
         // neither target nor value access memory
-        var arg = Variable.local(dst.token, Extra.to.type(bits, false));
+        var arg = Variable.local(dst.token, Extra.to.type(bits, true));
 
-        return op(dst.token, dst.token, arg);
+        return op(arg, arg, val.token);
     };
 
     var _memory_cmp = function(lhand, rhand, cond) {
@@ -525,37 +523,37 @@ module.exports = (function() {
                 return Base.decrease(dst.token, '1');
             },
             add: function(instr, context, instructions) {
-                return _common_math(instr, Base.add, null, context);
+                return _common_math(instr.parsed, Base.add, null, context);
             },
             sub: function(instr, context, instructions) {
-                return _common_math(instr, Base.subtract, null, context);
+                return _common_math(instr.parsed, Base.subtract, null, context);
             },
             sbb: function(instr, context, instructions) {
-                return _common_math(instr, Base.subtract, null, context);
+                return _common_math(instr.parsed, Base.subtract, null, context);
             },
             sar: function(instr, context, instructions) {
-                return _common_math(instr, Base.shift_right, null, context);
+                return _common_math(instr.parsed, Base.shift_right, null, context);
             },
             sal: function(instr, context, instructions) {
-                return _common_math(instr, Base.shift_left, null, context);
+                return _common_math(instr.parsed, Base.shift_left, null, context);
             },
             shr: function(instr, context, instructions) {
-                return _common_math(instr, Base.shift_right, null, context);
+                return _common_math(instr.parsed, Base.shift_right, null, context);
             },
             shl: function(instr, context, instructions) {
-                return _common_math(instr, Base.shift_left, null, context);
+                return _common_math(instr.parsed, Base.shift_left, null, context);
             },
             and: function(instr, context, instructions) {
-                return _common_math(instr, Base.and, null, context);
+                return _common_math(instr.parsed, Base.and, null, context);
             },
             or: function(instr, context, instructions) {
-                return _common_math(instr, Base.or, null, context);
+                return _common_math(instr.parsed, Base.or, null, context);
             },
             xor: function(instr, context, instructions) {
-                return _common_math(instr, Base.xor, null, context);
+                return _common_math(instr.parsed, Base.xor, null, context);
             },
             pxor: function(instr, context, instructions) {
-                return _common_math(instr, Base.xor, null, context);
+                return _common_math(instr.parsed, Base.xor, null, context);
             },
             idiv: function(instr, context, instructions) {
                 var divisor = instr.parsed.opd[0];
@@ -595,7 +593,7 @@ module.exports = (function() {
                 ]);
             },
             imul: function(instr, context, instructions) {
-                return _common_math(instr, Base.multiply, null, context);
+                return _common_math(instr.parsed, Base.multiply, null, context);
             },
             neg: function(instr, context) {
                 var dst = instr.parsed.opd[0];

@@ -21,6 +21,9 @@ module.exports = (function() {
     var Bounds = function(low, hi) {
         this.low = low;
         this.hi = hi;
+        this.gt = function(bound) {
+            return this.hi.gt(bound.low);
+        };
         this.isInside = function(addr) {
             return addr ? (addr.gte(this.low) && addr.lte(this.hi)) : false;
         };
@@ -42,8 +45,8 @@ module.exports = (function() {
         return 1;
     };
 
-    return function() {
-        this.bounds = Bounds.invalid();
+    var _block = function(bounds) {
+        this.bounds = bounds || Bounds.invalid();
         this.extra = [];
         this.instructions = [];
         this.addInstruction = function(instruction) {
@@ -62,6 +65,20 @@ module.exports = (function() {
                 this.bounds = new Bounds(first.location, last.location);
             }
         };
+        this.split = function(from) {
+            if (from < 0 || from >= this.instructions.length) return null;
+            var i = this.instructions.splice(from, this.instructions.length);
+            var b = new _block(new Bounds(i[0].location, i[i.length - 1].location));
+            b.instructions = i;
+            var e = this.extra[this.extra.length - 1];
+            while (e && e.address.gte(b.bounds.low)) {
+                b.extra.push(this.extra.pop());
+                e = this.extra[this.extra.length - 1];
+            }
+            this.update();
+            b.update();
+            return b;
+        };
         this.print = function() {
             for (var i = 0, j = 0; i < this.instructions.length; i++) {
                 while (this.extra[j] && this.extra[j].isHead && this.extra[j].address.eq(this.instructions[i].location)) {
@@ -76,4 +93,5 @@ module.exports = (function() {
             }
         };
     };
+    return _block;
 })();

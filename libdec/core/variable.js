@@ -27,9 +27,9 @@ module.exports = (function() {
             var n = _internal_variable_cnt++;
             return variable_name ? variable_name + n : "value" + n;
         },
-        newLabel: function() {
+        newLabel: function(address) {
             var n = _internal_label_cnt++;
-            return { id: n, name: 'label_' + n };
+            return { id: n, name: 'label_' + n, address: address };
         },
         functionPointer: function(variable_name, bits, arguments_type) {
             return new function(name, type, args) {
@@ -66,7 +66,7 @@ module.exports = (function() {
                     if (Global.evars.honor.casts) {
                         c += '(' + t.types(this.type) + '*) ';
                     }
-                    return c + this.name + ')';
+                    return c + a(this.name) + ')';
                 }
             }(variable_name, type);
         },
@@ -80,7 +80,8 @@ module.exports = (function() {
                 this.toString = function(define) {
                     if (define) {
                         var t = Global.printer.theme;
-                        return t.types(this.type) + ' ' + this.name;
+                        var a = Global.printer.auto;
+                        return t.types(this.type) + ' ' + a(this.name);
                     }
                     return this.name;
                 }

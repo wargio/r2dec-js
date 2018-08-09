@@ -68,6 +68,7 @@ module.exports = (function() {
             this.print = function() {
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
+                Global.context.identOut();
                 console.log(Global.context.identfy() + '} ' + t.flow('else') + ' {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
                 Global.context.identIn();
                 _print_locals(this.locals);

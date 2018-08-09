@@ -74,7 +74,7 @@ module.exports = (function() {
             var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
             var source_a = Extra.is.string(this.source_a) ? a(this.source_a) : this.source_a;
             var source_b = Extra.is.string(this.source_b) ? a(this.source_b) : this.source_b;
-            if (this.source_a == this.source_b) {
+            if (this.destination == this.source_a) {
                 return destination + ' ' + this.operation + '= ' + source_b;
             }
             return destination + ' = ' + source_a + ' ' + this.operation + ' ' + source_b;
@@ -93,7 +93,7 @@ module.exports = (function() {
         };
     };
 
-    var _genric_return = function(value) {
+    var _generic_return = function(value) {
         this.value = value;
         this.toString = function(options) {
             var r = Global.printer.theme.flow('return');
@@ -110,6 +110,13 @@ module.exports = (function() {
             var r = Global.printer.theme.flow('goto') + Global.printer.html(' ');
             r += Global.printer.auto(this.value);
             return r;
+        };
+    };
+
+    var _generic_flow = function(name) {
+        this.name = name;
+        this.toString = function(options) {
+            return Global.printer.theme.flow(this.name);
         };
     };
 
@@ -132,7 +139,13 @@ module.exports = (function() {
             return new _generic_call(function_name, function_arguments);
         },
         return: function(value) {
-            return new _genric_return(value);
+            return new _generic_return(value);
+        },
+        break: function(value) {
+            return new _generic_flow('break');
+        },
+        continue: function(value) {
+            return new _generic_flow('continue');
         },
         /* BRANCHES */
 

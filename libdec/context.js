@@ -46,14 +46,15 @@ module.exports = (function() {
         this.identOut = function(force) {
             this.ident = this.ident.substr(4, this.ident.length);
         };
-        this.identfy = function(s, p) {
+        this.identfy = function(s, p, noident) {
             var h = Global.printer.html;
+            var ident = noident ? '' : h(this.ident);
             if (Global.evars.honor.assembly) {
                 p = p || '';
                 s = s || 0;
-                return h('    ') + p + this.identAsm.substring(s, this.identAsm.length) + h(' | ') + h(this.ident)
+                return h('    ') + p + this.identAsm.substring(s, this.identAsm.length) + h(' | ') + ident
             }
-            return h(this.ident)
+            return ident;
         };
 
         // stack for instructions..

@@ -55,7 +55,7 @@ module.exports = (function() {
         this.parsed = arch.parse(this.assembly, this.simplified);
         this.string = null;
         this.callee = null;
-        this.label = -1;
+        this.label = null;
         this.cond = null;
         this.xrefs = data.xrefs ? data.xrefs.slice() : [];
         this.comments = data.comment ? [new TextDecoder().decode(Duktape.dec('base64', data.comment))] : [];
@@ -90,8 +90,8 @@ module.exports = (function() {
                 }
                 console.log(empty + t.comment(' */'));
             }
-            if (this.label > -1) {
-                console.log(empty + t.labels('label_' + this.label));
+            if (this.label) {
+                console.log(Global.context.identfy(null, null, true) + t.labels(this.label) + ':');
             }
             _asm_view(this);
         };

@@ -52,13 +52,13 @@ module.exports = (function() {
 
     var _prepare = function(data, arch) {
         this.blocks = [new Block()];
-        this.instructions = [];
+        var instructions = [];
         var strings = new Strings(data.xrefs.strings);
         var functions = new Functions(data.xrefs.functions);
         var max_length = 0;
         for (var i = 0; i < data.graph[0].blocks.length; i++) {
             var block = data.graph[0].blocks[i];
-            this.instructions = this.instructions.concat(block.ops.map(function(b) {
+            instructions = instructions.concat(block.ops.map(function(b) {
                 if (max_length < b.opcode.length) {
                     max_length = b.opcode.length
                 }
@@ -69,17 +69,19 @@ module.exports = (function() {
             }));
         }
         Global.context.identAsmSet(max_length);
-        this.blocks[0].extra.push(new Scope.routine(this.instructions[0].location, {
+        this.blocks[0].extra.push(new Scope.routine(instructions[0].location, {
             returns: 'void',
             name: data.graph[0].name,
             args: [],
             locals: []
         }));
-        this.blocks[0].extra.push(new Scope.brace(this.instructions[this.instructions.length - 1].location));
-        this.blocks[0].instructions = this.instructions.splice();
+        this.blocks[0].extra.push(new Scope.brace(instructions[instructions.length - 1].location));
+        this.blocks[0].instructions = instructions.slice();
         this.blocks[0].update();
+        this.instructions = instructions;
         this.print = function() {
             for (var i = 0; i < this.blocks.length; i++) {
+                console.log('------------------------------------------------------------------------------------------------------------')
                 this.blocks[i].print();
             }
         };
