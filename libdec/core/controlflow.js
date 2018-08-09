@@ -165,20 +165,21 @@ module.exports = (function() {
 
 
         // let's get the last element inside the if (jump instr -1).
-        var outside_index = block.instructions.indexOf(outside);
-        var last_if_instruction = block.instructions[outside_index - 1];
+        var outside_index = if_block.instructions.indexOf(outside);
+        var last_if_instruction = if_block.instructions[outside_index - 1];
         console.log('last_if_instruction: 0x' + last_if_instruction.location.toString(16) + ' - ' + last_if_instruction.assembly);
 
         // let's check if the last instruction is a jump forward (outside), that can lead to an else
         if (last_if_instruction.jump && last_if_instruction.jump.gt(last_if_instruction.location)) {
-            // ok we have an else.
+            // ok we have an else. let's search for the last instruction.
+            var first_else_instruction = outside;
             var instr_after_else = Utils.search(last_if_instruction.jump, context.instructions, _compare_locations);
             var last_else_instruction = context.instructions[context.instructions.indexOf(instr_after_else) - 1];
 
 
-
-            if_block.addExtra(new Scope.else(if_block.instructions[outside_index].location));
+            if_block.addExtra(new Scope.else(first_else_instruction.location));
             if_block.addExtra(new Scope.brace(last_else_instruction.location));
+            console.log('last_else_instruction: 0x' + last_else_instruction.location.toString(16) + ' - ' + last_else_instruction.assembly);
             last_if_instruction.setBadJump();
             outside_index = if_block.instructions.indexOf(last_else_instruction);
         } else {
