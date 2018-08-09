@@ -16,8 +16,9 @@
  */
 
 module.exports = (function() {
-    var Variable = require('libdec/core/variable');
-    var Extra = require('libdec/core/extra');
+    const Variable = require('libdec/core/variable');
+    const Extra = require('libdec/core/extra');
+    const CCalls = require('libdec/db/c_calls');
 
     var _generic_asm = function(asm) {
         this.asm = asm;
@@ -29,23 +30,29 @@ module.exports = (function() {
     };
 
     var _generic_assignment = function(destination, source) {
-        this.destination = destination;
-        this.source = source;
+        this.destination = Extra.is.number(destination) ? ('' + destination) : destination;
+        this.source = Extra.is.number(source) ? ('' + source) : source;
         this.toString = function() {
             if (this.destination == this.source) {
                 return '';
             }
-            return this.destination + ' = ' + this.source;
+            var a = Global.printer.auto;
+            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
+            var source = Extra.is.string(this.source) ? a(this.source) : this.source;
+            return destination + ' = ' + source;
         };
     };
 
     var _cast_register = function(destination, source, cast) {
-        this.destination = destination;
-        this.source = source;
+        this.destination = Extra.is.number(destination) ? ('' + destination) : destination;
+        this.source = Extra.is.number(source) ? ('' + source) : source;
         this.cast = cast;
         this.toString = function() {
+            var a = Global.printer.auto;
             var t = Global.printer.theme;
-            return this.destination + ' = (' + t.types(this.cast) + ') ' + this.source;
+            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
+            var source = Extra.is.string(this.source) ? a(this.source) : this.source;
+            return destination + ' = (' + t.types(this.cast) + ') ' + source;
         };
     };
 
@@ -63,27 +70,19 @@ module.exports = (function() {
         this.source_b = source_b;
         this.operation = operation;
         this.toString = function() {
+            var a = Global.printer.auto;
+            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
+            var source_a = Extra.is.string(this.source_a) ? a(this.source_a) : this.source_a;
+            var source_b = Extra.is.string(this.source_b) ? a(this.source_b) : this.source_b;
             if (this.source_a == this.source_b) {
-                return this.destination + this.operation + '= ' + this.source_b;
+                return destination + ' ' + this.operation + '= ' + source_b;
             }
-            return this.destination + ' = ' + this.source_a + ' ' + this.operation + ' ' + this.source_b;
+            return destination + ' = ' + source_a + ' ' + this.operation + ' ' + source_b;
         };
     };
 
-    var _generic_memory = function(bits, is_signed, pointer, register, is_write) {
-        if (is_write) {
-            this.toString = function() {
-                return this.pointer + ' = ' + this.reg;
-            };
-        } else {
-            this.toString = function() {
-                return this.reg + ' = ' + this.pointer;
-            };
-        }
-    };
-
     var _generic_call = function(function_name, arguments) {
-        this.function_name = function_name;
+        this.function_name = Extra.is.string(function_name) ? Extra.replace.call(function_name) : function_name;
         this.arguments = arguments || [];
         this.toString = function() {
             var fcn = this.function_name;
@@ -99,8 +98,17 @@ module.exports = (function() {
         this.toString = function(options) {
             var r = Global.printer.theme.flow('return');
             if (this.value) {
-                r += ' ' + this.value;
+                r += ' ' + (Extra.is.string(this.value) ? Global.printer.auto(this.value) : this.value);
             }
+            return r;
+        };
+    };
+
+    var _generic_goto = function(label_or_address) {
+        this.value = label_or_address;
+        this.toString = function(options) {
+            var r = Global.printer.theme.flow('goto') + Global.printer.html(' ');
+            r += Global.printer.auto(this.value);
             return r;
         };
     };
@@ -117,6 +125,9 @@ module.exports = (function() {
             return null;
         },
         /* JUMPS */
+        goto: function(label_or_address) {
+            return new _generic_goto(label_or_address);
+        },
         call: function(function_name, function_arguments) {
             return new _generic_call(function_name, function_arguments);
         },
@@ -148,13 +159,13 @@ module.exports = (function() {
             if (source_b == '0') {
                 return new _assignment(destination, '0');
             }
-            return new _generic_math(destination, source_a, source_b, '^');
+            return new _generic_math(destination, source_a, source_b, '&');
         },
         subtract: function(destination, source_a, source_b) {
             if (destination == source_a && source_b == '1') {
-                return new _generic_inc_dec(destination, '++');
+                return new _generic_inc_dec(destination, '--');
             }
-            return new _generic_math(destination, source_a, source_b, '^');
+            return new _generic_math(destination, source_a, source_b, '-');
         },
         xor: function(destination, source_a, source_b) {
             if (source_a == source_b) {
@@ -162,6 +173,23 @@ module.exports = (function() {
             }
             return new _generic_math(destination, source_a, source_b, '^');
         },
+        /*
+        rotate_left: function(destination, source_a, source_b, bits) {
+            return new _generic_rotate(destination, source_a, source_b, bits, true),
+                new _dependency(_call_c.rotate_left.macros, [new _call_c.rotate_left.fcn(bits)])
+            );
+        },
+        rotate_right: function(destination, source_a, source_b, bits) {
+            return new _pseudocode(new _generic_rotate(destination, source_a, source_b, bits, false),
+                new _dependency(_call_c.rotate_right.macros, [new _call_c.rotate_right.fcn(bits)])
+            );
+        },
+        bit_mask: function(destination, source_a, source_b) {
+            return new _pseudocode(new _common_bitmask(destination, source_a, source_b),
+                new _dependency(_call_c.bit_mask.macros, [])
+            );
+        },
+        */
         /* MEMORY */
         read_memory: function(pointer, register, bits, is_signed) {
             var value = (Extra.is.string(register) || Extra.is.number(register)) ? register : Variable.variable(register, Extra.to.type(bits, is_signed));

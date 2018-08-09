@@ -19,32 +19,32 @@ module.exports = (function() {
     var Utils = require('libdec/core/utils');
 
     var _compare = function(a, b) {
-        if (a.eq(b.location)) {
+        if (a.eq(b.offset)) {
             return 0;
-        } else if (a.lt(b.location)) {
+        } else if (a.lt(b.offset)) {
             return 1;
         }
         return -1;
     }
 
     /*
-     * Expects the izj json as input.
+     * Expects the aflj json as input.
      */
-    return function(izj) {
-        this.data = izj.sort(function(a, b) {
-            return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
+    var Functions = function(aflj) {
+        this.data = aflj.sort(function(a, b) {
+            return a.offset.lt(b.offset) ? -1 : (a.offset.eq(b.offset) ? 0 : 1);
         }).map(function(x) {
             return {
-                location: x.vaddr,
-                value: (new TextDecoder().decode(Duktape.dec('base64', x.string))).replace(/\\\\/g, '\\')
+                offset: x.offset,
+                name: x.name,
+                calltype: x.calltype,
+                nargs: x.nargs
             };
         });
-        this.search = function(address) {
-            if (address) {
-                var r = Utils.search(address, this.data, _compare);
-                return r ? ('"' + r.value + '"') : null;
-            }
-            return null;
+
+        this.search = function(offset) {
+            return offset ? Utils.search(offset, this.data, _compare) : null;
         };
     };
+    return Functions;
 })();

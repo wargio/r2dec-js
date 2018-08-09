@@ -16,7 +16,8 @@
  */
 
 module.exports = (function() {
-    var Long = require('libdec/long')
+    const Long = require('libdec/long');
+
     var Bounds = function(low, hi) {
         this.low = low;
         this.hi = hi;
@@ -32,6 +33,15 @@ module.exports = (function() {
         return new Bounds(Long.MAX_UNSIGNED_VALUE, Long.MAX_UNSIGNED_VALUE);
     };
 
+    var _sort_extra = function(a, b) {
+        if (a.address.eq(b.address)) {
+            return 0;
+        } else if (a.address.lt(b.address)) {
+            return -1;
+        }
+        return 1;
+    };
+
     return function() {
         this.bounds = Bounds.invalid();
         this.extra = [];
@@ -42,9 +52,10 @@ module.exports = (function() {
         };
         this.addExtra = function(extra) {
             this.extra.push(extra);
+            this.extra = this.extra.sort(_sort_extra);
         };
         this.update = function() {
-            var l = instructions.length;
+            var l = this.instructions.length;
             if (l > 0) {
                 var first = this.instructions[0];
                 var last = this.instructions[l - 1];
@@ -53,12 +64,12 @@ module.exports = (function() {
         };
         this.print = function() {
             for (var i = 0, j = 0; i < this.instructions.length; i++) {
-                if (this.extra[j].isHead && this.extra[j].address.eq(this.instructions[i].location)) {
+                while (this.extra[j] && this.extra[j].isHead && this.extra[j].address.eq(this.instructions[i].location)) {
                     this.extra[j].print();
                     j++;
                 }
                 this.instructions[i].print();
-                if (this.extra[j].isTail && this.extra[j].address.eq(this.instructions[i].location)) {
+                while (this.extra[j] && this.extra[j].isTail && this.extra[j].address.eq(this.instructions[i].location)) {
                     this.extra[j].print();
                     j++;
                 }

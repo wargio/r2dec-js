@@ -16,6 +16,8 @@
  */
 
 module.exports = (function() {
+    const Extra = require('libdec/core/extra');
+
     var _print_locals = function(locals) {
         for (var i = 0; i < locals.length; i++) {
             console.log(Global.context.identfy() + locals[i].print() + ';');
@@ -24,86 +26,97 @@ module.exports = (function() {
 
     return {
         brace: function(address) {
-        	this.isTail = true;
+            this.isTail = true;
             this.address = address;
             this.print = function() {
                 Global.context.identOut();
-                console.log(Global.context.identfy() + '}');
+                console.log(Global.context.identfy() + '}' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
             }
         },
         routine: function(address, extra) {
-        	this.isHead = true;
+            this.isHead = true;
             this.address = address;
             this.extra = extra;
             this.print = function() {
                 var e = this.extra;
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                var asmname = '; ' + e.name + ' ()';
-                console.log(Global.context.identfy(asmname.length, t.comment(asmname)) + t.types(e.returns), t.callname(e.name), '(' + e.args.join(', ') + ') {');
+                var routine_name = Extra.replace.call(e.name);
+                var asmname = '; ' + routine_name + ' ()';
+                console.log(Global.context.identfy(asmname.length, Global.printer.theme.comment(asmname)) + t.types(e.returns), t.callname(routine_name), '(' + e.args.join(', ') + ') {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
                 Global.context.identIn();
                 _print_locals(e.locals);
             }
         },
         if: function(address, condition, locals) {
-        	this.isHead = true;
+            this.isHead = true;
             this.address = address;
             this.condition = condition;
-            this.locals = locals;
+            this.locals = locals || [];
             this.print = function() {
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('if') + ' (' + this.condition.print() + ') {');
+                console.log(Global.context.identfy() + t.flow('if') + ' (' + this.condition + ') {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
                 Global.context.identIn();
-                _print_locals(locals);
+                _print_locals(this.locals);
             }
         },
         else: function(address, locals) {
-        	this.isHead = true;
+            this.isHead = true;
             this.address = address;
-            this.locals = locals;
+            this.locals = locals || [];
             this.print = function() {
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                console.log(Global.context.identfy() + '} ' + t.flow('else') + ' {');
+                console.log(Global.context.identfy() + '} ' + t.flow('else') + ' {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
                 Global.context.identIn();
-                _print_locals(locals);
+                _print_locals(this.locals);
             }
         },
         do: function(address, locals) {
-        	this.isHead = true;
+            this.isHead = true;
             this.address = address;
-            this.locals = locals;
+            this.locals = locals || [];
             this.print = function() {
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('do') + ' {');
+                console.log(Global.context.identfy() + t.flow('do') + ' {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
                 Global.context.identIn();
-                _print_locals(locals);
+                _print_locals(this.locals);
             }
         },
         while: function(address, condition, locals) {
-        	this.isHead = true;
+            this.isHead = true;
             this.address = address;
             this.condition = condition;
-            this.locals = locals;
+            this.locals = locals || [];
             this.print = function() {
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('while') + ' (' + this.condition.print() + ') {');
+                console.log(Global.context.identfy() + t.flow('while') + ' (' + this.condition + ') {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
                 Global.context.identIn();
-                _print_locals(locals);
+                _print_locals(this.locals);
             }
         },
         whileEnd: function(address, condition) {
-        	this.isTail = true;
+            this.isTail = true;
             this.address = address;
             this.condition = condition;
             this.print = function() {
                 Global.context.identOut();
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                console.log(Global.context.identfy() + '} ' + t.flow('while') + ' (' + this.condition.print() + ');');
+                console.log(Global.context.identfy() + '} ' + t.flow('while') + ' (' + this.condition + ');' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
+            }
+        },
+        whileInline: function(address, condition) {
+            this.isHead = true;
+            this.address = address;
+            this.condition = condition;
+            this.print = function() {
+                var t = Global.printer.theme;
+                var a = Global.printer.auto;
+                console.log(Global.context.identfy() + t.flow('while') + ' (' + this.condition + ');' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
             }
         }
     }

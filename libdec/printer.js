@@ -107,7 +107,7 @@ module.exports = (function() {
     };
 
     var _colorize_text = function(input) {
-        if (!input) {
+        if (!input || input.length < 1) {
             return '';
         }
         /* control flow (if, else, while, do, etc..) */

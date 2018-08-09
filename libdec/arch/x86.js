@@ -16,9 +16,9 @@
  */
 
 module.exports = (function() {
-    var Base = require('libdec/core/base');
-    var Variable = require('libdec/core/variable');
-    var Extra = require('libdec/core/extra');
+    const Base = require('libdec/core/base');
+    const Variable = require('libdec/core/variable');
+    const Extra = require('libdec/core/extra');
 
     var _bits_types = {
         'byte': 8,
@@ -45,13 +45,14 @@ module.exports = (function() {
         'rax': 64,
     };
 
+
     /**
      * Indicates whether a register name is the system's stack pointer.
      * @param {string} name A string literal
      * @returns {boolean}
      */
     var _is_stack_reg = function(name) {
-        return name && name.match(/^[re]?sp$/);
+        return name && name.match(/\b[re]?sp\b/);
     }
 
     /**
@@ -60,7 +61,7 @@ module.exports = (function() {
      * @returns {boolean}
      */
     var _is_frame_reg = function(name) {
-        return name && name.match(/^[re]?bp$/);
+        return name && name.match(/\b[re]?bp\b/);
     }
 
     /**
@@ -111,18 +112,6 @@ module.exports = (function() {
         }
     };
 
-    var _call_fix_name = function(name) {
-        if (typeof name != 'string' || name.indexOf('0x') == 0) {
-            return name;
-        }
-        if (name.startsWith('fcn.') ||
-            name.startsWith('func.')) {
-            return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
-        }
-
-        return name.replace(/reloc\./g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/^_+/, '');
-    };
-
     var _find_bits = function(reg) {
         elems = reg.match(/([re])?(.?[^dwhl]?)([dwhl])?/);
 
@@ -167,10 +156,10 @@ module.exports = (function() {
         return sz;
     };
 
-    var _common_math = function(e, op, bits, context) {
+    var _common_math = function(instr, op, bits, context) {
+        var e = instr.parsed;
         var dst = e.opd[0]; // target register or memory
         var val = e.opd[1]; // value operand
-
         _has_changed_return(dst.token, true, context);
 
         // stack manipulations are ignored
@@ -180,9 +169,9 @@ module.exports = (function() {
 
         // no value operand, only target
         if (val.token == undefined) {
-            var arg = dst.mem_access ?
-                //value, bits, is_signed, is_pointer, is_memory
-                Variable.memory(dst.token, Extra.to.type(dst.mem_access, true)) :
+            console.log('ook')
+            var arg = dst.mem_access && !dst.is_frame ?
+                Variable.pointer(dst.token, Extra.to.type(dst.mem_access, true)) :
                 Variable.local(dst.token, Extra.to.type(bits, false));
 
             context.returns.bits = dst.mem_access || _find_bits(dst.token);
@@ -195,12 +184,12 @@ module.exports = (function() {
             }[context.returns.bits];
 
             return op(oparg, oparg, arg);
-        } else if (dst.mem_access) {
-            var arg = Variable.memory(dst.token, Extra.to.type(dst.mem_access, true));
+        } else if (dst.mem_access && !dst.is_frame) {
+            var arg = Variable.pointer(dst.token, Extra.to.type(dst.mem_access, true));
 
             return op(arg, arg, val.token);
-        } else if (val.mem_access) {
-            var arg = Variable.memory(val.token, Extra.to.type(val.mem_access, true));
+        } else if (val.mem_access && !val.is_frame) {
+            var arg = Variable.pointer(val.token, Extra.to.type(val.mem_access, true));
 
             return op(dst.token, dst.token, arg);
         }
@@ -212,12 +201,12 @@ module.exports = (function() {
     };
 
     var _memory_cmp = function(lhand, rhand, cond) {
-        if (lhand.mem_access) {
-            cond.a = Variable.memory(lhand.token, Extra.to.type(lhand.mem_access, true));
+        if (lhand.mem_access && !lhand.is_frame) {
+            cond.a = Variable.pointer(lhand.token, Extra.to.type(lhand.mem_access, true));
             cond.b = rhand.token;
-        } else if (rhand.mem_access) {
+        } else if (rhand.mem_access && !rhand.is_frame) {
             cond.a = lhand.token;
-            cond.b = Variable.memory(rhand.token, Extra.to.type(rhand.mem_access, true));
+            cond.b = Variable.pointer(rhand.token, Extra.to.type(rhand.mem_access, true));
         } else {
             cond.a = lhand.token;
             cond.b = rhand.token;
@@ -317,7 +306,7 @@ module.exports = (function() {
 
                 var arg = instrs[i].string ?
                     Variable.string(instrs[i].string) :
-                    Variable.memory(opd2.token, Extra.to.type(opd2.mem_access, false));
+                    Variable.pointer(opd2.token, Extra.to.type(opd2.mem_access, false));
 
                 instrs[i].valid = false;
                 args[offset / (context.archbits / 8)] = arg;
@@ -328,7 +317,7 @@ module.exports = (function() {
             if (mnem === 'push') {
                 var arg = instrs[i].string ?
                     Variable.string(instrs[i].string) :
-                    Variable.memory(opd1.token, Extra.to.type(opd1.mem_access, false));
+                    Variable.pointer(opd1.token, Extra.to.type(opd1.mem_access, false));
 
                 instrs[i].valid = false;
                 args[argidx++] = arg;
@@ -371,7 +360,7 @@ module.exports = (function() {
             if (opd1.token in amd64 && (args[argidx] == undefined)) {
                 var arg = instrs[i].string ?
                     Variable.string(instrs[i].string) :
-                    Variable.memory(opd2.token, Extra.to.type(opd2.mem_access, false));
+                    Variable.pointer(opd2.token, Extra.to.type(opd2.mem_access, false));
 
                 instrs[i].valid = false;
                 args[argidx] = arg;
@@ -383,18 +372,11 @@ module.exports = (function() {
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
+        instr.setBadJump();
         var start = instrs.indexOf(instr);
 
         var callsite = instr.parsed.opd[0];
-        var callname = _call_fix_name(callsite.token);
-
-        if (callsite.mem_access && callname.startsWith('0x')) {
-            callname = Variable.memory(callname.token, Extra.to.type(callname.mem_access, false))
-        } else if (!callsite.mem_access) {
-            if (callname.match(/$([er])?[abds][ixl]^/)) {
-                is_pointer = true;
-            }
-        }
+        var callname = callsite.token;
 
         // indicates the function call return type (if used)
         var returnval = null;
@@ -458,7 +440,7 @@ module.exports = (function() {
             // every non-import callee has a known number of arguments
             // for imported libc functions, get the number of arguments out of a predefined list
             var nargs = callee.name.startsWith('sym.imp.') ?
-                Base.arguments(callee.name.substring('sym.imp.'.length)) :
+                Extra.find.arguments_number(callee.name) :
                 callee.nargs;
 
             // if number of arguments is unknown (either an unrecognized or a variadic function),
@@ -470,7 +452,12 @@ module.exports = (function() {
             args = populate_call_args(instrs.slice(0, start), nargs, context);
         }
 
-        return Base.call(callname, args, is_pointer || false, returnval);
+        if (callsite.mem_access && callname.startsWith('0x')) {
+            callname = Variable.functionPointer(callname.token, callname.mem_access, args);
+        } else if (!callsite.mem_access && callname.match(/$([er])?[abds][ixl]^/)) {
+            callname = Variable.functionPointer(callname, 0, args);
+        }
+        return Base.call(callname, args);
     }
 
     var _standard_mov = function(instr, context) {
@@ -507,7 +494,7 @@ module.exports = (function() {
 
     var _conditional_inline = function(instr, context, instructions, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
-        instr.jump = instructions[instructions.indexOf(instr) + 1].loc;
+        instr.jump = instructions[instructions.indexOf(instr) + 1].location;
     };
 
     var _is_last_instruction = function(instr, instructions) {
@@ -515,7 +502,7 @@ module.exports = (function() {
     }
 
     var _is_jumping_externally = function(e, a) {
-        return e.jump && (e.jump.gt(a[(a.length - 1)].loc) || e.jump.lt(a[0].loc))
+        return e.jump && (e.jump.gt(a[(a.length - 1)].location) || e.jump.lt(a[0].location))
     };
 
     return {
@@ -538,37 +525,37 @@ module.exports = (function() {
                 return Base.decrease(dst.token, '1');
             },
             add: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.add, null, context);
+                return _common_math(instr, Base.add, null, context);
             },
             sub: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.subtract, null, context);
+                return _common_math(instr, Base.subtract, null, context);
             },
             sbb: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.subtract, null, context);
+                return _common_math(instr, Base.subtract, null, context);
             },
             sar: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.shift_right, null, context);
+                return _common_math(instr, Base.shift_right, null, context);
             },
             sal: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.shift_left, null, context);
+                return _common_math(instr, Base.shift_left, null, context);
             },
             shr: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.shift_right, null, context);
+                return _common_math(instr, Base.shift_right, null, context);
             },
             shl: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.shift_left, null, context);
+                return _common_math(instr, Base.shift_left, null, context);
             },
             and: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.and, null, context);
+                return _common_math(instr, Base.and, null, context);
             },
             or: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.or, null, context);
+                return _common_math(instr, Base.or, null, context);
             },
             xor: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.xor, null, context);
+                return _common_math(instr, Base.xor, null, context);
             },
             pxor: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.xor, null, context);
+                return _common_math(instr, Base.xor, null, context);
             },
             idiv: function(instr, context, instructions) {
                 var divisor = instr.parsed.opd[0];
@@ -608,7 +595,7 @@ module.exports = (function() {
                 ]);
             },
             imul: function(instr, context, instructions) {
-                return _common_math(instr.parsed, Base.multiply, null, context);
+                return _common_math(instr, Base.multiply, null, context);
             },
             neg: function(instr, context) {
                 var dst = instr.parsed.opd[0];
@@ -636,7 +623,6 @@ module.exports = (function() {
 
                 // if val is an argument or local variable, it is its address that is taken
                 var amp = _is_func_arg(val.token, context) || _is_local_var(val.token, context);
-
                 var arg = instr.string ?
                     Variable.string(instr.string) :
                     (amp ? '&' : '') + val.token.replace(/\./g, '_');
@@ -811,7 +797,7 @@ module.exports = (function() {
                 if (dst.mem_access && dst.token.startsWith('reloc.')) {
                     instr.invalidate_jump();
 
-                    return Base.call(_call_fix_name(dst.token));
+                    return Base.call(dst.token);
                 } else if ((dst.mem_access == undefined) && (['rax', 'eax'].indexOf(dst.token) > (-1))) {
                     return _call_function(instr, context, instructions, true);
                 } else if (_is_last_instruction(instr, instructions) && (
@@ -849,11 +835,11 @@ module.exports = (function() {
                 var val = instr.parsed.opd[0];
 
                 return val.mem_access ?
-                    Variable.memory(val.token, Extra.to.type(val.mem_access, false)) :
+                    Variable.pointer(val.token, Extra.to.type(val.mem_access, false)) :
                     Variable.local(val.token);
             },
             pop: function(instr, context, instructions) {
-                for (var i = instructions.indexOf(instr); i >= 0; i--) {
+                for (var i = instructions.indexOf(instr) - 1; i >= 0; i--) {
                     var mnem = instructions[i].parsed.mnem;
                     var opd1 = instructions[i].parsed.opd[0];
 
@@ -861,9 +847,7 @@ module.exports = (function() {
                     // ...       -->    eax = 1
                     // pop eax
                     if (mnem === 'push') {
-                        mnem = 'nop';
-
-                        return Base.assign(instr.parsed.opd[0].token, previous.string ? Variable.string(previous.string) : opd1.token);
+                        return Base.assign(instr.parsed.opd[0].token, instructions[i].string ? Variable.string(instructions[i].string) : opd1.token);
                     } else if ((mnem === 'call') || _is_stack_reg(opd1.token)) {
                         break;
                     }
@@ -873,7 +857,6 @@ module.exports = (function() {
                     context.returns.bits = 0;
                     context.returns.signed = false;
                 }
-
                 return Base.nop();
             },
             jne: function(i, c) {
@@ -925,7 +908,7 @@ module.exports = (function() {
                 return Base.nop();
             },
             hlt: function() {
-                return Base.call('_hlt', [], false, 'return');
+                return Base.return(Base.call('_hlt', []));
             },
             invalid: function() {
                 return Base.nop();
@@ -962,7 +945,7 @@ module.exports = (function() {
         custom_end: function(instructions, context) {
             // empty
         },
-        parse: function(asm) {
+        parse: function(assembly, simplified) {
             // asm string will be tokenized by the following regular expression:
             //
             // (?:(repn?[ez]?|lock)\s+)?                   : instruction prefix
@@ -987,31 +970,36 @@ module.exports = (function() {
             //         (?:\]?)                             : optional closing bracket (stripped)
             //     )?
             // )?
-            var tokens = asm.match(/(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^\[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^\[\],]+)(?:\]?))?)?/);
+            var parse_regex = /(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^\[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^\[\],]+)(?:\]?))?)?/;
 
-            // tokens[0]: match string; irrelevant
-            // tokens[1]: instruction prefix; undefined if no prefix
-            // tokens[2]: instruction mnemonic
-            // tokens[3]: first operand's memory access qualifier; undefined if no qualifier or no operands
-            // tokens[4]: segment override for first operand; undefined if no segment override or no operands
-            // tokens[5]: first operand; undefined if no operands
-            // tokens[6]: second operand's memory access qualifier; undefined if no qualifier or no second operand
-            // tokens[7]: segment override for second operand; undefined if no segment override or no second operand
-            // tokens[8]: second operand; undefined if no second operand
+            var simplified_tokens = simplified.match(parse_regex);
+            var assembly_tokens = assembly.match(parse_regex);
 
-            var prefix = tokens[1]
-            var mnemonic = tokens[2];
+            // assembly_tokens[0]: match string; irrelevant
+            // assembly_tokens[1]: instruction prefix; undefined if no prefix
+            // assembly_tokens[2]: instruction mnemonic
+            // assembly_tokens[3]: first operand's memory access qualifier; undefined if no qualifier or no operands
+            // assembly_tokens[4]: segment override for first operand; undefined if no segment override or no operands
+            // assembly_tokens[5]: first operand; undefined if no operands
+            // assembly_tokens[6]: second operand's memory access qualifier; undefined if no qualifier or no second operand
+            // assembly_tokens[7]: segment override for second operand; undefined if no segment override or no second operand
+            // assembly_tokens[8]: second operand; undefined if no second operand
+
+            var prefix = assembly_tokens[1]
+            var mnemonic = assembly_tokens[2];
 
             var operand1 = {
-                mem_access: _bits_types[tokens[3]],
-                segovr: tokens[4],
-                token: tokens[5]
+                mem_access: _bits_types[assembly_tokens[3]],
+                segovr: assembly_tokens[4],
+                token: assembly_tokens[5],
+                is_frame: _is_frame_reg(simplified_tokens[5])
             };
 
             var operand2 = {
-                mem_access: _bits_types[tokens[6]],
-                segovr: tokens[7],
-                token: tokens[8]
+                mem_access: _bits_types[assembly_tokens[6]],
+                segovr: assembly_tokens[7],
+                token: assembly_tokens[8],
+                is_frame: _is_frame_reg(simplified_tokens[8])
             };
 
             return {

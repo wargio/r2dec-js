@@ -17,14 +17,21 @@
 
 module.exports = (function() {
     var Extra = require('libdec/core/extra');
+    var Condition = require('libdec/core/condition');
+
+    var _internal_label_cnt = 0;
     var _internal_variable_cnt = 0;
 
     return {
-        unique_name: function(variable_name) {
+        uniqueName: function(variable_name) {
             var n = _internal_variable_cnt++;
             return variable_name ? variable_name + n : "value" + n;
         },
-        function_pointer: function(variable_name, bits, arguments_type) {
+        newLabel: function() {
+            var n = _internal_label_cnt++;
+            return { id: n, name: 'label_' + n };
+        },
+        functionPointer: function(variable_name, bits, arguments_type) {
             return new function(name, type, args) {
                 this.name = name;
                 this.type = type;

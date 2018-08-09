@@ -17,6 +17,19 @@
 
 module.exports = (function() {
     return function() {
+        // dependencies or macros
+        this.dependencies = [];
+        this.addDependency = function(x) {
+            if (this.dependencies.indexOf(x) < 0) {
+                this.dependencies.push(x);
+            }
+        };
+        this.printDependencies = function() {
+            this.dependencies.forEach(function(x) {
+                console.log(this.identfy() + x);
+            });
+        }
+
         // ident for print
         this.identAsm = '';
         this.identAsmSet = function(size) {
@@ -38,7 +51,7 @@ module.exports = (function() {
             if (Global.evars.honor.assembly) {
                 p = p || '';
                 s = s || 0;
-                return h('    ') + p + this.identAsm.substring(s, this.identAsm.length) + h(' | ') +  h(this.ident)
+                return h('    ') + p + this.identAsm.substring(s, this.identAsm.length) + h(' | ') + h(this.ident)
             }
             return h(this.ident)
         };

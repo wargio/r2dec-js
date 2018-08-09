@@ -28,27 +28,34 @@ module.exports = (function() {
         return '0x' + zeros32.substr(c.length, zeros32.length) + c;
     };
 
+    var _printable = function(instr) {
+        return instr.valid && instr.code && instr.code.toString().length > 0;
+    }
+
     var _asm_view = function(instr) {
         if (Global.evars.honor.assembly) {
             var t = Global.printer.theme;
             var b = Global.printer.auto;
             var addr = _align(instr.location)
             var s = 1 + addr.length + instr.simplified.length;
-            return Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + instr.code + ';';
+            console.log(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + (_printable(instr) ? (instr.code + ';') : ''));
+        } else if (_printable(instr)) {
+            console.log(Global.context.identfy() + instr.code + ';');
         }
-        return Global.context.identfy() + instr.code + ';';
     };
 
     return function(data, arch) {
         this.code = null;
         this.valid = true;
-        this.parsed = arch.parse(data.disasm);
         this.jump = data.jump;
         this.pointer = (data.ptr && Long.ZERO.lt(data.ptr)) ? data.ptr : null;
         this.location = data.offset;
         this.assembly = data.disasm;
         this.simplified = data.opcode;
+        this.parsed = arch.parse(this.assembly, this.simplified);
         this.string = null;
+        this.callee = null;
+        this.label = -1;
         this.cond = null;
         this.xrefs = data.xrefs ? data.xrefs.slice() : [];
         this.comments = data.comment ? [new TextDecoder().decode(Duktape.dec('base64', data.comment))] : [];
@@ -83,9 +90,10 @@ module.exports = (function() {
                 }
                 console.log(empty + t.comment(' */'));
             }
-            if(this.code && this.valid) {
-                console.log(_asm_view(this));
+            if (this.label > -1) {
+                console.log(empty + t.labels('label_' + this.label));
             }
+            _asm_view(this);
         };
     }
 })();

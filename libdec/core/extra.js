@@ -26,7 +26,9 @@
 
 
 module.exports = (function() {
-    var _standard_types = {
+    const _call_common = require('libdec/db/macros');
+
+    const _standard_types = {
         'void': 0,
         'char': 8,
         'short': 16,
@@ -36,7 +38,7 @@ module.exports = (function() {
         'double': 64,
     };
 
-    var _is = {
+    const _is = {
         string: function(s) {
             return typeof s == 'string';
         },
@@ -48,7 +50,7 @@ module.exports = (function() {
         },
     };
 
-    var _to = {
+    const _to = {
         type: function(bits, signed) {
             if (bits == 0) {
                 return 'void';
@@ -67,8 +69,40 @@ module.exports = (function() {
         }
     };
 
+    const _find = {
+        arguments_number: function(name) {
+            name = _replace.call(name);
+            if (_call_common[name]) {
+                return _call_common[name].args;
+            }
+            return -1;
+        }
+    };
+
+    const _replace = {
+        call: function(name) {
+            if (typeof name != 'string' || name.startsWith('0x')) {
+                return name;
+            }
+            if (name.startsWith('sym.imp.')) {
+                name = name.substring('sym.imp.'.length);
+            } else if (name.startsWith('sym.')) {
+                name = name.substring('sym.'.length);
+            } else if (name.startsWith('fcn.')) {
+                name = name.substring('fcn.'.length);
+            } else if (name.startsWith('func.')) {
+                name = name.substring('func.'.length);
+            } else if (name.startsWith('reloc.')) {
+                name = name.substring('reloc.'.length);
+            }
+            return name.replace(/(\w|^):(\w|$)/g, '$1_$2').replace(/_+/g, '_');
+        }
+    };
+
     return {
         is: _is,
-        to: _to
+        to: _to,
+        find: _find,
+        replace: _replace
     };
 })();
