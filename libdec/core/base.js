@@ -108,7 +108,11 @@ module.exports = (function() {
         this.value = label_or_address;
         this.toString = function(options) {
             var r = Global.printer.theme.flow('goto') + Global.printer.html(' ');
-            r += Global.printer.auto(this.value);
+            if (Extra.is.string(this.value)) {
+                r += Global.printer.auto(this.value);
+            } else {
+                r += this.value;
+            }
             return r;
         };
     };

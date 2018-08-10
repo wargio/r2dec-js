@@ -136,26 +136,25 @@ module.exports = (function() {
         if (instruction.jump.lte(instruction.location)) {
             return false;
         }
-        console.log('if! 0x' + instruction.location.toString(16), '0x' + instruction.jump.toString(16));
         var block = context.findBlock(instruction.location);
 
         var outside = Utils.search(instruction.jump, block.instructions, _compare_locations);
 
         // not found. let's use goto.
         if (!outside) {
-            console.log('GOTO!!')
             var label = context.findLabel(instruction.jump);
             if (!label) {
                 label = Variable.newLabel(instruction.jump);
                 context.addLabel(label);
             }
-            instruction.code = Base.goto(label.name);
-
-            var single_instr = block.split(block.instructions.indexOf(instruction));
-            single_instr.addExtra(new Scope.if(instruction.location, _condition(instruction, true)));
-            single_instr.addExtra(new Scope.brace(instruction.location));
-            context.addBlock(single_instr);
-            context.addBlock(single_instr.split(1));
+            instruction.code = Base.goto(label);
+            if (instruction.cond) {
+                var single_instr = block.split(block.instructions.indexOf(instruction));
+                single_instr.addExtra(new Scope.if(instruction.location, _condition(instruction, true)));
+                single_instr.addExtra(new Scope.brace(instruction.location));
+                context.addBlock(single_instr);
+                context.addBlock(single_instr.split(1));
+            }
             return true;
         }
 
@@ -167,7 +166,6 @@ module.exports = (function() {
         // let's get the last element inside the if (jump instr -1).
         var outside_index = if_block.instructions.indexOf(outside);
         var last_if_instruction = if_block.instructions[outside_index - 1];
-        console.log('last_if_instruction: 0x' + last_if_instruction.location.toString(16) + ' - ' + last_if_instruction.assembly);
 
         // let's check if the last instruction is a jump forward (outside), that can lead to an else
         if (last_if_instruction.jump && last_if_instruction.jump.gt(last_if_instruction.location)) {
@@ -175,18 +173,17 @@ module.exports = (function() {
             var first_else_instruction = outside;
             var instr_after_else = Utils.search(last_if_instruction.jump, context.instructions, _compare_locations);
             var last_else_instruction = context.instructions[context.instructions.indexOf(instr_after_else) - 1];
-
-
-            if_block.addExtra(new Scope.else(first_else_instruction.location));
-            if_block.addExtra(new Scope.brace(last_else_instruction.location));
-            console.log('last_else_instruction: 0x' + last_else_instruction.location.toString(16) + ' - ' + last_else_instruction.assembly);
-            last_if_instruction.setBadJump();
-            outside_index = if_block.instructions.indexOf(last_else_instruction);
+            if (if_block.instructions.indexOf(instr_after_else) >= 0) {
+                if_block.addExtra(new Scope.else(first_else_instruction.location));
+                if_block.addExtra(new Scope.brace(last_else_instruction.location));
+                last_if_instruction.setBadJump();
+                outside_index = if_block.instructions.indexOf(last_else_instruction) + 1;
+            } else {
+                if_block.addExtra(new Scope.brace(last_if_instruction.location));
+            }
         } else {
-            console.log('just if..')
             if_block.addExtra(new Scope.brace(last_if_instruction.location));
         }
-
 
         context.addBlock(if_block);
         context.addBlock(if_block.split(outside_index));
@@ -210,7 +207,7 @@ module.exports = (function() {
 
         for (var i = 0; i < context.labels.length; i++) {
             var instruction = Utils.search(context.labels[i].address, session.instructions, _compare_locations);
-            instruction.label = context.labels[i].name;
+            instruction.label = context.labels[i];
         }
 
         session.blocks = context.blocks;

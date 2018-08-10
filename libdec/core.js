@@ -81,7 +81,6 @@ module.exports = (function() {
         this.instructions = instructions;
         this.print = function() {
             for (var i = 0; i < this.blocks.length; i++) {
-                console.log('------------------------------------------------------------------------------------------------------------')
                 this.blocks[i].print();
             }
         };

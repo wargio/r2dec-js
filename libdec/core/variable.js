@@ -29,7 +29,13 @@ module.exports = (function() {
         },
         newLabel: function(address) {
             var n = _internal_label_cnt++;
-            return { id: n, name: 'label_' + n, address: address };
+            return new function(n) {
+                this.name = 'label_' + n;
+                this.address = address;
+                this.toString = function(){
+                    return Global.printer.theme.labels(this.name);
+                };
+            }(n);
         },
         functionPointer: function(variable_name, bits, arguments_type) {
             return new function(name, type, args) {

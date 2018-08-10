@@ -36,9 +36,9 @@ module.exports = (function() {
         return new Bounds(Long.MAX_UNSIGNED_VALUE, Long.MAX_UNSIGNED_VALUE);
     };
 
-    var _sort_extra = function(a, b) {
+    var _compare_extra = function(a, b) {
         if (a.address.eq(b.address)) {
-            return 0;
+            return b.isTail ? -1 : 0;
         } else if (a.address.lt(b.address)) {
             return -1;
         }
@@ -54,8 +54,9 @@ module.exports = (function() {
             this.update();
         };
         this.addExtra = function(extra) {
+            var todo = true;
             this.extra.push(extra);
-            this.extra = this.extra.sort(_sort_extra);
+            this.extra = this.extra.sort(_compare_extra);
         };
         this.update = function() {
             var l = this.instructions.length;

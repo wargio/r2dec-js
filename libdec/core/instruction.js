@@ -91,7 +91,7 @@ module.exports = (function() {
                 console.log(empty + t.comment(' */'));
             }
             if (this.label) {
-                console.log(Global.context.identfy(null, null, true) + t.labels(this.label) + ':');
+                console.log(Global.context.identfy(null, null, true) + this.label + ':');
             }
             _asm_view(this);
         };
