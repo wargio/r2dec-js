@@ -41,13 +41,17 @@ module.exports = (function() {
         for (var i = 0; i < instructions.length; i++) {
             var instr = instructions[i];
             var fcn = arch.instructions[instr.parsed.mnem];
-            //console.log(instr.assembly)
+            console.log(instr.assembly)
             instr.code = fcn ? fcn(instr, arch_context, instructions) : new Base.unknown(instr.assembly)
         }
     };
     var _print = function(session) {
         Global.context.printDependencies();
         session.print();
+        while(Global.context.ident.length > 0) {
+            Global.context.identOut()
+            console.log(Global.context.identfy() + '}');
+        }
     };
 
     var _prepare = function(data, arch) {
@@ -56,19 +60,23 @@ module.exports = (function() {
         var strings = new Strings(data.xrefs.strings);
         var functions = new Functions(data.xrefs.functions);
         var max_length = 0;
+        var max_address = 8;
         for (var i = 0; i < data.graph[0].blocks.length; i++) {
             var block = data.graph[0].blocks[i];
             instructions = instructions.concat(block.ops.map(function(b) {
                 if (max_length < b.opcode.length) {
-                    max_length = b.opcode.length
+                    max_length = b.opcode.length;
                 }
                 var ins = new Instruction(b, arch);
+                if (max_address < ins.location.toString(16)) {
+                    max_address = ins.location.toString(16).length;
+                }
                 ins.string = strings.search(ins.pointer);
                 ins.callee = functions.search(ins.jump);
                 return ins;
             }));
         }
-        Global.context.identAsmSet(max_length);
+        Global.context.identAsmSet(max_length + max_address);
         this.blocks[0].extra.push(new Scope.routine(instructions[0].location, {
             returns: 'void',
             name: data.graph[0].name,

@@ -26,7 +26,7 @@ module.exports = (function() {
         };
         this.printDependencies = function() {
             this.dependencies.forEach(function(x) {
-                console.log(this.identfy() + x);
+                x.print();
             });
         }
 
@@ -34,7 +34,7 @@ module.exports = (function() {
         this.identAsm = '';
         this.identAsmSet = function(size) {
             // size = 0x + addr + space + asm + space
-            size += 12;
+            size += 10;
             while (this.identAsm.length < size) {
                 this.identAsm += '    ';
             }

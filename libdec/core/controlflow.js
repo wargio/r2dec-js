@@ -78,7 +78,26 @@ module.exports = (function() {
             return false;
         }
         if (!instruction.code) {
-            instruction.code = Base.goto('0x' + instruction.jump.toString());
+            //instruction.code = Base.goto('0x' + instruction.jump.toString());
+            var call = Variable.functionPointer('0x' + instruction.jump.toString(16), 0, []);
+            instruction.code = Base.call(call, []);
+            // if we have a jump as the last instruction, then we will have a return call for sure.
+            if (context.instructions.indexOf(instruction) == (context.instructions.length - 1)) {
+                instruction.code = Base.return(instruction.code);
+                if (instruction.cond) {
+                    instruction.comments.push('Beware that this call is a conditional call.');
+                    instruction.comments.push('r2dec transformed it as a return, due being the');
+                    instruction.comments.push('last instruction. Please, check \'pdda\' output');
+                    instruction.comments.push('for more informations..');
+                }
+            } else if (instruction.cond) {
+                var block = context.findBlock(instruction.location);
+                var single_instr = block.split(block.instructions.indexOf(instruction));
+                single_instr.addExtra(new Scope.if(instruction.location, _condition(instruction, true)));
+                single_instr.addExtra(new Scope.brace(instruction.location));
+                context.addBlock(single_instr);
+                context.addBlock(single_instr.split(1));
+            }
         }
         instruction.setBadJump();
         return true;

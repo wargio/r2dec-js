@@ -48,11 +48,11 @@ module.exports = (function() {
                     var a = Extra.is.array(this.args) ? args.map(function(x) {
                         return x.toType()
                     }).join(', ') : this.args;
-                    return t.types(this.type) + ' (*) (' + a + ')';
+                    return t.types(this.type) + ' (*)(' + a + ')';
                 };
                 this.toString = function() {
                     var t = Global.printer.theme;
-                    return t.types(this.type) + ' (*' + this.name + ' ) (' + this.args + ')';
+                    return t.types(this.type) + ' (*' + this.name + ')(' + this.args + ')';
                 }
             }(variable_name, Extra.to.type(bits || 0), arguments_type || '');
         },
@@ -65,6 +65,7 @@ module.exports = (function() {
                 };
                 this.toString = function(define) {
                     var t = Global.printer.theme;
+                    var a = Global.printer.auto;
                     if (define) {
                         return t.types(this.type) + '* ' + this.name;
                     }

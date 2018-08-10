@@ -30,7 +30,7 @@ module.exports = (function() {
             this.address = address;
             this.print = function() {
                 Global.context.identOut();
-                console.log(Global.context.identfy() + '}' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
+                console.log(Global.context.identfy() + '}');
             }
         },
         routine: function(address, extra) {
@@ -41,9 +41,9 @@ module.exports = (function() {
                 var e = this.extra;
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
+                var asmname = '; (fcn) ' + e.name + ' ()';
                 var routine_name = Extra.replace.call(e.name);
-                var asmname = '; ' + routine_name + ' ()';
-                console.log(Global.context.identfy(asmname.length, Global.printer.theme.comment(asmname)) + t.types(e.returns), t.callname(routine_name), '(' + e.args.join(', ') + ') {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
+                console.log(Global.context.identfy(asmname.length, Global.printer.theme.comment(asmname)) + t.types(e.returns), t.callname(routine_name), '(' + e.args.join(', ') + ') {');
                 Global.context.identIn();
                 _print_locals(e.locals);
             }
@@ -56,7 +56,7 @@ module.exports = (function() {
             this.print = function() {
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('if') + ' (' + this.condition + ') {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
+                console.log(Global.context.identfy() + t.flow('if') + ' (' + this.condition + ') {');
                 Global.context.identIn();
                 _print_locals(this.locals);
             }
@@ -69,7 +69,7 @@ module.exports = (function() {
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
                 Global.context.identOut();
-                console.log(Global.context.identfy() + '} ' + t.flow('else') + ' {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
+                console.log(Global.context.identfy() + '} ' + t.flow('else') + ' {');
                 Global.context.identIn();
                 _print_locals(this.locals);
             }
@@ -81,7 +81,7 @@ module.exports = (function() {
             this.print = function() {
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('do') + ' {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
+                console.log(Global.context.identfy() + t.flow('do') + ' {');
                 Global.context.identIn();
                 _print_locals(this.locals);
             }
@@ -94,7 +94,7 @@ module.exports = (function() {
             this.print = function() {
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('while') + ' (' + this.condition + ') {' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
+                console.log(Global.context.identfy() + t.flow('while') + ' (' + this.condition + ') {');
                 Global.context.identIn();
                 _print_locals(this.locals);
             }
@@ -107,7 +107,7 @@ module.exports = (function() {
                 Global.context.identOut();
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                console.log(Global.context.identfy() + '} ' + t.flow('while') + ' (' + this.condition + ');' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
+                console.log(Global.context.identfy() + '} ' + t.flow('while') + ' (' + this.condition + ');');
             }
         },
         whileInline: function(address, condition) {
@@ -117,7 +117,7 @@ module.exports = (function() {
             this.print = function() {
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('while') + ' (' + this.condition + ');' + Global.printer.theme.comment(' // 0x' + this.address.toString(16)));
+                console.log(Global.context.identfy() + t.flow('while') + ' (' + this.condition + ');');
             }
         }
     }

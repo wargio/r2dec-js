@@ -16,6 +16,7 @@
  */
 
 module.exports = (function() {
+    const Macro = require('libdec/core/macro');
     const Variable = require('libdec/core/variable');
     const Extra = require('libdec/core/extra');
     const CCalls = require('libdec/db/c_calls');
@@ -92,6 +93,21 @@ module.exports = (function() {
             return fcn + ' (' + this.arguments.join(', ') + ')';
         };
     };
+
+    var _generic_rotate = function(destination, source_a, rotation, bits, is_left) {
+        this.call = 'rotate_' + (is_left ? 'left' : 'right') + bits;
+        this.destination = destination;
+        this.source_a = source_a;
+        this.rotation = rotation;
+        this.toString = function() {
+            var t = Global.printer.theme;
+            var a = Global.printer.auto;
+            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
+            var source_a = Extra.is.string(this.source_a) ? a(this.source_a) : this.source_a;
+            var rotation = Extra.is.string(this.rotation) ? a(this.rotation) : this.rotation;
+            return destination + ' = ' + t.callname(this.call) + ' (' + source_a + ', ' + rotation + ')';
+        };
+    }
 
     var _generic_return = function(value) {
         this.value = value;
@@ -174,7 +190,7 @@ module.exports = (function() {
         },
         and: function(destination, source_a, source_b) {
             if (source_b == '0') {
-                return new _assignment(destination, '0');
+                return new _generic_assignment(destination, '0');
             }
             return new _generic_math(destination, source_a, source_b, '&');
         },
@@ -184,29 +200,40 @@ module.exports = (function() {
             }
             return new _generic_math(destination, source_a, source_b, '-');
         },
+        or: function(destination, source_a, source_b) {
+            if (source_b == '0') {
+                return new _generic_assignment(destination, source_a);
+            }
+            return new _generic_math(destination, source_a, source_b, '|');
+        },
         xor: function(destination, source_a, source_b) {
             if (source_a == source_b) {
-                return new _assignment(destination, '0');
+                return new _generic_assignment(destination, '0');
             }
             return new _generic_math(destination, source_a, source_b, '^');
         },
-        /*
+        shift_left: function(destination, source_a, source_b) {
+            return new _generic_math(destination, source_a, source_b, '<<');
+        },
+        shift_right: function(destination, source_a, source_b) {
+            return new _generic_math(destination, source_a, source_b, '>>');
+        },
         rotate_left: function(destination, source_a, source_b, bits) {
-            return new _generic_rotate(destination, source_a, source_b, bits, true),
-                new _dependency(_call_c.rotate_left.macros, [new _call_c.rotate_left.fcn(bits)])
-            );
+            Global.context.addDependency(new CCalls.rotate_left.fcn(bits));
+            return new _generic_rotate(source_a, source_b, bits, true);
         },
         rotate_right: function(destination, source_a, source_b, bits) {
-            return new _pseudocode(new _generic_rotate(destination, source_a, source_b, bits, false),
-                new _dependency(_call_c.rotate_right.macros, [new _call_c.rotate_right.fcn(bits)])
-            );
+            Global.context.addDependency(new CCalls.rotate_right.fcn(bits));
+            return new _generic_rotate(source_a, source_b, bits, false);
+        },
+        swap_endian: function(value, returns, bits) {
+            Global.context.addDependency(new CCalls.swap_endian.fcn(bits));
+            return new _generic_assignment(returns, new _generic_call('SWAP' + bits, [value]));
         },
         bit_mask: function(destination, source_a, source_b) {
-            return new _pseudocode(new _common_bitmask(destination, source_a, source_b),
-                new _dependency(_call_c.bit_mask.macros, [])
-            );
+            Global.context.addDependency(new CCalls.bit_mask.fcn());
+            return new _generic_assignment(destination, new _generic_call('BIT_MASK', [source_a, source_b]));
         },
-        */
         /* MEMORY */
         read_memory: function(pointer, register, bits, is_signed) {
             var value = (Extra.is.string(register) || Extra.is.number(register)) ? register : Variable.variable(register, Extra.to.type(bits, is_signed));

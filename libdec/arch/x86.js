@@ -452,7 +452,7 @@ module.exports = (function() {
 
         if (callsite.mem_access && callname.startsWith('0x')) {
             callname = Variable.functionPointer(callname.token, callname.mem_access, args);
-        } else if (!callsite.mem_access && callname.match(/$([er])?[abds][ixl]^/)) {
+        } else if (is_pointer || (!callsite.mem_access && callname.match(/\b([er])?[abds][ixl]\b/))) {
             callname = Variable.functionPointer(callname, 0, args);
         }
         return Base.call(callname, args);
@@ -582,7 +582,7 @@ module.exports = (function() {
                 }[divisor_size];
 
                 _has_changed_return(quotient, true, context);
-                var type = divisor_is_ptr ? 'memory' : 'local';
+                var type = divisor_is_ptr ? 'pointer' : 'local';
                 var arg_dividend = Variable[type](dividend.join(':'), Extra.to.type(divisor_size, true));
                 var arg_quotient = Variable.local(quotient, Extra.to.type(divisor_size, false));
                 var arg_remainder = Variable.local(remainder, Extra.to.type(divisor_size, false));
@@ -671,26 +671,25 @@ module.exports = (function() {
             },
             bswap: function(instr, context, instructions) {
                 var dst = instr.parsed.opd[0];
-
                 return Base.swap_endian(dst.token, dst.token, _find_bits(dst.token));
             },
             mov: _standard_mov,
             movabs: _standard_mov,
             cbw: function(instr, context) {
                 _has_changed_return('ax', true, context);
-                return Base.extend('ax', 'al', Extra.to.type(16, true));
+                return Base.cast('ax', 'al', Extra.to.type(16, true));
             },
             cwde: function(instr, context) {
                 _has_changed_return('eax', true, context);
-                return Base.extend('eax', 'ax', Extra.to.type(32, true));
+                return Base.cast('eax', 'ax', Extra.to.type(32, true));
             },
             cdq: function(instr, context) {
                 _has_changed_return('eax', true, context);
-                return Base.extend('edx:eax', 'eax', Extra.to.type(64, true));
+                return Base.cast('edx:eax', 'eax', Extra.to.type(64, true));
             },
             cdqe: function(instr, context) {
                 _has_changed_return('rax', true, context);
-                return Base.extend('rax', 'eax', Extra.to.type(64, true));
+                return Base.cast('rax', 'eax', Extra.to.type(64, true));
             },
             movsx: function(instr, context) {
                 return _extended_mov(instr, true, context);

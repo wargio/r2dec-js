@@ -19,11 +19,10 @@ module.exports = (function() {
     var Long = require('libdec/long');
 
     var _align = function(x) {
-        var zeros64 = '0000000000000000';
         var zeros32 = '00000000';
         var c = x.toString(16);
         if (c.length > zeros32.length) {
-            return '0x' + zeros64.substr(c.length, zeros64.length) + c;
+            return '0x' + c;
         }
         return '0x' + zeros32.substr(c.length, zeros32.length) + c;
     };

@@ -88,10 +88,10 @@ module.exports = (function() {
                 name = name.substring('sym.imp.'.length);
             } else if (name.startsWith('sym.')) {
                 name = name.substring('sym.'.length);
-            } else if (name.startsWith('fcn.')) {
-                name = name.substring('fcn.'.length);
-            } else if (name.startsWith('func.')) {
-                name = name.substring('func.'.length);
+            //} else if (name.startsWith('fcn.')) {
+            //    name = name.substring('fcn.'.length);
+            //} else if (name.startsWith('func.')) {
+            //    name = name.substring('func.'.length);
             } else if (name.startsWith('reloc.')) {
                 name = name.substring('reloc.'.length);
             }

@@ -125,7 +125,7 @@ module.exports = (function() {
             }
             return false;
         },
-        tests: function() {
+        evarsTestSuite: function() {
             this.honor = {
                 casts: true,
                 assembly: true,
@@ -139,6 +139,27 @@ module.exports = (function() {
                 theme: 'default',
                 debug: true
             }
+        },
+        dataTestSuite: function(x) {
+            var o = _JSON.parse(x);
+            if (!o.arch) {
+                throw new Error('missing architecture in JSON.');
+            }
+            return {
+                arch: o.arch,
+                bits: o.archbits || 32,
+                graph: o.agj || [],
+                xrefs: {
+                    symbols: o.isj || [],
+                    strings: o.izj || [],
+                    functions: o.aflj || [],
+                    arguments: o.afvj || {
+                        "sp": [],
+                        "bp": [],
+                        "reg": []
+                    }
+                }
+            };
         },
         evars: function(args) {
             this.arch = r2str('e asm.arch');
