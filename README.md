@@ -74,11 +74,12 @@ e scr.color         | enables syntax colors.
 
     arm
     avr
+    m68k (experimental)
     mips
     ppc
     sparc
     v850
-    wasm
+    wasm (partial)
     x86 (intel)
 
 # Developing on r2dec
