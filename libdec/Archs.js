@@ -20,6 +20,7 @@ module.exports = (function() {
         arm: require('libdec/arch/arm'),
         avr: require('libdec/arch/avr'),
         mips: require('libdec/arch/mips'),
+        m68k: require('libdec/arch/m68k'),
         ppc: require('libdec/arch/ppc'),
         sparc: require('libdec/arch/sparc'),
         v850: require('libdec/arch/v850'),
