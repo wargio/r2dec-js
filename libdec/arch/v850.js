@@ -21,7 +21,7 @@ module.exports = (function() {
 
     var _common_math = function(e, op, reversed) {
         if (e[2] == '0') {
-            return Base.instructions.nop();
+            return Base.nop();
         }
         if (reversed) {
             return op(e[2], e[1], e[2]);
@@ -32,12 +32,12 @@ module.exports = (function() {
     var _compare = function(instr, context) {
         context.cond.a = instr.parsed[2];
         context.cond.b = instr.parsed[1];
-        return Base.instructions.nop();
+        return Base.nop();
     }
 
     var _conditional = function(instr, context, type, zero) {
         instr.conditional(context.cond.a, context.cond.b, type);
-        return Base.instructions.nop();
+        return Base.nop();
     };
 
     var _conditional_inline = function(instr, context, instructions, type) {
@@ -47,12 +47,12 @@ module.exports = (function() {
 
     var load_bits = function(register, pointer, bits, signed) {
         //pointer, register, bits, is_signed
-        return Base.instructions.read_memory(pointer, register, bits, signed);
+        return Base.read_memory(pointer, register, bits, signed);
     };
 
     var store_bits = function(register, pointer, bits, signed) {
         //pointer, register, bits, is_signed
-        return Base.instructions.write_memory(pointer, register, bits, signed);
+        return Base.write_memory(pointer, register, bits, signed);
     };
 
     var _setf_v850_cond = {
@@ -93,13 +93,13 @@ module.exports = (function() {
     return {
         instructions: {
             add: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.add);
+                return _common_math(instr.parsed, Base.add);
             },
             and: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.and);
+                return _common_math(instr.parsed, Base.and);
             },
             b: function() {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             bne: function(instr, context) {
                 return _conditional(instr, context, 'EQ');
@@ -145,17 +145,17 @@ module.exports = (function() {
                         ret = 'return';
                     }
                 }
-                return Base.instructions.call(instr.parsed[1], [], instr.parsed[1].indexOf('0x') == 0, ret, null);
+                return Base.call(instr.parsed[1], [], instr.parsed[1].indexOf('0x') == 0, ret, null);
             },
             jmp: function(instr, context, instructions) {
                 if ((instructions.length - 1) == instructions.indexOf(instr)) {
                     //name, args, is_pointer, returns, bits
-                    return Base.instructions.call(instr.parsed[1], [], true, 'return');
+                    return Base.call(instr.parsed[1], [], true, 'return');
                 }
-                return Base.instructions.nop();
+                return Base.nop();
             },
             jr: function() {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             'ld.b': function(instr) {
                 // ld.X 0x6c36[r4], r14
@@ -206,101 +206,101 @@ module.exports = (function() {
             },
             mov: function(instr) {
                 if (instr.parsed[2] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.assign(instr.parsed[2], instr.parsed[1]);
+                return Base.assign(instr.parsed[2], instr.parsed[1]);
             },
             movea: function(instr) {
                 if (instr.parsed[3] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
                 if (instr.parsed[2] == '0') {
-                    return Base.instructions.assign(instr.parsed[3], instr.parsed[1]);
+                    return Base.assign(instr.parsed[3], instr.parsed[1]);
                 }
                 if (instr.parsed[1] == '0') {
-                    return Base.instructions.assign(instr.parsed[3], instr.parsed[2]);
+                    return Base.assign(instr.parsed[3], instr.parsed[2]);
                 }
-                return Base.instructions.add(instr.parsed[3], instr.parsed[2], instr.parsed[1]);
+                return Base.add(instr.parsed[3], instr.parsed[2], instr.parsed[1]);
             },
             movhi: function(instr) {
                 if (instr.parsed[2] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
                 var a = instr.parsed[1];
                 if (a.indexOf('0x') != 0) {
                     a = '0x' + parseInt(a).toString(16);
                 }
-                return Base.instructions.assign(instr.parsed[2], a + '0000');
+                return Base.assign(instr.parsed[2], a + '0000');
             },
             mul: function(instr) {
                 if (instr.parsed[3] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
                 //value, bits, is_signed, is_pointer, is_memory
                 var n = Base.bits_argument(instr.parsed[1], 32, true, false, false)
-                return Base.instructions.multiply(instr.parsed[3], instr.parsed[2], n);
+                return Base.multiply(instr.parsed[3], instr.parsed[2], n);
             },
             mulh: function(instr) {
                 if (instr.parsed[2] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.multiply(instr.parsed[2], instr.parsed[2], instr.parsed[1]);
+                return Base.multiply(instr.parsed[2], instr.parsed[2], instr.parsed[1]);
             },
             mulhi: function(instr) {
                 if (instr.parsed[3] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.multiply(instr.parsed[3], instr.parsed[2], instr.parsed[1]);
+                return Base.multiply(instr.parsed[3], instr.parsed[2], instr.parsed[1]);
             },
             not: function(instr) {
                 if (instr.parsed[2] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.not(instr.parsed[2], instr.parsed[1]);
+                return Base.not(instr.parsed[2], instr.parsed[1]);
             },
             nop: function(instr) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             or: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.or);
+                return _common_math(instr.parsed, Base.or);
             },
             ori: function(instr) {
                 if (instr.parsed[3] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.or(instr.parsed[3], instr.parsed[2], instr.parsed[1]);
+                return Base.or(instr.parsed[3], instr.parsed[2], instr.parsed[1]);
             },
             satadd: function(instr) {
                 // add with previous carry
-                return _common_math(instr.parsed, Base.instructions.add);
+                return _common_math(instr.parsed, Base.add);
             },
             satsub: function(instr) {
                 // add with previous carry
-                return _common_math(instr.parsed, Base.instructions.subtract, false);
+                return _common_math(instr.parsed, Base.subtract, false);
             },
             satsubi: function(instr) {
                 // add with previous carry
-                return _common_math(instr.parsed, Base.instructions.subtract, true);
+                return _common_math(instr.parsed, Base.subtract, true);
             },
             satsubr: function(instr) {
                 // add with previous carry
-                return _common_math(instr.parsed, Base.instructions.subtract, true);
+                return _common_math(instr.parsed, Base.subtract, true);
             },
             shl: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.shift_left);
+                return _common_math(instr.parsed, Base.shift_left);
             },
             shr: function(instr) {
                 //logically shift right
-                return _common_math(instr.parsed, Base.instructions.shift_right);
+                return _common_math(instr.parsed, Base.shift_right);
             },
             setf: function(instr, context) {
                 var e = instr.parsed;
                 if (e[2] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
                 if (e[1] == 'v' || e[1] == 'nv') {
                     var m = new Base.macro((e[1] == 'nv' ? '!' : '') + 'IS_OVERFLOW(' + context.cond.a + ', ' + context.cond.b + ')');
-                    var op = Base.instructions.conditional_assign(e[2], m, null, 'CUST', '1', '0');
+                    var op = Base.conditional_assign(e[2], m, null, 'CUST', '1', '0');
                     Base.add_macro(op, '#define IS_OVERFLOW(a,b) (((a<0)&&(b<0)&&(a+b>0))||((a>0)&&(b>0)&&(a+b<0)))');
                     return op;
                 }
@@ -308,9 +308,9 @@ module.exports = (function() {
                 if (!o) {
                     instr.comments.push('unhandled use-case. please report it.');
                     instr.comments.push(instr.assembly);
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.conditional_assign(e[2], context.cond.a, o.arg1 || context.cond.b, o.cond, '1', '0');
+                return Base.conditional_assign(e[2], context.cond.a, o.arg1 || context.cond.b, o.cond, '1', '0');
             },
             'sld.b': function(instr) {
                 var addr = instr.parsed[1];
@@ -452,54 +452,54 @@ module.exports = (function() {
                 return store_bits(dst, src + ' + ' + addr, 32, false);
             },
             sub: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.subtract);
+                return _common_math(instr.parsed, Base.subtract);
             },
             subr: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.subtract, true);
+                return _common_math(instr.parsed, Base.subtract, true);
             },
             sxb: function(instr) {
                 if (instr.parsed[2] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.extend(instr.parsed[2], instr.parsed[1], 32);
+                return Base.extend(instr.parsed[2], instr.parsed[1], 32);
             },
             sxh: function(instr) {
                 if (instr.parsed[2] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.extend(instr.parsed[2], instr.parsed[1], 32);
+                return Base.extend(instr.parsed[2], instr.parsed[1], 32);
             },
             tst: function(instr, context, instructions) {
                 var e = instr.parsed;
                 context.cond.a = (e[1] == e[2]) ? e[2] : "(" + e[2] + " & " + e[1] + ")";
                 context.cond.b = '0';
-                return Base.instructions.nop();
+                return Base.nop();
             },
             xor: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.xor);
+                return _common_math(instr.parsed, Base.xor);
             },
             xori: function(instr) {
                 if (instr.parsed[3] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.xor(instr.parsed[3], instr.parsed[2], instr.parsed[1]);
+                return Base.xor(instr.parsed[3], instr.parsed[2], instr.parsed[1]);
             },
             zxb: function(instr) {
                 if (instr.parsed[2] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
                 var a = Base.bits_argument(instr.parsed[1], 32, false, false, false);
-                return Base.instructions.assign(instr.parsed[2], a);
+                return Base.assign(instr.parsed[2], a);
             },
             zxh: function(instr) {
                 if (instr.parsed[2] == '0') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
                 var a = Base.bits_argument(instr.parsed[1], 32, false, false, false);
-                return Base.instructions.assign(instr.parsed[2], a);
+                return Base.assign(instr.parsed[2], a);
             },
             invalid: function() {
-                return Base.instructions.nop();
+                return Base.nop();
             }
         },
         parse: function(asm) {

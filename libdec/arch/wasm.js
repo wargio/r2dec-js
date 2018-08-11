@@ -115,7 +115,7 @@ module.exports = (function() {
         cond.a = context.stack.pop().toString();
         cond.cmp = _cmp[instr.parsed[1]];
         context.stack.push(cond);
-        return Base.instructions.nop();
+        return Base.nop();
     };
 
     var _NOP = function(instr) {
@@ -148,102 +148,102 @@ module.exports = (function() {
             var s = _set_local(instr, context, instructions, 'const ' + _type(instr), false);
             context.stack.push(s);
             if (_is_next_local(instr, instructions) < 0) {
-                return Base.instructions.assign(s.toString('arg'), instr.parsed[2]);
+                return Base.assign(s.toString('arg'), instr.parsed[2]);
             }
-            return Base.instructions.assign(s.toString(), instr.parsed[2]);
+            return Base.assign(s.toString(), instr.parsed[2]);
         },
         add: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr), Base.instructions.add);
+            return _math(instr, context, instructions, _type(instr), Base.add);
         },
         and: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr), Base.instructions.and);
+            return _math(instr, context, instructions, _type(instr), Base.and);
         },
         div_s: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr), Base.instructions.divide);
+            return _math(instr, context, instructions, _type(instr), Base.divide);
         },
         div_u: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr, true), Base.instructions.divide);
+            return _math(instr, context, instructions, _type(instr, true), Base.divide);
         },
         extend_s: function(instr, context, instructions) {
             var s = _set_local(instr, context, instructions, _type(instr), false);
             var b = context.stack.pop();
             context.stack.push(s);
             if (_is_next_local(instr, instructions) < 0) {
-                return Base.instructions.extend(s.toString('arg'), b.toString(), _type(instr.parsed[2]));
+                return Base.extend(s.toString('arg'), b.toString(), _type(instr.parsed[2]));
             }
-            return Base.instructions.extend(s.toString(), b.toString(), _type(instr.parsed[2]));
+            return Base.extend(s.toString(), b.toString(), _type(instr.parsed[2]));
         },
         extend_u: function(instr, context, instructions) {
             var s = _set_local(instr, context, instructions, _type(instr), false);
             var b = context.stack.pop();
             context.stack.push(s);
             if (_is_next_local(instr, instructions) < 0) {
-                return Base.instructions.extend(s.toString('arg'), b.toString(), _type(instr.parsed[2], true));
+                return Base.extend(s.toString('arg'), b.toString(), _type(instr.parsed[2], true));
             }
-            return Base.instructions.extend(s.toString(), b.toString(), _type(instr.parsed[2], true));
+            return Base.extend(s.toString(), b.toString(), _type(instr.parsed[2], true));
         },
         mul: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr), Base.instructions.multiply);
+            return _math(instr, context, instructions, _type(instr), Base.multiply);
         },
         or: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr), Base.instructions.or);
+            return _math(instr, context, instructions, _type(instr), Base.or);
         },
         reinterpret: function(instr, context, instructions) {
             var s = _set_local(instr, context, instructions, _type(instr), false);
             var b = context.stack.pop();
             context.stack.push(s);
             if (_is_next_local(instr, instructions) < 0) {
-                return Base.instructions.assign(s.toString('arg'), b.toString());
+                return Base.assign(s.toString('arg'), b.toString());
             }
-            return Base.instructions.assign(s.toString(), b.toString());
+            return Base.assign(s.toString(), b.toString());
         },
         rem_s: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr), Base.instructions.module);
+            return _math(instr, context, instructions, _type(instr), Base.module);
         },
         rem_u: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr, true), Base.instructions.module);
+            return _math(instr, context, instructions, _type(instr, true), Base.module);
         },
         shl: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr), Base.instructions.shift_left);
+            return _math(instr, context, instructions, _type(instr), Base.shift_left);
         },
         shr_s: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr), Base.instructions.shift_right);
+            return _math(instr, context, instructions, _type(instr), Base.shift_right);
         },
         shr_u: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr, true), Base.instructions.shift_right);
+            return _math(instr, context, instructions, _type(instr, true), Base.shift_right);
         },
         sub: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr), Base.instructions.subtract);
+            return _math(instr, context, instructions, _type(instr), Base.subtract);
         },
         wrap: function(instr, context, instructions) {
             var s = _set_local(instr, context, instructions, _type(instr), false);
             var b = context.stack.pop();
             context.stack.push(s);
             if (_is_next_local(instr, instructions) < 0) {
-                return Base.instructions.extend(s.toString('arg'), b.toString(), _type(instr.parsed[0], true));
+                return Base.extend(s.toString('arg'), b.toString(), _type(instr.parsed[0], true));
             }
-            return Base.instructions.extend(s.toString(), b.toString(), _type(instr.parsed[0], true));
+            return Base.extend(s.toString(), b.toString(), _type(instr.parsed[0], true));
         },
         trunc_s: function(instr, context, instructions) {
             var s = _set_local(instr, context, instructions, _type(instr), false);
             var b = context.stack.pop();
             context.stack.push(s);
             if (_is_next_local(instr, instructions) < 0) {
-                return Base.instructions.extend(s.toString('arg'), b.toString(), _type(instr.parsed[0], true));
+                return Base.extend(s.toString('arg'), b.toString(), _type(instr.parsed[0], true));
             }
-            return Base.instructions.extend(s.toString(), b.toString(), _type(instr.parsed[0], true));
+            return Base.extend(s.toString(), b.toString(), _type(instr.parsed[0], true));
         },
         trunc_u: function(instr, context, instructions) {
             var s = _set_local(instr, context, instructions, _type(instr), false);
             var b = context.stack.pop();
             context.stack.push(s);
             if (_is_next_local(instr, instructions) < 0) {
-                return Base.instructions.extend(s.toString('arg'), b.toString(), _type(instr.parsed[0], true));
+                return Base.extend(s.toString('arg'), b.toString(), _type(instr.parsed[0], true));
             }
-            return Base.instructions.extend(s.toString(), b.toString(), _type(instr.parsed[0], true));
+            return Base.extend(s.toString(), b.toString(), _type(instr.parsed[0], true));
         },
         xor: function(instr, context, instructions) {
-            return _math(instr, context, instructions, _type(instr), Base.instructions.xor);
+            return _math(instr, context, instructions, _type(instr), Base.xor);
         },
     };
 
@@ -268,26 +268,26 @@ module.exports = (function() {
                     context.input[n] = context.local[n];
                 }
                 context.stack.push(context.local[n]);
-                return Base.instructions.nop();
+                return Base.nop();
             },
             set_local: function(instr, context, instructions) {
                 var n = parseInt(instr.parsed[1]);
                 context.local[n] = context.stack.pop();
-                return Base.instructions.nop();
+                return Base.nop();
             },
             tee_local: function(instr, context, instructions) {
                 var n = parseInt(instr.parsed[1]);
                 context.local[n] = context.stack[context.stack.length - 1];
-                return Base.instructions.nop();
+                return Base.nop();
             },
             call: function(instr, context, instructions) {
                 var args = context.stack.slice().map(function(x) {
                     return x.toString();
                 });
                 if (instr.parsed[1].match(/^(0x)?[\dA-Fa-f]+$/)) {
-                    return Base.instructions.call(instr.parsed[1], args, true);
+                    return Base.call(instr.parsed[1], args, true);
                 }
-                return Base.instructions.call(_call_fix_name(instr.parsed[1]), args);
+                return Base.call(_call_fix_name(instr.parsed[1]), args);
             },
             return: function(instr, context, instructions) {
                 var ret = null;
@@ -298,7 +298,7 @@ module.exports = (function() {
                     context.returned = context.stack.pop();
                     ret = context.returned.toString();
                 }
-                return Base.instructions.return(ret);
+                return Base.return(ret);
             },
             'if': function(instr, context, instructions) {
                 var cond = context.stack.pop();
@@ -307,19 +307,19 @@ module.exports = (function() {
                 } else {
                     instr.conditional(cond.toString(), null, 'CUST');
                 }
-                return Base.instructions.nop();
+                return Base.nop();
             },
             'else': function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             end: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             nop: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             invalid: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             }
         },
         parse: function(asm) {

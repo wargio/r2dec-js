@@ -37,15 +37,15 @@ module.exports = (function() {
             var ops = [];
             var value = Base.variable();
             if (arg[1].indexOf('-') < 0) {
-                ops.push(Base.instructions.add(value, arg[0], arg[1]));
+                ops.push(Base.add(value, arg[0], arg[1]));
             } else {
-                ops.push(Base.instructions.subtract(value, arg[0], arg[1].replace(/-/, '')));
+                ops.push(Base.subtract(value, arg[0], arg[1].replace(/-/, '')));
             }
-            ops.push(Base.instructions.read_memory(value, e[2], bits, signed));
+            ops.push(Base.read_memory(value, e[2], bits, signed));
             return Base.composed(ops);
         }
         //pointer, register, bits, is_signed
-        return Base.instructions.read_memory(e[1], e[2], bits, signed);
+        return Base.read_memory(e[1], e[2], bits, signed);
     };
 
     var _store = function(instr, context, instruction, signed, bits) {
@@ -55,25 +55,25 @@ module.exports = (function() {
             var ops = [];
             var value = Base.variable();
             if (arg[1].indexOf('-') < 0) {
-                ops.push(Base.instructions.add(value, arg[0], arg[1]));
+                ops.push(Base.add(value, arg[0], arg[1]));
             } else {
-                ops.push(Base.instructions.subtract(value, arg[0], arg[1].replace(/-/, '')));
+                ops.push(Base.subtract(value, arg[0], arg[1].replace(/-/, '')));
             }
-            ops.push(Base.instructions.write_memory(value, e[1], bits, signed));
+            ops.push(Base.write_memory(value, e[1], bits, signed));
             return Base.composed(ops);
         }
         //pointer, register, bits, is_signed
-        return Base.instructions.write_memory(e[2], e[1], bits, signed);
+        return Base.write_memory(e[2], e[1], bits, signed);
     };
 
     var _conditional = function(instr, context, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
-        return Base.instructions.nop();
+        return Base.nop();
     };
 
     var _conditional = function(instr, context, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
-        return Base.instructions.nop();
+        return Base.nop();
     };
 
     var _compare = function(instr, context, instructions) {
@@ -113,12 +113,12 @@ module.exports = (function() {
             }
             addr = address[step](elem, addr);
             step++;
-            instructions[i].pseudo = Base.instructions.nop();
+            instructions[i].pseudo = Base.nop();
         }
         if (addr) {
             --i;
             addr = '0x' + addr.toString(16)
-            instr.pseudo = Base.instructions.assign(instr.parsed[2], addr.replace(/0x-/, '-0x'));
+            instr.pseudo = Base.assign(instr.parsed[2], addr.replace(/0x-/, '-0x'));
         }
         return i;
     };
@@ -134,57 +134,57 @@ module.exports = (function() {
         instructions: {
             add: function(instr, context, instructions) {
                 if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                    return Base.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
                 }
-                return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             addcc: function(instr, context, instructions) {
                 _compare(instr, context);
                 if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                    return Base.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
                 }
-                return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             addx: function(instr, context, instructions) {
                 if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                    return Base.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
                 }
-                return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             addxcc: function(instr, context, instructions) {
                 _compare(instr, context);
                 if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                    return Base.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
                 }
-                return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             and: function(instr, context, instructions) {
-                return Base.instructions.and(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.and(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             andcc: function(instr, context, instructions) {
                 _compare(instr, context);
-                return Base.instructions.and(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.and(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             andn: function(instr, context, instructions) {
                 var ops = [];
                 var value = Base.variable();
-                ops.push(Base.instructions.not(value, instr.parsed[2]));
-                ops.push(Base.instructions.and(instr.parsed[3], instr.parsed[1], value));
+                ops.push(Base.not(value, instr.parsed[2]));
+                ops.push(Base.and(instr.parsed[3], instr.parsed[1], value));
                 return Base.composed(ops);
             },
             andncc: function(instr, context, instructions) {
                 _compare(instr, context);
                 var ops = [];
                 var value = Base.variable();
-                ops.push(Base.instructions.not(value, instr.parsed[2]));
-                ops.push(Base.instructions.and(instr.parsed[3], instr.parsed[1], value));
+                ops.push(Base.not(value, instr.parsed[2]));
+                ops.push(Base.and(instr.parsed[3], instr.parsed[1], value));
                 return Base.composed(ops);
             },
             ba: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             bn: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             be: function(instr, context, instructions) {
                 return _conditional(instr, context, 'NE');
@@ -223,7 +223,7 @@ module.exports = (function() {
                 return _conditional(instr, context, 'GE');
             },
             call: function(instr, context, instructions) {
-                return Base.instructions.call(_call_fix_name(instr.parsed[1]), []);
+                return Base.call(_call_fix_name(instr.parsed[1]), []);
             },
             cmp: _compare,
             ldub: function(instr, context, instructions) {
@@ -245,57 +245,57 @@ module.exports = (function() {
                 return _load(instr, context, instructions, false, 64);
             },
             mov: function(instr, context, instructions) {
-                return Base.instructions.assign(instr.parsed[2], instr.parsed[1]);
+                return Base.assign(instr.parsed[2], instr.parsed[1]);
             },
             nop: function(instr) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             or: function(instr, context, instructions) {
-                return Base.instructions.or(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.or(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             orcc: function(instr, context, instructions) {
                 _compare(instr, context);
-                return Base.instructions.or(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.or(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             orn: function(instr, context, instructions) {
                 var ops = [];
                 var value = Base.variable();
-                ops.push(Base.instructions.not(value, instr.parsed[2]));
-                ops.push(Base.instructions.or(instr.parsed[3], instr.parsed[1], value));
+                ops.push(Base.not(value, instr.parsed[2]));
+                ops.push(Base.or(instr.parsed[3], instr.parsed[1], value));
                 return Base.composed(ops);
             },
             orncc: function(instr, context, instructions) {
                 _compare(instr, context);
                 var ops = [];
                 var value = Base.variable();
-                ops.push(Base.instructions.not(value, instr.parsed[2]));
-                ops.push(Base.instructions.or(instr.parsed[3], instr.parsed[1], value));
+                ops.push(Base.not(value, instr.parsed[2]));
+                ops.push(Base.or(instr.parsed[3], instr.parsed[1], value));
                 return Base.composed(ops);
             },
             ret: function(instr, context, instructions) {
-                return Base.instructions.return();
+                return Base.return();
             },
             retl: function(instr, context, instructions) {
-                return Base.instructions.return();
+                return Base.return();
             },
             restore: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             save: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             sethi: function(instr, context, instructions) {
                 var v = Long.fromString(parseInt(instr.parsed[1]).toString(16), true, 16);
-                return Base.instructions.assign(instr.parsed[2], '0x' + v.shl(10).toString(16));
+                return Base.assign(instr.parsed[2], '0x' + v.shl(10).toString(16));
             },
             sll: function(instr, context, instructions) {
-                return Base.instructions.shift_left(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.shift_left(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             srl: function(instr, context, instructions) {
-                return Base.instructions.shift_right(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.shift_right(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             sra: function(instr, context, instructions) {
-                return Base.instructions.shift_right(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.shift_right(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             stb: function(instr, context, instructions) {
                 return _store(instr, context, instructions, false, 8);
@@ -311,55 +311,55 @@ module.exports = (function() {
             },
             sub: function(instr, context, instructions) {
                 if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                    return Base.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
                 }
-                return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             subcc: function(instr, context, instructions) {
                 _compare(instr, context);
                 if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                    return Base.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
                 }
-                return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             subx: function(instr, context, instructions) {
                 if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                    return Base.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
                 }
-                return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             subxcc: function(instr, context, instructions) {
                 _compare(instr, context);
                 if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                    return Base.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
                 }
-                return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             xor: function(instr, context, instructions) {
-                return Base.instructions.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             xorcc: function(instr, context, instructions) {
                 _compare(instr, context);
-                return Base.instructions.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
             },
             xnor: function(instr, context, instructions) {
                 var ops = [];
-                ops.push(Base.instructions.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]));
-                ops.push(Base.instructions.not(instr.parsed[3], instr.parsed[3]));
+                ops.push(Base.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]));
+                ops.push(Base.not(instr.parsed[3], instr.parsed[3]));
                 return Base.composed(ops);
             },
             xnorcc: function(instr, context, instructions) {
                 _compare(instr, context);
                 var ops = [];
-                ops.push(Base.instructions.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]));
-                ops.push(Base.instructions.not(instr.parsed[3], instr.parsed[3]));
+                ops.push(Base.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]));
+                ops.push(Base.not(instr.parsed[3], instr.parsed[3]));
                 return Base.composed(ops);
             },
             unimp: function() {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             invalid: function() {
-                return Base.instructions.nop();
+                return Base.nop();
             }
         },
         parse: function(asm) {

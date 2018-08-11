@@ -19,6 +19,7 @@ module.exports = (function() {
     const Macro = require('libdec/core/macro');
     const Variable = require('libdec/core/variable');
     const Extra = require('libdec/core/extra');
+    const Cpp = require('libdec/db/cpp');
     const CCalls = require('libdec/db/c_calls');
 
     var _generic_asm = function(asm) {
@@ -83,7 +84,7 @@ module.exports = (function() {
     };
 
     var _generic_call = function(function_name, arguments) {
-        this.function_name = Extra.is.string(function_name) ? Extra.replace.call(function_name) : function_name;
+        this.function_name = Extra.is.string(function_name) ? Cpp(Extra.replace.call(function_name)) : function_name;
         this.arguments = arguments || [];
         this.toString = function() {
             var fcn = this.function_name;
@@ -194,6 +195,15 @@ module.exports = (function() {
             }
             return new _generic_math(destination, source_a, source_b, '&');
         },
+        divide: function(destination, source_a, source_b) {
+            return new _generic_math(destination, source_a, source_b, '/');
+        },
+        module: function(destination, source_a, source_b) {
+            return new _generic_math(destination, source_a, source_b, '%');
+        },
+        multiply: function(destination, source_a, source_b) {
+            return new _generic_math(destination, source_a, source_b, '*');
+        },
         subtract: function(destination, source_a, source_b) {
             if (destination == source_a && source_b == '1') {
                 return new _generic_inc_dec(destination, '--');
@@ -236,14 +246,20 @@ module.exports = (function() {
         },
         /* MEMORY */
         read_memory: function(pointer, register, bits, is_signed) {
-            var value = (Extra.is.string(register) || Extra.is.number(register)) ? register : Variable.variable(register, Extra.to.type(bits, is_signed));
-            var pointer = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? pointer : Variable.memory(pointer, Extra.to.type(bits, is_signed));
-            return new _generic_assignment(value, pointer);
+            var value = (Extra.is.string(register) || Extra.is.number(register)) ? Variable.local(register.toString(), Extra.to.type(bits, is_signed)) : register;
+            var ptr = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? Variable.pointer(pointer.toString(), Extra.to.type(bits, is_signed)) : pointer;
+            return new _generic_assignment(value, ptr);
         },
         write_memory: function(pointer, register, bits, is_signed) {
-            var value = (Extra.is.string(register) || Extra.is.number(register)) ? register : Variable.variable(register, Extra.to.type(bits, is_signed));
-            var pointer = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? pointer : Variable.memory(pointer, Extra.to.type(bits, is_signed));
-            return new _generic_assignment(pointer, value);
+            var value = (Extra.is.string(register) || Extra.is.number(register)) ? Variable.local(register.toString(), Extra.to.type(bits, is_signed)) : register;
+            var ptr = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? Variable.pointer(pointer.toString(), Extra.to.type(bits, is_signed)) : pointer;
+            return new _generic_assignment(ptr, value);
+        },
+        /* SPECIAL */
+        composed: function(instructions) {
+            return new function(composed) {
+                this.composed = composed;
+            }(instructions);
         },
         /* UNKNOWN */
         unknown: function(asm) {

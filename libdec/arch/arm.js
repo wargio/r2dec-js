@@ -34,7 +34,7 @@ module.exports = (function() {
 
     var _common_math = function(e, op) {
         if (e[1] == 'ip' || e[1] == 'sp' || e[1] == 'fp') {
-            return Base.instructions.nop();
+            return Base.nop();
         }
         if (e.length == 3) {
             return op(e[1], e[1], e[2]);
@@ -54,7 +54,7 @@ module.exports = (function() {
     var _load = function(instr, bits) {
         var e = instr.parsed;
         if (e[1] == 'lr') {
-            return Base.instructions.nop();
+            return Base.nop();
         }
         if (!bits) {
             bits = 32
@@ -66,11 +66,11 @@ module.exports = (function() {
         case 3:
             if (_is_register(e[2])) {
                 if (instr.string) {
-                    return Base.instructions.assign(e[1], new Base.string(instr.string));
+                    return Base.assign(e[1], new Base.string(instr.string));
                 }
-                return Base.instructions.read_memory(e[1], e[2], bits, false);
+                return Base.read_memory(e[1], e[2], bits, false);
             }
-            return Base.instructions.assign(e[1], instr.string ? new Base.string(instr.string) : e[2]);
+            return Base.assign(e[1], instr.string ? new Base.string(instr.string) : e[2]);
         case 4:
             return new Base.common(e[1] + cast + e[2] + ' + ' + e[3] + castend);
         case 5:
@@ -78,7 +78,7 @@ module.exports = (function() {
               return new Base.common(e[2] + ' += ' + e[3] + '; ' + e[1] + ' = ' + e[2] + '[0]');
             }
             if (e[2] == 'fp') {
-                return Base.instructions.extend(e[1], e[4], bits);
+                return Base.extend(e[1], e[4], bits);
             }
             return new Base.common(e[1] + cast + e[2] + ' ' + e[3] + ' ' + e[4] + castend);
         case 6:
@@ -86,7 +86,7 @@ module.exports = (function() {
               return new Base.common(e[1] + ' = ' + e[2] + '[' + e[3] + ' << ' + e[5] + ']');
             }
             return new Base.common(e[1] + ' = ' + e[2] + '[' + e[3] + ' + ' + e[5] + ']');
-            // return Base.instructions.nop();
+            // return Base.nop();
             break;
         case 7:
             if (e[4].toLowerCase() == 'lsl') {
@@ -110,16 +110,16 @@ module.exports = (function() {
         var castend = (bits == 8) ? ') = ' : ')) = ';
         if (e.length == 3) {
             if (instr.string) {
-                return Base.instructions.assign(e[1], new Base.string(instr.string));
+                return Base.assign(e[1], new Base.string(instr.string));
             }
-            return Base.instructions.write_memory(e[2], e[1], bits, false);
+            return Base.write_memory(e[2], e[1], bits, false);
         } else if (e.length == 4) {
             return new Base.common(cast + e[2] + ' + ' + e[3] + castend + e[1]);
         } else if (e.length == 5 && e[3] != '-' && e[3] != '+') {
             return new Base.common(e[2] + ' += ' + e[3] + '; ' + e[2] + '[0] = ' + e[1]);
         } else if (e.length == 5) {
             if (e[2] == 'fp') {
-                return Base.instructions.extend(e[4], e[1], bits);
+                return Base.extend(e[4], e[1], bits);
             }
             return new Base.common(cast + e[2] + ' ' + e[3] + ' ' + e[4] + castend + e[1]);
         } else if (e.length == 6 && e[4].toLowerCase() == 'lsl') {
@@ -133,7 +133,7 @@ module.exports = (function() {
     var _compare = function(instr, context) {
         context.cond.a = instr.parsed[1];
         context.cond.b = instr.parsed[2];
-        return Base.instructions.nop();
+        return Base.nop();
     }
 
     var _conditional = function(instr, context, type) {
@@ -164,7 +164,7 @@ module.exports = (function() {
         var regnum = 3;
         var known_args_n = Base.arguments(callname);
         if (known_args_n == 0) {
-            return Base.instructions.call(callname, args, is_pointer || false, returnval);
+            return Base.call(callname, args, is_pointer || false, returnval);
         } else if (known_args_n > 0) {
             regnum = known_args_n - 1;
         }
@@ -193,7 +193,7 @@ module.exports = (function() {
                 returnval = 'r0';
             }
         }
-        return Base.instructions.call(callname, args, _is_register(callname) || callname.indexOf('0x') == 0, returnval);
+        return Base.call(callname, args, _is_register(callname) || callname.indexOf('0x') == 0, returnval);
     };
 
     var _arm_conditional_execution = function(condition, p) {
@@ -223,21 +223,21 @@ module.exports = (function() {
     var _arm = {
         instructions: {
             add: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.add);
+                return _common_math(instr.parsed, Base.add);
             },
             adr: function(instr) {
                 var dst = instr.parsed[1];
-                return Base.instructions.assign(dst, instr.parsed[2]);
+                return Base.assign(dst, instr.parsed[2]);
             },
             adrp: function(instr) {
                 var dst = instr.parsed[1];
-                return Base.instructions.assign(dst, instr.parsed[2]);
+                return Base.assign(dst, instr.parsed[2]);
             },
             and: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.and);
+                return _common_math(instr.parsed, Base.and);
             },
             b: function() {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             bx: function(instr, context, instructions) {
                 if (instr.parsed[1] == 'lr') {
@@ -246,10 +246,10 @@ module.exports = (function() {
                     if (instructions[start - 1].parsed[1] == 'r0') {
                         returnval = 'r0';
                     }
-                    return Base.instructions.return(returnval);
+                    return Base.return(returnval);
                 }
                 instr.invalidate_jump();
-                return Base.instructions.call(instr.parsed[1], [], true, 'return');
+                return Base.call(instr.parsed[1], [], true, 'return');
             },
             'b.pl': function(instr, context) {
                 return _conditional(instr, context, 'LT');
@@ -291,7 +291,7 @@ module.exports = (function() {
                 return _conditional(instr, context, 'LO');
             },
             eor: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.xor);
+                return _common_math(instr.parsed, Base.xor);
             },
             bl: _call,
             blx: _call,
@@ -319,75 +319,75 @@ module.exports = (function() {
             ldm: function(instr) {
                 for (var i = 1; i < instr.parsed.length; i++) {
                     if (instr.parsed[i] == 'pc') {
-                        return Base.instructions.return();
+                        return Base.return();
                     }
                 }
                 instr.comments.push(instr.opcode);
-                return Base.instructions.nop();
+                return Base.nop();
             },
             lsl: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.shift_left);
+                return _common_math(instr.parsed, Base.shift_left);
             },
             lsr: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.shift_right);
+                return _common_math(instr.parsed, Base.shift_right);
             },
             mov: function(instr) {
                 var dst = instr.parsed[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.assign(dst, instr.parsed[2]);
+                return Base.assign(dst, instr.parsed[2]);
             },
             movt: function(instr) {
                 var dst = instr.parsed[1];
                 var src = parseInt(instr.parsed[2]);
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
                 if (instr.parsed[2] == 0) {
                     instr.parsed = ['nop'];
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.special(dst + ' = (' + dst + ' & 0xFFFF) | 0x' + src.toString(16) + '0000');
+                return Base.special(dst + ' = (' + dst + ' & 0xFFFF) | 0x' + src.toString(16) + '0000');
             },
             movw: function(instr) {
                 var dst = instr.parsed[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
                 if (instr.string) {
-                    return Base.instructions.assign(dst, new Base.string(instr.string));
+                    return Base.assign(dst, new Base.string(instr.string));
                 }
                 if (instr.parsed[2] == '0') {
                     instr.parsed = ['nop'];
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.special(dst + ' = (' + dst + ' & 0xFFFF0000) | (' + instr.parsed[2] + ' & 0xFFFF)');
+                return Base.special(dst + ' = (' + dst + ' & 0xFFFF0000) | (' + instr.parsed[2] + ' & 0xFFFF)');
             },
             movz: function(instr) {
                 var dst = instr.parsed[1];
-                return Base.instructions.assign(dst, instr.parsed[2]);
+                return Base.assign(dst, instr.parsed[2]);
             },
             mvn: function(instr) {
                 var dst = instr.parsed[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
-                return Base.instructions.inverse(dst, instr.parsed[2]);
+                return Base.inverse(dst, instr.parsed[2]);
             },
             mul: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.multiply);
+                return _common_math(instr.parsed, Base.multiply);
             },
             nop: function(instr) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             orr: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.or);
+                return _common_math(instr.parsed, Base.or);
             },
             pop: function(instr) {
                 for (var i = 1; i < instr.parsed.length; i++) {
                     if (instr.parsed[i] == 'pc') {
-                        return Base.instructions.return();
+                        return Base.return();
                     }
                 }
                 return null;
@@ -396,7 +396,7 @@ module.exports = (function() {
                 for (var i = 1; i < instr.parsed.length; i++) {
                     if (instr.parsed[i] == 'pc') {
                         _conditional_inline(instr, context, instructions, 'EQ');
-                        return Base.instructions.return();
+                        return Base.return();
                     }
                 }
                 return null;
@@ -405,7 +405,7 @@ module.exports = (function() {
                 for (var i = 1; i < instr.parsed.length; i++) {
                     if (instr.parsed[i] == 'pc') {
                         _conditional_inline(instr, context, instructions, 'NE');
-                        return Base.instructions.return();
+                        return Base.return();
                     }
                 }
                 return null;
@@ -413,10 +413,10 @@ module.exports = (function() {
             push: function() {},
             'push.w': function() {},
             ror: function(instr) {
-                return Base.instructions.rotate_right(instr.parsed[1], instr.parsed[2], parseInt(instr.parsed[3], 16).toString(), 32);
+                return Base.rotate_right(instr.parsed[1], instr.parsed[2], parseInt(instr.parsed[3], 16).toString(), 32);
             },
             rol: function(instr) {
-                return Base.instructions.rotate_left(instr.parsed[1], instr.parsed[2], parseInt(instr.parsed[3], 16).toString(), 32);
+                return Base.rotate_left(instr.parsed[1], instr.parsed[2], parseInt(instr.parsed[3], 16).toString(), 32);
             },
             ret: function(instr, context, instructions) {
                 var start = instructions.indexOf(instr)
@@ -424,11 +424,11 @@ module.exports = (function() {
                 if (instructions[start - 1].parsed[1] == 'x0') {
                     returnval = 'x0';
                 }
-                return Base.instructions.return(returnval);
+                return Base.return(returnval);
             },
             stp: function(instr) {
                 var e = instr.parsed;
-                return Base.instructions.write_memory(
+                return Base.write_memory(
                     e[3] + ' + ' + e[4],
                     e[1] + ', ' + e[2],
                     64, false);
@@ -436,7 +436,7 @@ module.exports = (function() {
             ldp: function(instr) {
                 var e = instr.parsed;
                 var src = e[4] == '+'? e[5]: e[3] + ' + ' + e[4];
-                return Base.instructions.read_memory(src,
+                return Base.read_memory(src,
                     e[1] + ', ' + e[2],
                     64, false);
             },
@@ -447,13 +447,13 @@ module.exports = (function() {
                 return _store(instr, '8');
             },
             sub: function(instr) {
-                return _common_math(instr.parsed, Base.instructions.subtract);
+                return _common_math(instr.parsed, Base.subtract);
             },
             rsb: function(instr) {
-                var op = Base.instructions.subtract;
+                var op = Base.subtract;
                 var e = instr.parsed;
                 if (e[1] == 'ip' || e[1] == 'sp' || e[1] == 'fp') {
-                    return Base.instructions.nop();
+                    return Base.nop();
                 }
                 if (e.length == 4) {
                     return op(e[1], e[3], e[2]);
@@ -469,16 +469,16 @@ module.exports = (function() {
                 var src = instr.parsed[2];
                 var lsb = instr.parsed[3];
                 var width = instr.parsed[4];
-                return Base.instructions.special(dest + ' = ' + '(' + src + ' >> ' + lsb + ') & ((1 << ' + width + ') - 1)');
+                return Base.special(dest + ' = ' + '(' + src + ' >> ' + lsb + ') & ((1 << ' + width + ') - 1)');
             },
             uxtb: function(instr) {
-                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 8);
+                return Base.extend(instr.parsed[1], instr.parsed[2], 8);
             },
             uxth: function(instr) {
-                return Base.instructions.extend(instr.parsed[1], instr.parsed[2], 16);
+                return Base.extend(instr.parsed[1], instr.parsed[2], 16);
             },
             invalid: function() {
-                return Base.instructions.nop();
+                return Base.nop();
             }
         },
         parse: function(asm) {

@@ -20,6 +20,7 @@ module.exports = (function() {
     var Block = require('libdec/core/block');
     var Scope = require('libdec/core/scope');
     var Strings = require('libdec/core/strings');
+    var Symbols = require('libdec/core/symbols');
     var Functions = require('libdec/core/functions');
     var Instruction = require('libdec/core/instruction');
     var ControlFlow = require('libdec/core/controlflow');
@@ -41,14 +42,14 @@ module.exports = (function() {
         for (var i = 0; i < instructions.length; i++) {
             var instr = instructions[i];
             var fcn = arch.instructions[instr.parsed.mnem];
-            console.log(instr.assembly)
+            // console.log(instr.assembly)
             instr.code = fcn ? fcn(instr, arch_context, instructions) : new Base.unknown(instr.assembly)
         }
     };
     var _print = function(session) {
         Global.context.printDependencies();
         session.print();
-        while(Global.context.ident.length > 0) {
+        while (Global.context.ident.length > 0) {
             Global.context.identOut()
             console.log(Global.context.identfy() + '}');
         }
@@ -57,6 +58,7 @@ module.exports = (function() {
     var _prepare = function(data, arch) {
         this.blocks = [new Block()];
         var instructions = [];
+        var symbols = new Symbols(data.xrefs.symbols);
         var strings = new Strings(data.xrefs.strings);
         var functions = new Functions(data.xrefs.functions);
         var max_length = 0;
@@ -71,6 +73,7 @@ module.exports = (function() {
                 if (max_address < ins.location.toString(16)) {
                     max_address = ins.location.toString(16).length;
                 }
+                ins.symbol = symbols.search(ins.pointer || ins.jump);
                 ins.string = strings.search(ins.pointer);
                 ins.callee = functions.search(ins.jump);
                 return ins;
@@ -83,7 +86,6 @@ module.exports = (function() {
             args: [],
             locals: []
         }));
-        this.blocks[0].extra.push(new Scope.brace(instructions[instructions.length - 1].location));
         this.blocks[0].instructions = instructions.slice();
         this.blocks[0].update();
         this.instructions = instructions;

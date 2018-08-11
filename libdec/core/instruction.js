@@ -37,22 +37,36 @@ module.exports = (function() {
             var b = Global.printer.auto;
             var addr = _align(instr.location)
             var s = 1 + addr.length + instr.simplified.length;
-            console.log(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + (_printable(instr) ? (instr.code + ';') : ''));
-        } else if (_printable(instr)) {
-            console.log(Global.context.identfy() + instr.code + ';');
+            if (instr.code && instr.code.composed) {
+                console.log(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + instr.code.composed[0] + ';');
+                for (var i = 1; i < instr.code.composed.length; i++) {
+                    console.log(Global.context.identfy() + instr.code.composed[i] + ';');
+                }
+            } else {
+                console.log(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + (_printable(instr) ? (instr.code + ';') : ''));
+            }
+        } else {
+            if (instr.code && instr.code.composed) {
+                for (var i = 0; i < instr.code.composed.length; i++) {
+                    console.log(Global.context.identfy() + instr.code.composed[i] + ';');
+                }
+            } else if (_printable(instr)) {
+                console.log(Global.context.identfy() + instr.code + ';');
+            }
         }
     };
 
-    return function(data, arch) {
+    var _instruction = function(data, arch) {
         this.code = null;
         this.valid = true;
         this.jump = data.jump;
         this.pointer = (data.ptr && Long.ZERO.lt(data.ptr)) ? data.ptr : null;
         this.location = data.offset;
-        this.assembly = data.disasm;
+        this.assembly = data.disasm || data.opcode;
         this.simplified = data.opcode;
         this.parsed = arch.parse(this.assembly, this.simplified);
         this.string = null;
+        this.symbol = null;
         this.callee = null;
         this.label = null;
         this.cond = null;
@@ -94,5 +108,24 @@ module.exports = (function() {
             }
             _asm_view(this);
         };
-    }
+    };
+
+    _instruction.swap = function(instructions, index_a, index_b) {
+        var a = instructions[index_a];
+        var b = instructions[index_b];
+
+        var oldloc = a.location;
+        var oldjmp = a.jump;
+
+        a.location = b.location;
+        a.jump = b.jump;
+
+        b.location = oldloc;
+        b.jump = oldjmp;
+
+        instructions[index_a] = b;
+        instructions[index_b] = a;
+    };
+
+    return _instruction;
 })();

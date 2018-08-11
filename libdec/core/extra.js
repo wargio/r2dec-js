@@ -88,6 +88,8 @@ module.exports = (function() {
                 name = name.substring('sym.imp.'.length);
             } else if (name.startsWith('sym.')) {
                 name = name.substring('sym.'.length);
+            } else if (name.startsWith('imp.')) {
+                name = name.substring('imp.'.length);
             //} else if (name.startsWith('fcn.')) {
             //    name = name.substring('fcn.'.length);
             //} else if (name.startsWith('func.')) {
@@ -95,6 +97,7 @@ module.exports = (function() {
             } else if (name.startsWith('reloc.')) {
                 name = name.substring('reloc.'.length);
             }
+            name = name.replace(/\./g, '_');
             return name.replace(/(\w|^):(\w|$)/g, '$1_$2').replace(/_+/g, '_');
         }
     };

@@ -1,0 +1,50 @@
+/* 
+ * Copyright (C) 2018 deroad
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+module.exports = (function() {
+    var Utils = require('libdec/core/utils');
+
+    var _compare = function(a, b) {
+        if (a.eq(b.location)) {
+            return 0;
+        } else if (a.lt(b.location)) {
+            return 1;
+        }
+        return -1;
+    }
+
+    /*
+     * Expects the izj json as input.
+     */
+    return function(izj) {
+        this.data = izj.sort(function(a, b) {
+            return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
+        }).map(function(x) {
+            return {
+                location: x.vaddr,
+                value: x.demname.length > 0 ? x.demname : x.name,
+            };
+        });
+        this.search = function(address) {
+            if (address) {
+                var r = Utils.search(address, this.data, _compare);
+                return r ? r.value : null;
+            }
+            return null;
+        };
+    };
+})();

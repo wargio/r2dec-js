@@ -237,7 +237,7 @@ module.exports = (function() {
     };
 
     var _requires_pointer = function(string, arg) {
-        return string == null && arg && (arg.startsWith('local_') || arg == 'esp');
+        return string == null && Extra.is.string(arg) && (arg.startsWith('local_') || arg == 'esp');
     };
 
     var _guess_cdecl_nargs = function(instrs, context) {
@@ -374,7 +374,6 @@ module.exports = (function() {
         var start = instrs.indexOf(instr);
 
         var callsite = instr.parsed.opd[0];
-        var callname = callsite.token;
 
         // indicates the function call return type (if used)
         var returnval = null;
@@ -449,13 +448,17 @@ module.exports = (function() {
 
             args = populate_call_args(instrs.slice(0, start), nargs, context);
         }
-
+        var callname = instr.symbol || callsite.token;
         if (callsite.mem_access && callname.startsWith('0x')) {
             callname = Variable.functionPointer(callname.token, callname.mem_access, args);
         } else if (is_pointer || (!callsite.mem_access && callname.match(/\b([er])?[abds][ixl]\b/))) {
             callname = Variable.functionPointer(callname, 0, args);
         }
-        return Base.call(callname, args);
+        var ret = Base.call(callname, args);
+        if (_is_last_instruction(instr, instrs)) {
+            return Base.return(ret);
+        }
+        return ret;
     }
 
     var _standard_mov = function(instr, context) {
@@ -465,13 +468,13 @@ module.exports = (function() {
         _has_changed_return(dst.token, context.returns.signed, context);
 
         if (dst.mem_access) {
-            return Base.write_memory(dst.token, src.token, dst.mem_access, true);
+            return Base.write_memory(dst.token, instr.string ? Variable.string(instr.string) : src.token, dst.mem_access, true);
         } else if (src.mem_access) {
             return Base.read_memory(src.token, dst.token, src.mem_access, true);
         } else if (_is_stack_reg(dst.token) || _is_frame_reg(dst.token)) {
             return null;
         } else {
-            return Base.assign(dst.token, src.token);
+            return Base.assign(dst.token, instr.string ? Variable.string(instr.string) : src.token);
         }
     };
 
@@ -791,14 +794,11 @@ module.exports = (function() {
             jmp: function(instr, context, instructions) {
                 var dst = instr.parsed.opd[0];
 
-                if (dst.mem_access && dst.token.startsWith('reloc.')) {
-                    instr.invalidate_jump();
-
+                if (dst.mem_access && (dst.token.startsWith('reloc.') || _is_jumping_externally(instr, instructions))) {
                     return Base.call(dst.token);
                 } else if ((dst.mem_access == undefined) && (['rax', 'eax'].indexOf(dst.token) > (-1))) {
                     return _call_function(instr, context, instructions, true);
-                } else if (_is_last_instruction(instr, instructions) && (
-                        _is_jumping_externally(instr, instructions) || dst.mem_access)) {
+                } else if (_is_last_instruction(instr, instructions) && dst.mem_access) {
                     return _call_function(instr, context, instructions, _requires_pointer(instr.string, dst.mem_access));
                 }
 
