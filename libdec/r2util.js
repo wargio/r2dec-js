@@ -68,7 +68,8 @@ module.exports = (function() {
         "--issue": "generates the json used for the test suite",
         "--debug": "do not catch exceptions",
         "--html": "outputs html data instead of text",
-        "--xrefs": "shows all xrefs in the pseudo code",
+        "--xrefs": "shows also instruction xrefs in the pseudo code",
+        "--paddr": "all xrefs uses physical addresses instead of virtual addresses",
     }
 
     function has_option(args, name) {
@@ -99,7 +100,8 @@ module.exports = (function() {
         var functions = r2_sanitize(r2str('aflj'), '[]');
         var data = r2_sanitize(r2str('agj'), '[]');
         var fcnargs = r2_sanitize(r2str('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
-        var data = r2_sanitize(r2str('e asm.bits'), '32');
+        var arch = r2_sanitize(r2str('e asm.arch'), '');
+        var archbits = r2_sanitize(r2str('e asm.bits'), '32');
         console.log('{"name":"issue_' + (new Date()).getTime() +
             '","arch":"' + arch +
             '","archbits":' + archbits +
@@ -131,6 +133,7 @@ module.exports = (function() {
                 assembly: true,
                 offset: false,
                 xrefs: false,
+                paddr: false,
                 pseudo: false,
                 html: false,
                 color: false
@@ -169,6 +172,7 @@ module.exports = (function() {
                 assembly: r2bool('e r2dec.asm') || has_option(args, '--assembly'),
                 offset: r2bool('e r2dec.offset') || has_option(args, '--offset'),
                 xrefs: r2bool('e r2dec.xrefs') || has_option(args, '--xrefs'),
+                paddr: r2bool('e r2dec.paddr') || has_option(args, '--paddr'),
                 html: r2bool('e scr.html') || has_option(args, '--html'),
                 color: r2int('e scr.color', 0) > 0 || has_option(args, '--colors')
             };

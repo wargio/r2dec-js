@@ -27,15 +27,21 @@ module.exports = (function() {
         return -1;
     }
 
+    var _virtual_compare = function(a, b) {
+        return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
+    };
+
+    var _physical_compare = function(a, b) {
+        return a.paddr.lt(b.paddr) ? -1 : (a.paddr.eq(b.paddr) ? 0 : 1);
+    };
+
     /*
-     * Expects the izj json as input.
+     * Expects the isj json as input.
      */
-    return function(izj) {
-        this.data = izj.sort(function(a, b) {
-            return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
-        }).map(function(x) {
+    return function(isj) {
+        this.data = isj.sort(Global.evars.honor.paddr ? _physical_compare: _virtual_compare).map(function(x) {
             return {
-                location: x.vaddr,
+                location: Global.evars.honor.paddr ? x.paddr : x.vaddr,
                 value: x.demname.length > 0 ? x.demname : x.name,
             };
         });
