@@ -16,11 +16,13 @@
  */
 
 module.exports = (function() {
-    const Macro = require('libdec/core/macro');
-    const Variable = require('libdec/core/variable');
-    const Extra = require('libdec/core/extra');
     const Cpp = require('libdec/db/cpp');
     const CCalls = require('libdec/db/c_calls');
+
+    const Macro = require('libdec/core/macro');
+    const Extra = require('libdec/core/extra');
+    const Variable = require('libdec/core/variable');
+    const Condition = require('libdec/core/condition');
 
     var _generic_asm = function(asm) {
         this.asm = asm;
@@ -42,6 +44,19 @@ module.exports = (function() {
             var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
             var source = Extra.is.string(this.source) ? a(this.source) : this.source;
             return destination + ' = ' + source;
+        };
+    };
+
+    var _assign_with_operator = function(destination, source, operator) {
+        this.destination = Extra.is.number(destination) ? ('' + destination) : destination;
+        this.source = Extra.is.number(source) ? ('' + source) : source;
+        this.operator = operator;
+        this.toString = function() {
+            var a = Global.printer.auto;
+            var t = Global.printer.theme;
+            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
+            var source = Extra.is.string(this.source) ? a(this.source) : this.source;
+            return destination + ' = ' + this.operator + source;
         };
     };
 
@@ -141,6 +156,32 @@ module.exports = (function() {
         };
     };
 
+    var _inline_conditional_assign = function(destination, source_a, source_b, cond, src_true, src_false) {
+        this.condition = new Condition.convert(source_a, source_b, cond, false);
+        this.destination = destination;
+        this.src_true = src_true;
+        this.src_false = src_false;
+        this.toString = function() {
+            var a = Global.printer.auto;
+            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination.toString();
+            var src_true = Extra.is.string(this.src_true) ? a(this.src_true) : this.src_true.toString();
+            var src_false = Extra.is.string(this.src_false) ? a(this.src_false) : this.src_false.toString();
+
+            var s = destination + ' = ' + this.condition + ' ? ';
+            if (src_true.indexOf(' ') >= 0) {
+                s += '(' + src_true + ') : ';
+            } else {
+                s += src_true + ' : ';
+            }
+            if (src_false.indexOf(' ') >= 0) {
+                s += '(' + src_false + ')';
+            } else {
+                s += src_false;
+            }
+            return s;
+        };
+    };
+
     var _base = {
         /* COMMON */
         assign: function(destination, source) {
@@ -169,7 +210,9 @@ module.exports = (function() {
             return new _generic_flow('continue');
         },
         /* BRANCHES */
-
+        conditional_assign: function(destination, source_a, source_b, cond, src_true, src_false) {
+            return new _inline_conditional_assign(destination, source_a, source_b, cond, src_true, src_false);
+        },
         /* MATH */
         increase: function(destination, source) {
             if (source == '1') {
@@ -204,6 +247,12 @@ module.exports = (function() {
         multiply: function(destination, source_a, source_b) {
             return new _generic_math(destination, source_a, source_b, '*');
         },
+        negate: function(destination, source) {
+            return new _assign_with_operator(destination, source, '-');
+        },
+        not: function(destination, source) {
+            return new _assign_with_operator(destination, source, '~');
+        },
         subtract: function(destination, source_a, source_b) {
             if (destination == source_a && source_b == '1') {
                 return new _generic_inc_dec(destination, '--');
@@ -230,11 +279,11 @@ module.exports = (function() {
         },
         rotate_left: function(destination, source_a, source_b, bits) {
             Global.context.addDependency(new CCalls.rotate_left.fcn(bits));
-            return new _generic_rotate(source_a, source_b, bits, true);
+            return new _generic_rotate(destination, source_a, source_b, bits, true);
         },
         rotate_right: function(destination, source_a, source_b, bits) {
             Global.context.addDependency(new CCalls.rotate_right.fcn(bits));
-            return new _generic_rotate(source_a, source_b, bits, false);
+            return new _generic_rotate(destination, source_a, source_b, bits, false);
         },
         swap_endian: function(value, returns, bits) {
             Global.context.addDependency(new CCalls.swap_endian.fcn(bits));

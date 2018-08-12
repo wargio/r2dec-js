@@ -19,13 +19,15 @@ module.exports = (function() {
     var Extra = require('libdec/core/extra');
 
     const _cmps = {
+        CUST: ['', ''],
         INF: ['1', '0'],
         EQ: [' == ', ' != '],
         NE: [' != ', ' == '],
         LT: [' < ', ' >= '],
         LE: [' <= ', ' > '],
         GT: [' > ', ' <= '],
-        GE: [' >= ', ' < ']
+        GE: [' >= ', ' < '],
+        LO: [' overflow ', ' !overflow '],
     };
 
     return {

@@ -25,7 +25,7 @@ module.exports = (function() {
     return {
         uniqueName: function(variable_name) {
             var n = _internal_variable_cnt++;
-            return variable_name ? variable_name + n : "value" + n;
+            return variable_name ? variable_name + n : "value_" + n;
         },
         newLabel: function(address) {
             var n = _internal_label_cnt++;
@@ -77,7 +77,8 @@ module.exports = (function() {
                 }
             }(variable_name, type);
         },
-        local: function(variable_name, type, signed) {
+        local: function(variable_name, type_or_bits, signed) {
+            var ctype = Extra.is.number(type_or_bits) ? Extra.to.type(type_or_bits, signed) : type_or_bits;
             return new function(name, type) {
                 this.name = name;
                 this.type = type;
@@ -92,7 +93,7 @@ module.exports = (function() {
                     }
                     return this.name;
                 }
-            }(variable_name, type);
+            }(variable_name, ctype);
         },
         string: function(string_content) {
             return new function(content) {
@@ -106,6 +107,21 @@ module.exports = (function() {
                         return null;
                     }
                     return t.text(this.content);
+                }
+            }(string_content);
+        },
+        macro: function(string_content) {
+            return new function(content) {
+                this.content = content;
+                this.toType = function() {
+                    return '';
+                };
+                this.toString = function(define) {
+                    var t = Global.printer.theme;
+                    if (define) {
+                        return null;
+                    }
+                    return t.macro(this.content);
                 }
             }(string_content);
         }

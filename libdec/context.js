@@ -17,7 +17,24 @@
 
 module.exports = (function() {
     return function() {
-        // dependencies or macros
+        // macros
+        this.macros = [];
+        this.addMacro = function(x) {
+            if (this.macros.indexOf(x) < 0) {
+                this.macros.push(x);
+            }
+        };
+        this.printMacros = function() {
+            var t = Global.printer.theme;
+            for (var i = 0; i < this.macros.length; i++) {
+                console.log(this.identfy() + t.macro(this.macros[i]));
+            }
+            if (this.macros.length > 0) {
+                console.log(this.identfy());
+            }
+        }
+
+        // macros
         this.dependencies = [];
         this.addDependency = function(x) {
             if (this.dependencies.indexOf(x) < 0) {
@@ -28,6 +45,9 @@ module.exports = (function() {
             this.dependencies.forEach(function(x) {
                 x.print();
             });
+            if (this.dependencies.length > 0) {
+                console.log(this.identfy());
+            }
         }
 
         // ident for print

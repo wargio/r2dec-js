@@ -42,11 +42,12 @@ module.exports = (function() {
         for (var i = 0; i < instructions.length; i++) {
             var instr = instructions[i];
             var fcn = arch.instructions[instr.parsed.mnem];
-            // console.log(instr.assembly)
+             console.log(instr.assembly)
             instr.code = fcn ? fcn(instr, arch_context, instructions) : new Base.unknown(instr.assembly)
         }
     };
     var _print = function(session) {
+        Global.context.printMacros();
         Global.context.printDependencies();
         session.print();
         while (Global.context.ident.length > 0) {
