@@ -48,7 +48,7 @@ module.exports = (function() {
                     var t = Global.printer.theme;
                     console.log(Global.context.identfy() + t.types(type) + h(' ') + t.callname(call) + h(' (') + args + h(' ) {'));
                     for (var i = 0; i < this.data.length; i++) {
-                        console.log(Global.context.identfy() + a(this.data[i]));
+                        console.log(Global.context.identfy() + a(this.data[i].replace(/###/g, this.bits)));
                     }
                     console.log(Global.context.identfy() + h('}'));
                 };
@@ -77,7 +77,7 @@ module.exports = (function() {
                     var t = Global.printer.theme;
                     console.log(Global.context.identfy() + t.types(type) + h(' ') + t.callname(call) + h(' (') + args + h(' ) {'));
                     for (var i = 0; i < this.data.length; i++) {
-                        console.log(Global.context.identfy() + a(this.data[i]));
+                        console.log(Global.context.identfy() + a(this.data[i].replace(/###/g, this.bits)));
                     }
                     console.log(Global.context.identfy() + h('}'));
                 };

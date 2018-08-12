@@ -20,6 +20,133 @@ module.exports = (function() {
     const Variable = require('libdec/core/variable');
     const Extra = require('libdec/core/extra');
 
+/*
+    // cannot be stack based + register baserd args at the same time
+    var _call_fix_args = function(args) {
+        var stackbased = false;
+        for (var i = 0; i < args.length; i++) {
+            if (args[i].value.indexOf('local_') >= 0 || args[i].value.indexOf('esp') >= 0) {
+                stackbased = true;
+            }
+        }
+        if (!stackbased) {
+            return args;
+        }
+        return args.filter(function(x) {
+            return x.value.indexOf('"') >= 0 || x.value.indexOf('local_') >= 0 || x.value.indexOf('esp') >= 0;
+        });
+    };
+
+    var _requires_pointer = function(string, arg) {
+        return string == null && arg && (arg.indexOf('local_') == 0 || arg == 'esp');
+    };
+
+    var _call_function = function(instr, context, instrs, is_pointer) {
+        instr.invalidate_jump();
+        var regs32 = ['ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp'];
+        var regs64 = ['rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9'];
+        var args = [];
+        var returnval = instrs.indexOf(instr) == (instrs.length - 1) ? 'return' : null;
+        var bad_ax = true;
+        var end = instrs.indexOf(instr) - regs64.length;
+        var start = instrs.indexOf(instr);
+        var callname = instr.parsed[1];
+        var known_args_n = -1;
+        if (_bits_types[instr.parsed[1]]) {
+            callname = instr.parsed[2];
+            if (callname.indexOf("reloc.") == 0) {
+                callname = callname.replace(/reloc\./g, '');
+                known_args_n = Base.arguments(callname);
+            } else if (callname.indexOf('0x') == 0) {
+                callname = new Base.bits_argument(callname, _bits_types[instr.parsed[1]], false, true, true);
+            } else {
+                known_args_n = Base.arguments(callname);
+            }
+        } else {
+            known_args_n = Base.arguments(callname);
+            if (callname.match(/$([er])?[abds][ixl]^/)) {
+                is_pointer = true;
+            }
+        }
+        instr = instrs[start + 1];
+        if (instr) {
+            for (var i = 2; i < instr.parsed.length; i++) {
+                var reg = instr.parsed[i];
+                if (reg == 'eax' || reg == 'rax' || reg == 'ax' || reg == 'al') {
+                    returnval = reg;
+                    _has_changed_return(reg, false, context);
+                    break;
+                }
+            }
+        }
+
+        var known_args_n = Base.arguments(callname);
+        if (known_args_n == 0 || !start) {
+            return Base.call(_call_fix_name(callname), args, is_pointer || false, returnval);
+        }
+        if (instrs[start - 1].parsed[0] == 'push' || context.pusharg) {
+            for (var i = start - 1; i >= 0; i--) {
+                if (known_args_n > 0 && args.length >= known_args_n) {
+                    break;
+                }
+                var op = instrs[i].parsed[0];
+                var arg0 = instrs[i].parsed[1];
+                var bits = null;
+                if (_bits_types[arg0]) {
+                    arg0 = instrs[i].parsed[2];
+                    bits = _bits_types[instrs[i].parsed[1]];
+                }
+                if (op == 'push' && !_is_stack_reg(arg0)) {
+                    if (instrs[i].string) {
+                        instrs[i].valid = false;
+                        args.push(new Base.string(instrs[i].string));
+                    } else {
+                        args.push(new Base.bits_argument(arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
+                    }
+                    context.pusharg = true;
+                } else if (op == 'call' || instrs[i].jump) {
+                    break;
+                }
+            }
+        } else {
+            for (var i = start - 1; i >= end; i--) {
+                if (known_args_n > 0 && args.length >= known_args_n) {
+                    break;
+                }
+                var arg0 = instrs[i].parsed[1];
+                var bits = null;
+                if (_bits_types[arg0]) {
+                    arg0 = instrs[i].parsed[2];
+                    bits = _bits_types[instrs[i].parsed[1]];
+                }
+                if (bad_ax && (arg0 == 'al' || arg0 == 'ax' || arg0 == 'eax' || arg0 == 'rax')) {
+                    bad_ax = false;
+                    continue;
+                }
+                if (!arg0 || (arg0.indexOf('local_') != 0 && arg0 != 'esp' && regs32.indexOf(arg0) < 0 && regs64.indexOf(arg0) < 0) ||
+                    !instrs[i].pseudo || instrs[i].pseudo[0] == 'call') {
+                    break;
+                }
+                bad_ax = false;
+                if (regs32.indexOf(arg0) > -1) {
+                    regs32.splice(regs32.indexOf(arg0), 1);
+                } else if (regs64.indexOf(arg0) > -1) {
+                    regs64.splice(regs64.indexOf(arg0), 1);
+                }
+                if (instrs[i].string) {
+                    instrs[i].valid = false;
+                    bits = null;
+                    args.push(new Base.string(instrs[i].string));
+                } else {
+                    args.push(new Base.bits_argument(arg0, bits, false, true, _requires_pointer(instrs[i].string, arg0)));
+                }
+            }
+            args = _call_fix_args(args);
+        }
+        return Base.call(_call_fix_name(callname), args, is_pointer || false, returnval);
+    }
+*/
+
     var _bits_types = {
         'byte': 8,
         'word': 16,
@@ -44,7 +171,6 @@ module.exports = (function() {
         'eax': 32,
         'rax': 64,
     };
-
 
     /**
      * Indicates whether a register name is the system's stack pointer.
@@ -94,7 +220,7 @@ module.exports = (function() {
 
     var _get_var_offset = function(name, context) {
         // TODO: could be done simply with 'find' on ES6
-        var info;
+        var info = null;
 
         context.vars.forEach(function(v) {
             if (v.name == name) {
@@ -1010,6 +1136,8 @@ module.exports = (function() {
             var vars_args = fcnargs.bp.concat(fcnargs.sp).concat(fcnargs.reg).map(function(x) {
                 if (x.type === 'int') {
                     x.type = (Global.evars.archbits < 32) ? 'int16_t' : 'int32_t';
+                } else if (x.type === 'unsigned int') {
+                    x.type = (Global.evars.archbits < 32) ? 'uint16_t' : 'uint32_t';
                 }
 
                 return x;
@@ -1035,7 +1163,7 @@ module.exports = (function() {
         },
         localvars: function(context) {
             return context.vars.map(function(v) {
-                return v.type + ' ' + v.name + ';';
+                return v.type + ' ' + v.name;
             });
         },
         arguments: function(context) {

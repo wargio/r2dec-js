@@ -18,7 +18,7 @@
 module.exports = (function() {
     return function() {
         // macros
-        this.macros = [];
+        this.macros = ['#include <stdint.h>'];
         this.addMacro = function(x) {
             if (this.macros.indexOf(x) < 0) {
                 this.macros.push(x);
@@ -29,9 +29,7 @@ module.exports = (function() {
             for (var i = 0; i < this.macros.length; i++) {
                 console.log(this.identfy() + t.macro(this.macros[i]));
             }
-            if (this.macros.length > 0) {
-                console.log(this.identfy());
-            }
+            console.log(this.identfy() + ' ');
         }
 
         // macros
@@ -46,7 +44,7 @@ module.exports = (function() {
                 x.print();
             });
             if (this.dependencies.length > 0) {
-                console.log(this.identfy());
+                console.log(this.identfy() + ' ');
             }
         }
 

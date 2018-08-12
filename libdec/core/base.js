@@ -182,6 +182,31 @@ module.exports = (function() {
         };
     };
 
+    var _inline_conditional_math = function(destination, source_a, source_b, cond, math_operand_a, math_operand_b, src_false, operation) {
+        this.condition = new Condition.convert(source_a, source_b, cond, false);
+        this.destination = destination;
+        this.math_operand_a = math_operand_a;
+        this.math_operand_b = math_operand_b;
+        this.src_false = src_false;
+        this.operation = operation;
+        this.toString = function() {
+            var a = Global.printer.auto;
+            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination.toString();
+            var math_operand_a = Extra.is.string(this.math_operand_a) ? a(this.math_operand_a) : this.math_operand_a.toString();
+            var math_operand_b = Extra.is.string(this.math_operand_b) ? a(this.math_operand_b) : this.math_operand_b.toString();
+            var src_false = Extra.is.string(this.src_false) ? a(this.src_false) : this.src_false.toString();
+
+            var s = destination + ' = ' + this.condition + ' ? ';
+            s += '(' + math_operand_a + ' ' + this.operation + ' ' + math_operand_b + ') : ';
+            if (src_false.indexOf(' ') >= 0) {
+                s += '(' + src_false + ')';
+            } else {
+                s += src_false;
+            }
+            return s;
+        };
+    };
+
     var _base = {
         /* COMMON */
         assign: function(destination, source) {
@@ -212,6 +237,9 @@ module.exports = (function() {
         /* BRANCHES */
         conditional_assign: function(destination, source_a, source_b, cond, src_true, src_false) {
             return new _inline_conditional_assign(destination, source_a, source_b, cond, src_true, src_false);
+        },
+        conditional_math: function(destination, source_a, source_b, cond, math_operand_a, math_operand_b, src_false, operation) {
+            return new _inline_conditional_math(destination, source_a, source_b, cond, math_operand_a, math_operand_b, src_false, operation);
         },
         /* MATH */
         increase: function(destination, source) {
@@ -254,7 +282,9 @@ module.exports = (function() {
             return new _assign_with_operator(destination, source, '~');
         },
         subtract: function(destination, source_a, source_b) {
-            if (destination == source_a && source_b == '1') {
+            if (destination == source_a && source_b == '0') {
+                return null;
+            } else if (destination == source_a && source_b == '1') {
                 return new _generic_inc_dec(destination, '--');
             }
             return new _generic_math(destination, source_a, source_b, '-');
@@ -309,6 +339,23 @@ module.exports = (function() {
             return new function(composed) {
                 this.composed = composed;
             }(instructions);
+        },
+        macro: function(macro, macro_rule) {
+            Global.context.addMacro(macro_rule);
+            return new function(macro) {
+                this.macro = macro;
+                this.toString = function() {
+                    return Global.printer.theme.macro(this.macro);
+                };
+            }(macro);
+        },
+        special: function(data) {
+            return new function(data) {
+                this.data = data;
+                this.toString = function() {
+                    return Global.printer.auto(this.data);
+                };
+            }(data);
         },
         /* UNKNOWN */
         unknown: function(asm) {

@@ -19,8 +19,9 @@ module.exports = (function() {
     const Extra = require('libdec/core/extra');
 
     var _print_locals = function(locals) {
+        var a = Global.printer.auto;
         for (var i = 0; i < locals.length; i++) {
-            console.log(Global.context.identfy() + locals[i].print() + ';');
+            console.log(Global.context.identfy() + a(locals[i]) + ';');
         }
     };
 
@@ -43,7 +44,8 @@ module.exports = (function() {
                 var a = Global.printer.auto;
                 var asmname = '; (fcn) ' + e.name + ' ()';
                 var routine_name = Extra.replace.call(e.name);
-                console.log(Global.context.identfy(asmname.length, Global.printer.theme.comment(asmname)) + t.types(e.returns), t.callname(routine_name), '(' + e.args.join(', ') + ') {');
+                var ident = Global.context.identfy(asmname.length, Global.printer.theme.comment(asmname));
+                console.log(ident + t.types(e.returns), t.callname(routine_name), '(' + a(e.args.join(', ')) + ') {');
                 Global.context.identIn();
                 _print_locals(e.locals);
             }

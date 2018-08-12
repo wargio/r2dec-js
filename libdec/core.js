@@ -30,6 +30,14 @@ module.exports = (function() {
         if (arch.custom_end) {
             arch.custom_end(session.instructions, arch_context)
         }
+        var routine = new Scope.routine(session.instructions[0].location, {
+            returns: arch.returns(arch_context) || 'void',
+            name: session.routine_name,
+            args: arch.arguments(arch_context) || [],
+            locals: arch.localvars(arch_context) || []
+        });
+        session.blocks[0].extra.splice(0, 0, routine);
+
     };
 
     var _pre_analysis = function(session, arch, arch_context) {
@@ -37,16 +45,22 @@ module.exports = (function() {
             arch.custom_start(session.instructions, arch_context)
         }
     };
+
     var _decompile = function(session, arch, arch_context) {
         var instructions = session.blocks[0].instructions;
         for (var i = 0; i < instructions.length; i++) {
             var instr = instructions[i];
             var fcn = arch.instructions[instr.parsed.mnem];
-             console.log(instr.assembly)
+            //console.log(instr.assembly)
             instr.code = fcn ? fcn(instr, arch_context, instructions) : new Base.unknown(instr.assembly)
         }
     };
+
     var _print = function(session) {
+        var t = Global.printer.theme;
+        var asm_header = '; assembly';
+        console.log(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo C output */'));
+
         Global.context.printMacros();
         Global.context.printDependencies();
         session.print();
@@ -81,12 +95,7 @@ module.exports = (function() {
             }));
         }
         Global.context.identAsmSet(max_length + max_address);
-        this.blocks[0].extra.push(new Scope.routine(instructions[0].location, {
-            returns: 'void',
-            name: data.graph[0].name,
-            args: [],
-            locals: []
-        }));
+        this.routine_name = data.graph[0].name;
         this.blocks[0].instructions = instructions.slice();
         this.blocks[0].update();
         this.instructions = instructions;
