@@ -1,5 +1,6 @@
 #!/bin/bash
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
+echo "Branch: $BRANCH"
 make --no-print-directory testbin -C p
 ERRORED=$?
 if [[  "$ERRORED" == "1" ]]; then
