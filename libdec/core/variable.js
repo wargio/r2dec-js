@@ -32,7 +32,7 @@ module.exports = (function() {
             return new function(n) {
                 this.name = 'label_' + n;
                 this.address = address;
-                this.toString = function(){
+                this.toString = function() {
                     return Global.printer.theme.labels(this.name);
                 };
             }(n);
@@ -86,12 +86,12 @@ module.exports = (function() {
                     return t.types(this.type);
                 };
                 this.toString = function(define) {
+                    var a = Global.printer.auto;
                     if (define) {
                         var t = Global.printer.theme;
-                        var a = Global.printer.auto;
                         return t.types(this.type) + ' ' + a(this.name);
                     }
-                    return this.name;
+                    return a(this.name);
                 }
             }(variable_name, ctype);
         },

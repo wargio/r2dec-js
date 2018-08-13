@@ -32,49 +32,24 @@ module.exports = (function() {
         return 0;
     }
 
-    var _convert_size = function(array) {
-        var size = _to_size(array[1]);
-        if (size > 0) {
-            array[1] = size;
-        } else {
-            array.splice(1, 0, 32);
-        }
-        return array;
-    };
-
-    var _get_register_address = function(e, where) {
-        if (e.opd.length < 3 || e.opd[where + 1] == '+') {
-            return e.opd[where];
-        }
-        return e.opd[where + 1];
-    };
-
-    var _get_address = function(e, where, min, signed, noincdec) {
-        var arg = e.opd[where].replace(/\../, '');
-        if (e.opd.length > min) {
-            if (e.opd[where] == '-') {
-                if (noincdec) {
-                    arg = Variable.pointer(e.opd[where + 1].replace(/\../, ''), e.bits, signed);
+    var _as_pointer = function(e, where, signed, ispointer) {
+        var arg = e.opd[where];
+        if (arg.pointer) {
+            if (arg.presub) {
+                var m = e.bits / 8;
+                if (m == 1) {
+                    arg = Variable.pointer('--' + arg.pointer, e.bits, signed);
                 } else {
-                    if ((e.bits / 8) == 1) {
-                        arg = Variable.pointer('--' + e.opd[where + 1].replace(/\../, ''), e.bits, signed);
-                    } else {
-                        var m = (e.bits / 8);
-                        arg = Variable.pointer(e.opd[where + 1].replace(/\../, '') + ' -= ' + m, e.bits, signed);
-                    }
+                    arg = Variable.pointer(arg.pointer + ' -= ' + m, e.bits, signed);
                 }
-            } else if (e.opd[where + 1] == '+') {
-                // post increase needs to be done externally..
-                if (noincdec || e.bits != 8) {
-                    arg = Variable.pointer(e.opd[where + 1].replace(/\../, ''), e.bits, signed);
-                } else {
-                    arg = Variable.pointer(e.opd[where].replace(/\../, '') + '++', e.bits, signed);
-                }
-            } else if (e.opd[where].charAt(0) == '-') {
-                arg = Variable.pointer(e.opd[where + 1].replace(/\../, '') + ' - ' + (e.opd[where].substring(1)), e.bits, signed);
-            } else if (e.opd[where + 1]) {
-                arg = Variable.pointer(e.opd[where + 1].replace(/\../, '') + ' + ' + e.opd[where], e.bits, signed);
+            } else {
+                return Variable.pointer(arg.pointer, e.bits, signed);
             }
+        } else if (ispointer && arg.register.indexOf('0x') == 0) {
+            var tokens = arg.register.replace(/\.([bwl])/, ' $1').split(' ')
+            arg = Variable.pointer(tokens[0], _to_size(tokens[1]), signed);
+        } else {
+            return arg.register;
         }
         return arg;
     };
@@ -84,65 +59,52 @@ module.exports = (function() {
     }
 
     var _common_math = function(e, op) {
-        var ispostincrease = e.opd[2] == '+';
-        var arg = _get_address(e, 1, 2, true, ispostincrease);
-        if (ispostincrease) {
-            var ptr_reg = _get_register_address(e, 0);
-            return Base.composed([op(arg, arg, e.opd[0]), Base.add(ptr_reg, ptr_reg, '' + (e.bits / 8))])
+        var src = _as_pointer(e, 0, true);
+        var dst = _as_pointer(e, 1, true);
+        if (e.opd[1].postadd) {
+            return Base.composed([op(dst, dst, src), Base.add(e.opd[1].register, e.opd[1].register, '' + (e.bits / 8))])
         }
-        return op(arg, arg, e.opd[0]);
+        return op(dst, dst, src);
     };
 
     var _move = function(instr) {
         instr.setBadJump();
         var e = instr.parsed;
-        var ispostincrease = e.opd[0] == '+';
-        var src = _get_address(e, 0, 2, false, ispostincrease);
-        var dst = e.opd.length > 2 ? e.opd[2] : e.opd[1];
+        var src = _as_pointer(e, 0, true, true);
+        var dst = _as_pointer(e, 1, true, true);
         return Base.assign(dst, src);
     };
 
     var _move_multiple = function(instr, context) {
         instr.setBadJump();
         var e = instr.parsed;
-        var bits = e.bits;
-        var isload = instr.assembly.indexOf('),') > 0 || instr.assembly.indexOf(')+,') > 0;
+        var incr = (e.bits / 8).toString();
         var ops = [];
-        if (isload) {
-            //pointer, register, bits, is_signed
-            var ispostincrease = e.opd[0] != '-';
-            var ptr_reg = _get_register_address(e, 0);
-            var ptr = _get_address(e, 0, 2, false, ispostincrease);
-            var reg = e.opd.length > 2 ? e.opd[2] : e.opd[1];
-            reg = reg.split('/');
-            for (var i = 0; i < reg.length; i++) {
-                var prefix = reg[i].charAt(0)
-                var tmp = reg[i].replace(/[a-zA-Z]/g, '').split('-');
-                var start = tmp[0];
-                var end = tmp[1] || tmp[0];
-                for (var j = start; j <= end; j++) {
-                    ops.push(Base.read_memory(ptr, prefix + j, bits, false));
-                    if (ispostincrease) {
-                        ops.push(Base.add(ptr_reg, ptr_reg, '' + (bits / 8)));
-                    }
-                }
-            }
+        if (e.opd[0].pointer) {
+            //movem.l -(a7), d2-d3/a2-a5
+            memory = _as_pointer(e, 0, false);
+            pointer = e.opd[0].register;
+            postadd = e.opd[0].postadd;
+            register = e.opd[1].register;
+            op = Base.read_memory;
         } else {
-            //pointer, register, bits, is_signed
-            var ispostincrease = e.opd[1] != '-';
-            var ptr_reg = _get_register_address(e, 1);
-            var ptr = _get_address(e, 1, 2, false, ispostincrease);
-            var reg = e.opd[0].split('/');
-            for (var i = 0; i < reg.length; i++) {
-                var prefix = reg[i].charAt(0)
-                var tmp = reg[i].replace(/[a-zA-Z]/g, '').split('-');
-                var start = tmp[0];
-                var end = tmp[1] || tmp[0];
-                for (var j = start; j <= end; j++) {
-                    ops.push(Base.write_memory(ptr, prefix + j, bits, false));
-                    if (ispostincrease) {
-                        ops.push(Base.add(ptr_reg, ptr_reg, '' + (bits / 8)));
-                    }
+            //movem.l d2-d3/a2-a5, -(a7)
+            memory = _as_pointer(e, 1, false);
+            pointer = e.opd[1].register;
+            postadd = e.opd[1].postadd;
+            register = e.opd[0].register;
+            op = Base.write_memory;
+        }
+        var reg = register.split('/');
+        for (var i = 0; i < reg.length; i++) {
+            var prefix = reg[i].charAt(0)
+            var tmp = reg[i].replace(/[a-zA-Z]/g, '').split('-');
+            var start = tmp[0];
+            var end = tmp[1] || tmp[0];
+            for (var j = start; j <= end; j++) {
+                ops.push(op(memory, prefix + j, e.bits, false));
+                if (postadd) {
+                    ops.push(Base.add(pointer, pointer, incr));
                 }
             }
         }
@@ -151,11 +113,8 @@ module.exports = (function() {
 
     var _compare = function(instr, context) {
         instr.setBadJump();
-        var e = instr.parsed;
-        var left = _get_address(e, 0, 2, false, false);
-        var right = e.opd[0] == left ? e.opd[1] : (e.opd[2] || e.opd[1]);
-        context.cond.a = right;
-        context.cond.b = left;
+        context.cond.a = _as_pointer(instr.parsed, 1, false);
+        context.cond.b = _as_pointer(instr.parsed, 0, false);
         return Base.nop();
     };
 
@@ -167,6 +126,15 @@ module.exports = (function() {
     var _conditional_inline = function(instr, context, instructions, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
         instr.jump = instructions[instructions.indexOf(instr) + 1].location;
+    };
+
+    var _bitmask = function(offset, size) {
+        var mask = 0;
+        for (var i = 0; i < size; i++) {
+            mask <<= 1;
+            mask |= 1;
+        }
+        return '0x' + ((mask << offset) >>> 0).toString(16);
     };
 
     return {
@@ -191,6 +159,16 @@ module.exports = (function() {
                 instr.setBadJump();
                 return _common_math(instr.parsed, Base.and);
             },
+            bftst: function(instr, context) {
+                instr.setBadJump();
+                var vals = instr.assembly.match(/(\w+)(?:{(\d+)\:(\d+)})/);
+                console.log(instr.parsed.opd[0].register, vals)
+                var mask = _bitmask(vals[2], vals[3]);
+                var test = Variable.local('(' + vals[1] + ' & ' + mask + ')');
+                context.cond.a = test;
+                context.cond.b = '0';
+                return Base.nop();
+            },
             bne: function(instr, context) {
                 return _conditional(instr, context, 'EQ');
             },
@@ -212,13 +190,20 @@ module.exports = (function() {
             bra: function(instr, context) {
                 return Base.nop();
             },
+            btst: function(instr, context) {
+                instr.setBadJump();
+                var and = instr.parsed.opd[0].register == '0x0' ? ' & 1)' : ' & (1 << ' + instr.parsed.opd[0].register + '))';
+                var test = Variable.local('(' + instr.parsed.opd[1].register + and);
+                context.cond.a = test;
+                context.cond.b = '0';
+                return Base.nop();
+            },
             clr: function(instr, context) {
                 var e = instr.parsed;
-                var ispostincrease = e.opd[1] == '+';
-                var destination = _get_address(e, 0, 1, false, ispostincrease);
-                var op = Base.assign(destination, '0')
-                if (ispostincrease) {
-                    var ptr_reg = _get_register_address(e, 0);
+                var dst = _as_pointer(e, 0, false);
+                var op = Base.assign(dst, '0')
+                if (e.opd[0].postadd) {
+                    var ptr_reg = e.opd[0].register;
                     return Base.composed([op, Base.add(ptr_reg, ptr_reg, '' + (e.bits / 8))])
                 }
                 return op;
@@ -230,84 +215,74 @@ module.exports = (function() {
                 return _common_math(instr.parsed, Base.xor);
             },
             jsr: function(instr) {
-                var arg = _is_register(instr.parsed.opd[0]) ? Variable.functionPointer(instr.parsed.opd[0]) : instr.parsed.opd[0];
+                var arg = _is_register(instr.parsed.opd[0].register) ? Variable.functionPointer(instr.parsed.opd[0].register) : instr.parsed.opd[0].register;
                 return Base.call(arg, []);
             },
             lea: function(instr, context) {
                 instr.setBadJump();
                 var bits = instr.parsed.bits;
-                var dst = instr.parsed.opd[instr.parsed.opd.length - 1];
-                var src = null;
-                var val = instr.parsed.opd[0].replace(/\.([bwl])/, ' $1').split(' ');
-                if (instr.assembly.indexOf(')') > 0) {
-                    src = _get_address(instr.parsed, 0, 1, false, false);
-                } else if (val[0].startsWith('0x')) {
-                    src = instr.string ?
-                        Variable.string(instr.string) :
-                        Variable.pointer(val[0], _to_size(val[1]), false);
-                } else {
-                    src = val[0];
-                }
+                var src = instr.string ? Variable.string(instr.string) : _as_pointer(instr.parsed, 0, false, true);
+                var dst = _as_pointer(instr.parsed, 1, false, true);
                 return Base.assign(dst, src);
             },
             link: function(instr) {
                 instr.setBadJump();
                 var e = instr.parsed;
-                var dst = e.opd[e.opd.length - 1];
-                var src = _get_address(e, 0, 1, false, false);
-                return Base.write_memory('a7 + ' + e.opd[1], e.opd[0], e.bits, false);
+                var src = e.opd[0].register;
+                var dst = e.opd[1].register;
+                return Base.write_memory(dst == '0x0' ? 'a7' : ('a7 + ' + dst), src, e.bits, false);
             },
             lsl: function(instr) {
                 instr.setBadJump();
                 var e = instr.parsed;
-                if (instr.assembly.indexOf(')') > 0) {
-                    var ispostincrease = e.opd[1] == '+';
-                    var destination = _get_address(e, 0, 1, false, ispostincrease);
-                    var op = Base.shift_left(destination, destination, source_b);
-                    if (ispostincrease) {
-                        var ptr_reg = _get_register_address(e, 0);
+                var src = _as_pointer(e, 0, false);
+                var dst = _as_pointer(e, 1, false);
+                if (!e.opd[1]) {
+                    return Base.shift_left(dst, dst, '1');
+                } else if (e.opd[1].pointer) {
+                    var op = Base.shift_left(dst, dst, src);
+                    if (e.opd[1].postadd) {
+                        var ptr_reg = e.opd[1].register;
                         return Base.composed([op, Base.add(ptr_reg, ptr_reg, '' + (e.bits / 8))])
                     }
                     return op;
-                } else if (e.opd[1]) {
-                    return Base.shift_left(e.opd[1], e.opd[1], e.opd[0]);
                 }
-                return Base.shift_left(e.opd[0], e.opd[0], '1');
+                return Base.shift_left(dst, dst, src);
+
             },
             lsr: function(instr) {
                 instr.setBadJump();
                 var e = instr.parsed;
-                if (instr.assembly.indexOf(')') > 0) {
-                    var ispostincrease = e.opd[1] == '+';
-                    var destination = _get_address(e, 0, 1, false, ispostincrease);
-                    var op = Base.shift_right(destination, destination, source_b);
-                    if (ispostincrease) {
-                        var ptr_reg = _get_register_address(e, 0);
+                var src = _as_pointer(e, 0, false);
+                var dst = _as_pointer(e, 1, false);
+                if (!e.opd[1]) {
+                    return Base.shift_right(dst, dst, '1');
+                } else if (e.opd[1].pointer) {
+                    var op = Base.shift_right(dst, dst, src);
+                    if (e.opd[1].postadd) {
+                        var ptr_reg = e.opd[1].register;
                         return Base.composed([op, Base.add(ptr_reg, ptr_reg, '' + (e.bits / 8))])
                     }
                     return op;
-                } else if (e.opd[1]) {
-                    return Base.shift_right(e.opd[1], e.opd[1], e.opd[0]);
                 }
-                return Base.shift_right(e.opd[0], e.opd[0], '1');
+                return Base.shift_right(dst, dst, src);
             },
             move: function(instr) {
                 instr.setBadJump();
                 var e = instr.parsed;
-                var pointer = _get_address(e, 0, 2, false, e.opd[1] == '+');
-                var shift = e.opd.length > 2 ? 2 : 1;
-                var register = _get_address(e, shift, 2, false, e.opd[shift] == '+');
+                var pointer = _as_pointer(e, 0, false, true);
+                var register = _as_pointer(e, 1, false, true);
 
-                if (e.opd[1] == '+') {
-                    var ptr_reg = _get_register_address(e, 0);
+                if (e.opd[1].postadd) {
+                    var ptr_reg = e.opd[1].register;
                     var ops = [Base.read_memory(pointer, register, e.bits, false), Base.add(ptr_reg, ptr_reg, '' + (e.bits / 8))];
-                    if (e.opd[shift] == '+') {
-                        ptr_reg = _get_register_address(e, shift);
+                    if (e.opd[0].postadd) {
+                        ptr_reg = e.opd[0].register;
                         ops.push(Base.add(ptr_reg, ptr_reg, '' + (e.bits / 8)));
                     }
                     return Base.composed(ops)
-                } else if (e.opd[shift] == '+') {
-                    var ptr_reg = _get_register_address(e, shift);
+                } else if (e.opd[0].postadd) {
+                    var ptr_reg = e.opd[0].register;
                     var ops = [Base.read_memory(pointer, register, e.bits, false), Base.add(ptr_reg, ptr_reg, '' + (e.bits / 8))];
                     return Base.composed(ops)
                 }
@@ -317,7 +292,7 @@ module.exports = (function() {
             movem: _move_multiple,
             moveq: function(instr, context) {
                 instr.setBadJump();
-                return Base.assign(instr.parsed.opd[1], instr.parsed.opd[0]);
+                return Base.assign(instr.parsed.opd[1].register, instr.parsed.opd[0].register);
             },
             or: function(instr) {
                 instr.setBadJump();
@@ -331,17 +306,7 @@ module.exports = (function() {
                 instr.setBadJump();
                 var bits = instr.parsed.bits;
                 var pointer = Variable.pointer('a7 -= 4', bits, false);
-                var register = register = instr.string ? Variable.string(instr.string) : null;
-                var val = instr.parsed.opd[0].replace(/\.([bwl])/, ' $1').split(' ');
-                if (!register && val[0].startsWith('0x')) {
-                    register = instr.string ?
-                        Variable.string(instr.string) :
-                        Variable.pointer(val[0], _to_size(val[1]), false);
-                } else if (!register && instr.assembly.indexOf(')') > 0) {
-                    register = _get_address(instr.parsed, 0, 1, false, false);
-                } else if (!register) {
-                    register = val[0];
-                }
+                var register = instr.string ? Variable.string(instr.string) : _as_pointer(instr.parsed, 0, false);
                 return Base.write_memory(pointer, register, bits, false);
             },
             rts: function(instr) {
@@ -351,31 +316,20 @@ module.exports = (function() {
             sf: function(instr, context) {
                 instr.setBadJump();
                 var e = instr.parsed;
-                var ispostincrease = e.opd[1] == '+';
-                var destination = _get_address(e, 0, 1, false, ispostincrease);
-                if (typeof destination == 'string' && destination.startsWith('0x')) {
-                    destination = Variable.pointer(destination, e.bits, false);
-                }
-                var op = Base.and(destination, '0');
-                if (ispostincrease) {
-                    var ptr_reg = _get_register_address(e, 2);
-                    return Base.composed([op, Base.add(ptr_reg, ptr_reg, '' + (e.bits / 8))])
+                var dst = _as_pointer(e, 0, false, true);
+                var op = Base.assign(dst, '0');
+                if (e.opd[1].postadd) {
+                    return Base.composed([op, Base.add(e.opd[1].register, e.opd[1].register, '' + (e.bits / 8))])
                 }
                 return op;
             },
             st: function(instr, context) {
                 instr.setBadJump();
                 var e = instr.parsed;
-                var ispostincrease = e.opd[1] == '+';
-                var destination = _get_address(e, 0, 1, false, ispostincrease);
-                var src = (e.bits == 8 ? '0xff' : (e.bits == 16 ? '0xffff' : '0xffffffff'));
-                if (typeof destination == 'string' && destination.startsWith('0x')) {
-                    destination = Variable.pointer(destination, e.bits, false)
-                }
+                var dst = _as_pointer(e, 1, false, true);
                 var op = Base.assign(destination, src);
-                if (ispostincrease) {
-                    var ptr_reg = _get_register_address(e, 0);
-                    return Base.composed([op, Base.add(ptr_reg, ptr_reg, '' + (e.bits / 8))])
+                if (e.opd[0].postadd) {
+                    return Base.composed([op, Base.add(e.opd[0].register, e.opd[0].register, '' + (e.bits / 8))])
                 }
                 return op;
             },
@@ -389,21 +343,14 @@ module.exports = (function() {
             },
             tst: function(instr, context) {
                 instr.setBadJump();
-                var val = instr.parsed.opd[0].replace(/\.([bwl])/, ' $1').split(' ');
-                if (val[0].startsWith('0x')) {
-                    context.cond.a = Variable.pointer(val[0], _to_size(val[1]), true);
-                } else if (instr.assembly.indexOf(')') > 0) {
-                    context.cond.a = _get_address(instr.parsed, 0, 1, true, false);
-                } else {
-                    context.cond.a = val[0];
-                }
+                context.cond.a = _as_pointer(instr.parsed, 0, false);
                 context.cond.b = '0';
                 return Base.nop();
             },
             unlk: function(instr) {
                 instr.setBadJump();
                 var e = instr.parsed;
-                return Base.read_memory(e.opd[1] || 'a7', e.opd[0], e.bits, false);
+                return Base.read_memory(e.opd[1].register || 'a7', e.opd[0].register, e.bits, false);
             },
             invalid: function(instr) {
                 instr.setBadJump();
@@ -414,14 +361,65 @@ module.exports = (function() {
             if (!asm) {
                 return [];
             }
-            var ret = asm.replace(/\.([bwl]\s)/, ' $1 ').replace(/[,]/g, ' ')
-            ret = ret.replace(/(\w)\(/, '$1 (').replace(/\)(\w)/, ') $1').replace(/[\(\)]/g, ' ').replace(/\s+/g, ' ');
-            ret = _convert_size(ret.trim().split(' '));
-            return {
-                mnem: ret.shift(),
-                bits: ret.shift(),
-                opd: ret
+            const expr = /([a-zA-Z]+)(\.[bwl])?\s+([\w\.:_-]+\([\w\.\ \*,\[\]]+\)|-?\([\w\.\ \*,\[\]]+\)\+?|[\w\.\/:_-]+)(?:,\s+([\w\.:_-]+\([\w\.\ \*,\[\]]+\)|-?\([\w\.\ \*,\[\]]+\)\+?|[\w\.\/:_-]+))?/;
+            var token = asm.match(expr);
+            token.shift();
+            /*
+             * [
+                 "move.l obj.__unctrl(d0.l * 4), -(a7)",
+                 "move",
+                 ".l",
+                 "obj.__unctrl(d0.l * 4)",
+                 "-(a7)"
+             * ]
+             * token[0] = assembly
+             * token[1] = mnem
+             * token[2] = bits
+             * token[3] = opd0
+             * token[4] = opd1
+             */
+
+            var mnem = token.shift();
+            var bits = token.shift();
+
+            var ret = {
+                mnem: mnem,
+                bits: _to_size(bits ? bits.substring(1) : 'l'),
+                opd: token.filter(function(x) {
+                    return x ? true : false;
+                }).map(function(x) {
+                    var d = {
+                        presub: false,
+                        postadd: false,
+                        pointer: null,
+                        register: null,
+                    };
+
+                    var isreg = x.indexOf('(') < 0;
+                    var ptr = x.replace(/([\w\.:_-][\w\.:_-]+)\(/, '$1 + ').replace(/(-?\()|\)\+?/g, ' ').replace(/,\sinvalid\.[bwl]/, '');
+                    var p = x.replace(/[\(\),]/g, ' ').replace(/\s+/g, ' ');
+                    p = p.replace(/invalid\.[bwl]/, '');
+                    p = p.trim().split(' ');
+                    if (p[0] == '-') {
+                        d.presub = true;
+                        p.shift();
+                    } else if (p[p.length - 1] == '+') {
+                        d.postadd = true;
+                        p.pop();
+                    }
+                    if (isreg) {
+                        d.register = p.pop();
+                    } else if (ptr.indexOf('-') > 0 || ptr.indexOf('+') > 0 || ptr.indexOf('*') > 0) {
+                        d.pointer = ptr.replace(/(\d)\.[bwl]/, '$1').replace(/,/g, ' +').trim();
+                        d.register = ptr.match(/[ad]\d+/)[0];
+                    } else {
+                        d.pointer = p.join(' + ');
+                        d.register = p[0];
+                    }
+                    return d;
+                }),
             };
+            return ret;
         },
         context: function() {
             return {
