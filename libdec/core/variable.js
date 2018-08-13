@@ -56,7 +56,8 @@ module.exports = (function() {
                 }
             }(variable_name, Extra.to.type(bits || 0), arguments_type || '');
         },
-        pointer: function(variable_name, type) {
+        pointer: function(variable_name, ctype_or_bits, is_signed) {
+            var ctype = Extra.is.number(ctype_or_bits) ? Extra.to.type(ctype_or_bits, signed) : ctype_or_bits;
             return new function(name, type) {
                 this.name = name;
                 this.type = type;
@@ -75,10 +76,10 @@ module.exports = (function() {
                     }
                     return c + a(this.name) + ')';
                 }
-            }(variable_name, type);
+            }(variable_name, ctype);
         },
-        local: function(variable_name, type_or_bits, signed) {
-            var ctype = Extra.is.number(type_or_bits) ? Extra.to.type(type_or_bits, signed) : type_or_bits;
+        local: function(variable_name, ctype_or_bits, signed) {
+            var ctype = Extra.is.number(ctype_or_bits) ? Extra.to.type(ctype_or_bits, signed) : ctype_or_bits;
             return new function(name, type) {
                 this.name = name;
                 this.type = type;

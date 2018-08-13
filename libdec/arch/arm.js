@@ -485,7 +485,7 @@ module.exports = (function() {
         },
         parse: function(asm) {
             if (!asm) {
-                return [];
+                return {};
             }
             var ret = asm.replace(/\[|\]/g, ' ').replace(/,/g, ' ');
             ret = ret.replace(/\{|\}/g, ' ').replace(/\s+/g, ' ');

@@ -28,24 +28,27 @@ done
 # Arguments
 
 ```
-[0x00000c60]> pdd?
+[0x00000000]> pdd?
 Usage: pdd [args] - core plugin for r2dec
  pdd   - decompile current function
  pdd?  - show this help
  pdda  - decompile current function with side assembly
  pddu  - install/upgrade r2dec via r2pm
  pddi  - generates the issue data
-[0x00000c60]> pdd --help
+Environment
+ R2DEC_HOME  defaults to the root directory of the r2dec repo
+[0x00000000]> pdd --help
 r2dec [options]
-       --help     | this help message
-       --colors   | enables syntax colors
-       --assembly | shows pseudo next to the assembly
-       --offset   | shows pseudo next to the offset
-       --casts    | shows all casts in the pseudo code
-       --issue    | generates the json used for the test suite
-       --debug    | do not catch exceptions
-       --html     | outputs html data instead of text
-       --xrefs    | shows all xrefs in the pseudo code
+       --help       | this help message
+       --colors     | enables syntax colors
+       --assembly   | shows pseudo next to the assembly
+       --offset     | shows pseudo next to the offset
+       --casts      | shows all casts in the pseudo code
+       --issue      | generates the json used for the test suite
+       --debug      | do not catch exceptions
+       --html       | outputs html data instead of text
+       --xrefs      | shows also instruction xrefs in the pseudo code
+       --paddr      | all xrefs uses physical addresses instead of virtual addresses
 ```
 
 # Radare2 Evaluable vars
@@ -57,6 +60,7 @@ r2dec.casts         | if false, hides all casts in the pseudo code.
 r2dec.asm           | if true, shows pseudo next to the assembly.
 r2dec.offset        | if true, shows pseudo next to the offset.
 r2dec.xrefs         | if true, shows all xrefs in the pseudo code.
+r2dec.paddr         | if true, all xrefs uses physical addresses compare.
 r2dec.theme         | defines the color theme to be used on r2dec.
 e scr.html          | outputs html data instead of text.
 e scr.color         | enables syntax colors.
@@ -74,11 +78,12 @@ e scr.color         | enables syntax colors.
 
     arm
     avr
+    m68k (experimental)
     mips
     ppc
     sparc
     v850
-    wasm
+    wasm (partial)
     x86 (intel)
 
 # Developing on r2dec
