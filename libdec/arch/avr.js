@@ -641,9 +641,6 @@ module.exports = (function() {
             }
         },
         parse: function(asm) {
-            if (!asm) {
-                return [];
-            }
             var ret = asm.replace(/\[|\]/g, ' ').replace(/,/g, ' ');
             ret = ret.replace(/\{|\}/g, ' ').replace(/\s+/g, ' ');
             ret = ret.trim().replace(/0x00/, '0').split(' ');

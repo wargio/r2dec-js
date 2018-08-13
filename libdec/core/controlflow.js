@@ -215,7 +215,7 @@ module.exports = (function() {
             var first_else_instruction = outside;
             var instr_after_else = Utils.search(last_if_instruction.jump, context.instructions, _compare_locations);
             var last_else_instruction = context.instructions[context.instructions.indexOf(instr_after_else) - 1];
-            if (if_block.instructions.indexOf(instr_after_else) >= 0) {
+            if (Utils.search(last_else_instruction.location, if_block.instructions, _compare_locations)) {
                 if_block.addExtra(new Scope.else(first_else_instruction.location));
                 if_block.addExtra(new Scope.brace(last_else_instruction.location));
                 last_if_instruction.setBadJump();
@@ -252,6 +252,8 @@ module.exports = (function() {
             instruction.label = context.labels[i];
         }
 
-        session.blocks = context.blocks;
+        session.blocks = context.blocks.filter(function(x){
+            return x.instructions.length > 0;
+        }).sort(_compare_blocks);
     };
 })();

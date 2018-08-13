@@ -22,7 +22,7 @@ module.exports = (function() {
         this.low = low;
         this.hi = hi;
         this.gt = function(bound) {
-            return this.hi.gt(bound.low);
+            return this.low.gt(bound.low);
         };
         this.isInside = function(addr) {
             return addr ? (addr.gte(this.low) && addr.lte(this.hi)) : false;

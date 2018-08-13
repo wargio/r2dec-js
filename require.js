@@ -15,6 +15,7 @@ var require = function(x) {
     } catch (ee) {
         console.log('Exception from ' + x);
         console.log(ee.stack);
+        
     }
 };
 require.loaded = {};

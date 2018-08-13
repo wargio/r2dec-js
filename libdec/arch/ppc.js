@@ -1752,9 +1752,6 @@ module.exports = (function() {
             }
         },
         parse: function(asm) {
-            if (!asm) {
-                return [];
-            }
             asm = asm.replace(/,/g, ' ').replace(/\s+/g, ' ').trim().split(' ');
             return {
                 mnem: asm.shift(),

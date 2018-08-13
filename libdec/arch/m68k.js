@@ -358,9 +358,6 @@ module.exports = (function() {
             }
         },
         parse: function(asm) {
-            if (!asm) {
-                return [];
-            }
             const expr = /([a-zA-Z]+)(\.[bwl])?\s+([\w\.:_-]+\([\w\.\ \*,\[\]]+\)|-?\([\w\.\ \*,\[\]]+\)\+?|[\w\.\/:_-]+)(?:,\s+([\w\.:_-]+\([\w\.\ \*,\[\]]+\)|-?\([\w\.\ \*,\[\]]+\)\+?|[\w\.\/:_-]+))?/;
             var token = asm.match(expr);
             token.shift();

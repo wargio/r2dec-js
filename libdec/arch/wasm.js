@@ -308,9 +308,6 @@ module.exports = (function() {
             }
         },
         parse: function(asm) {
-            if (!asm) {
-                return [];
-            }
             asm = asm.trim().replace(/\s+/g, ' ').replace(/\//g, ' ');
             var type = asm.match(/[if]\d\d\./);
             if (type) {
@@ -334,6 +331,7 @@ module.exports = (function() {
             }
         },
         custom_start: function(instructions) {
+            // to be removed after proper detection on r2
             var stack = [];
             var pos = 0;
             for (var i = 0; i < instructions.length; i++) {

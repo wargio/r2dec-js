@@ -36,7 +36,7 @@ module.exports = (function() {
             args: arch.arguments(arch_context) || [],
             locals: arch.localvars(arch_context) || []
         });
-        session.blocks[0].extra.splice(0, 0, routine);
+        session.routine = routine;
 
     };
 
@@ -95,11 +95,13 @@ module.exports = (function() {
             }));
         }
         Global.context.identAsmSet(max_length + max_address);
+        this.routine = null;
         this.routine_name = data.graph[0].name;
         this.blocks[0].instructions = instructions.slice();
         this.blocks[0].update();
         this.instructions = instructions;
         this.print = function() {
+            this.routine.print();
             for (var i = 0; i < this.blocks.length; i++) {
                 this.blocks[i].print();
             }

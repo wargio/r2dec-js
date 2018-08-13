@@ -52,7 +52,8 @@ module.exports = (function() {
                 };
                 this.toString = function() {
                     var t = Global.printer.theme;
-                    return t.types(this.type) + ' (*' + this.name + ')(' + this.args + ')';
+                    var a = Global.printer.auto;
+                    return t.types(this.type) + ' (*' + a(this.name) + ')(' + this.args + ')';
                 }
             }(variable_name, Extra.to.type(bits || 0), arguments_type || '');
         },

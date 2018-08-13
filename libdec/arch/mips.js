@@ -23,6 +23,7 @@ module.exports = (function() {
     var Long = require('libdec/long');
 
     var op_bits4 = function(instr, op, bits, unsigned, swap) {
+        instr.setBadJump();
         var e = instr.parsed;
         var a = swap ? e.opd[2] : e.opd[1];
         var b = swap ? e.opd[1] : e.opd[2];
@@ -36,6 +37,7 @@ module.exports = (function() {
     };
 
     var _move = function(instr, bits, unsigned, shifted) {
+        instr.setBadJump();
         var e = instr.parsed;
         if (e.opd[0] == '0') {
             return Base.nop();
@@ -49,6 +51,7 @@ module.exports = (function() {
     };
 
     var load_bits = function(instr, bits, unsigned) {
+        instr.setBadJump();
         var e = instr.parsed;
         var s = unsigned ? "u" : "";
         var arg = e.opd[1].replace(/\)/, '').split('(');
@@ -72,6 +75,7 @@ module.exports = (function() {
     };
 
     var store_bits = function(instr, bits, unsigned) {
+        instr.setBadJump();
         var e = instr.parsed;
         var s = unsigned ? "u" : "";
         var arg = e.opd[1].replace(/\)/, '').split('(');
@@ -370,9 +374,6 @@ module.exports = (function() {
             }
         },
         parse: function(asm) {
-            if (!asm) {
-                return [];
-            }
             asm = asm.replace(/,/g, ' ').replace(/\s+/g, ' ').trim().split(' ').map(function(x) {
                 if (x == 'zero') {
                     return '0';
