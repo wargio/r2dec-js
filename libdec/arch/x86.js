@@ -1134,7 +1134,7 @@ module.exports = (function() {
         context: function(data) {
             var fcnargs = data.xrefs.arguments;
             var vars_args = fcnargs.bp.concat(fcnargs.sp).concat(fcnargs.reg).map(function(x) {
-                if (x.type === 'int') {
+                if (x.type === 'int' || x.type === 'signed int') {
                     x.type = (Global.evars.archbits < 32) ? 'int16_t' : 'int32_t';
                 } else if (x.type === 'unsigned int') {
                     x.type = (Global.evars.archbits < 32) ? 'uint16_t' : 'uint32_t';
