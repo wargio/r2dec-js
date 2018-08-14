@@ -147,15 +147,15 @@ int main(int argc, char const *argv[]) {
 /* r2dec pseudo C output */
 #include <stdint.h>
  
-int32_t main (int32_t arg1, int32_t arg2) {
-    int32_t local_20h;
+int32_t main (int32_t argc, char ** argv) {
+    char ** local_20h;
     int32_t local_14h;
     int32_t local_4h;
     local_14h = edi;
     local_20h = rsi;
     local_4h = 0;
-    while (local_4h > 0x8f) {
-        if (local_4h > 0xf) {
+    while (local_4h <= 0x8f) {
+        if (local_4h <= 0xf) {
             local_4h += 0x50;
         }
         local_4h += 0x10;
