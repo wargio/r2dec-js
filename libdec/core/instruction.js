@@ -113,18 +113,20 @@ module.exports = (function() {
     _instruction.swap = function(instructions, index_a, index_b) {
         var a = instructions[index_a];
         var b = instructions[index_b];
+        instructions[index_b] = a;
+        instructions[index_a] = b;
 
-        var oldloc = a.location;
-        var oldjmp = a.jump;
+        var a_loc = a.location;
 
         a.location = b.location;
-        a.jump = b.jump;
+        b.location = a_loc;
 
-        b.location = oldloc;
-        b.jump = oldjmp;
 
-        instructions[index_a] = b;
-        instructions[index_b] = a;
+        if (a.jump && b.location.eq(a.jump)) {
+            a.jump = a.location;
+        } else if (b.jump && a.location.eq(b.jump)) {
+            b.jump = b.location;
+        }
     };
 
     return _instruction;

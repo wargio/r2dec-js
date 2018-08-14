@@ -95,8 +95,8 @@ module.exports = (function() {
         } else if (instruction.cond) {
             var block = context.findBlock(instruction.location);
             var single_instr = block.split(block.instructions.indexOf(instruction));
-            single_instr.addExtra(new Scope.if(instruction.location, _condition(instruction, true)));
-            single_instr.addExtra(new Scope.brace(instruction.location));
+            single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, true)));
+            single_instr.addExtraTail(new Scope.brace(instruction.location));
             context.addBlock(single_instr);
             context.addBlock(single_instr.split(1));
         }
@@ -116,10 +116,10 @@ module.exports = (function() {
         if (instruction.jump.eq(instruction.location)) {
             var single_instr = block.split(index);
             if (!instruction.code) {
-                single_instr.addExtra(new Scope.whileInline(instruction.jump, _condition(instruction)));
+                single_instr.addExtraHead(new Scope.whileInline(instruction.jump, _condition(instruction)));
             } else {
-                single_instr.addExtra(new Scope.do(instruction.jump));
-                single_instr.addExtra(new Scope.whileEnd(instruction.location, _condition(instruction)));
+                single_instr.addExtraHead(new Scope.do(instruction.jump));
+                single_instr.addExtraTail(new Scope.whileEnd(instruction.location, _condition(instruction)));
             }
             context.addBlock(single_instr);
             context.addBlock(single_instr.split(1));
@@ -136,8 +136,8 @@ module.exports = (function() {
             instruction.code = Base.goto(label);
             if (instruction.cond) {
                 var single_instr = block.split(block.instructions.indexOf(instruction));
-                single_instr.addExtra(new Scope.if(instruction.location, _condition(instruction, true)));
-                single_instr.addExtra(new Scope.brace(instruction.location));
+                single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, true)));
+                single_instr.addExtraTail(new Scope.brace(instruction.location));
                 context.addBlock(single_instr);
                 context.addBlock(single_instr.split(1));
             }
@@ -153,12 +153,12 @@ module.exports = (function() {
         // if it is, then it's a while (cond) {}
         if (previous && previous.jump && previous.jump.gte(instruction.jump) && previous.jump.lte(instruction.location)) {
             previous.setBadJump();
-            loop_block.addExtra(new Scope.while(instruction.jump, _condition(instruction)));
-            loop_block.addExtra(new Scope.brace(instruction.location));
+            loop_block.addExtraHead(new Scope.while(instruction.jump, _condition(instruction)));
+            loop_block.addExtraTail(new Scope.brace(instruction.location));
         } else {
             // ok it's a do {} while (cond);
-            loop_block.addExtra(new Scope.do(instruction.jump));
-            loop_block.addExtra(new Scope.whileEnd(instruction.location, _condition(instruction)));
+            loop_block.addExtraHead(new Scope.do(instruction.jump));
+            loop_block.addExtraTail(new Scope.whileEnd(instruction.location, _condition(instruction)));
         }
 
         context.addBlock(loop_block);
@@ -174,10 +174,22 @@ module.exports = (function() {
         }
 
         // if jumps to the next instruction, just ignore it..
-        if (context.instructions[index + 1] && context.instructions[index + 1].location.eq(instruction.jump)) {
-            context.instructions[index + 1].setBadJump();
+        if (!instruction.cond && context.instructions[index + 1] && context.instructions[index + 1].location.eq(instruction.jump)) {
+            instruction.setBadJump();
             return false;
         }
+        if (!instruction.cond) {
+            if (!instruction.code) {
+                var label = context.findLabel(instruction.jump);
+                if (!label) {
+                    label = Variable.newLabel(instruction.jump);
+                    context.addLabel(label);
+                }
+                instruction.code = Base.goto(label);
+            }
+            return true;
+        }
+
         var block = context.findBlock(instruction.location);
 
         var outside = Utils.search(instruction.jump, block.instructions, _compare_locations);
@@ -192,8 +204,9 @@ module.exports = (function() {
             instruction.code = Base.goto(label);
             if (instruction.cond) {
                 var single_instr = block.split(block.instructions.indexOf(instruction));
-                single_instr.addExtra(new Scope.if(instruction.location, _condition(instruction, true)));
-                single_instr.addExtra(new Scope.brace(instruction.location));
+                if (!single_instr) return true;
+                single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, true)));
+                single_instr.addExtraTail(new Scope.brace(instruction.location));
                 context.addBlock(single_instr);
                 context.addBlock(single_instr.split(1));
             }
@@ -202,7 +215,7 @@ module.exports = (function() {
 
         // let's create the if block.
         var if_block = block.split(block.instructions.indexOf(instruction));
-        if_block.addExtra(new Scope.if(instruction.location, _condition(instruction, true)));
+        if_block.addExtraHead(new Scope.if(instruction.location, _condition(instruction, true)));
 
 
         // let's get the last element inside the if (jump instr -1).
@@ -210,21 +223,28 @@ module.exports = (function() {
         var last_if_instruction = if_block.instructions[outside_index - 1];
 
         // let's check if the last instruction is a jump forward (outside), that can lead to an else
-        if (last_if_instruction.jump && last_if_instruction.jump.gt(last_if_instruction.location)) {
+        if (last_if_instruction.jump && !last_if_instruction.cond && last_if_instruction.jump.gt(last_if_instruction.location)) {
             // ok we have an else. let's search for the last instruction.
             var first_else_instruction = outside;
             var instr_after_else = Utils.search(last_if_instruction.jump, context.instructions, _compare_locations);
             var last_else_instruction = context.instructions[context.instructions.indexOf(instr_after_else) - 1];
-            if (Utils.search(last_else_instruction.location, if_block.instructions, _compare_locations)) {
-                if_block.addExtra(new Scope.else(first_else_instruction.location));
-                if_block.addExtra(new Scope.brace(last_else_instruction.location));
+            if (Utils.search(last_else_instruction.location, if_block.instructions, _compare_locations) && first_else_instruction != instr_after_else) {
+                var lh = if_block.lastHead();
+                var ft = if_block.firstTail();
+                if (lh && lh.isElse && ft && ft.address.eq(last_else_instruction.location)) {
+                    if_block.addExtraTail(new Scope.brace(first_else_instruction.location));
+                    if_block.addExtraHead(new Scope.else(first_else_instruction.location));
+                } else {
+                    if_block.addExtraHead(new Scope.else(first_else_instruction.location));
+                    if_block.addExtraTail(new Scope.brace(last_else_instruction.location));
+                }
                 last_if_instruction.setBadJump();
                 outside_index = if_block.instructions.indexOf(last_else_instruction) + 1;
             } else {
-                if_block.addExtra(new Scope.brace(last_if_instruction.location));
+                if_block.addExtraTail(new Scope.brace(last_if_instruction.location));
             }
         } else {
-            if_block.addExtra(new Scope.brace(last_if_instruction.location));
+            if_block.addExtraTail(new Scope.brace(last_if_instruction.location));
         }
 
         context.addBlock(if_block);
@@ -252,8 +272,6 @@ module.exports = (function() {
             instruction.label = context.labels[i];
         }
 
-        session.blocks = context.blocks.filter(function(x){
-            return x.instructions.length > 0;
-        }).sort(_compare_blocks);
+        session.blocks = context.blocks.sort(_compare_blocks);
     };
 })();

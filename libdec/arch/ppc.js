@@ -421,7 +421,9 @@ module.exports = (function() {
         return mask_lo;
     };
 
-    var load_bits = function(e, bits, unsigned) {
+    var load_bits = function(instr, bits, unsigned) {
+        instr.setBadJump();
+        var e = instr.parsed;
         var arg = e.opd[1].replace(/\)/, '').split('(');
         if (arg[1] == '0') {
             //pointer, register, bits, is_signed
@@ -440,7 +442,9 @@ module.exports = (function() {
         return Base.read_memory(arg[1] + arg[0], e.opd[0], bits, !unsigned);
     };
 
-    var store_bits = function(e, bits, unsigned) {
+    var store_bits = function(instr, bits, unsigned) {
+        instr.setBadJump();
+        var e = instr.parsed;
         var arg = e.opd[1].replace(/\)/, '').split('(');
         if (arg[1] == '0') {
             //pointer, register, bits, is_signed
@@ -460,6 +464,7 @@ module.exports = (function() {
     };
 
     var load_idx_bits = function(instr, bits, unsigned) {
+        instr.setBadJump();
         var e = instr.parsed;
         instr.comments.push('with lock');
         if (e.opd[1] == '0') {
@@ -469,6 +474,7 @@ module.exports = (function() {
     };
 
     var store_idx_bits = function(instr, bits, unsigned) {
+        instr.setBadJump();
         var e = instr.parsed;
         instr.comments.push('with lock');
         if (e.opd[1] == '0') {
@@ -864,7 +870,7 @@ module.exports = (function() {
                 return _compare(instr, context, 8);
             },
             ld: function(instr) {
-                return load_bits(instr.parsed, 64, false);
+                return load_bits(instr, 64, false);
             },
             lbzx: function(instr) {
                 return load_idx_bits(instr, 8, true);
@@ -876,31 +882,31 @@ module.exports = (function() {
                 return load_idx_bits(instr, 64, true);
             },
             ldu: function(instr) {
-                return load_bits(instr.parsed, 64, true);
+                return load_bits(instr, 64, true);
             },
             lwz: function(instr) {
-                return load_bits(instr.parsed, 32, false);
+                return load_bits(instr, 32, false);
             },
             lwzu: function(instr) {
-                return load_bits(instr.parsed, 32, true);
+                return load_bits(instr, 32, true);
             },
             lmw: function(instr) {
-                return load_bits(instr.parsed, 32, true);
+                return load_bits(instr, 32, true);
             },
             lwzx: function(instr) {
                 return load_idx_bits(instr, 32, true);
             },
             lhz: function(instr) {
-                return load_bits(instr.parsed, 16, false);
+                return load_bits(instr, 16, false);
             },
             lbz: function(instr) {
-                return load_bits(instr.parsed, 8, true);
+                return load_bits(instr, 8, true);
             },
             lbzu: function(instr) {
-                return load_bits(instr.parsed, 8, false);
+                return load_bits(instr, 8, false);
             },
             std: function(instr) {
-                return store_bits(instr.parsed, 64, false);
+                return store_bits(instr, 64, false);
             },
             stdcx: function(instr) {
                 return store_idx_bits(instr, 64, false);
@@ -909,22 +915,22 @@ module.exports = (function() {
                 return store_idx_bits(instr, 64, false);
             },
             stdu: function(instr) {
-                return store_bits(instr.parsed, 64, true);
+                return store_bits(instr, 64, true);
             },
             stwu: function(instr) {
-                return store_bits(instr.parsed, 32, true);
+                return store_bits(instr, 32, true);
             },
             stw: function(instr) {
-                return store_bits(instr.parsed, 32, false);
+                return store_bits(instr, 32, false);
             },
             stmw: function(instr) {
-                return store_bits(instr.parsed, 32, false);
+                return store_bits(instr, 32, false);
             },
             sth: function(instr) {
-                return store_bits(instr.parsed, 16, false);
+                return store_bits(instr, 16, false);
             },
             stb: function(instr) {
-                return store_bits(instr.parsed, 8, false);
+                return store_bits(instr, 8, false);
             },
             dcbz: function(instr) {
                 if (instr.parsed.opd[0] == "0") {
@@ -1383,22 +1389,22 @@ module.exports = (function() {
                 return _compare(instr, context, 32);
             },
             "e_lbz": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 8, false);
+                return load_bits(instr, 8, false);
             },
             "e_lbzu": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 8, true);
+                return load_bits(instr, 8, true);
             },
             "e_lha": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 8, false);
+                return load_bits(instr, 8, false);
             },
             "e_lhau": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 8, true);
+                return load_bits(instr, 8, true);
             },
             "e_lhz": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 8, false);
+                return load_bits(instr, 8, false);
             },
             "e_lhzu": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 8, true);
+                return load_bits(instr, 8, true);
             },
             "e_li": function(instr, context, instructions) {
                 return Base.assign(instr.parsed.opd[0], instr.parsed.opd[1]);
@@ -1411,13 +1417,13 @@ module.exports = (function() {
                 return Base.assign(instr.parsed.opd[0], '0x' + num + '0000');
             },
             "e_lmw": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 32, true);
+                return load_bits(instr, 32, true);
             },
             "e_lwz": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 32, false);
+                return load_bits(instr, 32, false);
             },
             "e_lwzu": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 32, true);
+                return load_bits(instr, 32, true);
             },
             "e_or2i": function(instr, context, instructions) {
                 return op_bits3(instr.parsed, Base.or);
@@ -1453,25 +1459,25 @@ module.exports = (function() {
                 return op_bits4(instr.parsed, Base.shift_right, 32);
             },
             "e_stb": function(instr, context, instructions) {
-                return store_bits(instr.parsed, 8, false);
+                return store_bits(instr, 8, false);
             },
             "e_stbu": function(instr, context, instructions) {
-                return store_bits(instr.parsed, 8, true);
+                return store_bits(instr, 8, true);
             },
             "e_sth": function(instr, context, instructions) {
-                return store_bits(instr.parsed, 16, false);
+                return store_bits(instr, 16, false);
             },
             "e_sthu": function(instr, context, instructions) {
-                return store_bits(instr.parsed, 16, true);
+                return store_bits(instr, 16, true);
             },
             "e_stmw": function(instr, context, instructions) {
-                return store_bits(instr.parsed, 32, false);
+                return store_bits(instr, 32, false);
             },
             "e_stw": function(instr, context, instructions) {
-                return store_bits(instr.parsed, 32, false);
+                return store_bits(instr, 32, false);
             },
             "e_stwu": function(instr, context, instructions) {
-                return store_bits(instr.parsed, 32, true);
+                return store_bits(instr, 32, true);
             },
             "e_subfic": function(instr, context, instructions) {
                 return op_bits4(instr.parsed, Base.subtract, 32);
@@ -1706,13 +1712,13 @@ module.exports = (function() {
                 context.cond.cr0.b = Variable.local(bit);
             },
             "se_lbz": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 8, false);
+                return load_bits(instr, 8, false);
             },
             "se_lbh": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 16, false);
+                return load_bits(instr, 16, false);
             },
             "se_lwz": function(instr, context, instructions) {
-                return load_bits(instr.parsed, 32, false);
+                return load_bits(instr, 32, false);
             },
             "se_slw": function(instr, context, instructions) {
                 return op_bits3(instr.parsed, Base.shift_left, 32);
@@ -1733,13 +1739,13 @@ module.exports = (function() {
                 return op_bits3(instr.parsed, Base.shift_right, 32);
             },
             "se_stb": function(instr, context, instructions) {
-                return store_bits(instr.parsed, 8, false);
+                return store_bits(instr, 8, false);
             },
             "se_sth": function(instr, context, instructions) {
-                return store_bits(instr.parsed, 16, false);
+                return store_bits(instr, 16, false);
             },
             "se_stw": function(instr, context, instructions) {
-                return store_bits(instr.parsed, 32, false);
+                return store_bits(instr, 32, false);
             },
             "se_subi": function(instr, context, instructions) {
                 return op_bits3(instr.parsed, Base.subtract);

@@ -18,6 +18,8 @@
 module.exports = (function() {
     const Extra = require('libdec/core/extra');
 
+    var __debug = false;
+
     var _print_locals = function(locals) {
         var a = Global.printer.auto;
         for (var i = 0; i < locals.length; i++) {
@@ -27,100 +29,114 @@ module.exports = (function() {
 
     return {
         brace: function(address) {
-            this.isTail = true;
             this.address = address;
+            this.toString = function() {
+                return '}' + (__debug ? Global.printer.theme.comment(' // 0x' + this.address.toString(16)) : '');
+            };
             this.print = function() {
                 Global.context.identOut();
-                console.log(Global.context.identfy() + '}');
-            }
+                console.log(Global.context.identfy() + this.toString());
+            };
         },
         routine: function(address, extra) {
-            this.isHead = true;
             this.address = address;
             this.extra = extra;
-            this.print = function() {
+            this.toString = function() {
                 var e = this.extra;
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
+                return t.types(e.returns) + ' ' + t.callname(Extra.replace.call(e.name)) + ' (' + e.args.map(function(x) {
+                    return Extra.is.string(x) ? a(x) : a.toString();
+                }).join(', ') + ') {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
+            };
+            this.print = function() {
+                var e = this.extra;
+                var t = Global.printer.theme;
                 var asmname = '; (fcn) ' + e.name + ' ()';
-                var routine_name = Extra.replace.call(e.name);
-                var ident = Global.context.identfy(asmname.length, Global.printer.theme.comment(asmname));
-                console.log(ident + t.types(e.returns), t.callname(routine_name), '(' + a(e.args.join(', ')) + ') {');
+                var ident = Global.context.identfy(asmname.length, t.comment(asmname));
+                console.log(ident + this.toString());
                 Global.context.identIn();
                 _print_locals(e.locals);
-            }
+            };
         },
         if: function(address, condition, locals) {
-            this.isHead = true;
             this.address = address;
             this.condition = condition;
             this.locals = locals || [];
-            this.print = function() {
+            this.toString = function() {
                 var t = Global.printer.theme;
-                var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('if') + ' (' + this.condition + ') {');
+                return t.flow('if') + ' (' + this.condition + ') {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
+            };
+            this.print = function() {
+                console.log(Global.context.identfy() + this.toString());
                 Global.context.identIn();
                 _print_locals(this.locals);
-            }
+            };
         },
         else: function(address, locals) {
-            this.isHead = true;
+            this.isElse = true;
             this.address = address;
             this.locals = locals || [];
-            this.print = function() {
+            this.toString = function() {
                 var t = Global.printer.theme;
-                var a = Global.printer.auto;
+                return '} ' + t.flow('else') + ' {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
+            };
+            this.print = function() {
                 Global.context.identOut();
-                console.log(Global.context.identfy() + '} ' + t.flow('else') + ' {');
+                console.log(Global.context.identfy() + this.toString());
                 Global.context.identIn();
                 _print_locals(this.locals);
-            }
+            };
         },
         do: function(address, locals) {
-            this.isHead = true;
             this.address = address;
             this.locals = locals || [];
-            this.print = function() {
+            this.toString = function() {
                 var t = Global.printer.theme;
-                var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('do') + ' {');
+                return t.flow('do') + ' {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
+            };
+            this.print = function() {
+                console.log(Global.context.identfy() + this.toString());
                 Global.context.identIn();
                 _print_locals(this.locals);
-            }
+            };
         },
         while: function(address, condition, locals) {
-            this.isHead = true;
             this.address = address;
             this.condition = condition;
             this.locals = locals || [];
-            this.print = function() {
+            this.toString = function() {
                 var t = Global.printer.theme;
-                var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('while') + ' (' + this.condition + ') {');
+                return t.flow('while') + ' (' + this.condition + ') {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
+            };
+            this.print = function() {
+                console.log(Global.context.identfy() + this.toString());
                 Global.context.identIn();
                 _print_locals(this.locals);
-            }
+            };
         },
         whileEnd: function(address, condition) {
-            this.isTail = true;
             this.address = address;
             this.condition = condition;
+            this.toString = function() {
+                var t = Global.printer.theme;
+                return '} ' + t.flow('while') + ' (' + this.condition + ');' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
+            };
             this.print = function() {
                 Global.context.identOut();
-                var t = Global.printer.theme;
-                var a = Global.printer.auto;
-                console.log(Global.context.identfy() + '} ' + t.flow('while') + ' (' + this.condition + ');');
-            }
+                console.log(Global.context.identfy() + this.toString());
+            };
         },
         whileInline: function(address, condition) {
-            this.isHead = true;
             this.address = address;
             this.condition = condition;
-            this.print = function() {
+            this.toString = function() {
                 var t = Global.printer.theme;
-                var a = Global.printer.auto;
-                console.log(Global.context.identfy() + t.flow('while') + ' (' + this.condition + ');');
-            }
+                return t.flow('while') + ' (' + this.condition + ');' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
+            };
+            this.print = function() {
+                console.log(Global.context.identfy() + this.toString());
+            };
         }
     }
 })();

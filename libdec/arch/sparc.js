@@ -73,11 +73,6 @@ module.exports = (function() {
         return Base.nop();
     };
 
-    var _conditional = function(instr, context, type) {
-        instr.conditional(context.cond.a, context.cond.b, type);
-        return Base.nop();
-    };
-
     var _compare = function(instr, context, instructions) {
         context.cond.a = instr.parsed.opd[0];
         context.cond.b = instr.parsed.opd[1];
@@ -207,16 +202,16 @@ module.exports = (function() {
                 return _conditional(instr, context, 'GT');
             },
             blu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'GE', true);
+                return _conditional(instr, context, 'GE');
             },
             bleu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'GT', true);
+                return _conditional(instr, context, 'GT');
             },
             bgeu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'LE', true);
+                return _conditional(instr, context, 'LE');
             },
             bgu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'LT', true);
+                return _conditional(instr, context, 'LT');
             },
             bpos: function(instr, context, instructions) {
                 return _conditional(instr, context, 'LE');

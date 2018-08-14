@@ -36,27 +36,43 @@ module.exports = (function() {
         return new Bounds(Long.MAX_UNSIGNED_VALUE, Long.MAX_UNSIGNED_VALUE);
     };
 
-    var _compare_extra = function(a, b) {
+    var _sort_extra = function(a, b) {
         if (a.address.eq(b.address)) {
-            return b.isTail ? -1 : 0;
-        } else if (a.address.lt(b.address)) {
-            return -1;
+            return 0;
         }
-        return 1;
+        return a.address.gt(b.address) ? 1 : -1;
+    };
+
+    var _fill_splitted_extra = function(oldblock, newblock, name) {
+        var e = oldblock[name][oldblock[name].length - 1];
+        while (e && e.address.gte(newblock.bounds.low)) {
+            newblock[name].push(oldblock[name].pop());
+            e = oldblock[name][oldblock[name].length - 1];
+        }
     };
 
     var _block = function(bounds) {
         this.bounds = bounds || Bounds.invalid();
-        this.extra = [];
+        this.extraHead = [];
+        this.extraTail = [];
         this.instructions = [];
         this.addInstruction = function(instruction) {
             this.instructions.push(instruction);
             this.update();
         };
-        this.addExtra = function(extra) {
-            var todo = true;
-            this.extra.push(extra);
-            this.extra = this.extra.sort(_compare_extra);
+        this.addExtraHead = function(extra) {
+            this.extraHead.push(extra);
+            this.extraHead.sort(_sort_extra);
+        };
+        this.lastHead = function(extra) {
+            return this.extraHead.length > 0 ? this.extraHead[this.extraHead.length - 1] : null;
+        };
+        this.firstTail = function(extra) {
+            return this.extraTail.length > 0 ? this.extraTail[0] : null;
+        };
+        this.addExtraTail = function(extra) {
+            this.extraTail.unshift(extra);
+            this.extraTail.sort(_sort_extra);
         };
         this.update = function() {
             var l = this.instructions.length;
@@ -71,26 +87,33 @@ module.exports = (function() {
             var i = this.instructions.splice(from, this.instructions.length);
             var b = new _block(new Bounds(i[0].location, i[i.length - 1].location));
             b.instructions = i;
-            var e = this.extra[this.extra.length - 1];
-            while (e && e.address.gte(b.bounds.low)) {
-                b.extra.push(this.extra.pop());
-                e = this.extra[this.extra.length - 1];
-            }
+
+            _fill_splitted_extra(this, b, 'extraHead');
+            _fill_splitted_extra(this, b, 'extraTail');
+
             this.update();
             b.update();
             return b;
         };
         this.print = function() {
-            for (var i = 0, j = 0; i < this.instructions.length; i++) {
-                while (this.extra[j] && this.extra[j].isHead && this.extra[j].address.eq(this.instructions[i].location)) {
-                    this.extra[j].print();
-                    j++;
+            var h = 0;
+            var t = 0;
+            for (var i = 0; i < this.instructions.length; i++) {
+                while (this.extraHead[h] && this.extraHead[h].address.lte(this.instructions[i].location)) {
+                    this.extraHead[h].print();
+                    h++;
                 }
                 this.instructions[i].print();
-                while (this.extra[j] && this.extra[j].isTail && this.extra[j].address.eq(this.instructions[i].location)) {
-                    this.extra[j].print();
-                    j++;
+                while (this.extraTail[t] && this.extraTail[t].address.eq(this.instructions[i].location)) {
+                    this.extraTail[t].print();
+                    t++;
                 }
+            }
+            for (var i = h; i < this.extraHead.length; i++) {
+                this.extraHead[i].print();
+            }
+            for (var i = t; i < this.extraTail.length; i++) {
+                this.extraTail[i].print();
             }
         };
     };

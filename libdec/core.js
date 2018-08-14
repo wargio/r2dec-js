@@ -44,6 +44,8 @@ module.exports = (function() {
         if (arch.custom_start) {
             arch.custom_start(session.instructions, arch_context)
         }
+        session.blocks[0].instructions = session.instructions.slice();
+        session.blocks[0].update();
     };
 
     var _decompile = function(session, arch, arch_context) {
@@ -80,6 +82,13 @@ module.exports = (function() {
         var max_address = 8;
         for (var i = 0; i < data.graph[0].blocks.length; i++) {
             var block = data.graph[0].blocks[i];
+            // This is hacky but it is required by wasm..
+            if (data.arch == 'wasm') {
+                var last = block.ops[block.ops.length - 1];
+                if (!last.jump) {
+                    last.jump = block.jump;
+                }
+            }
             instructions = instructions.concat(block.ops.map(function(b) {
                 if (max_length < b.opcode.length) {
                     max_length = b.opcode.length;
@@ -97,8 +106,6 @@ module.exports = (function() {
         Global.context.identAsmSet(max_length + max_address);
         this.routine = null;
         this.routine_name = data.graph[0].name;
-        this.blocks[0].instructions = instructions.slice();
-        this.blocks[0].update();
         this.instructions = instructions;
         this.print = function() {
             this.routine.print();
