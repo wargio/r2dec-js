@@ -229,9 +229,9 @@ module.exports = (function() {
             var b = context.stack.pop();
             context.stack.push(s);
             if (_is_next_local(instr, instructions) < 0) {
-                return Base.instructions.extend(s.toString('arg'), b.toString(), _type(instr.parsed[0], true));
+                return Base.instructions.extend(s.toString('arg'), b.toString(), parseInt(instr.parsed[0].replace(/[a-z]/g, '')));
             }
-            return Base.instructions.extend(s.toString(), b.toString(), _type(instr.parsed[0], true));
+            return Base.instructions.extend(s.toString(), b.toString(), parseInt(instr.parsed[0].replace(/[a-z]/g, '')));
         },
         trunc_u: function(instr, context, instructions) {
             var s = _set_local(instr, context, instructions, _type(instr), false);
@@ -293,7 +293,7 @@ module.exports = (function() {
                 var ret = null;
                 if (context.stack.length > 0) {
                     if (context.stack.length > 1) {
-                        console.log('unimplemented..', context.stack);
+                        console.log('stack is full..');
                     }
                     context.returned = context.stack.pop();
                     ret = context.returned.toString();
@@ -338,27 +338,6 @@ module.exports = (function() {
                 input: [],
                 local: [],
                 stack: [],
-            }
-        },
-        custom_start: function(instructions) {
-            var stack = [];
-            var pos = 0;
-            for (var i = 0; i < instructions.length; i++) {
-                var op = instructions[i].parsed[0];
-                if (op == 'if') {
-                    pos = stack.push(instructions[i]);
-                } else if (op == 'else') {
-                    var nop = _NOP(instructions[i - 1]);
-                    stack[pos - 1].jump = instructions[i].loc;
-                    stack[pos - 1] = nop;
-                    instructions.splice(i, 0, nop);
-                    i++;
-                } else if (op == 'end') {
-                    var o = stack.pop();
-                    if (o) {
-                        o.jump = instructions[i].loc;
-                    }
-                }
             }
         },
         localvars: function(context) {

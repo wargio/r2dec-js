@@ -79,6 +79,11 @@ function r2cmdj(m, empty) {
     return x.length > 0 ? libdec.JSON.parse(x) : empty;
 }
 
+function r2issue(m) {
+    var x = r2cmd(m).trim().replace(/\n/g,'');
+    return x.length > 0 ? x : null;
+}
+
 function r2dec_main(args) {
     if (has_invalid_args(args)) {
         args.push('--help');
@@ -120,19 +125,22 @@ function r2dec_main(args) {
             }
 
             if (has_option(args, '--issue')) {
-                var xrefs = (r2cmd('isj')).trim();
-                var strings = (r2cmd('izj')).trim();
-                var data = (r2cmd('agj')).trim();
-                if (xrefs.length == 0) {
-                    xrefs = '[]'
-                }
-                if (strings.length == 0) {
-                    strings = '[]'
-                }
-                if (data.length == 0) {
-                    data = '[]'
-                }
-                console.log('{"name":"issue_' + (new Date()).getTime() + '","arch":"' + arch + '","agj":' + data + ',"isj":' + xrefs + ',"izj":' + strings + '}');
+                var xrefs = r2issue('isj') || '[]'
+                var strings = r2issue('izj') || '[]'
+                var functions = r2issue('aflj') || '[]'
+                var data = r2issue('agj') || '[]'
+                var fcnargs = r2issue('afvj' || true) || '{"sp":[],"bp":[],"reg":[]}'
+                var arch = r2issue('e asm.arch') || ''
+                var archbits = r2issue('e asm.bits') || '32'
+                console.log('{"name":"issue_' + (new Date()).getTime() +
+                    '","arch":"' + arch +
+                    '","archbits":' + archbits +
+                    ',"agj":' + data +
+                    ',"isj":' + xrefs +
+                    ',"izj":' + strings +
+                    ',"afvj":' + fcnargs +
+                    ',"aflj":' + functions + '}');
+
             } else {
                 var xrefs = r2cmdj('isj', []);
                 var strings = r2cmdj('izj', []);
