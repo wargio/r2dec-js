@@ -32,6 +32,9 @@ module.exports = (function() {
     }
 
     var _asm_view = function(instr) {
+        if (Global.evars.honor.blocks) {
+            return;
+        }
         if (Global.evars.honor.assembly) {
             var t = Global.printer.theme;
             var b = Global.printer.auto;

@@ -25,9 +25,11 @@ module.exports = (function() {
             }
         };
         this.printMacros = function() {
-            var t = Global.printer.theme;
-            for (var i = 0; i < this.macros.length; i++) {
-                console.log(this.identfy() + t.macro(this.macros[i]));
+            if (!Global.evars.honor.blocks) {
+                var t = Global.printer.theme;
+                for (var i = 0; i < this.macros.length; i++) {
+                    console.log(this.identfy() + t.macro(this.macros[i]));
+                }
             }
             console.log(this.identfy() + ' ');
         }
@@ -40,6 +42,7 @@ module.exports = (function() {
             }
         };
         this.printDependencies = function() {
+            if (Global.evars.honor.blocks) return;
             this.dependencies.forEach(function(x) {
                 x.print();
             });
@@ -67,7 +70,7 @@ module.exports = (function() {
         this.identfy = function(s, p, noident) {
             var h = Global.printer.html;
             var ident = noident ? '' : h(this.ident);
-            if (Global.evars.honor.assembly) {
+            if (Global.evars.honor.assembly && !Global.evars.honor.blocks) {
                 p = p || '';
                 s = s || 0;
                 return h('    ') + p + this.identAsm.substring(s, this.identAsm.length) + h(' | ') + ident

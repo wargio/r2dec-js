@@ -21,9 +21,19 @@ module.exports = (function() {
     var __debug = false;
 
     var _print_locals = function(locals) {
+        if (Global.evars.honor.blocks) return;
         var a = Global.printer.auto;
         for (var i = 0; i < locals.length; i++) {
             console.log(Global.context.identfy() + a(locals[i]) + ';');
+        }
+    };
+
+    var _print_block_data = function(block) {
+        if (Global.evars.honor.blocks) {
+            var t = Global.printer.theme;
+            var ident = Global.context.identfy();
+            var addr = block.address.toString(16);
+            console.log(ident + t.comment('/* address 0x' + addr + ' */'));
         }
     };
 
@@ -56,6 +66,7 @@ module.exports = (function() {
                 var ident = Global.context.identfy(asmname.length, t.comment(asmname));
                 console.log(ident + this.toString());
                 Global.context.identIn();
+                _print_block_data(this);
                 _print_locals(e.locals);
             };
         },
@@ -70,6 +81,7 @@ module.exports = (function() {
             this.print = function() {
                 console.log(Global.context.identfy() + this.toString());
                 Global.context.identIn();
+                _print_block_data(this);
                 _print_locals(this.locals);
             };
         },
@@ -85,6 +97,7 @@ module.exports = (function() {
                 Global.context.identOut();
                 console.log(Global.context.identfy() + this.toString());
                 Global.context.identIn();
+                _print_block_data(this);
                 _print_locals(this.locals);
             };
         },
@@ -98,6 +111,7 @@ module.exports = (function() {
             this.print = function() {
                 console.log(Global.context.identfy() + this.toString());
                 Global.context.identIn();
+                _print_block_data(this);
                 _print_locals(this.locals);
             };
         },
@@ -112,6 +126,7 @@ module.exports = (function() {
             this.print = function() {
                 console.log(Global.context.identfy() + this.toString());
                 Global.context.identIn();
+                _print_block_data(this);
                 _print_locals(this.locals);
             };
         },
@@ -135,6 +150,7 @@ module.exports = (function() {
                 return t.flow('while') + ' (' + this.condition + ');' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
             };
             this.print = function() {
+                _print_block_data(this);
                 console.log(Global.context.identfy() + this.toString());
             };
         }
