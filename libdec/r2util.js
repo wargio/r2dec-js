@@ -68,7 +68,6 @@ module.exports = (function() {
         "--debug": "do not catch exceptions",
         "--html": "outputs html data instead of text",
         "--issue": "generates the json used for the test suite",
-        "--offset": "shows pseudo next to the offset",
         "--paddr": "all xrefs uses physical addresses instead of virtual addresses",
         "--xrefs": "shows also instruction xrefs in the pseudo code",
     }
@@ -133,7 +132,6 @@ module.exports = (function() {
                 casts: true,
                 assembly: true,
                 blocks: false,
-                offset: false,
                 xrefs: false,
                 paddr: false,
                 pseudo: false,
@@ -173,7 +171,6 @@ module.exports = (function() {
                 casts: r2bool('e r2dec.casts') || has_option(args, '--casts'),
                 assembly: r2bool('e r2dec.asm') || has_option(args, '--assembly'),
                 blocks: r2bool('e r2dec.blocks') || has_option(args, '--blocks'),
-                offset: r2bool('e r2dec.offset') || has_option(args, '--offset'),
                 xrefs: r2bool('e r2dec.xrefs') || has_option(args, '--xrefs'),
                 paddr: r2bool('e r2dec.paddr') || has_option(args, '--paddr'),
                 html: r2bool('e scr.html') || has_option(args, '--html'),

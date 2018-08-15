@@ -150,15 +150,23 @@ static void duk_r2dec(RCore *core, const char *input) {
 }
 
 static void usage(void) {
-	eprintf ("Usage: pdd [args] - core plugin for r2dec\n");
-	eprintf (" pdd   - decompile current function\n");
-	eprintf (" pdd?  - show this help\n");
-	eprintf (" pdda  - decompile current function with side assembly\n");
-	eprintf (" pddb  - decompile current function but shows only scopes\n");
-	eprintf (" pddu  - install/upgrade r2dec via r2pm\n");
-	eprintf (" pddi  - generates the issue data\n");
-	eprintf ("Environment\n");
-	eprintf (" R2DEC_HOME  defaults to the root directory of the r2dec repo\n");
+	r_cons_printf ("Usage: pdd [args] - core plugin for r2dec\n");
+	r_cons_printf (" pdd   - decompile current function\n");
+	r_cons_printf (" pdd?  - show this help\n");
+	r_cons_printf (" pdda  - decompile current function with side assembly\n");
+	r_cons_printf (" pddb  - decompile current function but shows only scopes\n");
+	r_cons_printf (" pddu  - install/upgrade r2dec via r2pm\n");
+	r_cons_printf (" pddi  - generates the issue data\n");
+	r_cons_printf ("Evaluable Variables:\n");
+	r_cons_printf (" r2dec.casts   - if false, hides all casts in the pseudo code.");
+	r_cons_printf (" r2dec.asm     - if true, shows pseudo next to the assembly.");
+	r_cons_printf (" r2dec.blocks  - if true, shows only scopes blocks.");
+	r_cons_printf (" r2dec.xrefs   - if true, shows all xrefs in the pseudo code.");
+	r_cons_printf (" r2dec.paddr   - if true, all xrefs uses physical addresses compare.");
+	r_cons_printf (" r2dec.theme   - defines the color theme to be used on r2dec.");
+	r_cons_printf ("Environment\n");
+	r_cons_printf (" R2DEC_HOME  defaults to the root directory of the r2dec repo\n");
+
 }
 
 static void _cmd_pdd(RCore *core, const char *input) {
@@ -184,10 +192,6 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	case 'b':
 		// --blocks
 		duk_r2dec(core, "--blocks");
-		break;
-	case 'o':
-		// --offset
-		duk_r2dec(core, "--offset");
 		break;
 	case '?':
 	default:
@@ -231,7 +235,6 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	SETPREF("r2dec.casts", "false", "if false, hides all casts in the pseudo code.");
 	SETPREF("r2dec.asm", "false", "if true, shows pseudo next to the assembly.");
 	SETPREF("r2dec.blocks", "false", "if true, shows only scopes blocks.");
-	SETPREF("r2dec.offset", "false", "if true, shows pseudo next to the offset.");
 	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code.");
 	SETPREF("r2dec.paddr", "false", "if true, all xrefs uses physical addresses compare.");
 	SETPREF("r2dec.theme", "default", "defines the color theme to be used on r2dec.");
@@ -250,7 +253,6 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_core_autocomplete_add (pdd, "--debug", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--html", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--issue", R_CORE_AUTOCMPLT_OPTN, true);
-	r_core_autocomplete_add (pdd, "--offset", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--paddr", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--xrefs", R_CORE_AUTOCMPLT_OPTN, true);
 }
