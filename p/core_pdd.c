@@ -158,12 +158,12 @@ static void usage(void) {
 	r_cons_printf (" pddu  - install/upgrade r2dec via r2pm\n");
 	r_cons_printf (" pddi  - generates the issue data\n");
 	r_cons_printf ("Evaluable Variables:\n");
-	r_cons_printf (" r2dec.casts   - if false, hides all casts in the pseudo code.");
-	r_cons_printf (" r2dec.asm     - if true, shows pseudo next to the assembly.");
-	r_cons_printf (" r2dec.blocks  - if true, shows only scopes blocks.");
-	r_cons_printf (" r2dec.xrefs   - if true, shows all xrefs in the pseudo code.");
-	r_cons_printf (" r2dec.paddr   - if true, all xrefs uses physical addresses compare.");
-	r_cons_printf (" r2dec.theme   - defines the color theme to be used on r2dec.");
+	r_cons_printf (" r2dec.casts   - if false, hides all casts in the pseudo code.\n");
+	r_cons_printf (" r2dec.asm     - if true, shows pseudo next to the assembly.\n");
+	r_cons_printf (" r2dec.blocks  - if true, shows only scopes blocks.\n");
+	r_cons_printf (" r2dec.xrefs   - if true, shows all xrefs in the pseudo code.\n");
+	r_cons_printf (" r2dec.paddr   - if true, all xrefs uses physical addresses compare.\n");
+	r_cons_printf (" r2dec.theme   - defines the color theme to be used on r2dec.\n");
 	r_cons_printf ("Environment\n");
 	r_cons_printf (" R2DEC_HOME  defaults to the root directory of the r2dec repo\n");
 
