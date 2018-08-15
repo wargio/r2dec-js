@@ -102,9 +102,8 @@ module.exports = (function() {
             } else if (this.comments.length > 1) {
                 console.log(empty + t.comment('/* ' + this.comments[0]));
                 for (var i = 1; i < this.comments.length; i++) {
-                    console.log(empty + t.comment(' * ' + this.comments[i]));
+                    console.log(empty + t.comment(' * ' + this.comments[i] + (i == this.comments.length - 1 ? ' */' : '')));
                 }
-                console.log(empty + t.comment(' */'));
             }
             if (this.label) {
                 console.log(Global.context.identfy(null, null, true) + this.label + ':');
