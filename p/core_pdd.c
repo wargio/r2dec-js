@@ -243,6 +243,7 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_core_autocomplete_add (pdd, "--html", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--issue", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--xrefs", R_CORE_AUTOCMPLT_OPTN, true);
+	return true;
 }
 
 RCorePlugin r_core_plugin_test = {
