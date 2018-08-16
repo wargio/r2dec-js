@@ -574,7 +574,7 @@ module.exports = (function() {
             },
             pop: function(instr, context, instructions) {
                 var previous = instructions[instructions.indexOf(instr) - 1];
-                if (previous.parsed[0] == 'push') {
+                if (previous && previous.parsed[0] == 'push') {
                     /* 0x0000 push 1; 0x0002 pop eax ===> eax = 1 */
                     var src = previous.parsed[1];
                     previous.parsed = ['nop'];
