@@ -53,7 +53,6 @@ var r2util = require('libdec/r2util');
 
 function r2dec_main(args) {
     var Printer = require('libdec/printer');
-    args.push('--debug')
     try {
         if (r2util.check_args(args)) {
             return;
