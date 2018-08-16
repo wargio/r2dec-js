@@ -63,6 +63,7 @@ module.exports = (function() {
         this.code = null;
         this.valid = true;
         this.jump = data.jump;
+        this.type = data.type;
         this.pointer = (data.ptr && Long.ZERO.lt(data.ptr)) ? data.ptr : null;
         this.location = data.offset;
         this.assembly = data.disasm || data.opcode;

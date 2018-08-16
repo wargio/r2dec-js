@@ -99,7 +99,7 @@ module.exports = (function() {
         var strings = r2_sanitize(r2str('izj'), '[]');
         var functions = r2_sanitize(r2str('aflj'), '[]');
         var data = r2_sanitize(r2str('agj'), '[]');
-        var fcnargs = r2_sanitize(r2str('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
+        var farguments = r2_sanitize(r2str('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
         var arch = r2_sanitize(r2str('e asm.arch'), '');
         var archbits = r2_sanitize(r2str('e asm.bits'), '32');
         console.log('{"name":"issue_' + (new Date()).getTime() +
@@ -108,7 +108,7 @@ module.exports = (function() {
             ',"agj":' + data +
             ',"isj":' + xrefs +
             ',"izj":' + strings +
-            ',"afvj":' + fcnargs +
+            ',"afvj":' + farguments +
             ',"aflj":' + functions + '}');
     }
 
@@ -127,7 +127,9 @@ module.exports = (function() {
             }
             return false;
         },
-        evarsTestSuite: function() {
+        evarsTestSuite: function(data) {
+            this.arch = data.arch;
+            this.archbits = data.bits;
             this.honor = {
                 casts: true,
                 assembly: true,

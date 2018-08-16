@@ -533,7 +533,14 @@ module.exports = (function() {
         return Base.return(reg);
     };
 
-    var _rlwimi = function(dst, src, sh, mb, me) {
+    var _new_variable = function(context, type) {
+        var value = Variable.uniqueName('var_');
+        var local = Variable.local(value, type);
+        context.localvars.push(local);
+        return local;
+    };
+
+    var _rlwimi = function(dst, src, sh, mb, me, context) {
         var m = (mask32(mb, me) >>> 0);
         var minv = (mask32inv(mb, me) >>> 0);
         var ops = [];
@@ -544,16 +551,16 @@ module.exports = (function() {
             if (sh == 0) {
                 ops.push(Base.and(dst, src, m.toString(16)));
             } else {
-                var value = Base.variable();
+                var value = _new_variable(context, 'uint32_t');
                 ops.push(Base.rotate_left(value, src, sh, 32));
                 ops.push(Base.and(dst, value, m.toString(16)));
             }
         } else {
-            var value0 = Base.variable();
-            var value1 = Base.variable();
-            ops.push(Base.rotate_left('uint32_t ' + value0, src, sh, 32));
+            var value0 = _new_variable(context, 'uint32_t');
+            var value1 = _new_variable(context, 'uint32_t');
+            ops.push(Base.rotate_left(value0, src, sh, 32));
             ops.push(Base.and(value0, value0, m.toString(16)));
-            ops.push(Base.and('uint32_t ' + value1, dst, minv.toString(16)));
+            ops.push(Base.and(value1, dst, minv.toString(16)));
             ops.push(Base.or(dst, value1, value0));
         }
         return Base.composed(ops);
@@ -1141,29 +1148,29 @@ module.exports = (function() {
                 var and = Base.and(instr.parsed.opd[0], instr.parsed.opd[0], m);
                 return Base.composed([rol, and]);
             },
-            rlwimi: function(instr) {
+            rlwimi: function(instr, context) {
                 var dst = instr.parsed.opd[0];
                 var src = instr.parsed.opd[1];
                 var sh = parseInt(instr.parsed.opd[2]);
                 var mb = parseInt(instr.parsed.opd[3]);
                 var me = parseInt(instr.parsed.opd[4]);
-                return _rlwimi(dst, src, sh, mb, me);
+                return _rlwimi(dst, src, sh, mb, me, context);
             },
-            clrlwi: function(instr) {
+            clrlwi: function(instr, context) {
                 var dst = instr.parsed.opd[0];
                 var src = instr.parsed.opd[1];
                 var sh = 0;
                 var mb = parseInt(instr.parsed.opd[2]);
                 var me = 31;
-                return _rlwimi(dst, src, sh, mb, me);
+                return _rlwimi(dst, src, sh, mb, me, context);
             },
-            clrrwi: function(instr) {
+            clrrwi: function(instr, context) {
                 var dst = instr.parsed.opd[0];
                 var src = instr.parsed.opd[1];
                 var sh = 0;
                 var mb = 0;
                 var me = 31 - parseInt(instr.parsed.opd[2]);
-                return _rlwimi(dst, src, sh, mb, me);
+                return _rlwimi(dst, src, sh, mb, me, context);
             },
             /*
             to be redone. this is wrong.
@@ -1808,7 +1815,7 @@ module.exports = (function() {
                 returns: 'void',
                 mtlr: {},
                 longaddr: [],
-                vars: []
+                localvars: []
             }
         },
         custom_end: function(instructions, context) {
@@ -1818,7 +1825,7 @@ module.exports = (function() {
             }
         },
         localvars: function(context) {
-            return [];
+            return context.localvars;
         },
         arguments: function(context) {
             return [];

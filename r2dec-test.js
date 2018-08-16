@@ -51,11 +51,11 @@ var r2util = require('libdec/r2util');
 function r2dec_main(filename) {
     try {
         var Printer = require('libdec/printer');
-        Global.evars = new r2util.evarsTestSuite();
-        Global.printer = new Printer();
         if (filename) {
             var jsonstr = read_file(filename).trim();
             var data = r2util.dataTestSuite(jsonstr);
+            Global.evars = new r2util.evarsTestSuite(data);
+            Global.printer = new Printer();
 
             var architecture = libdec.archs[data.arch];
             Global.context = new libdec.context();

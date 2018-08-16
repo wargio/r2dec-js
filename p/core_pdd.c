@@ -142,7 +142,7 @@ static void duk_r2dec(RCore *core, const char *input) {
 	if (*input) {
 		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main(\"%s\".split(/\\s+/));}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}", input);
 	} else {
-		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main(\"\".split(/\\s+/));}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}");
+		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main([]);}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}");
 	}
 	duk_eval_string_noresult (ctx, args);
 	duk_destroy_heap (ctx);
@@ -255,6 +255,7 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_core_autocomplete_add (pdd, "--issue", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--paddr", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--xrefs", R_CORE_AUTOCMPLT_OPTN, true);
+	return true;
 }
 
 RCorePlugin r_core_plugin_test = {

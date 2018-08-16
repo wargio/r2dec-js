@@ -43,6 +43,9 @@ module.exports = (function() {
             var a = Global.printer.auto;
             var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
             var source = Extra.is.string(this.source) ? a(this.source) : this.source;
+            if (source instanceof Variable.functionPointer) {
+                source = '(' + source + ')';
+            }
             return destination + ' = ' + source;
         };
     };
@@ -167,7 +170,7 @@ module.exports = (function() {
             var src_true = Extra.is.string(this.src_true) ? a(this.src_true) : this.src_true.toString();
             var src_false = Extra.is.string(this.src_false) ? a(this.src_false) : this.src_false.toString();
 
-            var s = destination + ' = ' + this.condition + ' ? ';
+            var s = destination + ' = (' + this.condition + ') ? ';
             if (src_true.indexOf(' ') >= 0) {
                 s += '(' + src_true + ') : ';
             } else {

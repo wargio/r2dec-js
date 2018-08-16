@@ -24,7 +24,8 @@ module.exports = (function() {
         if (Global.evars.honor.blocks) return;
         var a = Global.printer.auto;
         for (var i = 0; i < locals.length; i++) {
-            console.log(Global.context.identfy() + a(locals[i]) + ';');
+            var local = Extra.is.string(locals[i]) ? a(locals[i]) : locals[i].toString(true);
+            console.log(Global.context.identfy() + local + ';');
         }
     };
 
