@@ -471,8 +471,7 @@ module.exports = (function() {
 
         var args = [];
 
-        for (var i = (instrs.length - 1);
-            (i >= 0) && (nargs > 0); i--) {
+        for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
 
@@ -480,7 +479,7 @@ module.exports = (function() {
 
             // destination operand is an amd64 systemv argument, and has not been considered yet
             // TODO: being first operand doesn't necessarily mean it is a definition [e.g. 'div', 'mul']
-            if (opd1.token in amd64 && (args[argidx] == undefined)) {
+            if (opd1.token in amd64 && (args[argidx] == undefined) && opd2.token) {
                 var arg = instrs[i].string ?
                     Variable.string(instrs[i].string) :
                     Variable.pointer(opd2.token, Extra.to.type(opd2.mem_access, false));
@@ -491,7 +490,9 @@ module.exports = (function() {
             }
         }
 
-        return args;
+        return args.filter(function(x){
+            return x;
+        });
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
@@ -570,7 +571,6 @@ module.exports = (function() {
             if (nargs == (-1)) {
                 nargs = guess_nargs(instrs.slice(0, start), context);
             }
-
             args = populate_call_args(instrs.slice(0, start), nargs, context);
         }
         var callname = instr.symbol || callsite.token;
@@ -1135,7 +1135,6 @@ module.exports = (function() {
                 } else if (x.type === 'unsigned int') {
                     x.type = (Global.evars.archbits < 32) ? 'uint16_t' : 'uint32_t';
                 }
-
                 return x;
             });
 

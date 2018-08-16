@@ -52,17 +52,19 @@ module.exports = (function() {
 
     const _to = {
         type: function(bits, signed) {
-            if (bits == 0) {
+            if (bits == 0 || !bits) {
                 return 'void';
             }
             return (signed ? 'int' : 'uint') + bits + '_t';
         },
         bits: function(type) {
+            var bits = Global.evars.archbits;
+            type = type.replace(/[un]?signed\s?/, '');
+            if (type.length == 0) type = bits < 32 ? 'int16_t' : 'int32_t';
             if (_standard_types[type]) {
                 return _standard_types[type];
             }
             if (type == 'int') {
-                var bits = Global.evars.archbits;
                 return bits < 32 ? 16 : 32;
             }
             return parseInt(type.replace(/[intu_]/g, ''));
@@ -90,10 +92,10 @@ module.exports = (function() {
                 name = name.substring('sym.'.length);
             } else if (name.startsWith('imp.')) {
                 name = name.substring('imp.'.length);
-            //} else if (name.startsWith('fcn.')) {
-            //    name = name.substring('fcn.'.length);
-            //} else if (name.startsWith('func.')) {
-            //    name = name.substring('func.'.length);
+                //} else if (name.startsWith('fcn.')) {
+                //    name = name.substring('fcn.'.length);
+                //} else if (name.startsWith('func.')) {
+                //    name = name.substring('func.'.length);
             } else if (name.startsWith('reloc.')) {
                 name = name.substring('reloc.'.length);
             }
