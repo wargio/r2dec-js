@@ -562,8 +562,7 @@ module.exports = (function() {
         var args = [];
         var argidx = 0;
 
-        for (var i = (instrs.length - 1);
-            (i >= 0) && (nargs > 0); i--) {
+        for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
             var mnem = instrs[i].parsed.mnem;
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
@@ -573,7 +572,7 @@ module.exports = (function() {
                 var offset;
 
                 // opd1.token may be set to a variable name, and therefore mask the stack pointer dereference. for that
-                // reason we also check whether it is appears as a stack variable, to extract its offset from stacl pointer.
+                // reason we also check whether it appears as a stack variable, to extract its offset from stack pointer.
                 // another option would be undefining that variable manually using "afvs-"
 
                 if (opd1.mem_access && _is_stack_reg(opd1.token)) {
@@ -611,48 +610,44 @@ module.exports = (function() {
     };
 
     var _populate_amd64_call_args = function(instrs, nargs, context) {
-        var amd64 = {
-            'rdi': 0,
-            'edi': 0,
-            'rsi': 1,
-            'esi': 1,
-            'rdx': 2,
-            'edx': 2,
-            'rcx': 3,
-            'ecx': 3,
-            'r10': 3,
-            'r10d': 3, // kernel interface uses r10 instead of rcx
-            'r8': 4,
-            'r8d': 4,
-            'r9': 5,
-            'r9d': 5
-        };
+        var _regs64 = ['rdi', 'rsi', 'rdx', 'rcx', 'r8',  'r9' ];
+        var _regs32 = ['edi', 'esi', 'edx', 'ecx', 'r8d', 'r9d'];
+        var _regskl = [     ,      ,      , 'r10',      ,      ]; // kernel interface uses r10 instead of rcx
 
-        var args = [];
+        var amd64 = Array.prototype.concat(_regs64, _regs32, _regskl);
 
-        for (var i = (instrs.length - 1);
-            (i >= 0) && (nargs > 0); i--) {
+        // arguments are set to default values which will be used in case we cannot find any reference to them
+        // in the preceding assembly code. for example, the caller passes its first argument ('rdi') as the first
+        // argument to the callee; in such case we won't find its initialization instruction, so we'll just use 'rdi'.
+        var args = _regs64.slice(0, nargs);
+
+        for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
 
-            var argidx = amd64[opd1.token];
+            // look for an instruction that has two arguments. we assume that such an instruction would use
+            // its second operand to set the value of the first. although this is not an accurate observation,
+            // it could be used to replace the argument with its value on the arguments list
+            if (opd2.token) {
+                var argidx = amd64.indexOf(opd1.token) % _regs64.length;
 
-            // destination operand is an amd64 systemv argument, and has not been considered yet
-            // TODO: being first operand doesn't necessarily mean it is a definition [e.g. 'div', 'mul']
-            if (opd1.token in amd64 && (args[argidx] == undefined) && opd2.token) {
-                var arg = instrs[i].string ?
-                    Variable.string(instrs[i].string) :
-                    Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                // is destination operand an amd64 systemv argument which has not been considered yet?
+                if ((argidx > (-1)) && (typeof args[argidx] === 'string')) {
 
-                instrs[i].valid = false;
-                args[argidx] = arg;
-                nargs--;
+                    // take the second operand value, that is likely to be used as the first operand's
+                    // initialization value.
+                    var arg = instrs[i].string ?
+                        Variable.string(instrs[i].string) :
+                        Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+
+                    instrs[i].valid = false;
+                    args[argidx] = arg;
+                    nargs--;
+                }
             }
         }
 
-        return args.filter(function(x) {
-            return x;
-        });
+        return args;
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
@@ -852,7 +847,7 @@ module.exports = (function() {
 
         if (loop) {
             instr.conditional(counter, '0', 'NE');
-            instr.jump = instr.loc;
+            instr.jump = instr.location;
         }
 
         var dst = reciept[0];
@@ -1094,14 +1089,6 @@ module.exports = (function() {
                 return _setcc_common(instr.parsed, context.returns.signed, 'NE', context);
             },
             nop: function(instr, context, instructions) {
-                var index = instructions.indexOf(instr);
-
-                if ((index == (instructions.length - 1)) &&
-                    (instructions[index - 1].parsed.mnem === 'call') &&
-                    (instructions[index - 1].pseudo.ctx.indexOf('return') != 0)) {
-                    instructions[index - 1].pseudo.ctx = 'return ' + instructions[index - 1].pseudo.ctx;
-                }
-
                 return Base.nop();
             },
             leave: function(instr, context) {
@@ -1118,7 +1105,7 @@ module.exports = (function() {
 
                 if (dst.mem_access && (dst.token.startsWith('reloc.') || _is_jumping_externally(instr, instructions))) {
                     return Base.call(dst.token);
-                } else if (!dst.mem_access && ['rax', 'eax'].indexOf(dst.token) > -1) {
+                } else if (!dst.mem_access && _x86_x64_registers.indexOf(dst.token) > -1) {
                     return _call_function(instr, context, instructions, true);
                 } else if (dst.mem_access) {
                     return _call_function(instr, context, instructions, _requires_pointer(instr.string, dst.mem_access, context));
@@ -1188,9 +1175,9 @@ module.exports = (function() {
                     }
                 }
 
-                // TODO: poping to gpr resets return value info? why?
-                if (dst.token.match(/[er]?[abcds][ixl]/)) {
-                    context.returns.bits = 0;
+                // poping into result register
+                if (dst.token.match(/[er]?ax/)) {
+                    context.returns.bits = _return_regs_bits[dst];
                     context.returns.signed = false;
                 }
 
