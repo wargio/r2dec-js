@@ -599,7 +599,7 @@ module.exports = (function() {
             if (mnem === 'push') {
                 var arg = instrs[i].string ?
                     Variable.string(instrs[i].string) :
-                    Variable.pointer(opd1.token, opd1.mem_access, false);
+                    Variable[opd1.mem_access ? 'pointer' : 'local'](opd1.token, Extra.to.type(opd1.mem_access, false))
 
                 instrs[i].valid = false;
                 args[argidx++] = arg;
