@@ -17,7 +17,6 @@
 
 module.exports = (function() {
     var Extra = require('libdec/core/extra');
-    var Condition = require('libdec/core/condition');
 
     var _internal_label_cnt = 0;
     var _internal_variable_cnt = 0;
@@ -45,6 +44,7 @@ module.exports = (function() {
                     return x.toType()
                 }).join(', ') : args;
                 this.toType = function() {
+                    var t = Global.printer.theme;
                     var a = Extra.is.array(this.args) ? args.map(function(x) {
                         return x.toType()
                     }).join(', ') : this.args;
@@ -63,6 +63,7 @@ module.exports = (function() {
                 this.name = name;
                 this.type = type;
                 this.toType = function() {
+                    var t = Global.printer.theme;
                     return t.types(this.type) + '*';
                 };
                 this.toString = function(define) {
@@ -85,6 +86,7 @@ module.exports = (function() {
                 this.name = name;
                 this.type = type;
                 this.toType = function() {
+                    var t = Global.printer.theme;
                     return t.types(this.type);
                 };
                 this.toString = function(define) {
@@ -101,6 +103,7 @@ module.exports = (function() {
             return new function(content) {
                 this.content = content;
                 this.toType = function() {
+                    var t = Global.printer.theme;
                     return t.types('char') + '*';
                 };
                 this.toString = function(define) {
