@@ -1158,7 +1158,7 @@ module.exports = (function() {
                 var val = instr.parsed.opd[0];
 
                 return val.mem_access ?
-                    new Base.bits_argument(val.token, val.mem_access, false, true, false) :
+                    Variable.pointer(val.token, Extra.to.type(val.mem_access, false)) :
                     val.token;
             },
             pop: function(instr, context, instrs) {
