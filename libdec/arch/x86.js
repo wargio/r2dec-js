@@ -190,10 +190,10 @@ module.exports = (function() {
      * Registers in x86/x64 arch
      */
     var _x86_x64_registers = [
-        'rax', 'eax', 'ax', 'al',
-        'rbx', 'ebx', 'bx', 'bl',
-        'rcx', 'ecx', 'cx', 'cl',
-        'rdx', 'edx', 'dx', 'dl',
+        'rax', 'eax', 'ax', 'al', 'ah',
+        'rbx', 'ebx', 'bx', 'bl', 'bh',
+        'rcx', 'ecx', 'cx', 'cl', 'ch',
+        'rdx', 'edx', 'dx', 'dl', 'dh',
         'rsi', 'esi', 'si', 'sil',
         'rdi', 'edi', 'di', 'dil',
         'rbp', 'ebp', 'bp', 'bpl',
