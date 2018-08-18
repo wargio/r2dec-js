@@ -459,10 +459,10 @@ module.exports = (function() {
 
         _has_changed_return(destination[destination.length - 1], signed, context);
 
-        var multiplier_type = divisor_is_ptr ? 'pointer' : 'local';
+        var multiplier_type = multiplier_is_ptr ? 'pointer' : 'local';
         var arg_destination = Variable.local(destination.join(':'), osize * 2, signed, false, false);
         var arg_multiplicand = Variable.local(multiplicand, osize, signed, false, false);
-        var arg_multiplier = Variable[dividend_type](multiplier.token, osize, signed);
+        var arg_multiplier = Variable[multiplier_type](multiplier.token, osize, signed);
 
         // destination = multiplicand * multiplier
         return Base.multiply(arg_destination, arg_multiplicand, arg_multiplier);
