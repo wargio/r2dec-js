@@ -98,6 +98,8 @@ module.exports = (function() {
     var _cmp = {
         eq: 'NE',
         ne: 'EQ',
+        eqz: 'NE',
+        nez: 'EQ',
         gt_s: 'LE',
         gt_u: 'LE',
         ge_s: 'LT',
@@ -121,10 +123,21 @@ module.exports = (function() {
         return Base.nop();
     };
 
+    var _conditional_zero = function(instr, context, instructions) {
+        var cond = {};
+        cond.b = '0';
+        cond.a = context.stack.pop().toString();
+        cond.cmp = _cmp[instr.parsed.mnem];
+        context.stack.push(cond);
+        return Base.nop();
+    };
+
     var _wasm_arch = {
         instructions: {
             eq: _conditional,
             ne: _conditional,
+            eqz: _conditional_zero,
+            nez: _conditional_zero,
             gt_s: _conditional,
             gt_u: _conditional,
             ge_s: _conditional,
@@ -290,7 +303,7 @@ module.exports = (function() {
                 }
                 return Base.nop();
             },
-            brif: function(instr, context, instructions) {
+            br_if: function(instr, context, instructions) {
                 var cond = context.stack.pop();
                 if (cond.a) {
                     instr.conditional(cond.a, cond.b, cond.cmp);
@@ -363,13 +376,15 @@ module.exports = (function() {
                         return false;
                     }
                 }
-                return true;
+                return x.cmp ? false : true;
             }).map(function(x) {
                 return x.toString('arg');
             });
         },
         arguments: function(context) {
-            return context.input.map(function(x) {
+            return context.input.filter(function(x){
+                return x != null;
+            }).map(function(x) {
                 return x.toString('arg');
             });
         },
