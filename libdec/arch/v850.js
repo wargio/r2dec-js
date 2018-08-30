@@ -527,6 +527,9 @@ module.exports = (function() {
         localvars: function(context) {
             return [];
         },
+        globalvars: function(context) {
+            return [];
+        },
         arguments: function(context) {
             return [];
         },

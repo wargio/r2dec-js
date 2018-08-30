@@ -503,6 +503,9 @@ module.exports = (function() {
                 vars: []
             }
         },
+        globalvars: function(context) {
+            return [];
+        },
         localvars: function(context) {
             return [];
         },

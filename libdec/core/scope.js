@@ -27,6 +27,7 @@ module.exports = (function() {
             var local = Extra.is.string(locals[i]) ? a(locals[i]) : locals[i].toString(true);
             console.log(Global.context.identfy() + local + ';');
         }
+        console.log(Global.context.identfy());
     };
 
     var _print_block_data = function(block) {
@@ -63,6 +64,7 @@ module.exports = (function() {
             this.print = function() {
                 var e = this.extra;
                 var t = Global.printer.theme;
+                _print_locals(e.globals);
                 var asmname = '; (fcn) ' + e.name + ' ()';
                 var ident = Global.context.identfy(asmname.length, t.comment(asmname));
                 console.log(ident + this.toString());

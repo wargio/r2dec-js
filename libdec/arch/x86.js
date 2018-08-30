@@ -1372,6 +1372,9 @@ module.exports = (function() {
                 return v.type + ' ' + v.name;
             });
         },
+        globalvars: function(context) {
+            return [];
+        },
         arguments: function(context) {
             return context.args.length == 0 ?
                 ['void'] :

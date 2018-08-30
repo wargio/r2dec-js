@@ -34,7 +34,8 @@ module.exports = (function() {
             returns: arch.returns(arch_context) || 'void',
             name: session.routine_name,
             args: arch.arguments(arch_context) || [],
-            locals: arch.localvars(arch_context) || []
+            locals: arch.localvars(arch_context) || [],
+            globals: arch.globalvars(arch_context) || []
         });
         session.routine = routine;
 
@@ -52,6 +53,10 @@ module.exports = (function() {
         var instructions = session.blocks[0].instructions;
         for (var i = 0; i < instructions.length; i++) {
             var instr = instructions[i];
+            if (!instr.parsed.mnem || instr.parsed.mnem.length < 1) {
+                Global.warning("invalid mnem. stopping instruction analysis.");
+                break
+            }
             var fcn = arch.instructions[instr.parsed.mnem];
             // console.log(instr.assembly)
             instr.code = fcn ? fcn(instr, arch_context, instructions) : new Base.unknown(instr.assembly)

@@ -1827,6 +1827,9 @@ module.exports = (function() {
         localvars: function(context) {
             return context.localvars;
         },
+        globalvars: function(context) {
+            return [];
+        },
         arguments: function(context) {
             return [];
         },

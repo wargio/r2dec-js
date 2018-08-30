@@ -45,7 +45,8 @@ Duktape.errCreate = function(err) {
 var Global = {
     context: null,
     evars: null,
-    printer: null
+    printer: null,
+    warning: require('libdec/warning')
 };
 // imports
 var libdec = require('libdec/libdec');

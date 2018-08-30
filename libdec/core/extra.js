@@ -48,6 +48,14 @@ module.exports = (function() {
         array: function(s) {
             return Array.isArray(s);
         },
+        inObject: function(object, value) {
+            for (var k in object) {
+                if (object[k] == value) {
+                    return true;
+                }
+            }
+            return false;
+        },
     };
 
     const _to = {
@@ -68,7 +76,14 @@ module.exports = (function() {
                 return bits < 32 ? 16 : 32;
             }
             return parseInt(type.replace(/[intu_]/g, ''));
-        }
+        },
+        array: function(object) {
+            var a = [];
+            for (var key in object) {
+                a.push(object[key]);
+            }
+            return a;
+        },
     };
 
     const _find = {
