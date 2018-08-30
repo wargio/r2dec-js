@@ -25,7 +25,7 @@ module.exports = (function() {
             return 1;
         }
         return -1;
-    }
+    };
 
     /*
      * Expects the aflj json as input.

@@ -88,7 +88,7 @@ var json_parse = function(options) {
                     try {
                         return Long.fromString(string, true);
                     } catch (e) {
-                        console.log(e.stack)
+                        console.log(e.stack);
                         return string;
                     }
                 }
@@ -252,7 +252,7 @@ var json_parse = function(options) {
         // in an empty key. If there is not a reviver function, we simply return the
         // result.
         return typeof reviver === 'function' ? (function walk(holder, key) {
-            var k, v, value = holder[key];
+            var v, value = holder[key];
             if (value && typeof value === 'object') {
                 Object.keys(value).forEach(function(k) {
                     v = walk(value, k);

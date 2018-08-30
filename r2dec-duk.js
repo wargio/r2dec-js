@@ -55,11 +55,12 @@ var r2util = require('libdec/r2util');
 function r2dec_main(args) {
     var Printer = require('libdec/printer');
     try {
-        if (r2util.check_args(args)) {
-            return;
-        }
         Global.evars = new r2util.evars(args);
         r2util.sanitize(true, Global.evars);
+        if (r2util.check_args(args)) {
+            r2util.sanitize(false, Global.evars);
+            return;
+        }
 
         // theme (requires to be initialized after evars)
         Global.printer = new Printer();

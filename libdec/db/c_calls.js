@@ -38,7 +38,9 @@ module.exports = (function() {
                     mident + 'return (value << count) | (value >> (-count & mask));'
                 ];
                 this.print = function() {
-                    if (_unique_print.rotate_left.indexOf(this.bits) >= 0) return;
+                    if (_unique_print.rotate_left.indexOf(this.bits) >= 0) {
+                        return;
+                    }
                     _unique_print.rotate_left.push(this.bits);
                     var call = this.name.replace(/###/g, this.bits);
                     var type = this.returns.replace(/###/g, this.bits);
@@ -67,7 +69,9 @@ module.exports = (function() {
                     mident + 'return (value >> count) | (value << (-count & mask));'
                 ];
                 this.print = function() {
-                    if (_unique_print.rotate_right.indexOf(this.bits) >= 0) return;
+                    if (_unique_print.rotate_right.indexOf(this.bits) >= 0) {
+                        return;
+                    }
                     _unique_print.rotate_right.push(this.bits);
                     var call = this.name.replace(/###/g, this.bits);
                     var type = this.returns.replace(/###/g, this.bits);
@@ -89,7 +93,9 @@ module.exports = (function() {
             ],
             fcn: function() {
                 this.print = function() {
-                    if (_unique_print.bit_mask) return;
+                    if (_unique_print.bit_mask) {
+                        return;
+                    }
                     _unique_print.bit_mask = true;
                     var t = Global.printer.theme;
                     console.log(Global.context.identfy() + t.macro('#define BIT_MASK(t,v) ((t)(-((v)!= 0)))&(((t)-1)>>((sizeof(t)*CHAR_BIT)-(v)))'));
@@ -121,7 +127,9 @@ module.exports = (function() {
                     this.data.push('                                 ((val & 0xff00000000000000ull) >> 56)))');
                 }
                 this.print = function() {
-                    if (_unique_print.swap_endian.indexOf(this.bits) >= 0) return;
+                    if (_unique_print.swap_endian.indexOf(this.bits) >= 0) {
+                        return;
+                    }
                     _unique_print.swap_endian.push(this.bits);
                     var t = Global.printer.theme;
                     for (var i = 0; i < this.data.length; i++) {

@@ -83,7 +83,9 @@ module.exports = (function() {
             }
         };
         this.split = function(from) {
-            if (from < 0 || from >= this.instructions.length) return null;
+            if (from < 0 || from >= this.instructions.length) {
+                return null;
+            }
             var i = this.instructions.splice(from, this.instructions.length);
             var b = new _block(new Bounds(i[0].location, i[i.length - 1].location));
             b.instructions = i;
@@ -98,7 +100,8 @@ module.exports = (function() {
         this.print = function() {
             var h = 0;
             var t = 0;
-            for (var i = 0; i < this.instructions.length; i++) {
+            var i;
+            for (i = 0; i < this.instructions.length; i++) {
                 while (this.extraHead[h] && this.extraHead[h].address.lte(this.instructions[i].location)) {
                     this.extraHead[h].print();
                     h++;
@@ -109,10 +112,12 @@ module.exports = (function() {
                     t++;
                 }
             }
-            for (var i = h; i < this.extraHead.length; i++) {
+            //this one is bad, but it still require to be executed.
+            for (i = h; i < this.extraHead.length; i++) {
                 this.extraHead[i].print();
             }
-            for (var i = t; i < this.extraTail.length; i++) {
+            //this one is ok.
+            for (i = t; i < this.extraTail.length; i++) {
                 this.extraTail[i].print();
             }
         };

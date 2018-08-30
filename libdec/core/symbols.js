@@ -25,7 +25,7 @@ module.exports = (function() {
             return 1;
         }
         return -1;
-    }
+    };
 
     var _virtual_compare = function(a, b) {
         return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);

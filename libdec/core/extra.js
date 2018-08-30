@@ -68,7 +68,9 @@ module.exports = (function() {
         bits: function(type) {
             var bits = Global.evars.archbits;
             type = type.replace(/[un]?signed\s?/, '');
-            if (type.length == 0) type = bits < 32 ? 'int16_t' : 'int32_t';
+            if (type.length == 0) {
+                type = bits < 32 ? 'int16_t' : 'int32_t';
+            }
             if (_standard_types[type]) {
                 return _standard_types[type];
             }

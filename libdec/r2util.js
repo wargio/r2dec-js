@@ -47,7 +47,7 @@ module.exports = (function() {
     }
 
     function r2_sanitize(value, expected) {
-        return value.length = 0 ? expected : value;
+        return value.length == 0 ? expected : value;
     }
 
     function r2dec_sanitize(enable, evar, oldstatus, newstatus) {
@@ -56,7 +56,7 @@ module.exports = (function() {
         } else {
             r2cmd('e ' + evar + ' = ' + oldstatus);
         }
-    };
+    }
 
     var padding = '            ';
     var usages = {
@@ -70,7 +70,7 @@ module.exports = (function() {
         "--issue": "generates the json used for the test suite",
         "--paddr": "all xrefs uses physical addresses instead of virtual addresses",
         "--xrefs": "shows also instruction xrefs in the pseudo code",
-    }
+    };
 
     function has_option(args, name) {
         return (args.indexOf(name) >= 0);
@@ -143,7 +143,7 @@ module.exports = (function() {
             this.extra = {
                 theme: 'default',
                 debug: true
-            }
+            };
         },
         dataTestSuite: function(x) {
             var o = _JSON.parse(x);
@@ -186,7 +186,7 @@ module.exports = (function() {
             this.extra = {
                 theme: r2str('e r2dec.theme'),
                 debug: has_option(args, '--debug')
-            }
+            };
         },
         data: function() {
             this.arch = r2str('e asm.arch');

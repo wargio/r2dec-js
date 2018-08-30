@@ -41,12 +41,12 @@ module.exports = (function() {
                 this.name = name;
                 this.type = type;
                 this.args = Extra.is.array(args) ? args.map(function(x) {
-                    return x.toType()
+                    return x.toType();
                 }).join(', ') : args;
                 this.toType = function() {
                     var t = Global.printer.theme;
                     var a = Extra.is.array(this.args) ? args.map(function(x) {
-                        return x.toType()
+                        return x.toType();
                     }).join(', ') : this.args;
                     return t.types(this.type) + ' (*)(' + a + ')';
                 };
@@ -54,7 +54,7 @@ module.exports = (function() {
                     var t = Global.printer.theme;
                     var a = Global.printer.auto;
                     return t.types(this.type) + ' (*' + a(this.name) + ')(' + this.args + ')';
-                }
+                };
             }(variable_name, Extra.to.type(bits || 0), arguments_type || '');
         },
         pointer: function(variable_name, ctype_or_bits, is_signed) {
@@ -77,7 +77,7 @@ module.exports = (function() {
                         c += '(' + t.types(this.type) + '*) ';
                     }
                     return c + a(this.name) + ')';
-                }
+                };
             }(variable_name, ctype);
         },
         local: function(variable_name, ctype_or_bits, is_signed) {
@@ -96,7 +96,7 @@ module.exports = (function() {
                         return t.types(this.type) + ' ' + a(this.name);
                     }
                     return a(this.name);
-                }
+                };
             }(variable_name, ctype);
         },
         string: function(string_content) {
@@ -112,7 +112,7 @@ module.exports = (function() {
                         return null;
                     }
                     return t.text(this.content);
-                }
+                };
             }(string_content);
         },
         macro: function(string_content) {
@@ -127,7 +127,7 @@ module.exports = (function() {
                         return null;
                     }
                     return t.macro(this.content);
-                }
+                };
             }(string_content);
         }
     };

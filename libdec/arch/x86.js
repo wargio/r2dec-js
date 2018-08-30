@@ -504,12 +504,12 @@ module.exports = (function() {
 
     var _check_known_neg = function(x) {
         if (x == '0xffffffffffffffff') {
-            return '-1'
+            return '-1';
         } else if (Global.evars.archbits == 32 && x == '0xffffffff') {
-            return '-1'
+            return '-1';
         }
         return x;
-    }
+    };
 
     var _get_cond_params = function(p) {
         var lhand = p.opd[0];
@@ -561,6 +561,7 @@ module.exports = (function() {
     var _populate_cdecl_call_args = function(instrs, nargs, context) {
         var args = [];
         var argidx = 0;
+        var arg;
 
         for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
             var mnem = instrs[i].parsed.mnem;
@@ -585,7 +586,7 @@ module.exports = (function() {
                     // an irrelevant 'mov' isntruction; nothing to do here
                     continue;
                 }
-                var arg = instrs[i].string ?
+                arg = instrs[i].string ?
                     Variable.string(instrs[i].string) :
                     Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
 
@@ -596,9 +597,9 @@ module.exports = (function() {
 
             // passing argument by pushing them to stack
             if (mnem === 'push') {
-                var arg = instrs[i].string ?
+                arg = instrs[i].string ?
                     Variable.string(instrs[i].string) :
-                    Variable[opd1.mem_access ? 'pointer' : 'local'](opd1.token, Extra.to.type(opd1.mem_access, false))
+                    Variable[opd1.mem_access ? 'pointer' : 'local'](opd1.token, Extra.to.type(opd1.mem_access, false));
 
                 instrs[i].valid = false;
                 args[argidx++] = arg;
@@ -730,7 +731,7 @@ module.exports = (function() {
             args = populate_call_args(instrs.slice(0, start), nargs, context);
         }
 
-        var callname = instr.symbol || callsite.token;
+        callname = instr.symbol || callsite.token;
         if (callsite.mem_access && callname.startsWith('0x')) {
             callname = Variable.functionPointer(callname.token, callname.mem_access, args);
         } else if (is_pointer || (!callsite.mem_access && callname.match(/\b([er])?[abds][ixl]\b/))) {
@@ -1111,7 +1112,7 @@ module.exports = (function() {
                     return _call_function(instr, context, instructions, _requires_pointer(instr.string, dst.mem_access, context));
                 }
 
-                return Base.nop()
+                return Base.nop();
             },
             cmp: function(instr, context) {
                 var c = _get_cond_params(instr.parsed);
@@ -1305,7 +1306,7 @@ module.exports = (function() {
             //         (?:\]?)                             : optional closing bracket (stripped)
             //     )?
             // )?
-            var tokens = asm.match(/(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^\[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^\[\],]+)(?:\]?))?)?/);
+            var tokens = asm.match(/(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?)?/);
 
             // tokens[0]: match string; irrelevant
             // tokens[1]: instruction prefix; undefined if no prefix

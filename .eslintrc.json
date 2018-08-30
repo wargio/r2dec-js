@@ -14,17 +14,27 @@
             "allowEmptyCatch": true
         }],
         "no-unused-vars": ["error", {
-            "varsIgnorePattern": "r2dec_",
+            "varsIgnorePattern": "r2dec_|\\binclude\\b",
             "args": "none"
+        }],
+        "curly": "error",
+        "no-sparse-arrays": "warn",
+        "no-cond-assign": ["error", "except-parens"],
+        "no-constant-condition": ["error", {
+            "checkLoops": false
         }]
     },
     "globals": {
         "Global": true,
         "Duktape": true,
+        "TextDecoder": true,
         "require": true,
         "include": true,
         "read_file": true,
         "module": true,
-        "console": true
+        "console": true,
+        "r2cmd": true,
+        "___internal_load": true,
+        "___internal_require": true
     }
 }

@@ -32,7 +32,7 @@ module.exports = (function() {
                 }
             }
             console.log(this.identfy() + ' ');
-        }
+        };
 
         // macros
         this.dependencies = [];
@@ -42,14 +42,16 @@ module.exports = (function() {
             }
         };
         this.printDependencies = function() {
-            if (Global.evars.honor.blocks) return;
+            if (Global.evars.honor.blocks) {
+                return;
+            }
             this.dependencies.forEach(function(x) {
                 x.print();
             });
             if (this.dependencies.length > 0) {
                 console.log(this.identfy() + ' ');
             }
-        }
+        };
 
         // ident for print
         this.identAsm = '';
@@ -73,7 +75,7 @@ module.exports = (function() {
             if (Global.evars.honor.assembly && !Global.evars.honor.blocks) {
                 p = p || '';
                 s = s || 0;
-                return h('    ') + p + this.identAsm.substring(s, this.identAsm.length) + h(' | ') + ident
+                return h('    ') + p + this.identAsm.substring(s, this.identAsm.length) + h(' | ') + ident;
             }
             return ident;
         };
@@ -96,14 +98,14 @@ module.exports = (function() {
         };
         this.push = function(x) {
             if (this.scope.length < 1) {
-                throw new Error("Bad context stack (push with zero)")
+                throw new Error("Bad context stack (push with zero)");
             }
             this.scope[this.scope.length - 1]++;
             this.stack.push(x);
         };
         this.pop = function() {
             if (this.scope.length < 1 || this.scope[this.scope.length - 1] == 0) {
-                throw new Error("Bad context stack (pop with zero)")
+                throw new Error("Bad context stack (pop with zero)");
             }
             this.scope[this.scope.length - 1]--;
             return this.stack.pop();

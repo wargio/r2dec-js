@@ -18,7 +18,7 @@
 module.exports = function(data) {
     this.data = data;
     this.print = function() {
-    	var t = Global.printer.theme;
+        var t = Global.printer.theme;
         for (var i = 0; i < this.data.length; i++) {
             console.log(Global.context.identfy() + t.macro(this.data[i]));
         }

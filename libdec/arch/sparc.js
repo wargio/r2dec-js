@@ -27,9 +27,9 @@ module.exports = (function() {
             return name;
         }
         if (name.indexOf('fcn.') == 0 || name.indexOf('func.') == 0) {
-            return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
+            return name.replace(/[.:]/g, '_').replace(/__+/g, '_');
         }
-        return name.replace(/\[reloc\.|\]/g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/_[0-9a-f]+$/, '').replace(/^_+/, '');
+        return name.replace(/\[reloc\.|\]/g, '').replace(/[.:]/g, '_').replace(/__+/g, '_').replace(/_[0-9a-f]+$/, '').replace(/^_+/, '');
     };
 
     var _load = function(instr, context, instruction, signed, bits) {
@@ -89,7 +89,7 @@ module.exports = (function() {
                     return true;
                 }
                 return (e.mnem == 'or' && e.opd[0] == r && e.opd[2] == r) || (e.mnem == 'add' && e.opd[0] == r && e.opd[2] == r);
-            },
+            }
         ];
         var address = [
             function(e, addr) {
@@ -114,7 +114,7 @@ module.exports = (function() {
         }
         if (addr) {
             --i;
-            addr = '0x' + addr.toString(16)
+            addr = '0x' + addr.toString(16);
             instr.code = Base.assign(instr.parsed.opd[1], addr.replace(/0x-/, '-0x'));
         }
         return i;
@@ -131,27 +131,27 @@ module.exports = (function() {
         instructions: {
             add: function(instr, context, instructions) {
                 if (instr.parsed.opd[1].indexOf('-') >= 0) {
-                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''))
+                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
                 return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             addcc: function(instr, context, instructions) {
                 _compare(instr, context);
                 if (instr.parsed.opd[1].indexOf('-') >= 0) {
-                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''))
+                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
                 return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             addx: function(instr, context, instructions) {
                 if (instr.parsed.opd[1].indexOf('-') >= 0) {
-                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''))
+                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
                 return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             addxcc: function(instr, context, instructions) {
                 _compare(instr, context);
                 if (instr.parsed.opd[1].indexOf('-') >= 0) {
-                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''))
+                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
                 return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
@@ -311,27 +311,27 @@ module.exports = (function() {
             },
             sub: function(instr, context, instructions) {
                 if (instr.parsed.opd[1].indexOf('-') >= 0) {
-                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''))
+                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
                 return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             subcc: function(instr, context, instructions) {
                 _compare(instr, context);
                 if (instr.parsed.opd[1].indexOf('-') >= 0) {
-                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''))
+                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
                 return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             subx: function(instr, context, instructions) {
                 if (instr.parsed.opd[1].indexOf('-') >= 0) {
-                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''))
+                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
                 return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             subxcc: function(instr, context, instructions) {
                 _compare(instr, context);
                 if (instr.parsed.opd[1].indexOf('-') >= 0) {
-                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''))
+                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
                 return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
@@ -375,7 +375,7 @@ module.exports = (function() {
                     a: null,
                     b: null
                 }
-            }
+            };
         },
         custom_start: function(instructions) {
             /* delayed branch fix */

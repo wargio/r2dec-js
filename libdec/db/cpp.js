@@ -52,7 +52,7 @@ module.exports = (function() {
     return function(str) {
         for (var key in _known_cpp_data) {
             if (str.indexOf(key) >= 0) {
-                var find = new RegExp(key.replace(/([\(\)\[\]|\\\*\+])/g, '\\$1'), 'g');
+                var find = new RegExp(key.replace(/([()[\]|\\*+])/g, '\\$1'), 'g');
                 str = str.replace(find, _known_cpp_data[key]);
             }
         }

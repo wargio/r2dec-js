@@ -37,8 +37,8 @@ module.exports = (function() {
     };
 
     var _condition = function(instruction, invert) {
-        return instruction.cond ? new Condition.convert(instruction.cond.a, instruction.cond.b, instruction.cond.type, invert) : new Condition.inf()
-    }
+        return instruction.cond ? new Condition.convert(instruction.cond.a, instruction.cond.b, instruction.cond.type, invert) : new Condition.inf();
+    };
 
 
     var ControlFlowContext = function(blocks, instructions) {
@@ -62,7 +62,7 @@ module.exports = (function() {
                 this.blocks.push(blk);
                 this.blocks = this.blocks.sort(_compare_blocks);
             }
-        }
+        };
         this.findBlock = function(location) {
             for (var i = 0; i < this.blocks.length; i++) {
                 if (this.blocks[i].bounds.isInside(location)) {
@@ -107,6 +107,7 @@ module.exports = (function() {
 
     var _set_loops = function(instruction, index, context) {
         // loops jumps only backwards or to the same location.
+        var single_instr = null;
         if (instruction.jump.gt(instruction.location)) {
             return false;
         }
@@ -114,7 +115,7 @@ module.exports = (function() {
 
         // let's check if is a oneline loop or panic loop
         if (instruction.jump.eq(instruction.location)) {
-            var single_instr = block.split(index);
+            single_instr = block.split(index);
             if (!instruction.code) {
                 single_instr.addExtraHead(new Scope.whileInline(instruction.jump, _condition(instruction)));
             } else {
@@ -135,7 +136,7 @@ module.exports = (function() {
             }
             instruction.code = Base.goto(label);
             if (instruction.cond) {
-                var single_instr = block.split(block.instructions.indexOf(instruction));
+                single_instr = block.split(block.instructions.indexOf(instruction));
                 single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, true)));
                 single_instr.addExtraTail(new Scope.brace(instruction.location));
                 context.addBlock(single_instr);
@@ -167,7 +168,7 @@ module.exports = (function() {
     };
 
     var _set_if_else = function(instruction, index, context) {
-
+        var label = null;
         // if/else jumps only forward and inside the block.
         if (instruction.jump.lte(instruction.location)) {
             return false;
@@ -180,7 +181,7 @@ module.exports = (function() {
         }
         if (!instruction.cond) {
             if (!instruction.code) {
-                var label = context.findLabel(instruction.jump);
+                label = context.findLabel(instruction.jump);
                 if (!label) {
                     label = Variable.newLabel(instruction.jump);
                     context.addLabel(label);
@@ -196,7 +197,7 @@ module.exports = (function() {
 
         // not found. let's use goto.
         if (!outside) {
-            var label = context.findLabel(instruction.jump);
+            label = context.findLabel(instruction.jump);
             if (!label) {
                 label = Variable.newLabel(instruction.jump);
                 context.addLabel(label);
@@ -204,7 +205,9 @@ module.exports = (function() {
             instruction.code = Base.goto(label);
             if (instruction.cond) {
                 var single_instr = block.split(block.instructions.indexOf(instruction));
-                if (!single_instr) return true;
+                if (!single_instr) {
+                    return true;
+                }
                 single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, true)));
                 single_instr.addExtraTail(new Scope.brace(instruction.location));
                 context.addBlock(single_instr);
@@ -253,21 +256,26 @@ module.exports = (function() {
     };
 
     return function(session) {
+        var j, i;
         var context = new ControlFlowContext(session.blocks, session.instructions);
 
-        for (var j = 0; j < session.instructions.length; j++) {
-            if (!session.instructions[j].jump) continue;
+        for (j = 0; j < session.instructions.length; j++) {
+            if (!session.instructions[j].jump) {
+                continue;
+            }
             if (!_set_outbounds_jump(session.instructions[j], j, context)) {
                 _set_loops(session.instructions[j], j, context);
             }
         }
 
-        for (var j = 0; j < session.instructions.length; j++) {
-            if (!session.instructions[j].jump) continue;
+        for (j = 0; j < session.instructions.length; j++) {
+            if (!session.instructions[j].jump) {
+                continue;
+            }
             _set_if_else(session.instructions[j], j, context);
         }
 
-        for (var i = 0; i < context.labels.length; i++) {
+        for (i = 0; i < context.labels.length; i++) {
             var instruction = Utils.search(context.labels[i].address, session.instructions, _compare_locations);
             instruction.label = context.labels[i];
         }

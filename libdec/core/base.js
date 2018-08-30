@@ -19,7 +19,6 @@ module.exports = (function() {
     const Cpp = require('libdec/db/cpp');
     const CCalls = require('libdec/db/c_calls');
 
-    const Macro = require('libdec/core/macro');
     const Extra = require('libdec/core/extra');
     const Variable = require('libdec/core/variable');
     const Condition = require('libdec/core/condition');
@@ -30,7 +29,7 @@ module.exports = (function() {
             var t = Global.printer.theme;
             var a = Global.printer.auto;
             return t.callname('__asm') + ' (' + a(this.asm) + ')';
-        }
+        };
     };
 
     var _generic_assignment = function(destination, source) {
@@ -56,7 +55,6 @@ module.exports = (function() {
         this.operator = operator;
         this.toString = function() {
             var a = Global.printer.auto;
-            var t = Global.printer.theme;
             var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
             var source = Extra.is.string(this.source) ? a(this.source) : this.source;
             return destination + ' = ' + this.operator + source;
@@ -126,7 +124,7 @@ module.exports = (function() {
             var rotation = Extra.is.string(this.rotation) ? a(this.rotation) : this.rotation;
             return destination + ' = ' + t.callname(this.call) + ' (' + source_a + ', ' + rotation + ')';
         };
-    }
+    };
 
     var _generic_return = function(value) {
         this.value = value;

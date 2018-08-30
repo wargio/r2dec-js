@@ -29,20 +29,21 @@ module.exports = (function() {
 
     var _printable = function(instr) {
         return instr.valid && instr.code && instr.code.toString().length > 0;
-    }
+    };
 
     var _asm_view = function(instr) {
+        var i;
         if (Global.evars.honor.blocks) {
             return;
         }
         if (Global.evars.honor.assembly) {
             var t = Global.printer.theme;
             var b = Global.printer.auto;
-            var addr = _align(instr.location)
+            var addr = _align(instr.location);
             var s = 1 + addr.length + instr.simplified.length;
             if (instr.code && instr.code.composed) {
                 console.log(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + instr.code.composed[0] + ';');
-                for (var i = 1; i < instr.code.composed.length; i++) {
+                for (i = 1; i < instr.code.composed.length; i++) {
                     console.log(Global.context.identfy() + instr.code.composed[i] + ';');
                 }
             } else {
@@ -50,7 +51,7 @@ module.exports = (function() {
             }
         } else {
             if (instr.code && instr.code.composed) {
-                for (var i = 0; i < instr.code.composed.length; i++) {
+                for (i = 0; i < instr.code.composed.length; i++) {
                     console.log(Global.context.identfy() + instr.code.composed[i] + ';');
                 }
             } else if (_printable(instr)) {
@@ -79,7 +80,7 @@ module.exports = (function() {
         if (Global.evars.honor.xrefs) {
             for (var i = 0; i < this.xrefs.length; i++) {
                 var e = 'XREF ' + this.xrefs[i].type + ": 0x" + this.xrefs[i].addr.toString(16);
-                this.comments.push(e)
+                this.comments.push(e);
             }
         }
         this.conditional = function(a, b, type) {
@@ -88,7 +89,7 @@ module.exports = (function() {
                     a: a,
                     b: b,
                     type: type
-                }
+                };
             }
         };
         this.setBadJump = function() {
@@ -96,8 +97,7 @@ module.exports = (function() {
         };
         this.print = function() {
             var t = Global.printer.theme;
-            var a = Global.printer.auto;
-            var empty = Global.context.identfy()
+            var empty = Global.context.identfy();
             if (this.comments.length == 1) {
                 console.log(empty + t.comment('/* ' + this.comments[0] + ' */'));
             } else if (this.comments.length > 1) {

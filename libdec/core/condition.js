@@ -34,7 +34,7 @@ module.exports = (function() {
         inf: function() {
             this.toString = function() {
                 return Global.printer.theme.integers('1');
-            }
+            };
         },
         convert: function(a, b, cond, invert) {
             this.condition = cond ? _cmps[cond][invert ? 1 : 0] : '';

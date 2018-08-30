@@ -28,7 +28,7 @@ module.exports = (function() {
     var _post_analysis = function(session, arch, arch_context) {
         ControlFlow(session);
         if (arch.custom_end) {
-            arch.custom_end(session.instructions, arch_context)
+            arch.custom_end(session.instructions, arch_context);
         }
         var routine = new Scope.routine(session.instructions[0].location, {
             returns: arch.returns(arch_context) || 'void',
@@ -43,7 +43,7 @@ module.exports = (function() {
 
     var _pre_analysis = function(session, arch, arch_context) {
         if (arch.custom_start) {
-            arch.custom_start(session.instructions, arch_context)
+            arch.custom_start(session.instructions, arch_context);
         }
         session.blocks[0].instructions = session.instructions.slice();
         session.blocks[0].update();
@@ -55,11 +55,11 @@ module.exports = (function() {
             var instr = instructions[i];
             if (!instr.parsed.mnem || instr.parsed.mnem.length < 1) {
                 Global.warning("invalid mnem. stopping instruction analysis.");
-                break
+                break;
             }
             var fcn = arch.instructions[instr.parsed.mnem];
             // console.log(instr.assembly)
-            instr.code = fcn ? fcn(instr, arch_context, instructions) : new Base.unknown(instr.assembly)
+            instr.code = fcn ? fcn(instr, arch_context, instructions) : new Base.unknown(instr.assembly);
         }
     };
 
@@ -72,7 +72,7 @@ module.exports = (function() {
         Global.context.printDependencies();
         session.print();
         while (Global.context.ident.length > 0) {
-            Global.context.identOut()
+            Global.context.identOut();
             console.log(Global.context.identfy() + '}');
         }
     };

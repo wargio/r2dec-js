@@ -53,7 +53,6 @@ module.exports = (function() {
     var load_bits = function(instr, bits, unsigned) {
         instr.setBadJump();
         var e = instr.parsed;
-        var s = unsigned ? "u" : "";
         var arg = e.opd[1].replace(/\)/, '').split('(');
         if (arg[1] == '0') {
             //pointer, register, bits, is_signed
@@ -77,7 +76,6 @@ module.exports = (function() {
     var store_bits = function(instr, bits, unsigned) {
         instr.setBadJump();
         var e = instr.parsed;
-        var s = unsigned ? "u" : "";
         var arg = e.opd[1].replace(/\)/, '').split('(');
         if (arg[1] == '0') {
             //pointer, register, bits, is_signed
@@ -144,7 +142,7 @@ module.exports = (function() {
             instructions[i].pseudocode = Base.nop();
         }
         --i;
-        addr = '0x' + addr.toString(16)
+        addr = '0x' + addr.toString(16);
         instr.code = Base.assign(instr.parsed.opd[0], addr.replace(/0x-/, '-0x'));
         return i;
     };
@@ -320,12 +318,14 @@ module.exports = (function() {
                 var reg = null;
                 for (var i = instructions.length - 1; i >= 0; i--) {
                     var e = instructions[i].parsed;
-                    if (!e) continue;
+                    if (!e) {
+                        continue;
+                    }
                     if (e.opd.indexOf('v0') == 1 || e.opd.indexOf('v1') == 1) {
                         reg = e.opd[0];
                         break;
                     }
-                };
+                }
                 return Base.return(reg);
             },
             'jal': function(instr) {
@@ -392,7 +392,7 @@ module.exports = (function() {
                     a: null,
                     b: null
                 }
-            }
+            };
         },
         custom_start: function(instructions) {
             /* delayed branch fix */

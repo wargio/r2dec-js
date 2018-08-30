@@ -114,74 +114,76 @@ module.exports = (function() {
     };
 
     var _load16 = function(instr, context) {
+        var v, m, op;
         _returns_r0(instr, context);
         var ptr = instr.parsed.opd[1];
         if (ptr.indexOf('-') >= 0) {
             ptr = ptr.replace('-', '');
-            var v = Variable.uniqueName('local_');
+            v = Variable.uniqueName('local_');
             //pointer, register, bits, is_signed
-            var m = [
+            m = [
                 Base.read_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[0], 8, false),
                 Base.assign('uint8_t ' + v, AVR_MEMORY[ptr].low),
                 Base.subtract(AVR_MEMORY[ptr].low, AVR_MEMORY[ptr].low, 1),
                 Base.conditional_math(AVR_MEMORY[ptr].high, AVR_MEMORY[ptr].low, v, 'LT', AVR_MEMORY[ptr].high, 1, AVR_MEMORY[ptr].high, '-')
             ];
-            var op = Base.composed(m);
+            op = Base.composed(m);
             Global.context.addMacro(AVR_MEMORY[ptr].macro);
             return op;
         } else if (ptr.indexOf('+') >= 0) {
             ptr = ptr.replace('+', '');
-            var v = Variable.uniqueName('local_');
+            v = Variable.uniqueName('local_');
             //pointer, register, bits, is_signed
-            var m = [
+            m = [
                 Base.read_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[0], 8, false),
                 Base.assign('uint8_t ' + v, AVR_MEMORY[ptr].low),
                 Base.add(AVR_MEMORY[ptr].low, AVR_MEMORY[ptr].low, 1),
                 Base.conditional_math(AVR_MEMORY[ptr].high, AVR_MEMORY[ptr].low, v, 'LT', AVR_MEMORY[ptr].high, 1, AVR_MEMORY[ptr].high, '+')
             ];
-            var op = Base.composed(m);
+            op = Base.composed(m);
             Global.context.addMacro(AVR_MEMORY[ptr].macro);
             return op;
         }
         //pointer, register, bits, is_signed
-        var op = Base.read_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[0], 8, false);
+        op = Base.read_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[0], 8, false);
         Global.context.addMacro(AVR_MEMORY[ptr].macro);
         return op;
     };
 
     var _store16 = function(instr, context) {
+        var v, m, op;
         instr.setBadJump();
         _returns_r0(instr, context);
         var ptr = instr.parsed.opd[0];
         if (ptr.indexOf('-') >= 0) {
             ptr = ptr.replace('-', '');
-            var v = Variable.uniqueName('local_');
+            v = Variable.uniqueName('local_');
             //pointer, register, bits, is_signed
-            var m = [
+            m = [
                 Base.write_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[1], 8, false),
                 Base.assign('uint8_t ' + v, AVR_MEMORY[ptr].low),
                 Base.subtract(AVR_MEMORY[ptr].low, AVR_MEMORY[ptr].low, 1),
                 Base.conditional_math(AVR_MEMORY[ptr].high, AVR_MEMORY[ptr].low, v, 'LT', AVR_MEMORY[ptr].high, 1, AVR_MEMORY[ptr].high, '-')
             ];
-            var op = Base.composed(m);
+            op = Base.composed(m);
             Global.context.addMacro(AVR_MEMORY[ptr].macro);
             return op;
         } else if (ptr.indexOf('+') >= 0) {
             ptr = ptr.replace('+', '');
-            var v = Variable.uniqueName('local_');
+            v = Variable.uniqueName('local_');
             //pointer, register, bits, is_signed
-            var m = [
+            m = [
                 Base.write_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[1], 8, false),
                 Base.assign('uint8_t ' + v, AVR_MEMORY[ptr].low),
                 Base.add(AVR_MEMORY[ptr].low, AVR_MEMORY[ptr].low, 1),
                 Base.conditional_math(AVR_MEMORY[ptr].high, AVR_MEMORY[ptr].low, v, 'LT', AVR_MEMORY[ptr].high, 1, AVR_MEMORY[ptr].high, '+')
             ];
-            var op = Base.composed(m);
+            op = Base.composed(m);
             Global.context.addMacro(AVR_MEMORY[ptr].macro);
             return op;
         }
         //pointer, register, bits, is_signed
-        var op = Base.write_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[1], 8, false);
+        op = Base.write_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[1], 8, false);
         Global.context.addMacro(AVR_MEMORY[ptr].macro);
         return op;
     };
@@ -397,8 +399,8 @@ module.exports = (function() {
             ld: _load16,
             ldd: function(instr, context) {
                 _returns_r0(instr, context);
-                var ptr = instr.parsed.opd[1].match(/([xyz]|[\+\-0-9]+)/g);
-                var offset = ptr[1].replace(/(\-)/, ' - ').replace(/(\+)/, ' + ');
+                var ptr = instr.parsed.opd[1].match(/([xyz]|[+-0-9]+)/g);
+                var offset = ptr[1].replace(/(-)/, ' - ').replace(/(\+)/, ' + ');
                 //pointer, register, bits, is_signed
                 var op = Base.read_memory(AVR_MEMORY[ptr[0]].name + offset, instr.parsed.opd[0], 8, false);
                 Global.context.addMacro(AVR_MEMORY[ptr[0]].macro);
@@ -588,7 +590,7 @@ module.exports = (function() {
                 _returns_r0(instr, context);
                 return Base.assign(instr.parsed.opd[0], '0xff');
             },
-            set: function(instr) {
+            set: function(instr, context) {
                 instr.setBadJump();
                 _returns_r0(instr, context);
                 return Base.macro('SET_TRANSFER_FLAG', '#define SET_TRANSFER_FLAG __asm(set)');
@@ -597,8 +599,8 @@ module.exports = (function() {
             std: function(instr, context) {
                 instr.setBadJump();
                 _returns_r0(instr, context);
-                var ptr = instr.parsed.opd[0].match(/([xyz]|[\+\-0-9]+)/g);
-                var offset = ptr[1].replace(/(\-)/, ' - ').replace(/(\+)/, ' + ');
+                var ptr = instr.parsed.opd[0].match(/([xyz]|[+-0-9]+)/g);
+                var offset = ptr[1].replace(/(-)/, ' - ').replace(/(\+)/, ' + ');
                 //pointer, register, bits, is_signed
                 var op = Base.write_memory(AVR_MEMORY[ptr[0]].name + offset, instr.parsed.opd[1], 8, false);
                 Global.context.addMacro(AVR_MEMORY[ptr[0]].macro);
@@ -658,7 +660,7 @@ module.exports = (function() {
                     instr: null
                 },
                 returns: null
-            }
+            };
         },
         localvars: function(context) {
             return [];

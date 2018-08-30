@@ -34,16 +34,11 @@ module.exports = (function() {
         context.cond.a = instr.parsed.opd[1];
         context.cond.b = instr.parsed.opd[0];
         return Base.nop();
-    }
+    };
 
     var _conditional = function(instr, context, type, zero) {
         instr.conditional(context.cond.a, context.cond.b, type);
         return Base.nop();
-    };
-
-    var _conditional_inline = function(instr, context, instructions, type) {
-        instr.conditional(context.cond.a, context.cond.b, type);
-        instr.jump = instructions[instructions.indexOf(instr) + 1].location;
     };
 
     var load_bits = function(register, pointer, bits, signed) {
@@ -136,10 +131,8 @@ module.exports = (function() {
             },
             cmp: _compare,
             jarl: function(instr, context, instructions) {
-                var ret = null;
                 if (instr.parsed.opd[1] == '0') {
                     instr.comments.push('link pointer is lost. (used r0)');
-                    ret = 'return';
                 } else {
                     instr.comments.push(instr.parsed.opd[1] + ' = PC + 4;');
                 }
@@ -490,14 +483,14 @@ module.exports = (function() {
                 if (instr.parsed.opd[1] == '0') {
                     return Base.nop();
                 }
-                var a = Variable.local(instr.parsed.opd[0], 32, false);;
+                var a = Variable.local(instr.parsed.opd[0], 32, false);
                 return Base.assign(instr.parsed.opd[1], a);
             },
             zxh: function(instr) {
                 if (instr.parsed.opd[1] == '0') {
                     return Base.nop();
                 }
-                var a = Variable.local(instr.parsed.opd[0], 32, false);;
+                var a = Variable.local(instr.parsed.opd[0], 32, false);
                 return Base.assign(instr.parsed.opd[1], a);
             },
             invalid: function() {
@@ -522,7 +515,7 @@ module.exports = (function() {
                 },
                 leave: false,
                 vars: []
-            }
+            };
         },
         localvars: function(context) {
             return [];
