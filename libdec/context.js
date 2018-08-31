@@ -17,13 +17,25 @@
 
 module.exports = (function() {
     return function() {
-        // macros
+        /**
+         * Internal C macro list.
+         * @type {Array}
+         */
         this.macros = ['#include <stdint.h>'];
+
+        /**
+         * Adds a C macro string to the global list of macros.
+         * @param {String} - item to add
+         */
         this.addMacro = function(x) {
             if (this.macros.indexOf(x) < 0) {
                 this.macros.push(x);
             }
         };
+
+        /**
+         * prints all the macros. used internally by core.js
+         */
         this.printMacros = function() {
             if (!Global.evars.honor.blocks) {
                 var t = Global.printer.theme;
@@ -34,13 +46,26 @@ module.exports = (function() {
             console.log(this.identfy() + ' ');
         };
 
-        // macros
+        /**
+         * List of dependencies (mostly generic functions like rotate, etc..)
+         * that cannot be described easily from a asm opcode.
+         * @type {Array}
+         */
         this.dependencies = [];
+
+        /**
+         * adds a dependency to the global list.
+         * @param {String|Object} - item to add
+         */
         this.addDependency = function(x) {
             if (this.dependencies.indexOf(x) < 0) {
                 this.dependencies.push(x);
             }
         };
+
+        /**
+         * prints all the dependencies. used internally by core.js
+         */
         this.printDependencies = function() {
             if (Global.evars.honor.blocks) {
                 return;
@@ -53,8 +78,16 @@ module.exports = (function() {
             }
         };
 
-        // ident for print
+        /**
+         * Assembly identation "constant"
+         * @type {String}
+         */
         this.identAsm = '';
+
+        /**
+         * Sets the max size of the identation line for the `--assembly/r2dec.asm` option.
+         * @param  {Number} size - Size to set
+         */
         this.identAsmSet = function(size) {
             // size = 0x + addr + space + asm + space
             size += 10;
@@ -62,53 +95,45 @@ module.exports = (function() {
                 this.identAsm += '    ';
             }
         };
+
+        /**
+         * Scope identation
+         * @type {String}
+         */
         this.ident = '';
+
+        /**
+         * Adds spaces per each scope going in.
+         */
         this.identIn = function() {
             this.ident += '    ';
         };
+
+        /**
+         * Removes spaces per each scope going out.
+         */
         this.identOut = function(force) {
             this.ident = this.ident.substr(4, this.ident.length);
         };
-        this.identfy = function(s, p, noident) {
+
+        /**
+         * Returns the data to be used for line identation.
+         * It's used mostly internally when a line is going to be printed on screen.
+         * @param  {Number}  size_no_colors     - Size of the strings without ansi colors
+         * @param  {String}  string_to_print    - String to be printed before the pipe
+         * @param  {Boolean} disable_identation - Force to not set the scope identation of the line.
+         * @return {string}                     - Identation including eventual string to be printed.
+         */
+        this.identfy = function(size_no_colors, string_to_print, disable_identation) {
             var h = Global.printer.html;
-            var ident = noident ? '' : h(this.ident);
+            var ident = disable_identation ? '' : h(this.ident);
             if (Global.evars.honor.assembly && !Global.evars.honor.blocks) {
-                p = p || '';
-                s = s || 0;
-                return h('    ') + p + this.identAsm.substring(s, this.identAsm.length) + h(' | ') + ident;
+                string_to_print = string_to_print || '';
+                size_no_colors = size_no_colors || 0;
+                return h('    ') + string_to_print + this.identAsm.substring(size_no_colors, this.identAsm.length) + h(' | ') + ident;
             }
             return ident;
         };
 
-        // stack for instructions..
-        this.scope = [];
-        this.stack = [];
-        this.local = function() {
-            var n = this.scope[this.scope.length - 1];
-            return this.stack.slice(this.stack.length - n, this.stack.length);
-        };
-        this.pushLocal = function() {
-            this.scope.push(0);
-        };
-        this.popLocal = function() {
-            var n = this.scope.pop();
-            if (n > 0) {
-                this.stack.splice(this.stack.length - n, n);
-            }
-        };
-        this.push = function(x) {
-            if (this.scope.length < 1) {
-                throw new Error("Bad context stack (push with zero)");
-            }
-            this.scope[this.scope.length - 1]++;
-            this.stack.push(x);
-        };
-        this.pop = function() {
-            if (this.scope.length < 1 || this.scope[this.scope.length - 1] == 0) {
-                throw new Error("Bad context stack (pop with zero)");
-            }
-            this.scope[this.scope.length - 1]--;
-            return this.stack.pop();
-        };
     };
 })();
