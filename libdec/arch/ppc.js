@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/* https://www.ibm.com/developerworks/systems/library/es-archguide-v2.html */
 module.exports = (function() {
     var Base = require('libdec/core/base');
     var Variable = require('libdec/core/variable');
@@ -387,11 +388,11 @@ module.exports = (function() {
         }
         var maskmb = 0xffffffff >>> mb;
         var maskme = 0xffffffff << (31 - me);
-        return (mb <= me) ? (maskmb & maskme) : (maskmb | maskme);
+        return ((mb <= me) ? (maskmb & maskme) : (maskmb | maskme)) >>> 0;
     }
 
     function mask32inv(mb, me) {
-        return (~mask32(mb, me)) & 0xffffffff;
+        return ((~mask32(mb, me)) & 0xffffffff) >>> 0;
     }
 
     var mask64 = function(mb, me) {
@@ -404,10 +405,11 @@ module.exports = (function() {
         return (mb <= me) ? maskmb.and(maskme) : maskmb.or(maskme);
     };
 
-    var mask64inv = function(mb, me) {
-        return mask64(mb, me).not();
-    };
-
+    /*
+        var mask64inv = function(mb, me) {
+            return mask64(mb, me).not();
+        };
+    */
     var load_bits = function(instr, bits, unsigned) {
         instr.setBadJump();
         var e = instr.parsed;
@@ -521,15 +523,39 @@ module.exports = (function() {
     };
 
     var _new_variable = function(context, type) {
-        var value = Variable.uniqueName('var_');
+        var value = Variable.uniqueName('local_');
         var local = Variable.local(value, type);
         context.localvars.push(local);
         return local;
     };
 
+    var _rotate_left_and_mask32 = function(dest, src, shift, mask) {
+        if (mask == 0xffffffff) {
+            return Base.rotate_left(dest, src, shift.toString(), 64);
+        } else if (shift == 0) {
+            return Base.and(dest, src, '0x' + mask.toString(16));
+        }
+        return Base.composed([
+            Base.rotate_left(dest, src, shift.toString(), 64),
+            Base.and(dest, dest, '0x' + mask.toString(16))
+        ]);
+    };
+
+    var _rotate_left_and_mask64 = function(dest, src, shift, mask) {
+        if (mask.eq(Long.MAX_UNSIGNED_VALUE)) {
+            return Base.rotate_left(dest, src, shift.toString(), 64);
+        } else if (shift == 0) {
+            return Base.and(dest, src, '0x' + mask.toString(16));
+        }
+        return Base.composed([
+            Base.rotate_left(dest, src, shift.toString(), 64),
+            Base.and(dest, dest, '0x' + mask.toString(16))
+        ]);
+    };
+
     var _rlwimi = function(dst, src, sh, mb, me, context) {
-        var m = (mask32(mb, me) >>> 0);
-        var minv = (mask32inv(mb, me) >>> 0);
+        var m = mask32(mb, me);
+        var minv = mask32inv(mb, me);
         var ops = [];
         // (dst & ~mask) | (rotl32(src, sh) & mask)
         if (m == 0) {
@@ -540,14 +566,14 @@ module.exports = (function() {
             } else {
                 var value = _new_variable(context, 'uint32_t');
                 ops.push(Base.rotate_left(value, src, sh, 32));
-                ops.push(Base.and(dst, value, m.toString(16)));
+                ops.push(Base.and(dst, value, '0x' + m.toString(16)));
             }
         } else {
             var value0 = _new_variable(context, 'uint32_t');
             var value1 = _new_variable(context, 'uint32_t');
             ops.push(Base.rotate_left(value0, src, sh, 32));
-            ops.push(Base.and(value0, value0, m.toString(16)));
-            ops.push(Base.and(value1, dst, minv.toString(16)));
+            ops.push(Base.and(value0, value0, '0x' + m.toString(16)));
+            ops.push(Base.and(value1, dst, '0x' + minv.toString(16)));
             ops.push(Base.or(dst, value1, value0));
         }
         return Base.composed(ops);
@@ -1132,13 +1158,8 @@ module.exports = (function() {
                 var sh = parseInt(instr.parsed.opd[2]);
                 var mb = parseInt(instr.parsed.opd[3]);
                 var me = parseInt(instr.parsed.opd[4]);
-                var m = '0x' + (mask32(mb, me) >>> 0).toString(16);
-                if (sh == 0) {
-                    return Base.and(dst, src, m);
-                }
-                var rol = Base.rotate_left(dst, src, sh, 32);
-                var and = Base.and(dst, dst, m);
-                return Base.composed([rol, and]);
+                var mask = mask32(mb, me);
+                return _rotate_left_and_mask32(dst, src, sh, mask);
             },
             rlwimi: function(instr, context) {
                 var dst = instr.parsed.opd[0];
@@ -1173,36 +1194,31 @@ module.exports = (function() {
             rldicl %r9, %r9, 61,3     # %r9 = (%r9 >> 3) & 0x1FFFFFFFFFFFFFFF
             */
             rldic: function(instr) {
-                var dst = instr.parsed.opd[0];
-                var src = instr.parsed.opd[1];
+                var ra = instr.parsed.opd[0];
+                var rs = instr.parsed.opd[1];
                 var sh = parseInt(instr.parsed.opd[2]);
                 var mb = parseInt(instr.parsed.opd[3]);
-                var me = 31 - sh;
-                var mask = _
-                if (sh == 0) {
-                    Base.and(instr.parsed.opd[0], instr.parsed.opd[0], instr.parsed.opd[3]);
-                }
-                var rol = Base.rotate_left(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[2], 64);
-                var and = Base.and(instr.parsed.opd[0], instr.parsed.opd[0], instr.parsed.opd[3]);
-                return Base.composed([rol, and]);
+                var me = 63;
+                var mask = mask64(mb, me);
+                return _rotate_left_and_mask64(ra, rs, sh, mask);
             },
-
-            /* TODO FIXALL (https://www.ibm.com/developerworks/systems/library/es-archguide-v2.html) */
-
             rldcl: function(instr) {
-                var rol = Base.rotate_left(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[2], 64);
-                var and = Base.and(instr.parsed.opd[0], instr.parsed.opd[0], instr.parsed.opd[3]);
-                return Base.composed([rol, and]);
-            },
-            rldicl: function(instr) {
-                var rol = Base.rotate_left(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[2], 64);
-                var and = Base.and(instr.parsed.opd[0], instr.parsed.opd[0], instr.parsed.opd[3]);
-                return Base.composed([rol, and]);
+                var ra = instr.parsed.opd[0];
+                var rs = instr.parsed.opd[1];
+                var sh = instr.parsed.opd[2];
+                var mb = parseInt(instr.parsed.opd[3]);
+                var me = 63 - sh;
+                var mask = mask64(mb, me);
+                return _rotate_left_and_mask64(ra, rs, sh, mask);
             },
             rldcr: function(instr) {
-                var rol = Base.rotate_left(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[2], 64);
-                var and = Base.and(instr.parsed.opd[0], instr.parsed.opd[0], instr.parsed.opd[3]);
-                return Base.composed([rol, and]);
+                var ra = instr.parsed.opd[0];
+                var rs = instr.parsed.opd[1];
+                var sh = instr.parsed.opd[2];
+                var mb = 0;
+                var me = parseInt(instr.parsed.opd[3], 16);
+                var mask = mask64(mb, me);
+                return _rotate_left_and_mask64(ra, rs, sh, mask);
             },
             rldicr: function(instr) {
                 var ra = instr.parsed.opd[0];
@@ -1211,36 +1227,34 @@ module.exports = (function() {
                 var mb = 0;
                 var me = parseInt(instr.parsed.opd[3], 16);
                 var mask = mask64(mb, me);
-                console.log(mask.toString(16))
-                if (mask.eq(Long.MAX_UNSIGNED_VALUE)) {
-                    return Base.rotate_left(ra, rs, sh.toString(), 64);
-                } else if(sh == 0) {
-                    return Base.and(ra, rs, '0x' + mask.toString(16))
-                }
-                return Base.composed([
-                    Base.rotate_left(ra, rs, sh.toString(), 64),
-                    Base.and(ra, ra, '0x' + mask.toString(16))
-                ]);
+                return _rotate_left_and_mask64(ra, rs, sh, mask);
+            },
+            clrrdi: function(instr) {
+                var ra = instr.parsed.opd[0];
+                var rs = instr.parsed.opd[1];
+                var sh = parseInt(instr.parsed.opd[2], 16);
+                var mb = 0;
+                var me = 63 - sh;
+                var mask = mask64(mb, me);
+                return _rotate_left_and_mask64(ra, rs, sh, mask);
+            },
+            rldicl: function(instr) {
+                var ra = instr.parsed.opd[0];
+                var rs = instr.parsed.opd[1];
+                var sh = parseInt(instr.parsed.opd[2], 16);
+                var mb = parseInt(instr.parsed.opd[3], 16);
+                var me = 63;
+                var mask = mask64(mb, me);
+                return _rotate_left_and_mask64(ra, rs, sh, mask);
             },
             clrldi: function(instr) {
-                /*
-                var dst = instr.parsed.opd[0];
-                var src = instr.parsed.opd[1];
+                var ra = instr.parsed.opd[0];
+                var rs = instr.parsed.opd[1];
                 var sh = 0;
-                var mb = 0;
-                var me = 31 - parseInt(instr.parsed.opd[2]);
-                return _rlwimi(dst, src, sh, mb, me, context);
-                */
-                var sh = parseInt(instr.parsed.opd[2]) - 1;
-                var mask = [0xFFFFFFFF, 0xFFFFFFFF];
-                if (sh >= 31) {
-                    mask[0] = '';
-                    mask[1] >>>= (sh - 31);
-                } else {
-                    mask[0] >>>= (sh - 31);
-                }
-                instr.parsed.opd[2] = '0x' + mask[0].toString(16) + mask[1].toString(16) + 'll';
-                return op_bits4(instr.parsed, Base.and, 64);
+                var mb = parseInt(instr.parsed.opd[2], 16);
+                var me = 63;
+                var mask = mask64(mb, me);
+                return _rotate_left_and_mask64(ra, rs, sh, mask);
             },
             wrteei: function(instr) {
                 if (instr.parsed.opd[0] != '0') {
@@ -1261,22 +1275,13 @@ module.exports = (function() {
             "e_addi": function(instr, context, instructions) {
                 return op_bits4(instr.parsed, Base.subtract);
             },
-            "e_addi.": function(instr, context, instructions) {
-                return op_bits4(instr.parsed, Base.subtract);
-            },
             "e_addic": function(instr, context, instructions) {
-                return op_bits4(instr.parsed, Base.subtract);
-            },
-            "e_addic.": function(instr, context, instructions) {
                 return op_bits4(instr.parsed, Base.subtract);
             },
             "e_and2i.": function(instr, context, instructions) {
                 return op_bits3(instr.parsed, Base.and);
             },
             "e_andi": function(instr, context, instructions) {
-                return op_bits4(instr.parsed, Base.and);
-            },
-            "e_andi.": function(instr, context, instructions) {
                 return op_bits4(instr.parsed, Base.and);
             },
             "e_bge": function(instr, context, instructions) {
@@ -1446,31 +1451,16 @@ module.exports = (function() {
             "e_ori": function(instr, context, instructions) {
                 return op_bits4(instr.parsed, Base.or);
             },
-            "e_ori.": function(instr, context, instructions) {
-                return op_bits4(instr.parsed, Base.or);
-            },
             "e_rlw": function(instr, context, instructions) {
-                return op_rotate(instr.parsed, 32, true);
-            },
-            "e_rlw.": function(instr, context, instructions) {
                 return op_rotate(instr.parsed, 32, true);
             },
             "e_rlwi": function(instr, context, instructions) {
                 return op_rotate(instr.parsed, 32, true);
             },
-            "e_rlwi.": function(instr, context, instructions) {
-                return op_rotate(instr.parsed, 32, true);
-            },
             "e_slwi": function(instr, context, instructions) {
                 return op_bits4(instr.parsed, Base.shift_left, 32);
             },
-            "e_slwi.": function(instr, context, instructions) {
-                return op_bits4(instr.parsed, Base.shift_left, 32);
-            },
             "e_srwi": function(instr, context, instructions) {
-                return op_bits4(instr.parsed, Base.shift_right, 32);
-            },
-            "e_srwi.": function(instr, context, instructions) {
                 return op_bits4(instr.parsed, Base.shift_right, 32);
             },
             "e_stb": function(instr, context, instructions) {
@@ -1495,9 +1485,6 @@ module.exports = (function() {
                 return store_bits(instr, 32, true);
             },
             "e_subfic": function(instr, context, instructions) {
-                return op_bits4(instr.parsed, Base.subtract, 32);
-            },
-            "e_subfic.": function(instr, context, instructions) {
                 return op_bits4(instr.parsed, Base.subtract, 32);
             },
             /*
@@ -1534,9 +1521,6 @@ module.exports = (function() {
             "e_rlwinm": function(instr, context, instructions) {},
             */
             "e_xori": function(instr, context, instructions) {
-                return op_bits3(instr.parsed, Base.xor);
-            },
-            "e_xori.": function(instr, context, instructions) {
                 return op_bits3(instr.parsed, Base.xor);
             },
             "se_illegal": function() {
@@ -1667,9 +1651,6 @@ module.exports = (function() {
             "se_and": function(instr, context, instructions) {
                 return op_bits3(instr.parsed, Base.and);
             },
-            "se_and.": function(instr, context, instructions) {
-                return op_bits3(instr.parsed, Base.and);
-            },
             "se_andi": function(instr, context, instructions) {
                 return op_bits3(instr.parsed, Base.and);
             },
@@ -1765,9 +1746,6 @@ module.exports = (function() {
             "se_subi": function(instr, context, instructions) {
                 return op_bits3(instr.parsed, Base.subtract);
             },
-            "se_subi.": function(instr, context, instructions) {
-                return op_bits3(instr.parsed, Base.subtract);
-            },
             invalid: function() {
                 return null;
             }
@@ -1775,7 +1753,7 @@ module.exports = (function() {
         parse: function(asm) {
             asm = asm.replace(/,/g, ' ').replace(/\s+/g, ' ').trim().split(' ');
             return {
-                mnem: asm.shift(),
+                mnem: asm.shift().replace(/\./, ''),
                 opd: asm
             };
         },
