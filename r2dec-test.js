@@ -24,6 +24,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * https://github.com/svaarala/duktape/blob/master/doc/error-objects.rst
+ */
 Duktape.errCreate = function(err) {
     try {
         if (typeof err === 'object') {
@@ -38,18 +41,29 @@ Duktape.errCreate = function(err) {
     return err;
 };
 
-// world data.
+/**
+ * Global data accessible from everywhere.
+ * @type {Object}
+ */
 var Global = {
     context: null,
     evars: null,
     printer: null
 };
-// imports
+
+/**
+ * Imports.
+ */
 var libdec = require('libdec/libdec');
 var r2util = require('libdec/r2util');
 
+/**
+ * r2dec main function.
+ * @param  {String} filename - Issue filename to analyze (relative/fullpath)
+ */
 function r2dec_main(filename) {
     try {
+        // imports
         var Printer = require('libdec/printer');
         if (filename) {
             var jsonstr = read_file(filename).trim();

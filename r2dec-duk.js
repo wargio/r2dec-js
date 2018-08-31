@@ -24,9 +24,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* this is required to be the first thing to be setup
-   when there is an exception i want to have the whole
-   stack to be printed. */
+
+/**
+ * https://github.com/svaarala/duktape/blob/master/doc/error-objects.rst
+ * 
+ * this is required to be the first thing to be setup
+ * when there is an exception i want to have the whole
+ * stack to be printed.
+ */
 Duktape.errCreate = function(err) {
     try {
         if (typeof err === 'object') {
@@ -41,17 +46,28 @@ Duktape.errCreate = function(err) {
     return err;
 };
 
-// world data.
+/**
+ * Global data accessible from everywhere.
+ * @type {Object}
+ */
 var Global = {
     context: null,
     evars: null,
     printer: null,
     warning: require('libdec/warning')
 };
-// imports
+
+
+/**
+ * Imports.
+ */
 var libdec = require('libdec/libdec');
 var r2util = require('libdec/r2util');
 
+/**
+ * r2dec main function.
+ * @param  {Array} args - r2dec arguments to be used to configure the output.
+ */
 function r2dec_main(args) {
     var Printer = require('libdec/printer');
     try {
