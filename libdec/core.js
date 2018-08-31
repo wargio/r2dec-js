@@ -25,6 +25,14 @@ module.exports = (function() {
     var Instruction = require('libdec/core/instruction');
     var ControlFlow = require('libdec/core/controlflow');
 
+    /**
+     * Is the function that is called after the opcode analisys.
+     * Essentially analyze the flows and allows the call of
+     * the `custom_end` function that has to be set in the architecture.
+     * @param  {Object} session      - Current session object.
+     * @param  {Object} arch         - Current architecture object
+     * @param  {Object} arch_context - Current architecture context object.
+     */
     var _post_analysis = function(session, arch, arch_context) {
         ControlFlow(session);
         if (arch.custom_end) {
@@ -38,9 +46,16 @@ module.exports = (function() {
             globals: arch.globalvars(arch_context) || []
         });
         session.routine = routine;
-
     };
 
+    /**
+     * Is the function that is called before the opcode analisys.
+     * Calls `custom_start` function that has to be set in the architecture
+     * and copies the instruction into the first block and updates the bounds of this.
+     * @param  {Object} session      - Current session object.
+     * @param  {Object} arch         - Current architecture object
+     * @param  {Object} arch_context - Current architecture context object.
+     */
     var _pre_analysis = function(session, arch, arch_context) {
         if (arch.custom_start) {
             arch.custom_start(session.instructions, arch_context);
@@ -49,6 +64,12 @@ module.exports = (function() {
         session.blocks[0].update();
     };
 
+    /**
+     * Most important of the analisys block: it analize the architecture opcodes. 
+     * @param  {Object} session      - Current session object.
+     * @param  {Object} arch         - Current architecture object
+     * @param  {Object} arch_context - Current architecture context object.
+     */
     var _decompile = function(session, arch, arch_context) {
         var instructions = session.blocks[0].instructions;
         for (var i = 0; i < instructions.length; i++) {
@@ -63,6 +84,10 @@ module.exports = (function() {
         }
     };
 
+    /**
+     * Prints the current session into the screen.
+     * @param  {Object} session - Current session object.
+     */
     var _print = function(session) {
         var t = Global.printer.theme;
         var asm_header = '; assembly';
@@ -77,7 +102,12 @@ module.exports = (function() {
         }
     };
 
-    var _prepare = function(data, arch) {
+    /**
+     * Defines the structure that will be used as session for analisys steps.
+     * @param  {Object} data - Data to be analized.
+     * @param  {Object} arch - Current architecture object
+     */
+    var _session = function(data, arch) {
         this.blocks = [new Block()];
         var instructions = [];
         var symbols = new Symbols(data.xrefs.symbols);
@@ -122,7 +152,7 @@ module.exports = (function() {
 
     return {
         decompile: _decompile,
-        prepare: _prepare,
+        session: _session,
         analysis: {
             pre: _pre_analysis,
             post: _post_analysis

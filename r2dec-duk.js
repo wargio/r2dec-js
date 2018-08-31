@@ -73,7 +73,7 @@ function r2dec_main(args) {
             // af seems to break renaming.
             /* asm.pseudo breaks things.. */
             if (data.graph && data.graph.length > 0) {
-                var p = new libdec.core.prepare(data, architecture);
+                var p = new libdec.core.session(data, architecture);
                 var arch_context = architecture.context(data);
                 libdec.core.analysis.pre(p, architecture, arch_context);
                 libdec.core.decompile(p, architecture, arch_context);
