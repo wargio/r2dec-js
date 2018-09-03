@@ -49,7 +49,6 @@ r2dec [options]
        --debug      | do not catch exceptions
        --html       | outputs html data instead of text
        --issue      | generates the json used for the test suite
-       --offset     | shows pseudo next to the offset
        --paddr      | all xrefs uses physical addresses instead of virtual addresses
        --xrefs      | shows also instruction xrefs in the pseudo code
 ```
@@ -88,7 +87,7 @@ e scr.color         | enables syntax colors.
     sparc
     v850
     wasm (partial)
-    x86 (intel)
+    x86-64 (intel syntax)
 
 # Developing on r2dec
 

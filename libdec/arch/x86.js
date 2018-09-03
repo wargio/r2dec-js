@@ -1250,7 +1250,7 @@ module.exports = (function() {
                 return Base.nop();
             }
         },
-        custom_start: function(instrs, context) {
+        preanalisys: function(instrs, context) {
             instrs.forEach(function(i) {
                 var opd1 = i.parsed.opd[0];
                 var opd2 = i.parsed.opd[1];
@@ -1277,9 +1277,6 @@ module.exports = (function() {
                     opd2.token = opd2.segovr + opd2.token;
                 }
             });
-        },
-        custom_end: function(instructions, context) {
-            // empty
         },
         parse: function(asm) {
             // asm string will be tokenized by the following regular expression:

@@ -19,26 +19,26 @@ module.exports = (function() {
             add: function(instr, context, instructions) {
                 return Base.add(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[2]);
             },
+            nop: function() {
+                return Base.nop();
+            },
             invalid: function(instr, context, instructions) {
                 return Base.nop();
             }
         },
-        parse: function(assembly, simplified) {
+        parse: function(assembly) {
             var tokens = assembly.trim().split(' ');
-            return {
-                mnem: tokens.shift(),
-                opd: tokens
-            };
+            return { mnem: tokens.shift(), opd: tokens };
         },
         context: function() {
-            return {
-                cond: {
-                    a: '?',
-                    b: '?'
-                }
-            }
+            return { cond: { a: '?', b: '?' } };
         },
+        preanalisys: function(instructions, context) {},
+        postanalisys: function(instructions, context) {},
         localvars: function(context) {
+            return [];
+        },
+        globalvars: function(context) {
             return [];
         },
         arguments: function(context) {

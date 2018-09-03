@@ -28,15 +28,15 @@ module.exports = (function() {
     /**
      * Is the function that is called after the opcode analisys.
      * Essentially analyze the flows and allows the call of
-     * the `custom_end` function that has to be set in the architecture.
+     * the `postanalisys` function that has to be set in the architecture.
      * @param  {Object} session      - Current session object.
      * @param  {Object} arch         - Current architecture object
      * @param  {Object} arch_context - Current architecture context object.
      */
     var _post_analysis = function(session, arch, arch_context) {
         ControlFlow(session);
-        if (arch.custom_end) {
-            arch.custom_end(session.instructions, arch_context);
+        if (arch.postanalisys) {
+            arch.postanalisys(session.instructions, arch_context);
         }
         var routine = new Scope.routine(session.instructions[0].location, {
             returns: arch.returns(arch_context) || 'void',
@@ -50,15 +50,15 @@ module.exports = (function() {
 
     /**
      * Is the function that is called before the opcode analisys.
-     * Calls `custom_start` function that has to be set in the architecture
+     * Calls `preanalisys` function that has to be set in the architecture
      * and copies the instruction into the first block and updates the bounds of this.
      * @param  {Object} session      - Current session object.
      * @param  {Object} arch         - Current architecture object
      * @param  {Object} arch_context - Current architecture context object.
      */
     var _pre_analysis = function(session, arch, arch_context) {
-        if (arch.custom_start) {
-            arch.custom_start(session.instructions, arch_context);
+        if (arch.preanalisys) {
+            arch.preanalisys(session.instructions, arch_context);
         }
         session.blocks[0].instructions = session.instructions.slice();
         session.blocks[0].update();

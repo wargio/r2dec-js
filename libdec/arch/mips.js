@@ -394,7 +394,7 @@ module.exports = (function() {
                 }
             };
         },
-        custom_start: function(instructions) {
+        preanalisys: function(instructions) {
             /* delayed branch fix */
             for (var i = 0; i < (instructions.length - 1); i++) {
                 var op = instructions[i].parsed.mnem;
@@ -404,7 +404,7 @@ module.exports = (function() {
                 }
             }
         },
-        custom_end: function(instructions, context) {
+        postanalisys: function(instructions, context) {
             /* simplifies any load address 32/64 bit */
             for (var i = 0; i < instructions.length; i++) {
                 if (instructions[i].parsed.mnem == 'lui') {
