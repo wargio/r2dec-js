@@ -23,33 +23,44 @@ module.exports = (function() {
     const Variable = require('libdec/core/variable');
     const Condition = require('libdec/core/condition');
 
-    var _parenthesize = function(s) {
-        return (s.indexOf(' ') > (-1) ? ['(', s, ')'].join('') : s);
+    /**
+     * Wraps a string with parenthesis.
+     * @param {string} s A string to wrap
+     * @param {boolean} always Whether to wrap only complex strings or always
+     * @returns {string} `s` wrapped by parenthesis
+     */
+    var autoParen = function(s, always) {
+        return (always || (s.indexOf(' ') > (-1)) ? ['(', s, ')'].join('') : s);
+    };
+
+    var autoString = function(v) {
+        return Extra.is.string(v) ? Global.printer.auto(v) : v.toString();
     };
 
     var _generic_asm = function(asm) {
         this.asm = asm;
+
         this.toString = function() {
-            var t = Global.printer.theme;
-            var a = Global.printer.auto;
-            return t.callname('__asm') + ' (' + a(this.asm) + ')';
+            return Global.printer.theme.callname('__asm') + ' (' + autoString(this.asm) + ')';
         };
     };
 
     var _generic_assignment = function(destination, source) {
         this.destination = Extra.is.number(destination) ? ('' + destination) : destination;
         this.source = Extra.is.number(source) ? ('' + source) : source;
+
         this.toString = function() {
             if (this.destination == this.source) {
                 return '';
             }
-            var a = Global.printer.auto;
-            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
-            var source = Extra.is.string(this.source) ? a(this.source) : this.source;
+
+            var source = autoString(this.source);
+
             if (source instanceof Variable.functionPointer) {
-                source = '(' + source + ')';
+                source = autoParen(source, true);
             }
-            return destination + ' = ' + source;
+
+            return [autoString(this.destination), '=', source].join(' ');
         };
     };
 
@@ -57,11 +68,11 @@ module.exports = (function() {
         this.destination = Extra.is.number(destination) ? ('' + destination) : destination;
         this.source = Extra.is.number(source) ? ('' + source) : source;
         this.operator = operator;
+
         this.toString = function() {
-            var a = Global.printer.auto;
-            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
-            var source = Extra.is.string(this.source) ? a(this.source) : this.source;
-            return destination + ' = ' + this.operator + source;
+            return [autoString(this.destination), '=',
+                this.operator + autoString(this.source)
+            ].join(' ');
         };
     };
 
@@ -69,18 +80,19 @@ module.exports = (function() {
         this.destination = Extra.is.number(destination) ? ('' + destination) : destination;
         this.source = Extra.is.number(source) ? ('' + source) : source;
         this.cast = cast;
+
         this.toString = function() {
-            var a = Global.printer.auto;
-            var t = Global.printer.theme;
-            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
-            var source = Extra.is.string(this.source) ? a(this.source) : this.source;
-            return destination + ' = (' + t.types(this.cast) + ') ' + source;
+            return [autoString(this.destination), '=',
+                autoParen(Global.printer.theme.types(this.cast), true),
+                autoString(this.source)
+            ].join(' ');
         };
     };
 
     var _generic_inc_dec = function(destination, operation) {
         this.destination = destination;
         this.operation = operation;
+
         this.toString = function() {
             return this.destination + this.operation;
         };
@@ -91,27 +103,32 @@ module.exports = (function() {
         this.source_a = source_a;
         this.source_b = source_b;
         this.operation = operation;
+
         this.toString = function() {
-            var a = Global.printer.auto;
-            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
-            var source_a = Extra.is.string(this.source_a) ? a(this.source_a) : this.source_a;
-            var source_b = Extra.is.string(this.source_b) ? a(this.source_b) : this.source_b;
+            var destination = autoString(this.destination);
+            var source_a = autoString(this.source_a);
+            var source_b = autoString(this.source_b);
+
             if (this.destination == this.source_a) {
-                return destination + ' ' + this.operation + '= ' + source_b;
+                return [destination, this.operation + '=', source_b].join(' ');
             }
-            return destination + ' = ' + source_a + ' ' + this.operation + ' ' + source_b;
+
+            return [destination, '=', source_a, this.operation, source_b].join(' ');
         };
     };
 
     var _generic_call = function(function_name, arguments) {
         this.function_name = Extra.is.string(function_name) ? Cpp(Extra.replace.call(function_name)) : function_name;
         this.arguments = arguments || [];
+
         this.toString = function() {
             var fcn = this.function_name;
+
             if (Extra.is.string(fcn)) {
                 fcn = Global.printer.theme.callname(fcn);
             }
-            return fcn + ' (' + this.arguments.join(', ') + ')';
+
+            return [fcn, autoParen(this.arguments.join(', '), true)].join(' ');
         };
     };
 
@@ -120,42 +137,42 @@ module.exports = (function() {
         this.destination = destination;
         this.source_a = source_a;
         this.rotation = rotation;
+
         this.toString = function() {
-            var t = Global.printer.theme;
-            var a = Global.printer.auto;
-            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination;
-            var source_a = Extra.is.string(this.source_a) ? a(this.source_a) : this.source_a;
-            var rotation = Extra.is.string(this.rotation) ? a(this.rotation) : this.rotation;
-            return destination + ' = ' + t.callname(this.call) + ' (' + source_a + ', ' + rotation + ')';
+            var args = [autoString(this.source_a), autoString(this.rotation)];
+
+            return [autoString(this.destination), '=',
+                Global.printer.theme.callname(this.call),
+                autoParen(args.join(', '), true)
+            ].join(' ');
         };
     };
 
     var _generic_return = function(value) {
         this.value = value;
+
         this.toString = function(options) {
-            var r = Global.printer.theme.flow('return');
+            var value = '';
+
             if (this.value) {
-                r += ' ' + (Extra.is.string(this.value) ? Global.printer.auto(this.value) : this.value);
+                value = ' ' + autoString(this.value);
             }
-            return r;
+
+            return Global.printer.theme.flow('return') + value;
         };
     };
 
     var _generic_goto = function(label_or_address) {
         this.value = label_or_address;
+
         this.toString = function(options) {
-            var r = Global.printer.theme.flow('goto') + Global.printer.html(' ');
-            if (Extra.is.string(this.value)) {
-                r += Global.printer.auto(this.value);
-            } else {
-                r += this.value;
-            }
-            return r;
+            return [Global.printer.theme.flow('goto'), autoString(this.value)].join(' ');
         };
     };
 
     var _generic_flow = function(name) {
         this.name = name;
+
         this.toString = function(options) {
             return Global.printer.theme.flow(this.name);
         };
@@ -166,15 +183,12 @@ module.exports = (function() {
         this.destination = destination;
         this.src_true = src_true;
         this.src_false = src_false;
-        this.toString = function() {
-            var a = Global.printer.auto;
-            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination.toString();
-            var src_true    = Extra.is.string(this.src_true)    ? a(this.src_true)    : this.src_true.toString();
-            var src_false   = Extra.is.string(this.src_false)   ? a(this.src_false)   : this.src_false.toString();
 
-            return destination + ' = (' + this.condition + ') ? ' +
-                _parenthesize(src_true) + ' : ' +
-                _parenthesize(src_false);
+        this.toString = function() {
+            return [autoString(this.destination), '=', autoParen(this.condition),
+                '?', autoParen(autoString(this.src_true)),
+                ':', autoParen(autoString(this.src_false))
+            ].join(' ');
         };
     };
 
@@ -185,17 +199,14 @@ module.exports = (function() {
         this.math_operand_b = math_operand_b;
         this.src_false = src_false;
         this.operation = operation;
-        this.toString = function() {
-            var a = Global.printer.auto;
-            var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination.toString();
-            var math_operand_a = Extra.is.string(this.math_operand_a) ? a(this.math_operand_a) : this.math_operand_a.toString();
-            var math_operand_b = Extra.is.string(this.math_operand_b) ? a(this.math_operand_b) : this.math_operand_b.toString();
-            var src_false = Extra.is.string(this.src_false) ? a(this.src_false) : this.src_false.toString();
 
-            var s = destination + ' = ' + this.condition + ' ? ';
-            s += '(' + math_operand_a + ' ' + this.operation + ' ' + math_operand_b + ') : ';
-            s += _parenthesize(src_false);
-            return s;
+        this.toString = function() {
+            var exp_true = [autoString(this.math_operand_a), this.operation, autoString(this.math_operand_b)].join(' ');
+            
+            return [autoString(this.destination), '=', autoParen(this.condition),
+                '?', autoParen(exp_true, true),
+                ':', autoParen( autoString(this.src_false))
+            ].join(' ');
         };
     };
 
@@ -238,24 +249,28 @@ module.exports = (function() {
             if (source == '1') {
                 return new _generic_inc_dec(destination, '++');
             }
+
             return new _generic_math(destination, destination, source, '+');
         },
         decrease: function(destination, source) {
             if (source == '1') {
                 return new _generic_inc_dec(destination, '--');
             }
+
             return new _generic_math(destination, destination, source, '-');
         },
         add: function(destination, source_a, source_b) {
             if (destination == source_a && source_b == '1') {
                 return new _generic_inc_dec(destination, '++');
             }
+
             return new _generic_math(destination, source_a, source_b, '+');
         },
         and: function(destination, source_a, source_b) {
             if (source_b == '0') {
                 return new _generic_assignment(destination, '0');
             }
+
             return new _generic_math(destination, source_a, source_b, '&');
         },
         divide: function(destination, source_a, source_b) {
@@ -279,18 +294,21 @@ module.exports = (function() {
             } else if (destination == source_a && source_b == '1') {
                 return new _generic_inc_dec(destination, '--');
             }
+
             return new _generic_math(destination, source_a, source_b, '-');
         },
         or: function(destination, source_a, source_b) {
             if (source_b == '0') {
                 return new _generic_assignment(destination, source_a);
             }
+
             return new _generic_math(destination, source_a, source_b, '|');
         },
         xor: function(destination, source_a, source_b) {
             if (source_a == source_b) {
                 return new _generic_assignment(destination, '0');
             }
+
             return new _generic_math(destination, source_a, source_b, '^');
         },
         shift_left: function(destination, source_a, source_b) {
@@ -301,29 +319,35 @@ module.exports = (function() {
         },
         rotate_left: function(destination, source_a, source_b, bits) {
             Global.context.addDependency(new CCalls.rotate_left.fcn(bits));
+
             return new _generic_rotate(destination, source_a, source_b, bits, true);
         },
         rotate_right: function(destination, source_a, source_b, bits) {
             Global.context.addDependency(new CCalls.rotate_right.fcn(bits));
+
             return new _generic_rotate(destination, source_a, source_b, bits, false);
         },
         swap_endian: function(value, returns, bits) {
             Global.context.addDependency(new CCalls.swap_endian.fcn(bits));
+
             return new _generic_assignment(returns, new _generic_call('SWAP' + bits, [value]));
         },
         bit_mask: function(destination, source_a, source_b) {
             Global.context.addDependency(new CCalls.bit_mask.fcn());
+
             return new _generic_assignment(destination, new _generic_call('BIT_MASK', [source_a, source_b]));
         },
         /* MEMORY */
         read_memory: function(pointer, register, bits, is_signed) {
             var value = (Extra.is.string(register) || Extra.is.number(register)) ? Variable.local(register.toString(), Extra.to.type(bits, is_signed)) : register;
             var ptr = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? Variable.pointer(pointer.toString(), Extra.to.type(bits, is_signed)) : pointer;
+
             return new _generic_assignment(value, ptr);
         },
         write_memory: function(pointer, register, bits, is_signed) {
             var value = (Extra.is.string(register) || Extra.is.number(register)) ? Variable.local(register.toString(), Extra.to.type(bits, is_signed)) : register;
             var ptr = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? Variable.pointer(pointer.toString(), Extra.to.type(bits, is_signed)) : pointer;
+
             return new _generic_assignment(ptr, value);
         },
         /* SPECIAL */
@@ -334,8 +358,10 @@ module.exports = (function() {
         },
         macro: function(macro, macro_rule) {
             Global.context.addMacro(macro_rule);
+
             return new function(macro) {
                 this.macro = macro;
+
                 this.toString = function() {
                     return Global.printer.theme.macro(this.macro);
                 };
@@ -344,6 +370,7 @@ module.exports = (function() {
         special: function(data) {
             return new function(data) {
                 this.data = data;
+
                 this.toString = function() {
                     return Global.printer.auto(this.data);
                 };
