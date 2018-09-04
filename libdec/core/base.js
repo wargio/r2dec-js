@@ -23,6 +23,10 @@ module.exports = (function() {
     const Variable = require('libdec/core/variable');
     const Condition = require('libdec/core/condition');
 
+    var _parenthesize = function(s) {
+        return (s.indexOf(' ') > (-1) ? ['(', s, ')'].join('') : s);
+    };
+
     var _generic_asm = function(asm) {
         this.asm = asm;
         this.toString = function() {
@@ -165,21 +169,12 @@ module.exports = (function() {
         this.toString = function() {
             var a = Global.printer.auto;
             var destination = Extra.is.string(this.destination) ? a(this.destination) : this.destination.toString();
-            var src_true = Extra.is.string(this.src_true) ? a(this.src_true) : this.src_true.toString();
-            var src_false = Extra.is.string(this.src_false) ? a(this.src_false) : this.src_false.toString();
+            var src_true    = Extra.is.string(this.src_true)    ? a(this.src_true)    : this.src_true.toString();
+            var src_false   = Extra.is.string(this.src_false)   ? a(this.src_false)   : this.src_false.toString();
 
-            var s = destination + ' = (' + this.condition + ') ? ';
-            if (src_true.indexOf(' ') >= 0) {
-                s += '(' + src_true + ') : ';
-            } else {
-                s += src_true + ' : ';
-            }
-            if (src_false.indexOf(' ') >= 0) {
-                s += '(' + src_false + ')';
-            } else {
-                s += src_false;
-            }
-            return s;
+            return destination + ' = (' + this.condition + ') ? ' +
+                _parenthesize(src_true) + ' : ' +
+                _parenthesize(src_false);
         };
     };
 
@@ -199,11 +194,7 @@ module.exports = (function() {
 
             var s = destination + ' = ' + this.condition + ' ? ';
             s += '(' + math_operand_a + ' ' + this.operation + ' ' + math_operand_b + ') : ';
-            if (src_false.indexOf(' ') >= 0) {
-                s += '(' + src_false + ')';
-            } else {
-                s += src_false;
-            }
+            s += _parenthesize(src_false);
             return s;
         };
     };
