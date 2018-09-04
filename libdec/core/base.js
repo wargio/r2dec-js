@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018 deroad
+ * Copyright (C) 2018 deroad, elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,11 +26,19 @@ module.exports = (function() {
     /**
      * Wraps a string with parenthesis.
      * @param {string} s A string to wrap
-     * @param {boolean} always Whether to wrap only complex strings or always
      * @returns {string} `s` wrapped by parenthesis
      */
-    var autoParen = function(s, always) {
-        return (always || (s.indexOf(' ') > (-1)) ? ['(', s, ')'].join('') : s);
+    var parenthesize = function(s) {
+        return ['(', s, ')'].join('');
+    };
+
+    /**
+     * Wraps a string with parenthesis only if it is complex.
+     * @param {string} s A string to wrap
+     * @returns {string} `s` wrapped by parenthesis if `s` is a complex string, and `s` otherwise
+     */
+    var autoParen = function(s) {
+        return (s.indexOf(' ') > (-1) ? parenthesize(s) : s);
     };
 
     var autoString = function(v) {
@@ -41,94 +49,131 @@ module.exports = (function() {
         this.asm = asm;
 
         this.toString = function() {
-            return Global.printer.theme.callname('__asm') + ' (' + autoString(this.asm) + ')';
+            return Global.printer.theme.callname('__asm') + ' ("' + autoString(this.asm) + '")';
         };
     };
 
-    var _generic_assignment = function(destination, source) {
-        this.destination = Extra.is.number(destination) ? ('' + destination) : destination;
-        this.source = Extra.is.number(source) ? ('' + source) : source;
-
-        this.toString = function() {
-            if (this.destination == this.source) {
-                return '';
-            }
-
-            var source = autoString(this.source);
-
-            if (source instanceof Variable.functionPointer) {
-                source = autoParen(source, true);
-            }
-
-            return [autoString(this.destination), '=', source].join(' ');
-        };
-    };
-
-    var _assign_with_operator = function(destination, source, operator) {
-        this.destination = Extra.is.number(destination) ? ('' + destination) : destination;
-        this.source = Extra.is.number(source) ? ('' + source) : source;
+    /**
+     * Unary expression
+     * @constructor
+     * @inner
+    */
+    var _uexpr = function(operator, operand) {
         this.operator = operator;
 
+        this.operands = [
+            autoString(operand)
+        ];
+
+        /** @returns {!string} */
         this.toString = function() {
-            return [autoString(this.destination), '=',
-                this.operator + autoString(this.source)
+            return [
+                this.operator,
+                this.operands[0]
+            ].join('');
+        };
+    };
+
+    /**
+     * Unary expression with postfix notation
+     * @constructor
+     * @inner
+    */
+   var _uexpr_pf = function(operator, operand) {
+        _uexpr.call(this, operator, [operand]);
+
+        /** @returns {!string} */
+        this.toString = function() {
+            return [
+                this.operands[0],
+                this.operator,
+            ].join('');
+        };
+    };
+
+    _uexpr_pf.prototype = Object.create(_uexpr.prototype);
+
+    /**
+     * Binary expression
+     * @constructor
+     * @inner
+    */
+   var _bexpr = function(operator, lhand, rhand) {
+        this.operator = operator;
+
+        this.operands = [
+            autoString(lhand),
+            autoString(rhand)
+        ];
+
+        /** @returns {!string} */
+        this.toString = function() {
+            return [
+                this.operands[0],
+                this.operator,
+                this.operands[1]
             ].join(' ');
         };
     };
 
-    var _cast_register = function(destination, source, cast) {
-        this.destination = Extra.is.number(destination) ? ('' + destination) : destination;
-        this.source = Extra.is.number(source) ? ('' + source) : source;
-        this.cast = cast;
+    /**
+     * Ternary expression
+     * @constructor
+     * @inner
+    */
+   var _texpr = function(operator1, operator2, operand1, operand2, operand3) {
+        this.operators = [operator1, operator2];
 
+        this.operands = [
+            autoParen(autoString(operand1)),
+            autoParen(autoString(operand2)),
+            autoParen(autoString(operand3))
+        ];
+
+        /** @returns {!string} */
         this.toString = function() {
-            return [autoString(this.destination), '=',
-                autoParen(Global.printer.theme.types(this.cast), true),
-                autoString(this.source)
+            return [
+                this.operands[0],
+                this.operators[0],
+                this.operands[1],
+                this.operators[1],
+                this.operands[2]
             ].join(' ');
         };
     };
 
-    var _generic_inc_dec = function(destination, operation) {
-        this.destination = destination;
-        this.operation = operation;
+    var _assign = function(lhand, rhand) {
+        if (lhand == rhand) {
+            return '';
+        }
 
-        this.toString = function() {
-            return this.destination + this.operation;
-        };
+        if ((rhand instanceof _bexpr) && (autoString(lhand) == rhand.operands[0])) {
+            return new _bexpr(rhand.operator + '=', lhand, rhand.operands[1]);
+        }
+
+        if (rhand instanceof Variable.functionPointer) {
+            rhand = parenthesize(rhand);
+        }
+
+        return new _bexpr('=', lhand, rhand);
     };
 
-    var _generic_math = function(destination, source_a, source_b, operation) {
-        this.destination = destination;
-        this.source_a = source_a;
-        this.source_b = source_b;
-        this.operation = operation;
-
-        this.toString = function() {
-            var destination = autoString(this.destination);
-            var source_a = autoString(this.source_a);
-            var source_b = autoString(this.source_b);
-
-            if (this.destination == this.source_a) {
-                return [destination, this.operation + '=', source_b].join(' ');
-            }
-
-            return [destination, '=', source_a, this.operation, source_b].join(' ');
-        };
+    var _cast = function(source, type) {
+        return new _uexpr(parenthesize(Global.printer.theme.types(type)) + ' ', source);
     };
 
-    var _generic_call = function(function_name, arguments) {
+    var _generic_call = function(function_name, args) {
         this.function_name = Extra.is.string(function_name) ? Cpp(Extra.replace.call(function_name)) : function_name;
-        this.arguments = arguments || [];
+        this.arguments = args || [];
 
         this.toString = function() {
-            var fcn = this.function_name;
+            var fname = this.function_name;
 
-            if (Extra.is.string(fcn)) {
-                fcn = Global.printer.theme.callname(fcn);
+            if (Extra.is.string(fname)) {
+                fname = Global.printer.theme.callname(fname);
             }
 
-            return [fcn, autoParen(this.arguments.join(', '), true)].join(' ');
+            return [fname, parenthesize(this.arguments.join(', '))].join(' ');
         };
     };
 
@@ -143,7 +188,7 @@ module.exports = (function() {
 
             return [autoString(this.destination), '=',
                 Global.printer.theme.callname(this.call),
-                autoParen(args.join(', '), true)
+                parenthesize(args.join(', '))
             ].join(' ');
         };
     };
@@ -178,45 +223,11 @@ module.exports = (function() {
         };
     };
 
-    var _inline_conditional_assign = function(destination, source_a, source_b, cond, src_true, src_false) {
-        this.condition = new Condition.convert(source_a, source_b, cond, false);
-        this.destination = destination;
-        this.src_true = src_true;
-        this.src_false = src_false;
-
-        this.toString = function() {
-            return [autoString(this.destination), '=', autoParen(this.condition),
-                '?', autoParen(autoString(this.src_true)),
-                ':', autoParen(autoString(this.src_false))
-            ].join(' ');
-        };
-    };
-
-    var _inline_conditional_math = function(destination, source_a, source_b, cond, math_operand_a, math_operand_b, src_false, operation) {
-        this.condition = new Condition.convert(source_a, source_b, cond, false);
-        this.destination = destination;
-        this.math_operand_a = math_operand_a;
-        this.math_operand_b = math_operand_b;
-        this.src_false = src_false;
-        this.operation = operation;
-
-        this.toString = function() {
-            var exp_true = [autoString(this.math_operand_a), this.operation, autoString(this.math_operand_b)].join(' ');
-            
-            return [autoString(this.destination), '=', autoParen(this.condition),
-                '?', autoParen(exp_true, true),
-                ':', autoParen( autoString(this.src_false))
-            ].join(' ');
-        };
-    };
-
     var _base = {
         /* COMMON */
-        assign: function(destination, source) {
-            return new _generic_assignment(destination, source);
-        },
-        cast: function(destination, source, cast) {
-            return new _cast_register(destination, source, cast);
+        assign: _assign,
+        cast: function(destination, source, type) {
+            return _assign(destination, new _cast(source, type));
         },
         nop: function(asm) {
             return null;
@@ -239,83 +250,88 @@ module.exports = (function() {
         },
         /* BRANCHES */
         conditional_assign: function(destination, source_a, source_b, cond, src_true, src_false) {
-            return new _inline_conditional_assign(destination, source_a, source_b, cond, src_true, src_false);
+            var condition = new Condition.convert(source_a, source_b, cond, false);
+
+            return _assign(destination, new _texpr('?', ':', condition.toString(), src_true, src_false));
         },
         conditional_math: function(destination, source_a, source_b, cond, math_operand_a, math_operand_b, src_false, operation) {
-            return new _inline_conditional_math(destination, source_a, source_b, cond, math_operand_a, math_operand_b, src_false, operation);
+            var condition = new Condition.convert(source_a, source_b, cond, false);
+            var src_true = new _bexpr(operation, math_operand_a, math_operand_b);
+
+            return _assign(destination, new _texpr('?', ':', condition.toString(), src_true, src_false));
         },
         /* MATH */
         increase: function(destination, source) {
             if (source == '1') {
-                return new _generic_inc_dec(destination, '++');
+                return new _uexpr_pf('++', destination);
             }
 
-            return new _generic_math(destination, destination, source, '+');
+            return _assign(destination, new _bexpr('+', destination, source));
         },
         decrease: function(destination, source) {
             if (source == '1') {
-                return new _generic_inc_dec(destination, '--');
+                return new _uexpr_pf('--', destination);
             }
 
-            return new _generic_math(destination, destination, source, '-');
+            return _assign(destination, new _bexpr('-', destination, source));
         },
         add: function(destination, source_a, source_b) {
-            if (destination == source_a && source_b == '1') {
-                return new _generic_inc_dec(destination, '++');
+            if ((destination == source_a) && (source_b == '1')) {
+                return new _uexpr_pf('++', destination);
             }
 
-            return new _generic_math(destination, source_a, source_b, '+');
+            return _assign(destination, new _bexpr('+', source_a, source_b));
         },
         and: function(destination, source_a, source_b) {
             if (source_b == '0') {
-                return new _generic_assignment(destination, '0');
+                return _assign(destination, '0');
             }
 
-            return new _generic_math(destination, source_a, source_b, '&');
+            return _assign(destination, new _bexpr('&', source_a, source_b));
         },
         divide: function(destination, source_a, source_b) {
-            return new _generic_math(destination, source_a, source_b, '/');
+            return _assign(destination, new _bexpr('/', source_a, source_b));
         },
         module: function(destination, source_a, source_b) {
-            return new _generic_math(destination, source_a, source_b, '%');
+            return _assign(destination, new _bexpr('%', source_a, source_b));
         },
         multiply: function(destination, source_a, source_b) {
-            return new _generic_math(destination, source_a, source_b, '*');
+            return _assign(destination, new _bexpr('*', source_a, source_b));
         },
         negate: function(destination, source) {
-            return new _assign_with_operator(destination, source, '-');
+            return _assign(destination, new _uexpr('-', source));
         },
         not: function(destination, source) {
-            return new _assign_with_operator(destination, source, '~');
+            return _assign(destination, new _uexpr('~', source));
         },
         subtract: function(destination, source_a, source_b) {
-            if (destination == source_a && source_b == '0') {
+            if ((destination == source_a) && (source_b == '0')) {
                 return null;
             } else if (destination == source_a && source_b == '1') {
-                return new _generic_inc_dec(destination, '--');
+                return new _uexpr_pf('--', destination);
             }
 
-            return new _generic_math(destination, source_a, source_b, '-');
+            return _assign(destination, new _bexpr('-', source_a, source_b));
         },
         or: function(destination, source_a, source_b) {
             if (source_b == '0') {
-                return new _generic_assignment(destination, source_a);
+                return _assign(destination, source_a);
             }
 
-            return new _generic_math(destination, source_a, source_b, '|');
+            return _assign(destination, new _bexpr('|', source_a, source_b));
         },
         xor: function(destination, source_a, source_b) {
             if (source_a == source_b) {
-                return new _generic_assignment(destination, '0');
+                return _assign(destination, '0');
             }
 
-            return new _generic_math(destination, source_a, source_b, '^');
+            return _assign(destination, new _bexpr('^', source_a, source_b));
         },
         shift_left: function(destination, source_a, source_b) {
-            return new _generic_math(destination, source_a, source_b, '<<');
+            return _assign(destination, new _bexpr('<<', source_a, source_b));
         },
         shift_right: function(destination, source_a, source_b) {
-            return new _generic_math(destination, source_a, source_b, '>>');
+            return _assign(destination, new _bexpr('>>', source_a, source_b));
         },
         rotate_left: function(destination, source_a, source_b, bits) {
             Global.context.addDependency(new CCalls.rotate_left.fcn(bits));
@@ -330,25 +346,25 @@ module.exports = (function() {
         swap_endian: function(value, returns, bits) {
             Global.context.addDependency(new CCalls.swap_endian.fcn(bits));
 
-            return new _generic_assignment(returns, new _generic_call('SWAP' + bits, [value]));
+            return _assign(returns, new _generic_call('SWAP' + bits, [value]));
         },
         bit_mask: function(destination, source_a, source_b) {
             Global.context.addDependency(new CCalls.bit_mask.fcn());
 
-            return new _generic_assignment(destination, new _generic_call('BIT_MASK', [source_a, source_b]));
+            return _assign(destination, new _generic_call('BIT_MASK', [source_a, source_b]));
         },
         /* MEMORY */
         read_memory: function(pointer, register, bits, is_signed) {
             var value = (Extra.is.string(register) || Extra.is.number(register)) ? Variable.local(register.toString(), Extra.to.type(bits, is_signed)) : register;
             var ptr = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? Variable.pointer(pointer.toString(), Extra.to.type(bits, is_signed)) : pointer;
 
-            return new _generic_assignment(value, ptr);
+            return _assign(value, ptr);
         },
         write_memory: function(pointer, register, bits, is_signed) {
             var value = (Extra.is.string(register) || Extra.is.number(register)) ? Variable.local(register.toString(), Extra.to.type(bits, is_signed)) : register;
             var ptr = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? Variable.pointer(pointer.toString(), Extra.to.type(bits, is_signed)) : pointer;
 
-            return new _generic_assignment(ptr, value);
+            return _assign(ptr, value);
         },
         /* SPECIAL */
         composed: function(instructions) {
