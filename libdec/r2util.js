@@ -150,9 +150,15 @@ module.exports = (function() {
             if (!o.arch) {
                 throw new Error('missing architecture in JSON.');
             }
+            var bits = o.archbits;
+            if (bits) {
+                // if bits is in the issue then it has been decoded as a Long object.
+                // to override this is required to be converted to just an integer.
+                bits = bits.low;
+            }
             return {
                 arch: o.arch,
-                bits: o.archbits || 32,
+                bits: bits || 32,
                 graph: o.agj || [],
                 xrefs: {
                     symbols: o.isj || [],

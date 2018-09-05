@@ -437,7 +437,6 @@ module.exports = (function() {
      */
     var _check_known_neg = function(x) {
         var arch_minus_one;
-
         switch (Global.evars.archbits) {
             case 64: arch_minus_one = '0xffffffffffffffff'; break;
             case 32: arch_minus_one = '0xffffffff'; break;

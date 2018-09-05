@@ -124,7 +124,9 @@ module.exports = (function() {
                     last.jump = block.jump;
                 }
             }
-            instructions = instructions.concat(block.ops.map(function(b) {
+            instructions = instructions.concat(block.ops.filter(function(b) {
+                return b.opcode != null;
+            }).map(function(b) {
                 if (max_length < b.opcode.length) {
                     max_length = b.opcode.length;
                 }
