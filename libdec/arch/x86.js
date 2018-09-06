@@ -1239,6 +1239,15 @@ module.exports = (function() {
                 if (opd2.segovr && opd2.token) {
                     opd2.token = opd2.segovr + opd2.token;
                 }
+
+
+                if (opd1.token && opd1.token.startsWith("fs:")) {
+                    opd1.token = opd1.token.replace(/:/g, ' + ');
+                }
+                if (opd2.token && opd2.token.startsWith("fs:")) {
+                    opd2.token = opd2.token.replace(/:/g, ' + ');
+                }
+
             });
         },
         parse: function(asm) {

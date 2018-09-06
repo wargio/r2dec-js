@@ -150,7 +150,7 @@ module.exports = (function() {
     var _branch_list = [
         'b', 'bal', 'jr', 'jal', 'jalr',
         'beqz', 'bnez', 'bltz', 'blez',
-        'bgtz', 'bgez', 'beq', 'bne'
+        'bgtz', 'bgez', 'beq', 'bne', 'bnel'
     ];
 
     return {

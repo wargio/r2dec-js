@@ -49,7 +49,7 @@ module.exports = (function() {
         this.asm = asm;
 
         this.toString = function() {
-            return Global.printer.theme.callname('__asm') + ' ("' + autoString(this.asm) + '")';
+            return Global.printer.theme.callname('__asm') + ' ("' + Global.printer.text(this.asm) + '")';
         };
     };
 
