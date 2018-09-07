@@ -157,7 +157,6 @@ module.exports = (function() {
             bftst: function(instr, context) {
                 instr.setBadJump();
                 var vals = instr.assembly.match(/(\w+)(?:{(\d+):(\d+)})/);
-                console.log(instr.parsed.opd[0].register, vals);
                 var mask = _bitmask(vals[2], vals[3]);
                 var test = Variable.local('(' + vals[1] + ' & ' + mask + ')');
                 context.cond.a = test;

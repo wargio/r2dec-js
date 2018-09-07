@@ -28,7 +28,6 @@ module.exports = (function() {
     };
 
     var _virtual_compare = function(a, b) {
-        console.log(a.vaddr)
         return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
     };
 
