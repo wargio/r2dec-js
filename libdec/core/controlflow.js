@@ -116,14 +116,16 @@ module.exports = (function() {
         // let's check if is a oneline loop or panic loop
         if (instruction.jump.eq(instruction.location)) {
             single_instr = block.split(index);
-            if (!instruction.code) {
-                single_instr.addExtraHead(new Scope.whileInline(instruction.jump, _condition(instruction)));
-            } else {
-                single_instr.addExtraHead(new Scope.do(instruction.jump));
-                single_instr.addExtraTail(new Scope.whileEnd(instruction.location, _condition(instruction)));
+            if (single_instr) {
+                if (!instruction.code) {
+                    single_instr.addExtraHead(new Scope.whileInline(instruction.jump, _condition(instruction)));
+                } else {
+                    single_instr.addExtraHead(new Scope.do(instruction.jump));
+                    single_instr.addExtraTail(new Scope.whileEnd(instruction.location, _condition(instruction)));
+                }
+                context.addBlock(single_instr);
+                context.addBlock(single_instr.split(1));
             }
-            context.addBlock(single_instr);
-            context.addBlock(single_instr.split(1));
             return true;
         }
 

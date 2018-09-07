@@ -810,7 +810,7 @@ module.exports = (function() {
         //  o repne / repnz
 
         // TODO: e|z and ne|nz suffixes are relevant only for "scas" and "cmps", which are currently not supported
-        var loop = p.pref.match(/(rep)(n)?([ze])?/);
+        var loop = p.pref && p.pref.match(/(rep)(n)?([ze])?/);
 
         if (loop) {
             instr.conditional(counter, '0', 'NE');
@@ -1120,7 +1120,7 @@ module.exports = (function() {
                 //      push n  \
                 //      ...      } reg = n
                 //      pop reg /
-                if (!_is_frame_reg(dst.token)) {
+                if (!_is_frame_reg(dst.token) ) {
                     for (var i = instrs.indexOf(instr); i >= 0; i--) {
                         var mnem = instrs[i].parsed.mnem;
                         var opd1 = instrs[i].parsed.opd[0];
@@ -1132,7 +1132,7 @@ module.exports = (function() {
                                 Variable.string(instrs[i].string) :
                                 opd1.token;
 
-                            return Base.assign(dst.opd[0].token, value);
+                            return Base.assign(dst.token, value);
                         } else if ((mnem === 'call') || _is_stack_reg(opd1.token)) {
                             break;
                         }
