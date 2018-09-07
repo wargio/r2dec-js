@@ -168,7 +168,7 @@ module.exports = (function() {
         var returnval = null;
         var args = [];
         var regnum = 3;
-        var known_args_n = Base.arguments(callname);
+        var known_args_n = Extra.find.arguments_number(callname);
         if (known_args_n == 0) {
             return Base.call(callname, args);
         } else if (known_args_n > 0) {
@@ -178,6 +178,9 @@ module.exports = (function() {
         var start = instructions.indexOf(instr);
         for (var i = start - 1; i >= 0 && regnum >= 0; i--) {
             var op = instructions[i].parsed[0];
+            if (!op) {
+                break;
+            }
             arg0 = instructions[i].parsed[1];
             var reg = 'r' + regnum;
             if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0) {
@@ -190,7 +193,9 @@ module.exports = (function() {
             }
         }
         if (instructions[start + 1]) {
-            if (instructions[start + 1].parsed[0].charAt(0) == 'c' && instructions[start + 1].parsed[1] == 'r0') {
+            if (instructions[start + 1].parsed[0] &&
+                instructions[start + 1].parsed[0].charAt(0) == 'c' &&
+                instructions[start + 1].parsed[1] == 'r0') {
                 // cbz/cmp
                 returnval = 'r0';
             } else if (instructions[start + 1].parsed[2] == 'r0') {
@@ -199,7 +204,7 @@ module.exports = (function() {
                 returnval = 'r0';
             }
         }
-        return Base.call(callname, args, _is_register(callname) || callname.indexOf('0x') == 0, returnval);
+        return Base.call(callname, args);
     };
 
     var _arm_conditional_execution = function(condition, p) {
@@ -255,7 +260,7 @@ module.exports = (function() {
                     return Base.return(returnval);
                 }
                 instr.setBadJump();
-                return Base.call(instr.parsed.opd[0], [], true, 'return');
+                return Base.return(Base.call(instr.parsed.opd[0], []));
             },
             'b.pl': function(instr, context) {
                 return _conditional(instr, context, 'LT');
