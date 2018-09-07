@@ -56,7 +56,9 @@ function Long(low, high, unsigned) {
  */
 Long.prototype.__isLong__;
 
-Object.defineProperty(Long.prototype, "__isLong__", { value: true });
+Object.defineProperty(Long.prototype, "__isLong__", {
+    value: true
+});
 
 /**
  * @function
@@ -100,25 +102,31 @@ function fromInt(value, unsigned) {
     var obj, cachedObj, cache;
     if (unsigned) {
         value >>>= 0;
-        if (cache = (0 <= value && value < 256)) {
+        cache = (0 <= value && value < 256);
+        if (cache) {
             cachedObj = UINT_CACHE[value];
-            if (cachedObj)
+            if (cachedObj) {
                 return cachedObj;
+            }
         }
         obj = fromBits(value, (value | 0) < 0 ? -1 : 0, true);
-        if (cache)
+        if (cache) {
             UINT_CACHE[value] = obj;
+        }
         return obj;
     } else {
         value |= 0;
-        if (cache = (-128 <= value && value < 128)) {
+        cache = (-128 <= value && value < 128);
+        if (cache) {
             cachedObj = INT_CACHE[value];
-            if (cachedObj)
+            if (cachedObj) {
                 return cachedObj;
+            }
         }
         obj = fromBits(value, value < 0 ? -1 : 0, false);
-        if (cache)
+        if (cache) {
             INT_CACHE[value] = obj;
+        }
         return obj;
     }
 }
@@ -139,21 +147,27 @@ Long.fromInt = fromInt;
  * @inner
  */
 function fromNumber(value, unsigned) {
-    if (isNaN(value))
+    if (isNaN(value)) {
         return unsigned ? UZERO : ZERO;
-    if (unsigned) {
-        if (value < 0)
-            return UZERO;
-        if (value >= TWO_PWR_64_DBL)
-            return MAX_UNSIGNED_VALUE;
-    } else {
-        if (value <= -TWO_PWR_63_DBL)
-            return MIN_VALUE;
-        if (value + 1 >= TWO_PWR_63_DBL)
-            return MAX_VALUE;
     }
-    if (value < 0)
+    if (unsigned) {
+        if (value < 0) {
+            return UZERO;
+        }
+        if (value >= TWO_PWR_64_DBL) {
+            return MAX_UNSIGNED_VALUE;
+        }
+    } else {
+        if (value <= -TWO_PWR_63_DBL) {
+            return MIN_VALUE;
+        }
+        if (value + 1 >= TWO_PWR_63_DBL) {
+            return MAX_VALUE;
+        }
+    }
+    if (value < 0) {
         return fromNumber(-value, unsigned).neg();
+    }
     return fromBits((value % TWO_PWR_32_DBL) | 0, (value / TWO_PWR_32_DBL) | 0, unsigned);
 }
 
@@ -205,25 +219,28 @@ var pow_dbl = Math.pow; // Used 4 times (4*8 to 15+4)
  * @inner
  */
 function fromString(str, unsigned, radix) {
-    if (str.length === 0)
+    if (str.length === 0) {
         throw Error('empty string');
-    if (str === "NaN" || str === "Infinity" || str === "+Infinity" || str === "-Infinity")
+    }
+    if (str === "NaN" || str === "Infinity" || str === "+Infinity" || str === "-Infinity") {
         return ZERO;
+    }
     if (typeof unsigned === 'number') {
         // For goog.math.long compatibility
         radix = unsigned,
-        unsigned = false;
+            unsigned = false;
     } else {
-        unsigned = !! unsigned;
+        unsigned = !!unsigned;
     }
     radix = radix || 10;
-    if (radix < 2 || 36 < radix)
+    if (radix < 2 || 36 < radix) {
         throw RangeError('radix');
+    }
 
     var p;
-    if ((p = str.indexOf('-')) > 0)
+    if ((p = str.indexOf('-')) > 0) {
         throw Error('interior hyphen');
-    else if (p === 0) {
+    } else if (p === 0) {
         return fromString(str.substring(1), unsigned, radix).neg();
     }
 
@@ -265,10 +282,12 @@ Long.fromString = fromString;
  * @inner
  */
 function fromValue(val, unsigned) {
-    if (typeof val === 'number')
+    if (typeof val === 'number') {
         return fromNumber(val, unsigned);
-    if (typeof val === 'string')
+    }
+    if (typeof val === 'string') {
         return fromString(val, unsigned);
+    }
     // Throws for non-objects, converts non-instanceof Long:
     return fromBits(val.low, val.high, typeof unsigned === 'boolean' ? unsigned : val.unsigned);
 }
@@ -391,7 +410,7 @@ Long.NEG_ONE = NEG_ONE;
  * @type {!Long}
  * @inner
  */
-var MAX_VALUE = fromBits(0xFFFFFFFF|0, 0x7FFFFFFF|0, false);
+var MAX_VALUE = fromBits(0xFFFFFFFF | 0, 0x7FFFFFFF | 0, false);
 
 /**
  * Maximum signed value.
@@ -403,7 +422,7 @@ Long.MAX_VALUE = MAX_VALUE;
  * @type {!Long}
  * @inner
  */
-var MAX_UNSIGNED_VALUE = fromBits(0xFFFFFFFF|0, 0xFFFFFFFF|0, true);
+var MAX_UNSIGNED_VALUE = fromBits(0xFFFFFFFF | 0, 0xFFFFFFFF | 0, true);
 
 /**
  * Maximum unsigned value.
@@ -415,7 +434,7 @@ Long.MAX_UNSIGNED_VALUE = MAX_UNSIGNED_VALUE;
  * @type {!Long}
  * @inner
  */
-var MIN_VALUE = fromBits(0, 0x80000000|0, false);
+var MIN_VALUE = fromBits(0, 0x80000000 | 0, false);
 
 /**
  * Minimum signed value.
@@ -442,8 +461,9 @@ LongPrototype.toInt = function toInt() {
  * @returns {number}
  */
 LongPrototype.toNumber = function toNumber() {
-    if (this.unsigned)
+    if (this.unsigned) {
         return ((this.high >>> 0) * TWO_PWR_32_DBL) + (this.low >>> 0);
+    }
     return this.high * TWO_PWR_32_DBL + (this.low >>> 0);
 };
 
@@ -456,10 +476,12 @@ LongPrototype.toNumber = function toNumber() {
  */
 LongPrototype.toString = function toString(radix) {
     radix = radix || 10;
-    if (radix < 2 || 36 < radix)
+    if (radix < 2 || 36 < radix) {
         throw RangeError('radix');
-    if (this.isZero())
+    }
+    if (this.isZero()) {
         return '0';
+    }
     if (this.isNegative()) { // Unsigned Longs are never negative
         if (this.eq(MIN_VALUE)) {
             // We need to change the Long value before it can be negated, so we remove
@@ -468,8 +490,9 @@ LongPrototype.toString = function toString(radix) {
                 div = this.div(radixLong),
                 rem1 = div.mul(radixLong).sub(this);
             return div.toString(radix) + rem1.toInt().toString(radix);
-        } else
+        } else {
             return '-' + this.neg().toString(radix);
+        }
     }
 
     // Do several (6) digits each time through the loop, so as to
@@ -482,11 +505,12 @@ LongPrototype.toString = function toString(radix) {
             intval = rem.sub(remDiv.mul(radixToPower)).toInt() >>> 0,
             digits = intval.toString(radix);
         rem = remDiv;
-        if (rem.isZero())
+        if (rem.isZero()) {
             return digits + result;
-        else {
-            while (digits.length < 6)
+        } else {
+            while (digits.length < 6) {
                 digits = '0' + digits;
+            }
             result = '' + digits + result;
         }
     }
@@ -529,12 +553,15 @@ LongPrototype.getLowBitsUnsigned = function getLowBitsUnsigned() {
  * @returns {number}
  */
 LongPrototype.getNumBitsAbs = function getNumBitsAbs() {
-    if (this.isNegative()) // Unsigned Longs are never negative
+    if (this.isNegative()) { // Unsigned Longs are never negative
         return this.eq(MIN_VALUE) ? 64 : this.neg().getNumBitsAbs();
+    }
     var val = this.high != 0 ? this.high : this.low;
-    for (var bit = 31; bit > 0; bit--)
-        if ((val & (1 << bit)) != 0)
+    for (var bit = 31; bit > 0; bit--) {
+        if ((val & (1 << bit)) != 0) {
             break;
+        }
+    }
     return this.high != 0 ? bit + 33 : bit + 1;
 };
 
@@ -590,10 +617,12 @@ LongPrototype.isEven = function isEven() {
  * @returns {boolean}
  */
 LongPrototype.equals = function equals(other) {
-    if (!isLong(other))
+    if (!isLong(other)) {
         other = fromValue(other);
-    if (this.unsigned !== other.unsigned && (this.high >>> 31) === 1 && (other.high >>> 31) === 1)
+    }
+    if (this.unsigned !== other.unsigned && (this.high >>> 31) === 1 && (other.high >>> 31) === 1) {
         return false;
+    }
     return this.high === other.high && this.low === other.low;
 };
 
@@ -611,7 +640,7 @@ LongPrototype.eq = LongPrototype.equals;
  * @returns {boolean}
  */
 LongPrototype.notEquals = function notEquals(other) {
-    return !this.eq(/* validates */ other);
+    return !this.eq( /* validates */ other);
 };
 
 /**
@@ -636,7 +665,7 @@ LongPrototype.ne = LongPrototype.notEquals;
  * @returns {boolean}
  */
 LongPrototype.lessThan = function lessThan(other) {
-    return this.comp(/* validates */ other) < 0;
+    return this.comp( /* validates */ other) < 0;
 };
 
 /**
@@ -653,7 +682,7 @@ LongPrototype.lt = LongPrototype.lessThan;
  * @returns {boolean}
  */
 LongPrototype.lessThanOrEqual = function lessThanOrEqual(other) {
-    return this.comp(/* validates */ other) <= 0;
+    return this.comp( /* validates */ other) <= 0;
 };
 
 /**
@@ -678,7 +707,7 @@ LongPrototype.le = LongPrototype.lessThanOrEqual;
  * @returns {boolean}
  */
 LongPrototype.greaterThan = function greaterThan(other) {
-    return this.comp(/* validates */ other) > 0;
+    return this.comp( /* validates */ other) > 0;
 };
 
 /**
@@ -695,7 +724,7 @@ LongPrototype.gt = LongPrototype.greaterThan;
  * @returns {boolean}
  */
 LongPrototype.greaterThanOrEqual = function greaterThanOrEqual(other) {
-    return this.comp(/* validates */ other) >= 0;
+    return this.comp( /* validates */ other) >= 0;
 };
 
 /**
@@ -721,19 +750,24 @@ LongPrototype.ge = LongPrototype.greaterThanOrEqual;
  *  if the given one is greater
  */
 LongPrototype.compare = function compare(other) {
-    if (!isLong(other))
+    if (!isLong(other)) {
         other = fromValue(other);
-    if (this.eq(other))
+    }
+    if (this.eq(other)) {
         return 0;
+    }
     var thisNeg = this.isNegative(),
         otherNeg = other.isNegative();
-    if (thisNeg && !otherNeg)
+    if (thisNeg && !otherNeg) {
         return -1;
-    if (!thisNeg && otherNeg)
+    }
+    if (!thisNeg && otherNeg) {
         return 1;
+    }
     // At this point the sign bits are the same
-    if (!this.unsigned)
+    if (!this.unsigned) {
         return this.sub(other).isNegative() ? -1 : 1;
+    }
     // Both are positive if at least one is unsigned
     return (other.high >>> 0) > (this.high >>> 0) || (other.high === this.high && (other.low >>> 0) > (this.low >>> 0)) ? -1 : 1;
 };
@@ -752,8 +786,9 @@ LongPrototype.comp = LongPrototype.compare;
  * @returns {!Long} Negated Long
  */
 LongPrototype.negate = function negate() {
-    if (!this.unsigned && this.eq(MIN_VALUE))
+    if (!this.unsigned && this.eq(MIN_VALUE)) {
         return MIN_VALUE;
+    }
     return this.not().add(ONE);
 };
 
@@ -770,8 +805,9 @@ LongPrototype.neg = LongPrototype.negate;
  * @returns {!Long} Sum
  */
 LongPrototype.add = function add(addend) {
-    if (!isLong(addend))
+    if (!isLong(addend)) {
         addend = fromValue(addend);
+    }
 
     // Divide each number into 4 chunks of 16 bits, and then sum the chunks.
 
@@ -785,7 +821,10 @@ LongPrototype.add = function add(addend) {
     var b16 = addend.low >>> 16;
     var b00 = addend.low & 0xFFFF;
 
-    var c48 = 0, c32 = 0, c16 = 0, c00 = 0;
+    var c48 = 0,
+        c32 = 0,
+        c16 = 0,
+        c00 = 0;
     c00 += a00 + b00;
     c16 += c00 >>> 16;
     c00 &= 0xFFFF;
@@ -806,8 +845,9 @@ LongPrototype.add = function add(addend) {
  * @returns {!Long} Difference
  */
 LongPrototype.subtract = function subtract(subtrahend) {
-    if (!isLong(subtrahend))
+    if (!isLong(subtrahend)) {
         subtrahend = fromValue(subtrahend);
+    }
     return this.add(subtrahend.neg());
 };
 
@@ -825,29 +865,37 @@ LongPrototype.sub = LongPrototype.subtract;
  * @returns {!Long} Product
  */
 LongPrototype.multiply = function multiply(multiplier) {
-    if (this.isZero())
+    if (this.isZero()) {
         return ZERO;
-    if (!isLong(multiplier))
+    }
+    if (!isLong(multiplier)) {
         multiplier = fromValue(multiplier);
+    }
 
-    if (multiplier.isZero())
+    if (multiplier.isZero()) {
         return ZERO;
-    if (this.eq(MIN_VALUE))
+    }
+    if (this.eq(MIN_VALUE)) {
         return multiplier.isOdd() ? MIN_VALUE : ZERO;
-    if (multiplier.eq(MIN_VALUE))
+    }
+    if (multiplier.eq(MIN_VALUE)) {
         return this.isOdd() ? MIN_VALUE : ZERO;
+    }
 
     if (this.isNegative()) {
-        if (multiplier.isNegative())
+        if (multiplier.isNegative()) {
             return this.neg().mul(multiplier.neg());
-        else
+        } else {
             return this.neg().mul(multiplier).neg();
-    } else if (multiplier.isNegative())
+        }
+    } else if (multiplier.isNegative()) {
         return this.mul(multiplier.neg()).neg();
+    }
 
     // If both longs are small, use float multiplication
-    if (this.lt(TWO_PWR_24) && multiplier.lt(TWO_PWR_24))
+    if (this.lt(TWO_PWR_24) && multiplier.lt(TWO_PWR_24)) {
         return fromNumber(this.toNumber() * multiplier.toNumber(), this.unsigned);
+    }
 
     // Divide each long into 4 chunks of 16 bits, and then add up 4x4 products.
     // We can skip products that would overflow.
@@ -862,7 +910,10 @@ LongPrototype.multiply = function multiply(multiplier) {
     var b16 = multiplier.low >>> 16;
     var b00 = multiplier.low & 0xFFFF;
 
-    var c48 = 0, c32 = 0, c16 = 0, c00 = 0;
+    var c48 = 0,
+        c32 = 0,
+        c16 = 0,
+        c00 = 0;
     c00 += a00 * b00;
     c16 += c00 >>> 16;
     c00 &= 0xFFFF;
@@ -901,23 +952,26 @@ LongPrototype.mul = LongPrototype.multiply;
  * @returns {!Long} Quotient
  */
 LongPrototype.divide = function divide(divisor) {
-    if (!isLong(divisor))
+    if (!isLong(divisor)) {
         divisor = fromValue(divisor);
-    if (divisor.isZero())
+    }
+    if (divisor.isZero()) {
         throw Error('division by zero');
+    }
 
-    if (this.isZero())
+    if (this.isZero()) {
         return this.unsigned ? UZERO : ZERO;
+    }
     var approx, rem, res;
     if (!this.unsigned) {
         // This section is only relevant for signed longs and is derived from the
         // closure library as a whole.
         if (this.eq(MIN_VALUE)) {
-            if (divisor.eq(ONE) || divisor.eq(NEG_ONE))
-                return MIN_VALUE;  // recall that -MIN_VALUE == MIN_VALUE
-            else if (divisor.eq(MIN_VALUE))
+            if (divisor.eq(ONE) || divisor.eq(NEG_ONE)) {
+                return MIN_VALUE; // recall that -MIN_VALUE == MIN_VALUE
+            } else if (divisor.eq(MIN_VALUE)) {
                 return ONE;
-            else {
+            } else {
                 // At this point, we have |other| >= 2, so |this/other| < |MIN_VALUE|.
                 var halfThis = this.shr(1);
                 approx = halfThis.div(divisor).shl(1);
@@ -929,24 +983,30 @@ LongPrototype.divide = function divide(divisor) {
                     return res;
                 }
             }
-        } else if (divisor.eq(MIN_VALUE))
+        } else if (divisor.eq(MIN_VALUE)) {
             return this.unsigned ? UZERO : ZERO;
+        }
         if (this.isNegative()) {
-            if (divisor.isNegative())
+            if (divisor.isNegative()) {
                 return this.neg().div(divisor.neg());
+            }
             return this.neg().div(divisor).neg();
-        } else if (divisor.isNegative())
+        } else if (divisor.isNegative()) {
             return this.div(divisor.neg()).neg();
+        }
         res = ZERO;
     } else {
         // The algorithm below has not been made for unsigned longs. It's therefore
         // required to take special care of the MSB prior to running it.
-        if (!divisor.unsigned)
+        if (!divisor.unsigned) {
             divisor = divisor.toUnsigned();
-        if (divisor.gt(this))
+        }
+        if (divisor.gt(this)) {
             return UZERO;
-        if (divisor.gt(this.shru(1))) // 15 >>> 1 = 7 ; with divisor = 8 ; true
+        }
+        if (divisor.gt(this.shru(1))) { // 15 >>> 1 = 7 ; with divisor = 8 ; true
             return UONE;
+        }
         res = UZERO;
     }
 
@@ -966,8 +1026,8 @@ LongPrototype.divide = function divide(divisor) {
         var log2 = Math.ceil(Math.log(approx) / Math.LN2),
             delta = (log2 <= 48) ? 1 : pow_dbl(2, log2 - 48),
 
-        // Decrease the approximation until it is smaller than the remainder.  Note
-        // that if it is too large, the product overflows and is negative.
+            // Decrease the approximation until it is smaller than the remainder.  Note
+            // that if it is too large, the product overflows and is negative.
             approxRes = fromNumber(approx),
             approxRem = approxRes.mul(divisor);
         while (approxRem.isNegative() || approxRem.gt(rem)) {
@@ -978,8 +1038,9 @@ LongPrototype.divide = function divide(divisor) {
 
         // We know the answer can't be zero... and actually, zero would cause
         // infinite recursion since we would make no progress.
-        if (approxRes.isZero())
+        if (approxRes.isZero()) {
             approxRes = ONE;
+        }
 
         res = res.add(approxRes);
         rem = rem.sub(approxRem);
@@ -1001,8 +1062,9 @@ LongPrototype.div = LongPrototype.divide;
  * @returns {!Long} Remainder
  */
 LongPrototype.modulo = function modulo(divisor) {
-    if (!isLong(divisor))
+    if (!isLong(divisor)) {
         divisor = fromValue(divisor);
+    }
 
     return this.sub(this.div(divisor).mul(divisor));
 };
@@ -1037,8 +1099,9 @@ LongPrototype.not = function not() {
  * @returns {!Long}
  */
 LongPrototype.and = function and(other) {
-    if (!isLong(other))
+    if (!isLong(other)) {
         other = fromValue(other);
+    }
     return fromBits(this.low & other.low, this.high & other.high, this.unsigned);
 };
 
@@ -1048,8 +1111,9 @@ LongPrototype.and = function and(other) {
  * @returns {!Long}
  */
 LongPrototype.or = function or(other) {
-    if (!isLong(other))
+    if (!isLong(other)) {
         other = fromValue(other);
+    }
     return fromBits(this.low | other.low, this.high | other.high, this.unsigned);
 };
 
@@ -1059,8 +1123,9 @@ LongPrototype.or = function or(other) {
  * @returns {!Long}
  */
 LongPrototype.xor = function xor(other) {
-    if (!isLong(other))
+    if (!isLong(other)) {
         other = fromValue(other);
+    }
     return fromBits(this.low ^ other.low, this.high ^ other.high, this.unsigned);
 };
 
@@ -1070,14 +1135,16 @@ LongPrototype.xor = function xor(other) {
  * @returns {!Long} Shifted Long
  */
 LongPrototype.shiftLeft = function shiftLeft(numBits) {
-    if (isLong(numBits))
+    if (isLong(numBits)) {
         numBits = numBits.toInt();
-    if ((numBits &= 63) === 0)
+    }
+    if ((numBits &= 63) === 0) {
         return this;
-    else if (numBits < 32)
+    } else if (numBits < 32) {
         return fromBits(this.low << numBits, (this.high << numBits) | (this.low >>> (32 - numBits)), this.unsigned);
-    else
+    } else {
         return fromBits(0, this.low << (numBits - 32), this.unsigned);
+    }
 };
 
 /**
@@ -1094,14 +1161,16 @@ LongPrototype.shl = LongPrototype.shiftLeft;
  * @returns {!Long} Shifted Long
  */
 LongPrototype.shiftRight = function shiftRight(numBits) {
-    if (isLong(numBits))
+    if (isLong(numBits)) {
         numBits = numBits.toInt();
-    if ((numBits &= 63) === 0)
+    }
+    if ((numBits &= 63) === 0) {
         return this;
-    else if (numBits < 32)
+    } else if (numBits < 32) {
         return fromBits((this.low >>> numBits) | (this.high << (32 - numBits)), this.high >> numBits, this.unsigned);
-    else
+    } else {
         return fromBits(this.high >> (numBits - 32), this.high >= 0 ? 0 : -1, this.unsigned);
+    }
 };
 
 /**
@@ -1118,20 +1187,22 @@ LongPrototype.shr = LongPrototype.shiftRight;
  * @returns {!Long} Shifted Long
  */
 LongPrototype.shiftRightUnsigned = function shiftRightUnsigned(numBits) {
-    if (isLong(numBits))
+    if (isLong(numBits)) {
         numBits = numBits.toInt();
+    }
     numBits &= 63;
-    if (numBits === 0)
+    if (numBits === 0) {
         return this;
-    else {
+    } else {
         var high = this.high;
         if (numBits < 32) {
             var low = this.low;
             return fromBits((low >>> numBits) | (high << (32 - numBits)), high >>> numBits, this.unsigned);
-        } else if (numBits === 32)
+        } else if (numBits === 32) {
             return fromBits(high, 0, this.unsigned);
-        else
+        } else {
             return fromBits(high >>> (numBits - 32), 0, this.unsigned);
+        }
     }
 };
 
@@ -1156,8 +1227,9 @@ LongPrototype.shr_u = LongPrototype.shiftRightUnsigned;
  * @returns {!Long} Signed long
  */
 LongPrototype.toSigned = function toSigned() {
-    if (!this.unsigned)
+    if (!this.unsigned) {
         return this;
+    }
     return fromBits(this.low, this.high, false);
 };
 
@@ -1166,8 +1238,9 @@ LongPrototype.toSigned = function toSigned() {
  * @returns {!Long} Unsigned long
  */
 LongPrototype.toUnsigned = function toUnsigned() {
-    if (this.unsigned)
+    if (this.unsigned) {
         return this;
+    }
     return fromBits(this.low, this.high, true);
 };
 
@@ -1188,12 +1261,12 @@ LongPrototype.toBytesLE = function toBytesLE() {
     var hi = this.high,
         lo = this.low;
     return [
-        lo        & 0xff,
-        lo >>>  8 & 0xff,
+        lo & 0xff,
+        lo >>> 8 & 0xff,
         lo >>> 16 & 0xff,
-        lo >>> 24       ,
-        hi        & 0xff,
-        hi >>>  8 & 0xff,
+        lo >>> 24,
+        hi & 0xff,
+        hi >>> 8 & 0xff,
         hi >>> 16 & 0xff,
         hi >>> 24
     ];
@@ -1207,14 +1280,14 @@ LongPrototype.toBytesBE = function toBytesBE() {
     var hi = this.high,
         lo = this.low;
     return [
-        hi >>> 24       ,
+        hi >>> 24,
         hi >>> 16 & 0xff,
-        hi >>>  8 & 0xff,
-        hi        & 0xff,
-        lo >>> 24       ,
+        hi >>> 8 & 0xff,
+        hi & 0xff,
+        lo >>> 24,
         lo >>> 16 & 0xff,
-        lo >>>  8 & 0xff,
-        lo        & 0xff
+        lo >>> 8 & 0xff,
+        lo & 0xff
     ];
 };
 
@@ -1237,12 +1310,12 @@ Long.fromBytes = function fromBytes(bytes, unsigned, le) {
  */
 Long.fromBytesLE = function fromBytesLE(bytes, unsigned) {
     return new Long(
-        bytes[0]       |
-        bytes[1] <<  8 |
+        bytes[0] |
+        bytes[1] << 8 |
         bytes[2] << 16 |
         bytes[3] << 24,
-        bytes[4]       |
-        bytes[5] <<  8 |
+        bytes[4] |
+        bytes[5] << 8 |
         bytes[6] << 16 |
         bytes[7] << 24,
         unsigned
@@ -1259,11 +1332,11 @@ Long.fromBytesBE = function fromBytesBE(bytes, unsigned) {
     return new Long(
         bytes[4] << 24 |
         bytes[5] << 16 |
-        bytes[6] <<  8 |
+        bytes[6] << 8 |
         bytes[7],
         bytes[0] << 24 |
         bytes[1] << 16 |
-        bytes[2] <<  8 |
+        bytes[2] << 8 |
         bytes[3],
         unsigned
     );

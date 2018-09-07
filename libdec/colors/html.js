@@ -41,7 +41,7 @@
     };
     module.exports = Color;
     module.exports.make = function(theme) {
-        var g = {}
+        var g = {};
         for (var key in theme) {
             g[key] = Color(theme[key]);
         }

@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2017-2018 deroad
+ * Copyright (C) 2018 deroad
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,14 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = {
-    ident: '    ',
-    strings: {
-        xref: 'DATA XREF from 0x'
-    },
-    anal: {
-        asmheader: '__asm(',
-        asmtrailer: ');',
-        replace: /sym\.imp\.|sym\.|obj\.|aav\.|sub\./
+module.exports = function(message) {
+    if (typeof message == 'string') {
+        message = "[!] " + message;
+        if (this.printer.theme.comment) {
+            message = this.printer.theme.comment(message);
+        }
+        console.log(message);
     }
 };

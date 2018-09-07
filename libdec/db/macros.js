@@ -16,7 +16,22 @@
  */
 
 module.exports = (function() {
-
+    /**
+     * On r2 this can be done via afcfj <function name>
+     * [
+     *    {
+     *      "name": "localtime",
+     *      "return": "struct tm *",
+     *      "count": 1,
+     *      "args": [
+     *        {
+     *          "name": "timer",
+     *          "type": "const time_t *"
+     *        }
+     *      ]
+     *    }
+     *  ]
+     */
     return {
         'exit': {
             macro: ['#include <stdlib.h>'],
@@ -92,6 +107,14 @@ module.exports = (function() {
         },
         'getenv': {
             macro: ['#include <stdlib.h>'],
+            args: 1
+        },
+        'time': {
+            macro: ['#include <time.h>'],
+            args: 1
+        },
+        'localtime': {
+            macro: ['#include <time.h>'],
             args: 1
         }
     };

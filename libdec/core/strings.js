@@ -16,35 +16,41 @@
  */
 
 module.exports = (function() {
-    Utils = require('libdec/core/Utils');
+    var Utils = require('libdec/core/utils');
 
     var _compare = function(a, b) {
-        if (a.eq(b.loc)) {
+        if (a.eq(b.location)) {
             return 0;
-        } else if (a.lt(b.loc)) {
+        } else if (a.lt(b.location)) {
             return 1;
         }
         return -1;
-    }
+    };
+
+    var _virtual_compare = function(a, b) {
+        return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
+    };
+
+    var _physical_compare = function(a, b) {
+        return a.paddr.lt(b.paddr) ? -1 : (a.paddr.eq(b.paddr) ? 0 : 1);
+    };
 
     /*
-     * Expects the isj json as input.
+     * Expects the izj json as input.
      */
-    var XRefs = function(isj) {
-        this.data = isj.sort(function(a, b) {
-            return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
-        }).map(function(x) {
-            var name = x.name.indexOf('imp.') === 0 ? x.name.replace(/imp\./, '') : x.name;
+    return function(izj) {
+        this.data = izj.sort(Global.evars.honor.paddr ? _physical_compare: _virtual_compare).map(function(x) {
             return {
-                loc: x.vaddr,
-                type: x.type,
-                value: name
+                location: Global.evars.honor.paddr ? x.paddr : x.vaddr,
+                value: (new TextDecoder().decode(Duktape.dec('base64', x.string))).replace(/\\\\/g, '\\')
             };
         });
-
         this.search = function(address) {
-            return Utils.search(address, this.data, _compare);
+            if (address) {
+                var r = Utils.search(address, this.data, _compare);
+                return r ? ('"' + r.value + '"') : null;
+            }
+            return null;
         };
     };
-    return XRefs;
 })();

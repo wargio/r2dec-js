@@ -24,6 +24,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * https://github.com/svaarala/duktape/blob/master/doc/error-objects.rst
+ */
 Duktape.errCreate = function(err) {
     try {
         if (typeof err === 'object') {
@@ -38,43 +41,49 @@ Duktape.errCreate = function(err) {
     return err;
 };
 
+/**
+ * Global data accessible from everywhere.
+ * @type {Object}
+ */
+var Global = {
+    context: null,
+    evars: null,
+    printer: null
+};
+
+/**
+ * Imports.
+ */
+var libdec = require('libdec/libdec');
+var r2util = require('libdec/r2util');
+
+/**
+ * r2dec main function.
+ * @param  {String} filename - Issue filename to analyze (relative/fullpath)
+ */
 function r2dec_main(filename) {
     try {
-        var libdec = require('libdec/libdec');
-        var options = {
-            theme: "default",
-            color: false,
-            casts: true,
-            assembly: true,
-            xrefs: false,
-            html: false,
-            ident: null
-        };
+        // imports
+        var Printer = require('libdec/printer');
         if (filename) {
             var jsonstr = read_file(filename).trim();
-            var data = null;
-            try {
-                data = libdec.JSON.parse(jsonstr);
-            } catch (e) {
-                console.log('Broken JSON..');
-                return;
-            }
+            var data = r2util.dataTestSuite(jsonstr);
+            Global.evars = new r2util.evarsTestSuite(data);
+            Global.printer = new Printer();
+
             var architecture = libdec.archs[data.arch];
-            if (!architecture) {
-                console.log(architecture + " is not currently supported.");
-                libdec.supported();
+            Global.context = new libdec.context();
+            // af seems to break renaming.
+            /* asm.pseudo breaks things.. */
+            if (data.graph && data.graph.length > 0) {
+                var p = new libdec.core.session(data, architecture);
+                var arch_context = architecture.context(data);
+                libdec.core.analysis.pre(p, architecture, arch_context);
+                libdec.core.decompile(p, architecture, arch_context);
+                libdec.core.analysis.post(p, architecture, arch_context);
+                libdec.core.print(p);
             } else {
-                var xrefs = data.isj;
-                var strings = data.izj;
-                var graph = data.agj;
-
-                var routine = libdec.analyzer.make(graph);
-                libdec.analyzer.setOptions(options);
-                libdec.analyzer.strings(routine, strings);
-                libdec.analyzer.analyze(routine, architecture);
-                libdec.analyzer.xrefs(routine, xrefs);
-
-                routine.print(console.log, options);
+                console.log('Error: no data available.\nPlease analyze the function/binary first.');
             }
         } else {
             console.log('missing JSON to test.');

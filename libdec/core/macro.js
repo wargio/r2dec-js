@@ -15,33 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
-    var __colors = [
-        'black',
-        'red',
-        'green',
-        'yellow',
-        'blue',
-        'magenta',
-        'cyan',
-        'white',
-        'gray',
-    ];
-    var Color = function(name) {
-        if (__colors.indexOf(name) < 0) {
-            throw new Error('Invalid name: ' + name);
+module.exports = function(data) {
+    this.data = data;
+    this.print = function() {
+        var t = Global.printer.theme;
+        for (var i = 0; i < this.data.length; i++) {
+            console.log(Global.context.identfy() + t.macro(this.data[i]));
         }
-        var fn = function(x) {
-            return x;
-        };
-        return fn;
     };
-    module.exports = Color;
-    module.exports.make = function(theme) {
-        var g = {};
-        for (var key in theme) {
-            g[key] = Color(theme[key]);
-        }
-        return g;
-    };
-})();
+};

@@ -18,15 +18,16 @@
 module.exports = (function() {
     var _default_cmp = function(a, b) {
         return a - b;
-    }
+    };
 
+/*
     var _slow = function(a, b, cmp) {
         for (var i = 0; i < b.length; i++) {
             if (cmp(a, b[i]) == 0) return i;
         }
         return -1;
     }
-
+*/
     return {
         indexOf: function(value, array, compare) {
             if (!compare) {

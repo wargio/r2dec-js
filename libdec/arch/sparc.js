@@ -17,7 +17,9 @@
 
 module.exports = (function() {
 
-    var Base = require('libdec/arch/base');
+    var Instruction = require('libdec/core/instruction');
+    var Base = require('libdec/core/base');
+    var Variable = require('libdec/core/variable');
     var Long = require('libdec/long');
 
     var _call_fix_name = function(name) {
@@ -25,100 +27,95 @@ module.exports = (function() {
             return name;
         }
         if (name.indexOf('fcn.') == 0 || name.indexOf('func.') == 0) {
-            return name.replace(/[\.:]/g, '_').replace(/__+/g, '_');
+            return name.replace(/[.:]/g, '_').replace(/__+/g, '_');
         }
-        return name.replace(/\[reloc\.|\]/g, '').replace(/[\.:]/g, '_').replace(/__+/g, '_').replace(/_[0-9a-f]+$/, '').replace(/^_+/, '');
+        return name.replace(/\[reloc\.|\]/g, '').replace(/[.:]/g, '_').replace(/__+/g, '_').replace(/_[0-9a-f]+$/, '').replace(/^_+/, '');
     };
 
     var _load = function(instr, context, instruction, signed, bits) {
         var e = instr.parsed;
-        if (e[1].indexOf('+') > 0) {
-            var arg = e[1].split('+');
+        if (e.opd[0].indexOf('+') > 0) {
+            var arg = e.opd[0].split('+');
             var ops = [];
-            var value = Base.variable();
+            var value = Variable.uniqueName('local_');
             if (arg[1].indexOf('-') < 0) {
-                ops.push(Base.instructions.add(value, arg[0], arg[1]));
+                ops.push(Base.add(value, arg[0], arg[1]));
             } else {
-                ops.push(Base.instructions.subtract(value, arg[0], arg[1].replace(/-/, '')));
+                ops.push(Base.subtract(value, arg[0], arg[1].replace(/-/, '')));
             }
-            ops.push(Base.instructions.read_memory(value, e[2], bits, signed));
+            ops.push(Base.read_memory(value, e.opd[1], bits, signed));
             return Base.composed(ops);
         }
         //pointer, register, bits, is_signed
-        return Base.instructions.read_memory(e[1], e[2], bits, signed);
+        return Base.read_memory(e.opd[0], e.opd[1], bits, signed);
     };
 
     var _store = function(instr, context, instruction, signed, bits) {
         var e = instr.parsed;
-        if (e[2].indexOf('+') > 0) {
-            var arg = e[2].split('+');
+        if (e.opd[1].indexOf('+') > 0) {
+            var arg = e.opd[1].split('+');
             var ops = [];
-            var value = Base.variable();
+            var value = Variable.uniqueName('local_');
             if (arg[1].indexOf('-') < 0) {
-                ops.push(Base.instructions.add(value, arg[0], arg[1]));
+                ops.push(Base.add(value, arg[0], arg[1]));
             } else {
-                ops.push(Base.instructions.subtract(value, arg[0], arg[1].replace(/-/, '')));
+                ops.push(Base.subtract(value, arg[0], arg[1].replace(/-/, '')));
             }
-            ops.push(Base.instructions.write_memory(value, e[1], bits, signed));
+            ops.push(Base.write_memory(value, e.opd[0], bits, signed));
             return Base.composed(ops);
         }
         //pointer, register, bits, is_signed
-        return Base.instructions.write_memory(e[2], e[1], bits, signed);
+        return Base.write_memory(e.opd[1], e.opd[0], bits, signed);
     };
 
     var _conditional = function(instr, context, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
-        return Base.instructions.nop();
-    };
-
-    var _conditional = function(instr, context, type) {
-        instr.conditional(context.cond.a, context.cond.b, type);
-        return Base.instructions.nop();
+        return Base.nop();
     };
 
     var _compare = function(instr, context, instructions) {
-        context.cond.a = instr.parsed[1];
-        context.cond.b = instr.parsed[2];
+        context.cond.a = instr.parsed.opd[0];
+        context.cond.b = instr.parsed.opd[1];
     };
 
     var sethi32 = function(instr, start, instructions) {
         var addr = null;
         var check = [
             function(e, r) {
-                return e[0] == 'sethi' && e[2] == r;
+                return e.mnem == 'sethi' && e.opd[1] == r;
             },
             function(e, r) {
-                if (e[0] == 'nop') {
+                if (e.mnem == 'nop') {
                     return true;
                 }
-                return (e[0] == 'or' && e[1] == r && e[3] == r) || (e[0] == 'add' && e[1] == r && e[3] == r);
-            },
+                return (e.mnem == 'or' && e.opd[0] == r && e.opd[2] == r) || (e.mnem == 'add' && e.opd[0] == r && e.opd[2] == r);
+            }
         ];
         var address = [
             function(e, addr) {
-                var v = Long.fromString(parseInt(e[1]).toString(16), false, 16);
+                var v = Long.fromString(parseInt(e.opd[0]).toString(16), false, 16);
                 return v.shl(10);
             },
             function(e, addr) {
-                var n = Long.fromString(parseInt(e[2]).toString(16), false, 16);
-                return addr[e[0]](n);
+                var n = Long.fromString(parseInt(e.opd[1]).toString(16), false, 16);
+                return addr[e.mnem](n);
             },
         ];
         var step = 0;
         var i;
         for (i = start; i < instructions.length && step < check.length; ++i) {
             var elem = instructions[i].parsed;
-            if (!check[step](elem, instr.parsed[2])) {
+            if (!check[step](elem, instr.parsed.opd[1])) {
                 break;
             }
             addr = address[step](elem, addr);
             step++;
-            instructions[i].pseudo = Base.instructions.nop();
+            instructions[i].code = Base.nop();
         }
         if (addr) {
             --i;
-            addr = '0x' + addr.toString(16)
-            instr.pseudo = Base.instructions.assign(instr.parsed[2], addr.replace(/0x-/, '-0x'));
+            addr = '0x' + addr.toString(16);
+            instr.code = Base.assign(instr.parsed.opd[1], addr.replace(/0x-/, '-0x'));
         }
         return i;
     };
@@ -133,58 +130,58 @@ module.exports = (function() {
     return {
         instructions: {
             add: function(instr, context, instructions) {
-                if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                if (instr.parsed.opd[1].indexOf('-') >= 0) {
+                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
-                return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             addcc: function(instr, context, instructions) {
                 _compare(instr, context);
-                if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                if (instr.parsed.opd[1].indexOf('-') >= 0) {
+                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
-                return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             addx: function(instr, context, instructions) {
-                if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                if (instr.parsed.opd[1].indexOf('-') >= 0) {
+                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
-                return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             addxcc: function(instr, context, instructions) {
                 _compare(instr, context);
-                if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                if (instr.parsed.opd[1].indexOf('-') >= 0) {
+                    return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
-                return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             and: function(instr, context, instructions) {
-                return Base.instructions.and(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.and(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             andcc: function(instr, context, instructions) {
                 _compare(instr, context);
-                return Base.instructions.and(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.and(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             andn: function(instr, context, instructions) {
                 var ops = [];
-                var value = Base.variable();
-                ops.push(Base.instructions.not(value, instr.parsed[2]));
-                ops.push(Base.instructions.and(instr.parsed[3], instr.parsed[1], value));
+                var value = Variable.uniqueName('local_');
+                ops.push(Base.not(value, instr.parsed.opd[1]));
+                ops.push(Base.and(instr.parsed.opd[2], instr.parsed.opd[0], value));
                 return Base.composed(ops);
             },
             andncc: function(instr, context, instructions) {
                 _compare(instr, context);
                 var ops = [];
-                var value = Base.variable();
-                ops.push(Base.instructions.not(value, instr.parsed[2]));
-                ops.push(Base.instructions.and(instr.parsed[3], instr.parsed[1], value));
+                var value = Variable.uniqueName('local_');
+                ops.push(Base.not(value, instr.parsed.opd[1]));
+                ops.push(Base.and(instr.parsed.opd[2], instr.parsed.opd[0], value));
                 return Base.composed(ops);
             },
             ba: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             bn: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             be: function(instr, context, instructions) {
                 return _conditional(instr, context, 'NE');
@@ -205,16 +202,16 @@ module.exports = (function() {
                 return _conditional(instr, context, 'GT');
             },
             blu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'GE', true);
+                return _conditional(instr, context, 'GE');
             },
             bleu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'GT', true);
+                return _conditional(instr, context, 'GT');
             },
             bgeu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'LE', true);
+                return _conditional(instr, context, 'LE');
             },
             bgu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'LT', true);
+                return _conditional(instr, context, 'LT');
             },
             bpos: function(instr, context, instructions) {
                 return _conditional(instr, context, 'LE');
@@ -223,7 +220,7 @@ module.exports = (function() {
                 return _conditional(instr, context, 'GE');
             },
             call: function(instr, context, instructions) {
-                return Base.instructions.call(_call_fix_name(instr.parsed[1]), []);
+                return Base.call(_call_fix_name(instr.parsed.opd[0]), []);
             },
             cmp: _compare,
             ldub: function(instr, context, instructions) {
@@ -245,57 +242,60 @@ module.exports = (function() {
                 return _load(instr, context, instructions, false, 64);
             },
             mov: function(instr, context, instructions) {
-                return Base.instructions.assign(instr.parsed[2], instr.parsed[1]);
+                return Base.assign(instr.parsed.opd[1], instr.parsed.opd[0]);
             },
             nop: function(instr) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             or: function(instr, context, instructions) {
-                return Base.instructions.or(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.or(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             orcc: function(instr, context, instructions) {
                 _compare(instr, context);
-                return Base.instructions.or(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.or(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             orn: function(instr, context, instructions) {
                 var ops = [];
-                var value = Base.variable();
-                ops.push(Base.instructions.not(value, instr.parsed[2]));
-                ops.push(Base.instructions.or(instr.parsed[3], instr.parsed[1], value));
+                var value = Variable.uniqueName('local_');
+                ops.push(Base.not(value, instr.parsed.opd[1]));
+                ops.push(Base.or(instr.parsed.opd[2], instr.parsed.opd[0], value));
                 return Base.composed(ops);
             },
             orncc: function(instr, context, instructions) {
                 _compare(instr, context);
                 var ops = [];
-                var value = Base.variable();
-                ops.push(Base.instructions.not(value, instr.parsed[2]));
-                ops.push(Base.instructions.or(instr.parsed[3], instr.parsed[1], value));
+                var value = Variable.uniqueName('local_');
+                ops.push(Base.not(value, instr.parsed.opd[1]));
+                ops.push(Base.or(instr.parsed.opd[2], instr.parsed.opd[0], value));
                 return Base.composed(ops);
             },
             ret: function(instr, context, instructions) {
-                return Base.instructions.return();
+                return Base.return();
             },
             retl: function(instr, context, instructions) {
-                return Base.instructions.return();
+                return Base.return();
+            },
+            rett: function(instr, context, instructions) {
+                return Base.return();
             },
             restore: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             save: function(instr, context, instructions) {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             sethi: function(instr, context, instructions) {
-                var v = Long.fromString(parseInt(instr.parsed[1]).toString(16), true, 16);
-                return Base.instructions.assign(instr.parsed[2], '0x' + v.shl(10).toString(16));
+                var v = Long.fromString(parseInt(instr.parsed.opd[0]).toString(16), true, 16);
+                return Base.assign(instr.parsed.opd[1], '0x' + v.shl(10).toString(16));
             },
             sll: function(instr, context, instructions) {
-                return Base.instructions.shift_left(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.shift_left(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             srl: function(instr, context, instructions) {
-                return Base.instructions.shift_right(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.shift_right(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             sra: function(instr, context, instructions) {
-                return Base.instructions.shift_right(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.shift_right(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             stb: function(instr, context, instructions) {
                 return _store(instr, context, instructions, false, 8);
@@ -310,63 +310,64 @@ module.exports = (function() {
                 return _store(instr, context, instructions, false, 64);
             },
             sub: function(instr, context, instructions) {
-                if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                if (instr.parsed.opd[1].indexOf('-') >= 0) {
+                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
-                return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             subcc: function(instr, context, instructions) {
                 _compare(instr, context);
-                if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                if (instr.parsed.opd[1].indexOf('-') >= 0) {
+                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
-                return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             subx: function(instr, context, instructions) {
-                if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                if (instr.parsed.opd[1].indexOf('-') >= 0) {
+                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
-                return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             subxcc: function(instr, context, instructions) {
                 _compare(instr, context);
-                if (instr.parsed[2].indexOf('-') >= 0) {
-                    return Base.instructions.add(instr.parsed[3], instr.parsed[1], instr.parsed[2].replace(/-/, ''))
+                if (instr.parsed.opd[1].indexOf('-') >= 0) {
+                    return Base.add(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1].replace(/-/, ''));
                 }
-                return Base.instructions.subtract(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.subtract(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             xor: function(instr, context, instructions) {
-                return Base.instructions.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.xor(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             xorcc: function(instr, context, instructions) {
                 _compare(instr, context);
-                return Base.instructions.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]);
+                return Base.xor(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]);
             },
             xnor: function(instr, context, instructions) {
                 var ops = [];
-                ops.push(Base.instructions.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]));
-                ops.push(Base.instructions.not(instr.parsed[3], instr.parsed[3]));
+                ops.push(Base.xor(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]));
+                ops.push(Base.not(instr.parsed.opd[2], instr.parsed.opd[2]));
                 return Base.composed(ops);
             },
             xnorcc: function(instr, context, instructions) {
                 _compare(instr, context);
                 var ops = [];
-                ops.push(Base.instructions.xor(instr.parsed[3], instr.parsed[1], instr.parsed[2]));
-                ops.push(Base.instructions.not(instr.parsed[3], instr.parsed[3]));
+                ops.push(Base.xor(instr.parsed.opd[2], instr.parsed.opd[0], instr.parsed.opd[1]));
+                ops.push(Base.not(instr.parsed.opd[2], instr.parsed.opd[2]));
                 return Base.composed(ops);
             },
             unimp: function() {
-                return Base.instructions.nop();
+                return Base.nop();
             },
             invalid: function() {
-                return Base.instructions.nop();
+                return Base.nop();
             }
         },
-        parse: function(asm) {
-            if (!asm) {
-                return [];
-            }
-            return asm.replace(/,/g, ' ').replace(/\[|\]/g, '').replace(/\s+/g, ' ').trim().split(' ');
+        parse: function(assembly) {
+            var tokens = assembly.replace(/,/g, ' ').replace(/\[|\]/g, '').replace(/\s+/g, ' ').trim().split(' ');
+            return {
+                mnem: tokens.shift(),
+                opd: tokens
+            };
         },
         context: function() {
             return {
@@ -374,28 +375,31 @@ module.exports = (function() {
                     a: null,
                     b: null
                 }
-            }
+            };
         },
-        custom_start: function(instructions) {
+        preanalisys: function(instructions) {
             /* delayed branch fix */
             for (var i = 0; i < (instructions.length - 1); i++) {
-                var op = instructions[i].parsed[0];
-                var n = instructions[i + 1].parsed[0];
+                var op = instructions[i].parsed.mnem;
+                var n = instructions[i + 1].parsed.mnem;
                 if (_branch_list.indexOf(op) >= 0 && n != 'nop' && _branch_list.indexOf(n) < 0) {
-                    Base.swap_instructions(instructions, i);
+                    Instruction.swap(instructions, i, i + 1);
                     ++i;
                 }
             }
         },
-        custom_end: function(instructions, context) {
+        postanalisys: function(instructions, context) {
             /* simplifies any load address 32/64 bit */
             for (var i = 0; i < instructions.length; i++) {
-                if (instructions[i].parsed[0] == 'sethi') {
+                if (instructions[i].parsed.mnem == 'sethi') {
                     i = sethi32(instructions[i], i, instructions);
                 }
             }
         },
         localvars: function(context) {
+            return [];
+        },
+        globalvars: function(context) {
             return [];
         },
         arguments: function(context) {

@@ -142,7 +142,7 @@ static void duk_r2dec(RCore *core, const char *input) {
 	if (*input) {
 		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main(\"%s\".split(/\\s+/));}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}", input);
 	} else {
-		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main(\"\".split(/\\s+/));}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}");
+		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main([]);}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}");
 	}
 	duk_eval_string_noresult (ctx, args);
 	duk_destroy_heap (ctx);
@@ -150,14 +150,23 @@ static void duk_r2dec(RCore *core, const char *input) {
 }
 
 static void usage(void) {
-	eprintf ("Usage: pdd [args] - core plugin for r2dec\n");
-	eprintf (" pdd   - decompile current function\n");
-	eprintf (" pdd?  - show this help\n");
-	eprintf (" pdda  - decompile current function with side assembly\n");
-	eprintf (" pddu  - install/upgrade r2dec via r2pm\n");
-	eprintf (" pddi  - generates the issue data\n");
-	eprintf ("Environment\n");
-	eprintf (" R2DEC_HOME  defaults to the root directory of the r2dec repo\n");
+	r_cons_printf ("Usage: pdd [args] - core plugin for r2dec\n");
+	r_cons_printf (" pdd   - decompile current function\n");
+	r_cons_printf (" pdd?  - show this help\n");
+	r_cons_printf (" pdda  - decompile current function with side assembly\n");
+	r_cons_printf (" pddb  - decompile current function but shows only scopes\n");
+	r_cons_printf (" pddu  - install/upgrade r2dec via r2pm\n");
+	r_cons_printf (" pddi  - generates the issue data\n");
+	r_cons_printf ("Evaluable Variables:\n");
+	r_cons_printf (" r2dec.casts   - if false, hides all casts in the pseudo code.\n");
+	r_cons_printf (" r2dec.asm     - if true, shows pseudo next to the assembly.\n");
+	r_cons_printf (" r2dec.blocks  - if true, shows only scopes blocks.\n");
+	r_cons_printf (" r2dec.xrefs   - if true, shows all xrefs in the pseudo code.\n");
+	r_cons_printf (" r2dec.paddr   - if true, all xrefs uses physical addresses compare.\n");
+	r_cons_printf (" r2dec.theme   - defines the color theme to be used on r2dec.\n");
+	r_cons_printf ("Environment\n");
+	r_cons_printf (" R2DEC_HOME  defaults to the root directory of the r2dec repo\n");
+
 }
 
 static void _cmd_pdd(RCore *core, const char *input) {
@@ -180,9 +189,9 @@ static void _cmd_pdd(RCore *core, const char *input) {
 		// --assembly
 		duk_r2dec(core, "--assembly");
 		break;
-	case 'o':
-		// --offset
-		duk_r2dec(core, "--offset");
+	case 'b':
+		// --blocks
+		duk_r2dec(core, "--blocks");
 		break;
 	case '?':
 	default:
@@ -225,23 +234,26 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_config_lock (cfg, false);
 	SETPREF("r2dec.casts", "false", "if false, hides all casts in the pseudo code.");
 	SETPREF("r2dec.asm", "false", "if true, shows pseudo next to the assembly.");
-	SETPREF("r2dec.offset", "false", "if true, shows pseudo next to the offset.");
-	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code");
+	SETPREF("r2dec.blocks", "false", "if true, shows only scopes blocks.");
+	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code.");
+	SETPREF("r2dec.paddr", "false", "if true, all xrefs uses physical addresses compare.");
 	SETPREF("r2dec.theme", "default", "defines the color theme to be used on r2dec.");
 	r_config_lock (cfg, true);
 
 	// autocomplete here..
 	RCoreAutocomplete *pdd = r_core_autocomplete_add (core->autocomplete, "pdd", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pdda", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pddb", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (pdd, "--assembly", R_CORE_AUTOCMPLT_OPTN, true);
-	r_core_autocomplete_add (pdd, "--offset", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--blocks", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--casts", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--colors", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--debug", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--html", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--issue", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--paddr", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--xrefs", R_CORE_AUTOCMPLT_OPTN, true);
 	return true;
 }

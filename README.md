@@ -28,24 +28,29 @@ done
 # Arguments
 
 ```
-[0x00000c60]> pdd?
+[0x00000000]> pdd?
 Usage: pdd [args] - core plugin for r2dec
  pdd   - decompile current function
  pdd?  - show this help
  pdda  - decompile current function with side assembly
+ pddb  - decompile current function but shows only scopes
  pddu  - install/upgrade r2dec via r2pm
  pddi  - generates the issue data
-[0x00000c60]> pdd --help
+Environment
+ R2DEC_HOME  defaults to the root directory of the r2dec repo
+[0x00000000]> pdd --help
+
 r2dec [options]
-       --help     | this help message
-       --colors   | enables syntax colors
-       --assembly | shows pseudo next to the assembly
-       --offset   | shows pseudo next to the offset
-       --casts    | shows all casts in the pseudo code
-       --issue    | generates the json used for the test suite
-       --debug    | do not catch exceptions
-       --html     | outputs html data instead of text
-       --xrefs    | shows all xrefs in the pseudo code
+       --help       | this help message
+       --assembly   | shows pseudo next to the assembly
+       --blocks     | shows only scopes blocks
+       --colors     | enables syntax colors
+       --casts      | shows all casts in the pseudo code
+       --debug      | do not catch exceptions
+       --html       | outputs html data instead of text
+       --issue      | generates the json used for the test suite
+       --paddr      | all xrefs uses physical addresses instead of virtual addresses
+       --xrefs      | shows also instruction xrefs in the pseudo code
 ```
 
 # Radare2 Evaluable vars
@@ -55,7 +60,9 @@ You can use these in your `.radare2rc` file.
 ```
 r2dec.casts         | if false, hides all casts in the pseudo code.
 r2dec.asm           | if true, shows pseudo next to the assembly.
+r2dec.blocks        | if true, shows only scopes blocks.
 r2dec.offset        | if true, shows pseudo next to the offset.
+r2dec.paddr         | if true, all xrefs uses physical addresses compare.
 r2dec.xrefs         | if true, shows all xrefs in the pseudo code.
 r2dec.theme         | defines the color theme to be used on r2dec.
 e scr.html          | outputs html data instead of text.
@@ -80,7 +87,7 @@ e scr.color         | enables syntax colors.
     sparc
     v850
     wasm (partial)
-    x86 (intel)
+    x86-64 (intel syntax)
 
 # Developing on r2dec
 
@@ -111,47 +118,50 @@ int main(int argc, char const *argv[]) {
 
 
 ```
-            ;-- main:
 ╭ (fcn) main 50
-│   main ();
+│   main (int arg1, int arg2);
 │           ; var int local_20h @ rbp-0x20
 │           ; var int local_14h @ rbp-0x14
-│           ; var int local_4h @ rbp-0x4
-│              ; DATA XREF from 0x0000050d (entry0)
-│           0x000005fa      55             push rbp
-│           0x000005fb      4889e5         mov rbp, rsp
-│           0x000005fe      897dec         mov dword [local_14h], edi
-│           0x00000601      488975e0       mov qword [local_20h], rsi
-│           0x00000605      c745fc000000.  mov dword [local_4h], 0
-│       ╭─< 0x0000060c      eb0e           jmp 0x61c
-│       │      ; JMP XREF from 0x00000623 (main)
-│      ╭──> 0x0000060e      837dfc0f       cmp dword [local_4h], 0xf   ; [0xf:4]=0x3e000300
-│     ╭───< 0x00000612      7f04           jg 0x618
-│     │⁝│   0x00000614      8345fc50       add dword [local_4h], 0x50  ; 'P'
-│     │⁝│      ; JMP XREF from 0x00000612 (main)
-│     ╰───> 0x00000618      8345fc10       add dword [local_4h], 0x10
-│      ⁝│      ; JMP XREF from 0x0000060c (main)
-│      ⁝╰─> 0x0000061c      817dfc8f0000.  cmp dword [local_4h], 0x8f  ; [0x8f:4]=0x23800
-│      ╰──< 0x00000623      7ee9           jle 0x60e
-│           0x00000625      b800000000     mov eax, 0
-│           0x0000062a      5d             pop rbp
-╰           0x0000062b      c3             ret
+│           ; var signed int local_4h @ rbp-0x4
+│           ; DATA XREF from entry0 (0x1041)
+│           0x00001119      55             push rbp
+│           0x0000111a      4889e5         mov rbp, rsp
+│           0x0000111d      897dec         mov dword [local_14h], edi  ; arg1
+│           0x00001120      488975e0       mov qword [local_20h], rsi  ; arg2
+│           0x00001124      c745fc000000.  mov dword [local_4h], 0
+│       ╭─< 0x0000112b      eb0e           jmp 0x113b
+│       │   ; CODE XREF from main (0x1142)
+│      ╭──> 0x0000112d      837dfc0f       cmp dword [local_4h], 0xf   ; [0xf:4]=0x3e000300
+│     ╭───< 0x00001131      7f04           jg 0x1137
+│     │⋮│   0x00001133      8345fc50       add dword [local_4h], 0x50  ; 'P'
+│     │⋮│   ; CODE XREF from main (0x1131)
+│     ╰───> 0x00001137      8345fc10       add dword [local_4h], 0x10
+│      ⋮│   ; CODE XREF from main (0x112b)
+│      ⋮╰─> 0x0000113b      817dfc8f0000.  cmp dword [local_4h], 0x8f  ; [0x8f:4]=0x2a800
+│      ╰──< 0x00001142      7ee9           jle 0x112d
+│           0x00001144      b800000000     mov eax, 0
+│           0x00001149      5d             pop rbp
+╰           0x0000114a      c3             ret
 ```
 
 ### r2dec pseudo-C code
 
 ```c
+/* r2dec pseudo C output */
 #include <stdint.h>
-
-int32_t main () {
-    *((int32_t*) local_14h) = edi;
-    *((int64_t*) local_20h) = rsi;
-    *((int32_t*) local_4h) = 0;
-    while (*((int32_t*) local_4h) > 0x8f) {
-        if (*((int32_t*) local_4h) <= 0xf) {
-            *((int32_t*) local_4h) += 0x50;
+ 
+int32_t main (int32_t argc, char ** argv) {
+    char ** local_20h;
+    int32_t local_14h;
+    int32_t local_4h;
+    local_14h = edi;
+    local_20h = rsi;
+    local_4h = 0;
+    while (local_4h <= 0x8f) {
+        if (local_4h <= 0xf) {
+            local_4h += 0x50;
         }
-        *((int32_t*) local_4h) += 0x10;
+        local_4h += 0x10;
     }
     eax = 0;
     return eax;
