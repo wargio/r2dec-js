@@ -1225,6 +1225,8 @@ module.exports = (function() {
                 }
 
                 // attach segment override to operand token, if both exist
+                // since c has no valid syntax for that, we use the common notation for a segment-prefixed pointer
+                // TODO: look into non-standard gcc namespaces__seg_fs and __seg_gs
                 if (opd1.segovr && opd1.token) {
                     opd1.token = opd1.segovr + opd1.token;
                 }
@@ -1236,18 +1238,11 @@ module.exports = (function() {
                 }
 
                 // attach segment override to operand token, if both exist
+                // since c has no valid syntax for that, we use the common notation for a segment-prefixed pointer
+                // TODO: look into non-standard gcc namespaces__seg_fs and __seg_gs
                 if (opd2.segovr && opd2.token) {
                     opd2.token = opd2.segovr + opd2.token;
                 }
-
-
-                if (opd1.token && opd1.token.startsWith("fs:")) {
-                    opd1.token = opd1.token.replace(/:/g, ' + ');
-                }
-                if (opd2.token && opd2.token.startsWith("fs:")) {
-                    opd2.token = opd2.token.replace(/:/g, ' + ');
-                }
-
             });
         },
         parse: function(asm) {
