@@ -505,8 +505,8 @@ module.exports = (function() {
         context: function() {
             return {
                 cond: {
-                    a: null,
-                    b: null
+                    a: '?',
+                    b: '?'
                 },
                 leave: false,
                 vars: []
