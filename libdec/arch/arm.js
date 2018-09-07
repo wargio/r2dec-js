@@ -143,7 +143,7 @@ module.exports = (function() {
 
     var _conditional_inline = function(instr, context, instructions, type) {
         instr.conditional(context.cond.a, context.cond.b, type);
-        instr.jump = instructions[instructions.indexOf(instr) + 1].loc;
+        instr.jump = instructions[instructions.indexOf(instr) + 1].location;
     };
 
     var _fix_arg = function(instr) {
