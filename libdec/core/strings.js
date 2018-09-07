@@ -35,11 +35,15 @@ module.exports = (function() {
         return a.paddr.lt(b.paddr) ? -1 : (a.paddr.eq(b.paddr) ? 0 : 1);
     };
 
+    var _sanitize = function(x) {
+        return x.paddr || x.vaddr;
+    };
+
     /*
      * Expects the izj json as input.
      */
     return function(izj) {
-        this.data = izj.sort(Global.evars.honor.paddr ? _physical_compare: _virtual_compare).map(function(x) {
+        this.data = izj.filter(_sanitize).sort(Global.evars.honor.paddr ? _physical_compare: _virtual_compare).map(function(x) {
             return {
                 location: Global.evars.honor.paddr ? x.paddr : x.vaddr,
                 value: (new TextDecoder().decode(Duktape.dec('base64', x.string))).replace(/\\\\/g, '\\')

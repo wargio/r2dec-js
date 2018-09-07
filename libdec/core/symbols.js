@@ -28,6 +28,7 @@ module.exports = (function() {
     };
 
     var _virtual_compare = function(a, b) {
+        console.log(a.vaddr)
         return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
     };
 
@@ -35,11 +36,15 @@ module.exports = (function() {
         return a.paddr.lt(b.paddr) ? -1 : (a.paddr.eq(b.paddr) ? 0 : 1);
     };
 
+    var _sanitize = function(x) {
+        return x.paddr || x.vaddr;
+    };
+
     /*
      * Expects the isj json as input.
      */
     return function(isj) {
-        this.data = isj.sort(Global.evars.honor.paddr ? _physical_compare: _virtual_compare).map(function(x) {
+        this.data = isj.filter(_sanitize).sort(Global.evars.honor.paddr ? _physical_compare: _virtual_compare).map(function(x) {
             return {
                 location: Global.evars.honor.paddr ? x.paddr : x.vaddr,
                 value: x.demname.length > 0 ? x.demname : x.name,

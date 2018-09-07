@@ -204,6 +204,10 @@ module.exports = (function() {
                 returnval = 'r0';
             }
         }
+
+        if (returnval) {
+            return Base.assign(Base.call(callname, args));
+        }
         return Base.call(callname, args);
     };
 
@@ -384,7 +388,7 @@ module.exports = (function() {
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
                     return Base.nop();
                 }
-                return Base.inverse(dst, instr.parsed.opd[1]);
+                return Base.not(dst, instr.parsed.opd[1]);
             },
             mul: function(instr) {
                 return _common_math(instr.parsed, Base.multiply);
