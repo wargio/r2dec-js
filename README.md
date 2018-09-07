@@ -61,7 +61,6 @@ You can use these in your `.radare2rc` file.
 r2dec.casts         | if false, hides all casts in the pseudo code.
 r2dec.asm           | if true, shows pseudo next to the assembly.
 r2dec.blocks        | if true, shows only scopes blocks.
-r2dec.offset        | if true, shows pseudo next to the offset.
 r2dec.paddr         | if true, all xrefs uses physical addresses compare.
 r2dec.xrefs         | if true, shows all xrefs in the pseudo code.
 r2dec.theme         | defines the color theme to be used on r2dec.
