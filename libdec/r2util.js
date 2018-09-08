@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018 deroad, elicn
+ * Copyright (C) 2018 deroad
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,86 +18,103 @@
 module.exports = (function() {
     var _JSON = require('libdec/json64');
 
-    function r2json(m, def) {
-        var x = r2cmd(m).replace(/\n/g, '').trim();
+    function r2str(value, multiline) {
+        var x = r2cmd(value);
+        if (multiline) {
+            x = x.replace(/\n/g, '');
+        }
+        return x.trim();
+    }
 
+    function r2json(m, def) {
+        var x = r2str(m, true);
         return x.length > 0 ? _JSON.parse(x) : def;
     }
 
-    function r2dec_sanitize(enable, evar, oldstatus, newstatus) {
-        var status = enable ? newstatus : oldstatus;
-
-        r2cmd(['e', evar, '=', status].join(' '));
+    function r2int(value, def) {
+        var x = r2str(value);
+        if (x != '') {
+            try {
+                return parseInt(x);
+            } catch (e) {}
+        }
+        return def;
     }
 
+    function r2bool(value) {
+        var x = r2str(value);
+        return x == 'true' || x == '1';
+    }
+
+    function r2_sanitize(value, expected) {
+        return value.length == 0 ? expected : value;
+    }
+
+    function r2dec_sanitize(enable, evar, oldstatus, newstatus) {
+        if (enable) {
+            r2cmd('e ' + evar + ' = ' + newstatus);
+        } else {
+            r2cmd('e ' + evar + ' = ' + oldstatus);
+        }
+    }
+
+    var padding = '            ';
     var usages = {
-        '--help':     'this help message',
-        '--assembly': 'shows pseudo next to the assembly',
-        '--blocks':   'shows only scopes blocks',
-        '--colors':   'enables syntax colors',
-        '--casts':    'shows all casts in the pseudo code',
-        '--debug':    'do not catch exceptions',
-        '--html':     'outputs html data instead of text',
-        '--issue':    'generates the json used for the test suite',
-        '--paddr':    'all xrefs uses physical addresses instead of virtual addresses',
-        '--xrefs':    'shows also instruction xrefs in the pseudo code',
+        "--help": "this help message",
+        "--assembly": "shows pseudo next to the assembly",
+        "--blocks": "shows only scopes blocks",
+        "--colors": "enables syntax colors",
+        "--casts": "shows all casts in the pseudo code",
+        "--debug": "do not catch exceptions",
+        "--html": "outputs html data instead of text",
+        "--issue": "generates the json used for the test suite",
+        "--paddr": "all xrefs uses physical addresses instead of virtual addresses",
+        "--xrefs": "shows also instruction xrefs in the pseudo code",
     };
 
     function has_option(args, name) {
         return (args.indexOf(name) >= 0);
     }
 
-    function has_invalid_arg(args) {
-        var valid_keys = Object.keys(usages);
-        var found = false;
-
-        for (var i = 0; !found && (i < args.length); i++) {
-            var a = args[i];
-
-            if (a && valid_keys.indexOf(a) == (-1)) {
-                console.log('Invalid argument \'' + a + '\'\n');
-
-                found = true;
+    function has_invalid_args(args) {
+        for (var i = 0; i < args.length; i++) {
+            if (args[i] != '' && !usages[args[i]]) {
+                console.log('Invalid argument \'' + args[i] + '\'\n');
+                return true;
             }
         }
-
-        return found;
+        return false;
     }
 
     function usage() {
-        var justify = function(s, col, total) {
-            var lpad = ' '.repeat(col);
-            var rpad = ' '.repeat(total - col - s.length);
-
-            return [lpad, s, rpad].join('');
-        };
-
-        console.log('r2dec [options]');
+        console.log("r2dec [options]");
         for (var key in usages) {
-            console.log([justify(key, 7, 19), '|', usages[key]].join(' '));
+            var cmd = key + padding.substr(key.length, padding.length);
+            console.log("       " + cmd + " | " + usages[key]);
         }
     }
 
     function print_issue() {
-        var ej = r2json('ej', {});
-
-        var issue = {
-            'name': 'issue_' + (new Date()).getTime(),
-            'arch': ej['asm.arch'],
-            'archbits': ej['asm.bits'],
-            'agj':  r2json('agj', []),
-            'isj':  r2json('isj', []),
-            'izj':  r2json('izj', []),
-            'afvj': r2json('afvj', { 'sp': [], 'bp': [], 'reg': [] }),
-            'afjl': r2json('aflj', [])
-        };
-
-        console.log(issue);
+        var xrefs = r2_sanitize(r2str('isj'), '[]');
+        var strings = r2_sanitize(r2str('izj'), '[]');
+        var functions = r2_sanitize(r2str('aflj'), '[]');
+        var data = r2_sanitize(r2str('agj'), '[]');
+        var farguments = r2_sanitize(r2str('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
+        var arch = r2_sanitize(r2str('e asm.arch'), '');
+        var archbits = r2_sanitize(r2str('e asm.bits'), '32');
+        console.log('{"name":"issue_' + (new Date()).getTime() +
+            '","arch":"' + arch +
+            '","archbits":' + archbits +
+            ',"agj":' + data +
+            ',"isj":' + xrefs +
+            ',"izj":' + strings +
+            ',"afvj":' + farguments +
+            ',"aflj":' + functions + '}');
     }
 
     var r2util = {
         check_args: function(args) {
-            if (has_invalid_arg(args)) {
+            if (has_invalid_args(args)) {
                 args.push('--help');
             }
             if (has_option(args, '--help')) {
@@ -113,7 +130,6 @@ module.exports = (function() {
         evarsTestSuite: function(data) {
             this.arch = data.arch;
             this.archbits = data.bits;
-
             this.honor = {
                 casts: true,
                 assembly: true,
@@ -124,7 +140,6 @@ module.exports = (function() {
                 html: false,
                 color: false
             };
-
             this.extra = {
                 theme: 'default',
                 debug: true
@@ -135,75 +150,67 @@ module.exports = (function() {
             if (!o.arch) {
                 throw new Error('missing architecture in JSON.');
             }
-
             var bits = o.archbits;
             if (bits) {
                 // if bits is in the issue then it has been decoded as a Long object.
                 // to override this is required to be converted to just an integer.
                 bits = bits.low;
             }
-
             return {
                 arch: o.arch,
                 bits: bits || 32,
                 graph: o.agj || [],
-
                 xrefs: {
-                    symbols:   o.isj  || [],
-                    strings:   o.izj  || [],
+                    symbols: o.isj || [],
+                    strings: o.izj || [],
                     functions: o.aflj || [],
-                    arguments: o.afvj || { 'sp': [], 'bp': [], 'reg': [] }
+                    arguments: o.afvj || {
+                        "sp": [],
+                        "bp": [],
+                        "reg": []
+                    }
                 }
             };
         },
         evars: function(args) {
-            var ej = r2json('ej', {});
-
-            this.arch     = ej['asm.arch'];
-            this.archbits = ej['asm.bits'];
-
+            this.arch = r2str('e asm.arch');
+            this.archbits = r2int('e asm.bits', 32);
             this.honor = {
-                casts:    ej['r2dec.casts']   || has_option(args, '--casts'),
-                assembly: ej['r2dec.asm']     || has_option(args, '--assembly'),
-                blocks:   ej['r2dec.blocks']  || has_option(args, '--blocks'),
-                xrefs:    ej['r2dec.xrefs']   || has_option(args, '--xrefs'),
-                paddr:    ej['r2dec.paddr']   || has_option(args, '--paddr'),
-                html:     ej['scr.html']      || has_option(args, '--html'),
-                color:    ej['scr.color'] > 0 || has_option(args, '--colors')
+                casts: r2bool('e r2dec.casts') || has_option(args, '--casts'),
+                assembly: r2bool('e r2dec.asm') || has_option(args, '--assembly'),
+                blocks: r2bool('e r2dec.blocks') || has_option(args, '--blocks'),
+                xrefs: r2bool('e r2dec.xrefs') || has_option(args, '--xrefs'),
+                paddr: r2bool('e r2dec.paddr') || has_option(args, '--paddr'),
+                html: r2bool('e scr.html') || has_option(args, '--html'),
+                color: r2int('e scr.color', 0) > 0 || has_option(args, '--colors')
             };
-
             this.sanitize = {
-                ucase:      ej['asm.ucase'],
-                pseudo:     ej['asm.pseudo'],
-                capitalize: ej['asm.capitalize'],
+                ucase: r2bool('e asm.ucase'),
+                pseudo: r2bool('e asm.pseudo'),
+                capitalize: r2bool('e asm.capitalize'),
             };
-
             this.extra = {
-                theme: ej['r2dec.theme'],
+                theme: r2str('e r2dec.theme'),
                 debug: has_option(args, '--debug')
             };
         },
         data: function() {
-            var ej = r2json('ej', {});
-
-            this.arch  = ej['asm.arch'];
-            this.bits  = ej['asm.bits'];
-            this.graph = r2json('agj', []);
-
+            this.arch = r2str('e asm.arch');
+            this.bits = r2int('e asm.bits', 32);
             this.xrefs = {
-                symbols:   r2json('isj', []),
-                strings:   r2json('izj', []),
+                symbols: r2json('isj', []),
+                strings: r2json('izj', []),
                 functions: r2json('aflj', []),
                 arguments: r2json('afvj', {
-                    'sp':  [],
-                    'bp':  [],
-                    'reg': []
+                    "sp": [],
+                    "bp": [],
+                    "reg": []
                 })
             };
+            this.graph = r2json('agj', []);
         },
         sanitize: function(enable, evars) {
             var s = evars.sanitize;
-
             r2dec_sanitize(enable, 'asm.ucase', s.ucase, 'false');
             r2dec_sanitize(enable, 'asm.pseudo', s.pseudo, 'false');
             r2dec_sanitize(enable, 'asm.capitalize', s.capitalize, 'false');
@@ -213,13 +220,11 @@ module.exports = (function() {
             if (evars.extra.debug) {
                 console.log('Exception:', exception.stack);
             } else {
-                console.log([
-                    '',
-                    '',
-                    'r2dec has crashed.',
-                    'Please report the bug at https://github.com/wargio/r2dec-js/issues',
-                    'Use the option \'--issue\' or the command \'pddi\' to generate',
-                    'the needed data for the issue.'].join('\n')
+                console.log(
+                    '\n\nr2dec has crashed.\n' +
+                    'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
+                    'Use the option \'--issue\' or the command \'pddi\' to generate \n' +
+                    'the needed data for the issue.'
                 );
             }
         }
