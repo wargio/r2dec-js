@@ -201,9 +201,6 @@ module.exports = (function() {
      * @returns {!number}
      */
     var _find_bits = function(reg) {
-        if (!reg) {
-            return 32;
-        }
         var elems = reg.match(/([re])?(.?[^dwhl]?)([dwhl])?/);
 
         // reg string will be splitted into an array of 4, where:
@@ -245,6 +242,23 @@ module.exports = (function() {
         }
 
         return sz;
+    };
+
+    /**
+     * Get the number of operands populated for this instruction.
+     * @param {Object} p Parsed instruction structure
+     * @returns {number} Number of populated operands
+     */
+    var _num_operands = function(p) {
+        var operands = p.opd.slice();
+
+        while (operands.length > 0) {
+            if (operands.pop().token != undefined) {
+                return operands.length + 1;
+            }
+        }
+
+        return 0;
     };
 
     /**
@@ -334,34 +348,57 @@ module.exports = (function() {
      * @returns {Object} Multiply instruction instance
      */
     var _math_multiply = function(p, signed, context) {
-        // note: normally there is only one operand, where the multiplier is implicit and determined by the
-        // operation size. for some reason r2 has decided to emit the multiplicand register explicitly as the
-        // first operand. in order to remain consistent with the standard notation, we'll disregard the first
-        // operand and pick the multiplicand register manually.
+        var multiplier;
+        var multiplicand;
+        var destination;
 
-        var multiplier = p.opd[1]; // should have been opd[0]; see note above
-        var multiplier_is_ptr = !!multiplier.mem_access;
-        var osize = multiplier.mem_access || _find_bits(multiplier.token);
+        // operation size: this is determined by the size of the first operand
+        var osize = p.opd[0].mem_access || _find_bits(p.opd[0].token);
 
-        var destination = {
-            8: ['ax'],
-            16: ['dx', 'ax'],
-            32: ['edx', 'eax'],
-            64: ['rdx', 'rax']
-        }[osize];
+        // while the "mul" instruction supports only one variant, in which there is only one operand, the
+        // "imul" instruction supports three of them: with one, two or three operands. each of which has
+        // a different meaning for the operands.
 
-        var multiplicand = {
-            8: 'al',
-            16: 'ax',
-            32: 'eax',
-            64: 'rax'
-        }[osize];
+        switch (_num_operands(p)) {
+            case 3:
+                multiplier   = p.opd[2];
+                multiplicand = p.opd[1];
+                destination  = [p.opd[0].token];
+                break;
+            case 2:
+                multiplier   = p.opd[1];
+                multiplicand = p.opd[0];
+                destination  = [p.opd[0].token];
+                break;
+            case 1:
+                multiplier = p.opd[0];
+
+                multiplicand = {
+                    token: {
+                        8: 'al',
+                        16: 'ax',
+                        32: 'eax',
+                        64: 'rax'
+                    }[osize]
+                };
+
+                destination = {
+                    8: ['ax'],
+                    16: ['dx', 'ax'],
+                    32: ['edx', 'eax'],
+                    64: ['rdx', 'rax']
+                }[osize];
+
+                break;
+        }
 
         _has_changed_return(destination[destination.length - 1], signed, context);
 
-        var multiplier_type = multiplier_is_ptr ? 'pointer' : 'local';
-        var arg_destination = Variable.local(destination.join(':'), osize * 2, signed, false, false);
-        var arg_multiplicand = Variable.local(multiplicand, osize, signed, false, false);
+        var multiplicand_type = multiplicand.mem_access ? 'pointer' : 'local';
+        var multiplier_type = multiplier.mem_access ? 'pointer' : 'local';
+
+        var arg_destination = Variable.local(destination.join(':'), osize * destination.length, signed, false, false);
+        var arg_multiplicand = Variable[multiplicand_type](multiplicand.token, osize, signed);
         var arg_multiplier = Variable[multiplier_type](multiplier.token, osize, signed);
 
         // destination = multiplicand * multiplier
@@ -1259,21 +1296,28 @@ module.exports = (function() {
             // (?:\s*
             //     ([d-g]s:)?                              : optional segment override
             //     (?:\[?)                                 : optional opening bracket (stripped)
-            //     ([^\[\],]+)                             : first operand
+            //     ([^[\],]+)                              : first operand
             //     (?:\]?)                                 : optional closing bracket (stripped)
             // )?
             // (?:,                                        : separating comma
             //     (?:\s+
             //         (byte|(?:[dq]|[xyz]mm)?word)        : second operand's memory access qualifier
+            //         (?: ptr)?
             //     )?
             //     (?:\s*
             //         ([d-g]s:)?                          : optional segment override
             //         (?:\[?)                             : optional opening bracket (stripped)
-            //         ([^\[\],]+)                         : second operand
+            //         ([^[\],]+)                          : second operand
             //         (?:\]?)                             : optional closing bracket (stripped)
             //     )?
             // )?
-            var tokens = asm.match(/(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?)?/);
+            // (?:,                                        : separating comma
+            //     (?:\s+
+            //         ([^[\],]+)                          : third operand
+            //     )?
+            // )?
+
+            var tokens = asm.match(/(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word)(?: ptr)?)?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?)?(?:,(?:\s+([^[\],]+))?)?/);
 
             // tokens[0]: match string; irrelevant
             // tokens[1]: instruction prefix; undefined if no prefix
@@ -1284,6 +1328,7 @@ module.exports = (function() {
             // tokens[6]: second operand's memory access qualifier; undefined if no qualifier or no second operand
             // tokens[7]: segment override for second operand; undefined if no segment override or no second operand
             // tokens[8]: second operand; undefined if no second operand
+            // tokens[9]: third operand; undefined if no third operand
 
             var prefix = tokens[1];
             var mnemonic = tokens[2];
@@ -1300,10 +1345,17 @@ module.exports = (function() {
                 token: tokens[8]
             };
 
+            // third operand is either a register or immediate; no memory access
+            var operand3 = {
+                mem_access: undefined,
+                segovr: undefined,
+                token: tokens[9]
+            };
+
             return {
                 pref: prefix,
                 mnem: mnemonic,
-                opd: [operand1, operand2]
+                opd: [operand1, operand2, operand3]
             };
         },
         context: function(data) {
