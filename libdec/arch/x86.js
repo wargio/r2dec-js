@@ -201,6 +201,9 @@ module.exports = (function() {
      * @returns {!number}
      */
     var _find_bits = function(reg) {
+        if (!reg) {
+            return 32;
+        }
         var elems = reg.match(/([re])?(.?[^dwhl]?)([dwhl])?/);
 
         // reg string will be splitted into an array of 4, where:
