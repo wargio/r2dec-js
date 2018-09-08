@@ -119,7 +119,7 @@ module.exports = (function() {
         var ptr = instr.parsed.opd[1];
         if (ptr.indexOf('-') >= 0) {
             ptr = ptr.replace('-', '');
-            v = Variable.uniqueName('local_');
+            v = Variable.uniqueName('local');
             //pointer, register, bits, is_signed
             m = [
                 Base.read_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[0], 8, false),
@@ -132,7 +132,7 @@ module.exports = (function() {
             return op;
         } else if (ptr.indexOf('+') >= 0) {
             ptr = ptr.replace('+', '');
-            v = Variable.uniqueName('local_');
+            v = Variable.uniqueName('local');
             //pointer, register, bits, is_signed
             m = [
                 Base.read_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[0], 8, false),
@@ -157,7 +157,7 @@ module.exports = (function() {
         var ptr = instr.parsed.opd[0];
         if (ptr.indexOf('-') >= 0) {
             ptr = ptr.replace('-', '');
-            v = Variable.uniqueName('local_');
+            v = Variable.uniqueName('local');
             //pointer, register, bits, is_signed
             m = [
                 Base.write_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[1], 8, false),
@@ -170,7 +170,7 @@ module.exports = (function() {
             return op;
         } else if (ptr.indexOf('+') >= 0) {
             ptr = ptr.replace('+', '');
-            v = Variable.uniqueName('local_');
+            v = Variable.uniqueName('local');
             //pointer, register, bits, is_signed
             m = [
                 Base.write_memory(AVR_MEMORY[ptr].name, instr.parsed.opd[1], 8, false),

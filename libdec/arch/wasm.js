@@ -40,7 +40,7 @@ module.exports = (function() {
     };
 
     var StackVar = function(type, instr) {
-        return new WasmVar(Variable.uniqueName('stack_'), type, instr);
+        return new WasmVar(Variable.uniqueName('stack'), type, instr);
     };
 
     var _is_next_a_set = function(instr, instructions) {
@@ -72,7 +72,7 @@ module.exports = (function() {
 
     var _set_local = function(instr, context, instructions, type, allow_args) {
         var pos = _is_next_local(instr, instructions);
-        var name = allow_args ? 'arg_' : 'local_';
+        var name = allow_args ? 'arg_' : 'local';
         var n = '';
         if (pos < 0) {
             n = instr.parsed.opd[0];
