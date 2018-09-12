@@ -523,7 +523,7 @@ module.exports = (function() {
     };
 
     var _new_variable = function(context, type) {
-        var value = Variable.uniqueName('local_');
+        var value = Variable.uniqueName('local');
         var local = Variable.local(value, type);
         context.localvars.push(local);
         return local;

@@ -37,7 +37,7 @@ module.exports = (function() {
         if (e.opd[0].indexOf('+') > 0) {
             var arg = e.opd[0].split('+');
             var ops = [];
-            var value = Variable.uniqueName('local_');
+            var value = Variable.uniqueName('local');
             if (arg[1].indexOf('-') < 0) {
                 ops.push(Base.add(value, arg[0], arg[1]));
             } else {
@@ -55,7 +55,7 @@ module.exports = (function() {
         if (e.opd[1].indexOf('+') > 0) {
             var arg = e.opd[1].split('+');
             var ops = [];
-            var value = Variable.uniqueName('local_');
+            var value = Variable.uniqueName('local');
             if (arg[1].indexOf('-') < 0) {
                 ops.push(Base.add(value, arg[0], arg[1]));
             } else {
@@ -164,7 +164,7 @@ module.exports = (function() {
             },
             andn: function(instr, context, instructions) {
                 var ops = [];
-                var value = Variable.uniqueName('local_');
+                var value = Variable.uniqueName('local');
                 ops.push(Base.not(value, instr.parsed.opd[1]));
                 ops.push(Base.and(instr.parsed.opd[2], instr.parsed.opd[0], value));
                 return Base.composed(ops);
@@ -172,7 +172,7 @@ module.exports = (function() {
             andncc: function(instr, context, instructions) {
                 _compare(instr, context);
                 var ops = [];
-                var value = Variable.uniqueName('local_');
+                var value = Variable.uniqueName('local');
                 ops.push(Base.not(value, instr.parsed.opd[1]));
                 ops.push(Base.and(instr.parsed.opd[2], instr.parsed.opd[0], value));
                 return Base.composed(ops);
@@ -256,7 +256,7 @@ module.exports = (function() {
             },
             orn: function(instr, context, instructions) {
                 var ops = [];
-                var value = Variable.uniqueName('local_');
+                var value = Variable.uniqueName('local');
                 ops.push(Base.not(value, instr.parsed.opd[1]));
                 ops.push(Base.or(instr.parsed.opd[2], instr.parsed.opd[0], value));
                 return Base.composed(ops);
@@ -264,7 +264,7 @@ module.exports = (function() {
             orncc: function(instr, context, instructions) {
                 _compare(instr, context);
                 var ops = [];
-                var value = Variable.uniqueName('local_');
+                var value = Variable.uniqueName('local');
                 ops.push(Base.not(value, instr.parsed.opd[1]));
                 ops.push(Base.or(instr.parsed.opd[2], instr.parsed.opd[0], value));
                 return Base.composed(ops);

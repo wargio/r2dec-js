@@ -1,50 +1,24 @@
 /* 
- * Copyright (C) 2017-2018 deroad, elicn
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+* Copyright (C) 2017-2018 deroad, elicn
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 module.exports = (function() {
     const Base = require('libdec/core/base');
     const Variable = require('libdec/core/variable');
     const Extra = require('libdec/core/extra');
-
-    /**
-     * Maps a memory access qualifier to its corresponding size in bits.
-     * @type {Object.<string,number>}
-     * */
-    var _bits_types = {
-        'byte': 8,
-        'word': 16,
-        'dword': 32,
-        'qword': 64,
-        'xmmword': 128,
-        'ymmword': 256,
-        'zmmword': 512
-    };
-
-    /**
-     * Maps a return size to its corresponding return register. This is used to
-     * determine which register is used to return a value of a given size.
-     * @type {Object.<number,string>}
-     */
-    var _return_types = {
-        8: 'al',
-        16: 'ax',
-        32: 'eax',
-        64: 'rax',
-    };
 
     /**
      * Maps a return register to its corresponding size in bits, This is used to
@@ -160,7 +134,6 @@ module.exports = (function() {
      * track the result register in order to determine what the function is going
      * to return (if any) in terms of exact register name and size.
      * If given register is not a return value register, nothing is changed.
-     * 
      * @param {string} reg Modified register name
      * @param {boolean} signed Value is signed?
      * @param {object} context Conetxt object
@@ -201,9 +174,6 @@ module.exports = (function() {
      * @returns {!number}
      */
     var _find_bits = function(reg) {
-        if (!reg) {
-            return 32;
-        }
         var elems = reg.match(/([re])?(.?[^dwhl]?)([dwhl])?/);
 
         // reg string will be splitted into an array of 4, where:
@@ -226,8 +196,8 @@ module.exports = (function() {
             }[elems[3]];
         } else if (elems[1] != undefined) {
             sz = {
-                'r': 64,
-                'e': 32
+                'e': 32,
+                'r': 64
             }[elems[1]];
         } else {
             // if neither suffix nor prefix are defined, test name for avx regs
@@ -245,6 +215,23 @@ module.exports = (function() {
         }
 
         return sz;
+    };
+
+    /**
+     * Get the number of operands populated for this instruction.
+     * @param {Object} p Parsed instruction structure
+     * @returns {number} Number of populated operands
+     */
+    var _num_operands = function(p) {
+        var operands = p.opd.slice();
+
+        while (operands.length > 0) {
+            if (operands.pop().token != undefined) {
+                return operands.length + 1;
+            }
+        }
+
+        return 0;
     };
 
     /**
@@ -334,34 +321,57 @@ module.exports = (function() {
      * @returns {Object} Multiply instruction instance
      */
     var _math_multiply = function(p, signed, context) {
-        // note: normally there is only one operand, where the multiplier is implicit and determined by the
-        // operation size. for some reason r2 has decided to emit the multiplicand register explicitly as the
-        // first operand. in order to remain consistent with the standard notation, we'll disregard the first
-        // operand and pick the multiplicand register manually.
+        var multiplier;
+        var multiplicand;
+        var destination;
 
-        var multiplier = p.opd[1]; // should have been opd[0]; see note above
-        var multiplier_is_ptr = !!multiplier.mem_access;
-        var osize = multiplier.mem_access || _find_bits(multiplier.token);
+        // operation size: this is determined by the size of the first operand
+        var osize = p.opd[0].mem_access || _find_bits(p.opd[0].token);
 
-        var destination = {
-            8: ['ax'],
-            16: ['dx', 'ax'],
-            32: ['edx', 'eax'],
-            64: ['rdx', 'rax']
-        }[osize];
+        // while the "mul" instruction supports only one variant, in which there is only one operand, the
+        // "imul" instruction supports three of them: with one, two or three operands. each of which has
+        // a different meaning for the operands.
 
-        var multiplicand = {
-            8: 'al',
-            16: 'ax',
-            32: 'eax',
-            64: 'rax'
-        }[osize];
+        switch (_num_operands(p)) {
+            case 3:
+                multiplier   = p.opd[2];
+                multiplicand = p.opd[1];
+                destination  = [p.opd[0].token];
+                break;
+            case 2:
+                multiplier   = p.opd[1];
+                multiplicand = p.opd[0];
+                destination  = [p.opd[0].token];
+                break;
+            case 1:
+                multiplier = p.opd[0];
+
+                multiplicand = {
+                    token: {
+                        8: 'al',
+                        16: 'ax',
+                        32: 'eax',
+                        64: 'rax'
+                    }[osize]
+                };
+
+                destination = {
+                    8: ['ax'],
+                    16: ['dx', 'ax'],
+                    32: ['edx', 'eax'],
+                    64: ['rdx', 'rax']
+                }[osize];
+
+                break;
+        }
 
         _has_changed_return(destination[destination.length - 1], signed, context);
 
-        var multiplier_type = multiplier_is_ptr ? 'pointer' : 'local';
-        var arg_destination = Variable.local(destination.join(':'), osize * 2, signed, false, false);
-        var arg_multiplicand = Variable.local(multiplicand, osize, signed, false, false);
+        var multiplicand_type = multiplicand.mem_access ? 'pointer' : 'local';
+        var multiplier_type = multiplier.mem_access ? 'pointer' : 'local';
+
+        var arg_destination = Variable.local(destination.join(':'), osize * destination.length, signed, false, false);
+        var arg_multiplicand = Variable[multiplicand_type](multiplicand.token, osize, signed);
         var arg_multiplier = Variable[multiplier_type](multiplier.token, osize, signed);
 
         // destination = multiplicand * multiplier
@@ -440,6 +450,7 @@ module.exports = (function() {
      */
     var _check_known_neg = function(x) {
         var arch_minus_one;
+
         switch (Global.evars.archbits) {
             case 64: arch_minus_one = '0xffffffffffffffff'; break;
             case 32: arch_minus_one = '0xffffffff'; break;
@@ -574,15 +585,17 @@ module.exports = (function() {
     var _populate_amd64_call_args = function(instrs, nargs, context) {
         var _regs64 = ['rdi', 'rsi', 'rdx', 'rcx', 'r8',  'r9' ];
         var _regs32 = ['edi', 'esi', 'edx', 'ecx', 'r8d', 'r9d'];
-        var _regskl = [     ,      ,      , 'r10',      ,      ]; // kernel interface uses r10 instead of rcx
+        var _krnl64 = [     ,      ,      , 'r10',      ,      ]; // kernel interface uses r10 instead of rcx
+        var _krnl32 = [     ,      ,      , 'r10d',     ,      ];
 
-        var amd64 = Array.prototype.concat(_regs64, _regs32, _regskl);
+        var amd64 = Array.prototype.concat(_regs64, _regs32, _krnl64, _krnl32);
 
         // arguments are set to default values which will be used in case we cannot find any reference to them
         // in the preceding assembly code. for example, the caller passes its first argument ('rdi') as the first
         // argument to the callee; in such case we won't find its initialization instruction, so we'll just use 'rdi'.
         var args = _regs64.slice(0, nargs);
 
+        // scan the preceding instructions to find where args registers are used, to take their values
         for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
@@ -924,6 +937,8 @@ module.exports = (function() {
                 var dst = instr.parsed.opd[0];
                 var val = instr.parsed.opd[1];
 
+                _has_changed_return(dst.token, false, context);
+
                 // compilers like to perform calculations using 'lea' instructions in the
                 // following form: [reg + reg*n] --> reg * (n+1)
                 var calc = val.token.match(/([re]?(?:[abcd]x|[ds]i)|r(?:1[0-5]|[8-9])[lwd]?)\s*\+\s*\1\s*\*(\d)/);
@@ -939,7 +954,6 @@ module.exports = (function() {
                     Variable.string(instr.string) :
                     (amp ? '&' : '') + val.token.replace(/\./g, '_');
 
-                _has_changed_return(dst.token, false, context);
                 return Base.assign(dst.token, arg);
             },
             call: _call_function,
@@ -1097,9 +1111,14 @@ module.exports = (function() {
                 return Base.nop();
             },
             ret: function(instr, context, instructions) {
-                var register = _return_types[context.returns.bits] || '';
+                var register = {
+                    8: 'al',
+                    16: 'ax',
+                    32: 'eax',
+                    64: 'rax'
+                }[context.returns.bits] || '';
 
-                // if the function is not returning anything, discard the empty "return" statement
+                // if the function is not returning anything, discard the empty "return" statement at the end
                 if (_is_last_instruction(instr, instructions) && (register === '')) {
                     return Base.nop();
                 }
@@ -1209,6 +1228,18 @@ module.exports = (function() {
             jns: function(i, c) {
                 return _jcc_common(i, c, 'LT');
             },
+            xchg: function(instr, context) {
+                var lhand = instr.parsed.opd[0];
+                var rhand = instr.parsed.opd[1];
+
+                var tmp = Variable.uniqueName('tmp');
+
+                return Base.composed([
+                    Base.assign(tmp, lhand.token),          // tmp = dest
+                    Base.assign(lhand.token, rhand.token),  // dest = src
+                    Base.assign(rhand.token, tmp)           // src = tmp
+                ]);
+            },
             hlt: function() {
                 return Base.return(Base.call('_hlt', []));
             },
@@ -1259,21 +1290,29 @@ module.exports = (function() {
             // (?:\s*
             //     ([d-g]s:)?                              : optional segment override
             //     (?:\[?)                                 : optional opening bracket (stripped)
-            //     ([^\[\],]+)                             : first operand
+            //     ([^[\],]+)                              : first operand
             //     (?:\]?)                                 : optional closing bracket (stripped)
             // )?
             // (?:,                                        : separating comma
             //     (?:\s+
             //         (byte|(?:[dq]|[xyz]mm)?word)        : second operand's memory access qualifier
+            //         (?: ptr)?
             //     )?
             //     (?:\s*
             //         ([d-g]s:)?                          : optional segment override
             //         (?:\[?)                             : optional opening bracket (stripped)
-            //         ([^\[\],]+)                         : second operand
+            //         ([^[\],]+)                          : second operand
             //         (?:\]?)                             : optional closing bracket (stripped)
             //     )?
             // )?
-            var tokens = asm.match(/(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?)?/);
+            // (?:,                                        : separating comma
+            //     (?:\s+
+            //         ([^[\],]+)                          : third operand
+            //     )?
+            // )?
+
+            /** @type {Array.<string>} */
+            var tokens = asm.match(/(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word)(?: ptr)?)?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?)?(?:,(?:\s+([^[\],]+))?)?/);
 
             // tokens[0]: match string; irrelevant
             // tokens[1]: instruction prefix; undefined if no prefix
@@ -1284,44 +1323,64 @@ module.exports = (function() {
             // tokens[6]: second operand's memory access qualifier; undefined if no qualifier or no second operand
             // tokens[7]: segment override for second operand; undefined if no segment override or no second operand
             // tokens[8]: second operand; undefined if no second operand
+            // tokens[9]: third operand; undefined if no third operand
 
             var prefix = tokens[1];
             var mnemonic = tokens[2];
 
+            /** @type {Object.<string,number>} */
+            var qualifier = {
+                'byte': 8,
+                'word': 16,
+                'dword': 32,
+                'qword': 64,
+                'xmmword': 128,
+                'ymmword': 256,
+                'zmmword': 512
+            };
+
             var operand1 = {
-                mem_access: _bits_types[tokens[3]],
+                mem_access: qualifier[tokens[3]],
                 segovr: tokens[4],
                 token: tokens[5]
             };
 
             var operand2 = {
-                mem_access: _bits_types[tokens[6]],
+                mem_access: qualifier[tokens[6]],
                 segovr: tokens[7],
                 token: tokens[8]
+            };
+
+            // third operand is either a register or immediate; no memory access
+            var operand3 = {
+                mem_access: undefined,
+                segovr: undefined,
+                token: tokens[9]
             };
 
             return {
                 pref: prefix,
                 mnem: mnemonic,
-                opd: [operand1, operand2]
+                opd: [operand1, operand2, operand3]
             };
         },
         context: function(data) {
             var fcnargs = data.xrefs.arguments;
-            var vars_args = fcnargs.bp.concat(fcnargs.sp).concat(fcnargs.reg).map(function(x) {
+
+            var vars_args = Array.prototype.concat(fcnargs.bp, fcnargs.sp, fcnargs.reg).map(function(x) {
                 if (x.type === 'int' || x.type === 'signed int') {
                     x.type = (Global.evars.archbits < 32) ? 'int16_t' : 'int32_t';
                 } else if (x.type === 'unsigned int') {
                     x.type = (Global.evars.archbits < 32) ? 'uint16_t' : 'uint32_t';
                 }
+
                 return x;
             });
 
             return {
                 cond: {
-                    a: null,
-                    b: null,
-                    // is_incdec: false
+                    a: '?',
+                    b: '?',
                 },
                 returns: {
                     bits: 0,
@@ -1357,5 +1416,4 @@ module.exports = (function() {
             return 'void';
         }
     };
-
 })();
