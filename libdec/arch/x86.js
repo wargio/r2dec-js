@@ -1379,9 +1379,8 @@ module.exports = (function() {
 
             return {
                 cond: {
-                    a: null,
-                    b: null,
-                    // is_incdec: false
+                    a: '?',
+                    b: '?',
                 },
                 returns: {
                     bits: 0,
