@@ -24,6 +24,26 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+Duktape.errCreate = function(err) {
+    try {
+        if (typeof err === 'object') {
+            return {
+                message: '' + err.message,
+                stack: '' + err.stack,
+                lineNumber: '' + err.lineNumber
+            };
+        }
+    } catch (e) {
+        // nothing
+    }
+
+    return err;
+};
+
+var JSON = require('libdec/json64');
+var Decoder = require('libdec/core/decoder');
+var Simplify = require('libdec/core/simplify');
+
 /**
  * Global data accessible from everywhere.
  * @type {Object}
@@ -35,54 +55,63 @@ var Global = {
     warning: require('libdec/warning')
 };
 
+// ES6 version:
+//
+// var r2cmdj = function(...args) {
+//     var output = r2cmd(args.join(' ')).trim();
+//
+//     return output ? JSON.parse(output) : undefined;
+// };
 
 /**
- * Imports.
+ * Pipes a command to r2 and returns its output as a parsed JSON object
  */
-var libdec = require('libdec/libdec');
-var r2util = require('libdec/r2util');
+var r2cmdj = function() {
+    var output = r2cmd(Array.prototype.slice.call(arguments).join(' ')).trim();
 
-/**
- * r2dec main function.
- * @param  {Array} args - r2dec arguments to be used to configure the output.
- */
+    return output ? JSON.parse(output) : undefined;
+};
+
+/** Javascript entrypoint */
 function r2dec_main(args) {
-    var Printer = require('libdec/printer');
     try {
-        Global.evars = new r2util.evars(args);
-        r2util.sanitize(true, Global.evars);
-        if (r2util.check_args(args)) {
-            r2util.sanitize(false, Global.evars);
-            return;
-        }
+        var iIj = r2cmdj('iIj');
 
-        // theme (requires to be initialized after evars)
-        Global.printer = new Printer();
+        if (iIj.arch in Decoder.architectures)
+        {
+            var agj = r2cmdj('agj').pop();
+            var aoj = r2cmdj('aoj', agj.ninstr, '@', agj.name);
 
-        var architecture = libdec.archs[Global.evars.arch];
+            if (aoj) {
+                var decoder = new Decoder(iIj);
+                var statements = decoder.transform_ir(aoj);
 
-        if (architecture) {
-            var data = new r2util.data();
-            Global.context = new libdec.context();
-            // af seems to break renaming.
-            /* asm.pseudo breaks things.. */
-            if (data.graph && data.graph.length > 0) {
+                /*
                 var p = new libdec.core.session(data, architecture);
                 var arch_context = architecture.context(data);
                 libdec.core.analysis.pre(p, architecture, arch_context);
                 libdec.core.decompile(p, architecture, arch_context);
                 libdec.core.analysis.post(p, architecture, arch_context);
                 libdec.core.print(p);
+                */
+
+                console.log('----- simplification');
+                statements.forEach(function(s) {
+                    Simplify.run(s);
+                });
+
+                console.log('----- result');
+                statements.forEach(function(s) {
+                    console.log(s.toString());
+                });
             } else {
-                console.log('Error: no data available.\nPlease analyze the function/binary first.');
+                console.log('error: no data available; analyze the function / binary first');
             }
         } else {
-            console.log(Global.evars.arch + ' is not currently supported.\n' +
-                'Please open an enhancement issue at https://github.com/wargio/r2dec-js/issues');
-            libdec.supported();
+            console.log('unsupported architecture "' + iIj.arch + '"');
         }
-        r2util.sanitize(false, Global.evars);
     } catch (e) {
-        r2util.debug(Global.evars, e);
+        console.log('\ndecompiler has crashed :(');
+        console.log('exception:', e.stack);
     }
 }
