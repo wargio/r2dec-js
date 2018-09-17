@@ -10,10 +10,6 @@ os:
   - osx
 
 script:
-  - npm install eslint
-  - export PATH="$PATH:./node_modules/.bin/"
-  - chmod +x eslint-check.sh
-  - ./eslint-check.sh || echo ""
   - chmod +x travis-test.sh
   - ./travis-test.sh
 

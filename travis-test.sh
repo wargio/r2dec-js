@@ -14,4 +14,10 @@ cd r2dec-regression
 chmod +x testall.sh
 ./testall.sh "$WORKINGDIR_TRAVIS/r2dec-js" travis
 ERRORED=$?
+cd ..
+
+npm install eslint
+find ./libdec -type f -name "*.js" | xargs ./node_modules/.bin/eslint 
+ls ./*.js | xargs ./node_modules/.bin/eslint 
+
 exit $ERRORED
