@@ -83,6 +83,7 @@ module.exports = (function() {
                 this.comments.push(e);
             }
         }
+
         this.conditional = function(a, b, type) {
             if (type) {
                 this.cond = {
@@ -92,9 +93,11 @@ module.exports = (function() {
                 };
             }
         };
+
         this.setBadJump = function() {
             this.jump = null;
         };
+
         this.print = function() {
             var t = Global.printer.theme;
             var empty = Global.context.identfy();

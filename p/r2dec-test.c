@@ -88,7 +88,6 @@ static void duk_r2_init(duk_context* ctx) {
 	duk_put_global_string (ctx, "___internal_require");
 	duk_push_c_function (ctx, duk_internal_read_file, 1);
 	duk_put_global_string (ctx, "read_file");
-	duk_eval_string_noresult (ctx, "require = function(x){try{var module={exports:null};eval(___internal_require(x));return module.exports;}catch(ee){console.log(ee.stack);}}");
 }
 
 static int duk_eval_file(duk_context* ctx, const char* file) {
@@ -113,7 +112,7 @@ static void duk_r2dec(const char *input) {
 	duk_console_init (ctx, 0);
 //	Long_init (ctx);
 	duk_r2_init (ctx);
-	if (duk_eval_file (ctx, "r2dec-test.js")) {		
+	if (duk_eval_file (ctx, "require.js") && duk_eval_file (ctx, "r2dec-test.js")) {		
 		if (*input) {
 			snprintf (args, sizeof(args), "r2dec_main(\"%s\")", input);
 		} else {

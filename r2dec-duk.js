@@ -24,47 +24,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-/**
- * https://github.com/svaarala/duktape/blob/master/doc/error-objects.rst
- * 
- * this is required to be the first thing to be setup
- * when there is an exception i want to have the whole
- * stack to be printed.
- */
-Duktape.errCreate = function(err) {
-    try {
-        if (typeof err === 'object') {
-            var p = {
-                message: '' + err.message,
-                stack: '' + err.stack,
-                lineNumber: '' + err.lineNumber
-            };
-            var variable = p.message.match(/'([-_\w]+)'/);
-            if (variable) {
-                var regex = new RegExp('\\b' + variable[1] + '\\b');
-                var stack = p.stack.split('\n');
-                var line = err.lineNumber - 1;
-                for (var loc in require.src) {
-                    var srcx = require.src[loc][line];
-                    if (srcx && srcx.match(regex)) {
-                        for (var i = 0; i < stack.length; i++) {
-                            if (stack[i].indexOf('input:') > 0 || stack[i].indexOf('eval:') > 0) {
-                                stack[i] = stack[i].replace(/\binput\b:/, loc + ':');
-                                break;
-                            }
-                        }
-                        p.stack = stack.join('\n');
-                        break;
-                    }
-                }
-            }
-            return p;
-        }
-    } catch (e) {}
-    return err;
-};
-
 /**
  * Global data accessible from everywhere.
  * @type {Object}
