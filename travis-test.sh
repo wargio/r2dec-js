@@ -16,10 +16,12 @@ chmod +x testall.sh
 ERRORED=$?
 cd ..
 
+## NPM eslint
 npm install eslint
-pwd
-ls -lah
-find ./libdec -type f -name "*.js" | xargs ./node_modules/.bin/eslint 
-ls ./*.js | xargs ./node_modules/.bin/eslint 
+
+## NPM test
+cd r2dec-js
+find ./libdec -type f -name "*.js" | xargs ../node_modules/.bin/eslint || ERRORED=1
+ls ./*.js | xargs ../node_modules/.bin/eslint || ERRORED=1
 
 exit $ERRORED
