@@ -17,6 +17,8 @@ ERRORED=$?
 cd ..
 
 npm install eslint
+pwd
+ls -lah
 find ./libdec -type f -name "*.js" | xargs ./node_modules/.bin/eslint 
 ls ./*.js | xargs ./node_modules/.bin/eslint 
 
