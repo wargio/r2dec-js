@@ -255,47 +255,47 @@ module.exports = (function() {
             },
             brcc: function(instr, context) {
                 _returns_r0(instr, context);
-                _conditional(instr, context, 'LT');
+                _conditional(instr, context, 'GE');
                 return Base.nop();
             },
             brcs: function(instr, context) {
                 _returns_r0(instr, context);
-                _conditional(instr, context, 'GE');
+                _conditional(instr, context, 'LT');
                 return Base.nop();
             },
             breq: function(instr, context) {
                 _returns_r0(instr, context);
-                _conditional(instr, context, 'NE');
+                _conditional(instr, context, 'EQ');
                 return Base.nop();
             },
             brlo: function(instr, context) {
                 _returns_r0(instr, context);
-                _conditional(instr, context, 'GE');
+                _conditional(instr, context, 'LT');
                 return Base.nop();
             },
             brlt: function(instr, context) {
                 _returns_r0(instr, context);
-                _conditional(instr, context, 'GE');
+                _conditional(instr, context, 'LT');
                 return Base.nop();
             },
             brmi: function(instr, context) {
                 _returns_r0(instr, context);
-                _conditional(instr, context, 'GE');
+                _conditional(instr, context, 'LT');
                 return Base.nop();
             },
             brne: function(instr, context) {
                 _returns_r0(instr, context);
-                _conditional(instr, context, 'EQ');
+                _conditional(instr, context, 'NE');
                 return Base.nop();
             },
             brpl: function(instr, context) {
                 _returns_r0(instr, context);
-                _conditional(instr, context, 'LE');
+                _conditional(instr, context, 'GT');
                 return Base.nop();
             },
             brsh: function(instr, context) {
                 _returns_r0(instr, context);
-                _conditional(instr, context, 'GT');
+                _conditional(instr, context, 'LE');
                 return Base.nop();
             },
             bset: function(instr, context) {

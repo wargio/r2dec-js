@@ -267,40 +267,40 @@ module.exports = (function() {
                 return Base.return(Base.call(instr.parsed.opd[0], []));
             },
             'b.pl': function(instr, context) {
-                return _conditional(instr, context, 'LT');
-            },
-            bpl: function(instr, context) {
-                return _conditional(instr, context, 'LT');
-            },
-            'b.ls': function(instr, context) {
-                return _conditional(instr, context, 'GT');
-            },
-            bls: function(instr, context) {
-                return _conditional(instr, context, 'GT');
-            },
-            'b.ne': function(instr, context) {
-                return _conditional(instr, context, 'EQ');
-            },
-            bne: function(instr, context) {
-                return _conditional(instr, context, 'EQ');
-            },
-            'b.eq': function(instr, context) {
-                return _conditional(instr, context, 'NE');
-            },
-            beq: function(instr, context) {
-                return _conditional(instr, context, 'NE');
-            },
-            bgt: function(instr, context) {
-                return _conditional(instr, context, 'LE');
-            },
-            bge: function(instr, context) {
-                return _conditional(instr, context, 'LT');
-            },
-            blt: function(instr, context) {
                 return _conditional(instr, context, 'GE');
             },
-            ble: function(instr, context) {
+            bpl: function(instr, context) {
+                return _conditional(instr, context, 'GE');
+            },
+            'b.ls': function(instr, context) {
+                return _conditional(instr, context, 'LT');
+            },
+            bls: function(instr, context) {
+                return _conditional(instr, context, 'LT');
+            },
+            'b.ne': function(instr, context) {
+                return _conditional(instr, context, 'NE');
+            },
+            bne: function(instr, context) {
+                return _conditional(instr, context, 'NE');
+            },
+            'b.eq': function(instr, context) {
+                return _conditional(instr, context, 'EQ');
+            },
+            beq: function(instr, context) {
+                return _conditional(instr, context, 'EQ');
+            },
+            bgt: function(instr, context) {
                 return _conditional(instr, context, 'GT');
+            },
+            bge: function(instr, context) {
+                return _conditional(instr, context, 'GE');
+            },
+            blt: function(instr, context) {
+                return _conditional(instr, context, 'LT');
+            },
+            ble: function(instr, context) {
+                return _conditional(instr, context, 'LE');
             },
             'b.lo': function(instr, context) {
                 return _conditional(instr, context, 'LO');

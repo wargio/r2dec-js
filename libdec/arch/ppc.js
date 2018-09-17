@@ -753,58 +753,58 @@ module.exports = (function() {
                 return Base.nop();
             },
             'bne': function(instr, context) {
-                return _conditional(instr, context, 'EQ');
+                return _conditional(instr, context, 'NE_');
             },
             'bne-': function(instr, context) {
-                return _conditional(instr, context, 'EQ');
+                return _conditional(instr, context, 'NE_');
             },
             'bne+': function(instr, context) {
-                return _conditional(instr, context, 'EQ');
+                return _conditional(instr, context, 'NE_');
             },
             'beq': function(instr, context) {
-                return _conditional(instr, context, 'NE');
+                return _conditional(instr, context, 'EQ');
             },
             'beq-': function(instr, context) {
-                return _conditional(instr, context, 'NE');
+                return _conditional(instr, context, 'EQ');
             },
             'beq+': function(instr, context) {
-                return _conditional(instr, context, 'NE');
+                return _conditional(instr, context, 'EQ');
             },
             'bgt': function(instr, context) {
-                return _conditional(instr, context, 'LE');
+                return _conditional(instr, context, 'GT');
             },
             'bgt-': function(instr, context) {
-                return _conditional(instr, context, 'LE');
+                return _conditional(instr, context, 'GT');
             },
             'bgt+': function(instr, context) {
-                return _conditional(instr, context, 'LE');
+                return _conditional(instr, context, 'GT');
             },
             'bge': function(instr, context) {
-                return _conditional(instr, context, 'LT');
+                return _conditional(instr, context, 'GE');
             },
             'bge-': function(instr, context) {
-                return _conditional(instr, context, 'LT');
+                return _conditional(instr, context, 'GE');
             },
             'bge+': function(instr, context) {
-                return _conditional(instr, context, 'LT');
+                return _conditional(instr, context, 'GE');
             },
             'blt': function(instr, context) {
-                return _conditional(instr, context, 'GE');
+                return _conditional(instr, context, 'LT');
             },
             'blt-': function(instr, context) {
-                return _conditional(instr, context, 'GE');
+                return _conditional(instr, context, 'LT');
             },
             'blt+': function(instr, context) {
-                return _conditional(instr, context, 'GE');
+                return _conditional(instr, context, 'LT');
             },
             'ble': function(instr, context) {
-                return _conditional(instr, context, 'GT');
+                return _conditional(instr, context, 'LE');
             },
             'ble-': function(instr, context) {
-                return _conditional(instr, context, 'GT');
+                return _conditional(instr, context, 'LE');
             },
             'ble+': function(instr, context) {
-                return _conditional(instr, context, 'GT');
+                return _conditional(instr, context, 'LE');
             },
             bl: function(instr, context, instructions) {
                 var i;
@@ -1285,93 +1285,93 @@ module.exports = (function() {
                 return op_bits4(instr.parsed, Base.and);
             },
             "e_bge": function(instr, context, instructions) {
-                return _conditional(instr, context, 'LT');
-            },
-            "e_ble": function(instr, context, instructions) {
-                return _conditional(instr, context, 'GT');
-            },
-            "e_bne": function(instr, context, instructions) {
-                return _conditional(instr, context, 'EQ');
-            },
-            "e_blt": function(instr, context, instructions) {
                 return _conditional(instr, context, 'GE');
             },
-            "e_bgt": function(instr, context, instructions) {
+            "e_ble": function(instr, context, instructions) {
                 return _conditional(instr, context, 'LE');
             },
+            "e_bne": function(instr, context, instructions) {
+                return _conditional(instr, context, 'NE_');
+            },
+            "e_blt": function(instr, context, instructions) {
+                return _conditional(instr, context, 'LT');
+            },
+            "e_bgt": function(instr, context, instructions) {
+                return _conditional(instr, context, 'GT');
+            },
             "e_beq": function(instr, context, instructions) {
-                return _conditional(instr, context, 'NE');
+                return _conditional(instr, context, 'EQ');
             },
             "e_bgel": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'GE');
+                _conditional_inline(instr, context, instructions, 'LT');
                 return _ppc_return(instr, context, instructions);
             },
             "e_blel": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'LE');
+                _conditional_inline(instr, context, instructions, 'GT');
                 return _ppc_return(instr, context, instructions);
             },
             "e_bnel": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'NE');
+                _conditional_inline(instr, context, instructions, 'EQ');
                 return _ppc_return(instr, context, instructions);
             },
             "e_bltl": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'LT');
+                _conditional_inline(instr, context, instructions, 'GE');
                 return _ppc_return(instr, context, instructions);
             },
             "e_bgtl": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'GT');
+                _conditional_inline(instr, context, instructions, 'LE');
                 return _ppc_return(instr, context, instructions);
             },
             "e_beql": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'EQ');
+                _conditional_inline(instr, context, instructions, 'NE_');
                 return _ppc_return(instr, context, instructions);
             },
             "e_bgectr": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'GE');
+                _conditional_inline(instr, context, instructions, 'LT');
                 return Base.call('ctr', [], true, 'return');
             },
             "e_blectr": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'LE');
+                _conditional_inline(instr, context, instructions, 'GT');
                 return Base.call('ctr', [], true, 'return');
             },
             "e_bnectr": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'NE');
+                _conditional_inline(instr, context, instructions, 'EQ');
                 return Base.call('ctr', [], true, 'return');
             },
             "e_bltctr": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'LT');
+                _conditional_inline(instr, context, instructions, 'GE');
                 return Base.call('ctr', [], true, 'return');
             },
             "e_bgtctr": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'GT');
+                _conditional_inline(instr, context, instructions, 'LE');
                 return Base.call('ctr', [], true, 'return');
             },
             "e_beqctr": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'EQ');
+                _conditional_inline(instr, context, instructions, 'NE_');
                 return Base.call('ctr', [], true, 'return');
             },
             "e_bgectrl": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'GE');
-                return Base.call('ctr', [], true);
-            },
-            "e_blectrl": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'LE');
-                return Base.call('ctr', [], true);
-            },
-            "e_bnectrl": function(instr, context, instructions) {
-                _conditional_inline(instr, context, instructions, 'NE');
-                return Base.call('ctr', [], true);
-            },
-            "e_bltctrl": function(instr, context, instructions) {
                 _conditional_inline(instr, context, instructions, 'LT');
                 return Base.call('ctr', [], true);
             },
-            "e_bgtctrl": function(instr, context, instructions) {
+            "e_blectrl": function(instr, context, instructions) {
                 _conditional_inline(instr, context, instructions, 'GT');
                 return Base.call('ctr', [], true);
             },
-            "e_beqctrl": function(instr, context, instructions) {
+            "e_bnectrl": function(instr, context, instructions) {
                 _conditional_inline(instr, context, instructions, 'EQ');
+                return Base.call('ctr', [], true);
+            },
+            "e_bltctrl": function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'GE');
+                return Base.call('ctr', [], true);
+            },
+            "e_bgtctrl": function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'LE');
+                return Base.call('ctr', [], true);
+            },
+            "e_beqctrl": function(instr, context, instructions) {
+                _conditional_inline(instr, context, instructions, 'NE_');
                 return Base.call('ctr', [], true);
             },
             "e_b": function(instr) {
@@ -1668,22 +1668,22 @@ module.exports = (function() {
                 return Base.call(fcn_name);
             },
             "se_bge": function(instr, context, instructions) {
-                return _conditional(instr, context, 'LT');
-            },
-            "se_ble": function(instr, context, instructions) {
-                return _conditional(instr, context, 'GT');
-            },
-            "se_bne": function(instr, context, instructions) {
-                return _conditional(instr, context, 'EQ');
-            },
-            "se_blt": function(instr, context, instructions) {
                 return _conditional(instr, context, 'GE');
             },
-            "se_bgt": function(instr, context, instructions) {
+            "se_ble": function(instr, context, instructions) {
                 return _conditional(instr, context, 'LE');
             },
+            "se_bne": function(instr, context, instructions) {
+                return _conditional(instr, context, 'NE_');
+            },
+            "se_blt": function(instr, context, instructions) {
+                return _conditional(instr, context, 'LT');
+            },
+            "se_bgt": function(instr, context, instructions) {
+                return _conditional(instr, context, 'GT');
+            },
             "se_beq": function(instr, context, instructions) {
-                return _conditional(instr, context, 'NE');
+                return _conditional(instr, context, 'EQ');
             },
             "se_or": function(instr, context, instructions) {
                 return op_bits3(instr.parsed, Base.or);

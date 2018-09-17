@@ -184,40 +184,40 @@ module.exports = (function() {
                 return Base.nop();
             },
             be: function(instr, context, instructions) {
-                return _conditional(instr, context, 'NE');
-            },
-            bne: function(instr, context, instructions) {
                 return _conditional(instr, context, 'EQ');
             },
+            bne: function(instr, context, instructions) {
+                return _conditional(instr, context, 'NE');
+            },
             bg: function(instr, context, instructions) {
-                return _conditional(instr, context, 'LE');
+                return _conditional(instr, context, 'GT');
             },
             bge: function(instr, context, instructions) {
-                return _conditional(instr, context, 'LT');
+                return _conditional(instr, context, 'GE');
             },
             bl: function(instr, context, instructions) {
-                return _conditional(instr, context, 'GE');
-            },
-            ble: function(instr, context, instructions) {
-                return _conditional(instr, context, 'GT');
-            },
-            blu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'GE');
-            },
-            bleu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'GT');
-            },
-            bgeu: function(instr, context, instructions) {
-                return _conditional(instr, context, 'LE');
-            },
-            bgu: function(instr, context, instructions) {
                 return _conditional(instr, context, 'LT');
             },
-            bpos: function(instr, context, instructions) {
+            ble: function(instr, context, instructions) {
                 return _conditional(instr, context, 'LE');
             },
-            bneg: function(instr, context, instructions) {
+            blu: function(instr, context, instructions) {
+                return _conditional(instr, context, 'LT');
+            },
+            bleu: function(instr, context, instructions) {
+                return _conditional(instr, context, 'LE');
+            },
+            bgeu: function(instr, context, instructions) {
                 return _conditional(instr, context, 'GE');
+            },
+            bgu: function(instr, context, instructions) {
+                return _conditional(instr, context, 'GT');
+            },
+            bpos: function(instr, context, instructions) {
+                return _conditional(instr, context, 'GE');
+            },
+            bneg: function(instr, context, instructions) {
+                return _conditional(instr, context, 'LT');
             },
             call: function(instr, context, instructions) {
                 return Base.call(_call_fix_name(instr.parsed.opd[0]), []);

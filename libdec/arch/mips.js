@@ -346,28 +346,28 @@ module.exports = (function() {
                 return Base.call(fcn_name);
             },
             'beqz': function(instr, context, instructions) {
-                return compare(instr, context, instructions, 'NE', true);
-            },
-            'bnez': function(instr, context, instructions) {
                 return compare(instr, context, instructions, 'EQ', true);
             },
+            'bnez': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'NE', true);
+            },
             'bltz': function(instr, context, instructions) {
-                return compare(instr, context, instructions, 'GE', true);
-            },
-            'blez': function(instr, context, instructions) {
-                return compare(instr, context, instructions, 'GT', true);
-            },
-            'bgtz': function(instr, context, instructions) {
-                return compare(instr, context, instructions, 'LE', true);
-            },
-            'bgez': function(instr, context, instructions) {
                 return compare(instr, context, instructions, 'LT', true);
             },
+            'blez': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'LE', true);
+            },
+            'bgtz': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'GT', true);
+            },
+            'bgez': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'GE', true);
+            },
             'beq': function(instr, context, instructions) {
-                return compare(instr, context, instructions, 'NE', false);
+                return compare(instr, context, instructions, 'EQ', false);
             },
             'bne': function(instr, context, instructions) {
-                return compare(instr, context, instructions, 'EQ', false);
+                return compare(instr, context, instructions, 'NE', false);
             },
             invalid: function() {
                 return Base.nop();

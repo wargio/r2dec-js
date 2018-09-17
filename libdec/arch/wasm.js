@@ -168,22 +168,22 @@ module.exports = (function() {
     };
 
     var _cmp = {
-        eq: 'NE',
-        ne: 'EQ',
-        eqz: 'NE',
-        nez: 'EQ',
-        gt_s: 'LE',
-        gt_u: 'LE',
-        ge_s: 'LT',
-        ge_u: 'LT',
-        lt_s: 'GE',
-        lt_u: 'GE',
-        le_s: 'GT',
-        le_u: 'GT',
-        gt: 'LE',
-        ge: 'LT',
-        lt: 'GE',
-        le: 'GT'
+        eq: 'EQ',
+        ne: 'NE',
+        eqz: 'EQ',
+        nez: 'NE',
+        gt_s: 'GT',
+        gt_u: 'GT',
+        ge_s: 'GE',
+        ge_u: 'GE',
+        lt_s: 'LT',
+        lt_u: 'LT',
+        le_s: 'LE',
+        le_u: 'LE',
+        gt: 'GT',
+        ge: 'GE',
+        lt: 'LT',
+        le: 'LE'
     };
 
     var _conditional = function(instr, context, instructions) {

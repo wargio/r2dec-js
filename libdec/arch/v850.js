@@ -81,7 +81,7 @@ module.exports = (function() {
             arg1: '0',
         },
         'z': {
-            cond: 'GT',
+            cond: 'EQ',
             arg1: '0',
         }
     };

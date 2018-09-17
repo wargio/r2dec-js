@@ -164,22 +164,22 @@ module.exports = (function() {
                 return Base.nop();
             },
             bne: function(instr, context) {
-                return _conditional(instr, context, 'EQ');
-            },
-            beq: function(instr, context) {
                 return _conditional(instr, context, 'NE');
             },
+            beq: function(instr, context) {
+                return _conditional(instr, context, 'EQ');
+            },
             bgt: function(instr, context) {
-                return _conditional(instr, context, 'LE');
+                return _conditional(instr, context, 'GT');
             },
             bge: function(instr, context) {
-                return _conditional(instr, context, 'LT');
-            },
-            blt: function(instr, context) {
                 return _conditional(instr, context, 'GE');
             },
+            blt: function(instr, context) {
+                return _conditional(instr, context, 'LT');
+            },
             ble: function(instr, context) {
-                return _conditional(instr, context, 'GT');
+                return _conditional(instr, context, 'LE');
             },
             bra: function(instr, context) {
                 return Base.nop();

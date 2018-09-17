@@ -87,15 +87,15 @@ module.exports = (function() {
         if (context.instructions.indexOf(instruction) == (context.instructions.length - 1)) {
             instruction.code = Base.return(instruction.code);
             if (instruction.cond) {
-                instruction.comments.push('Beware that this call is a conditional call.');
+                instruction.comments.push('Beware that this jump is a conditional jump.');
                 instruction.comments.push('r2dec transformed it as a return, due being the');
                 instruction.comments.push('last instruction. Please, check \'pdda\' output');
-                instruction.comments.push('for more informations..');
+                instruction.comments.push('for more hints.');
             }
         } else if (instruction.cond) {
             var block = context.findBlock(instruction.location);
             var single_instr = block.split(block.instructions.indexOf(instruction));
-            single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, true)));
+            single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, false)));
             single_instr.addExtraTail(new Scope.brace(instruction.location));
             context.addBlock(single_instr);
             context.addBlock(single_instr.split(1));
@@ -139,7 +139,8 @@ module.exports = (function() {
             instruction.code = Base.goto(label);
             if (instruction.cond) {
                 single_instr = block.split(block.instructions.indexOf(instruction));
-                single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, true)));
+                // here the jump is taken only if the condition is true.
+                single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, false)));
                 single_instr.addExtraTail(new Scope.brace(instruction.location));
                 context.addBlock(single_instr);
                 context.addBlock(single_instr.split(1));
@@ -210,7 +211,8 @@ module.exports = (function() {
                 if (!single_instr) {
                     return true;
                 }
-                single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, true)));
+                // here the jump is taken only if the condition is true.
+                single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, false)));
                 single_instr.addExtraTail(new Scope.brace(instruction.location));
                 context.addBlock(single_instr);
                 context.addBlock(single_instr.split(1));
