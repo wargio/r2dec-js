@@ -81,7 +81,7 @@ require.src = {};
                 return {
                     filename: filename,
                     funcname: funcname
-                }
+                };
             }
         }
         return null;
@@ -100,16 +100,16 @@ require.src = {};
                 var data = _find_file_from_line(variable, line);
                 if (data) {
                     stack[i] = stack[i].replace(/\binput\b:/, data.filename + ':');
-                    stack[i] = stack[i].replace(/\[anon\]\ /, data.funcname + ' ');
+                    stack[i] = stack[i].replace(/\[anon\] /, data.funcname + ' ');
                     variable = data.funcname;
                 } else {
-                    stack[i] = stack[i].replace(/\[anon\]\ /, '[unknown] ');
+                    stack[i] = stack[i].replace(/\[anon\] /, '[unknown] ');
                     break;
                 }
             }
 
             stack = stack.join('\n');
-            return stack.replace(/at\ r2dec_main\ \(eval:/, 'at r2dec_main (r2dec-duk:');
+            return stack.replace(/at r2dec_main \(eval:/, 'at r2dec_main (r2dec-duk:');
         }
         return stack;
     };
@@ -133,7 +133,7 @@ require.src = {};
                 return exception;
             }
         } catch (e) {
-            console.log(e.stack)
+            console.log(e.stack);
         }
         return err;
     };
