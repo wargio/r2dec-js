@@ -40,6 +40,25 @@ Duktape.errCreate = function(err) {
                 stack: '' + err.stack,
                 lineNumber: '' + err.lineNumber
             };
+            var variable = p.message.match(/'([-_\w]+)'/);
+            if (variable) {
+                var regex = new RegExp('\\b' + variable[1] + '\\b');
+                var stack = p.stack.split('\n');
+                var line = err.lineNumber - 1;
+                for (var loc in require.src) {
+                    var srcx = require.src[loc][line];
+                    if (srcx && srcx.match(regex)) {
+                        for (var i = 0; i < stack.length; i++) {
+                            if (stack[i].indexOf('input:') > 0 || stack[i].indexOf('eval:') > 0) {
+                                stack[i] = stack[i].replace(/\binput\b:/, loc + ':');
+                                break;
+                            }
+                        }
+                        p.stack = stack.join('\n');
+                        break;
+                    }
+                }
+            }
             return p;
         }
     } catch (e) {}

@@ -1,5 +1,5 @@
 var include = function(x) {
-	return ___internal_load(x);
+    return ___internal_load(x);
 };
 var require = function(x) {
     try {
@@ -9,13 +9,15 @@ var require = function(x) {
         var module = {
             exports: null
         };
-        eval(___internal_require(x));
+        var src = ___internal_require(x);
+        eval(src);
+        arguments.callee.src[x] = src.split('\n');
         arguments.callee.loaded[x] = module.exports;
         return module.exports;
     } catch (ee) {
         console.log('Exception from ' + x);
         console.log(ee.stack);
-        
     }
 };
 require.loaded = {};
+require.src = {};
