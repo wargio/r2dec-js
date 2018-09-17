@@ -870,6 +870,9 @@ module.exports = (function() {
 
                 return _math_common(instr.parsed, Base.subtract, true, context);
             },
+            cld: function(instr, context) {
+                return Base.nop();
+            },
             add: function(instr, context) {
                 return _math_common(instr.parsed, Base.add, true, context);
             },

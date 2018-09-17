@@ -80,6 +80,9 @@ module.exports = (function() {
                 var first = this.instructions[0];
                 var last = this.instructions[l - 1];
                 this.bounds = new Bounds(first.location, last.location);
+            } else {
+                // invalidate this block if is empty..
+                this.bounds = Bounds.invalid();
             }
         };
         this.split = function(from) {

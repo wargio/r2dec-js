@@ -72,6 +72,16 @@ module.exports = (function() {
         };
     };
 
+    var _set_goto = function(instruction, label) {
+        if (!instruction.code || !instruction.valid) {
+            instruction.code = Base.goto(label);
+            instruction.valid = true;
+        } else if (instruction.code.composed) {
+            instruction.code.composed.push(Base.goto(label));
+        } else {
+            instruction.code = Base.composed([instruction.code, Base.goto(label)]);
+        }
+    }
 
     var _set_outbounds_jump = function(instruction, index, context) {
         if (Utils.search(instruction.jump, context.instructions, _compare_locations)) {
@@ -95,10 +105,12 @@ module.exports = (function() {
         } else if (instruction.cond) {
             var block = context.findBlock(instruction.location);
             var single_instr = block.split(block.instructions.indexOf(instruction));
-            single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, false)));
-            single_instr.addExtraTail(new Scope.brace(instruction.location));
-            context.addBlock(single_instr);
-            context.addBlock(single_instr.split(1));
+            if (single_instr) {
+                single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, false)));
+                single_instr.addExtraTail(new Scope.brace(instruction.location));
+                context.addBlock(single_instr);
+                context.addBlock(single_instr.split(1));
+            }
         }
 
         instruction.setBadJump();
@@ -136,14 +148,16 @@ module.exports = (function() {
                 label = Variable.newLabel(instruction.jump);
                 context.addLabel(label);
             }
-            instruction.code = Base.goto(label);
+            _set_goto(instruction, label);
             if (instruction.cond) {
                 single_instr = block.split(block.instructions.indexOf(instruction));
                 // here the jump is taken only if the condition is true.
-                single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, false)));
-                single_instr.addExtraTail(new Scope.brace(instruction.location));
-                context.addBlock(single_instr);
-                context.addBlock(single_instr.split(1));
+                if (single_instr) {
+                    single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, false)));
+                    single_instr.addExtraTail(new Scope.brace(instruction.location));
+                    context.addBlock(single_instr);
+                    context.addBlock(single_instr.split(1));
+                }
             }
             return true;
         }
@@ -205,7 +219,7 @@ module.exports = (function() {
                 label = Variable.newLabel(instruction.jump);
                 context.addLabel(label);
             }
-            instruction.code = Base.goto(label);
+            _set_goto(instruction, label);
             if (instruction.cond) {
                 var single_instr = block.split(block.instructions.indexOf(instruction));
                 if (!single_instr) {
