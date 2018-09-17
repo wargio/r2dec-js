@@ -81,7 +81,7 @@ module.exports = (function() {
         } else {
             instruction.code = Base.composed([instruction.code, Base.goto(label)]);
         }
-    }
+    };
 
     var _set_outbounds_jump = function(instruction, index, context) {
         if (Utils.search(instruction.jump, context.instructions, _compare_locations)) {

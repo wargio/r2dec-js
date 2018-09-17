@@ -5,6 +5,8 @@ ERRORED=$?
 if [[  "$ERRORED" == "1" ]]; then
 	exit $ERRORED
 fi
+
+## r2dec-regression
 cd ..
 WORKINGDIR_TRAVIS=$(pwd)
 ls r2dec-js >/dev/null 2>&1 || git clone --depth 1 https://github.com/wargio/r2dec-js
