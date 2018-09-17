@@ -17,7 +17,7 @@ ERRORED=$?
 cd ..
 
 ## NPM eslint
-npm install eslint
+npm install -s eslint
 
 ## NPM test
 cd r2dec-js
