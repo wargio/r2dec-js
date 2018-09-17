@@ -2,7 +2,6 @@
 #include <duktape.h>
 #include <duk_console.h>
 #include <stdio.h>
-#include "long_js.c"
 
 static const char* r2dec_home = 0;
 
