@@ -141,7 +141,6 @@ module.exports = (function() {
             }));
         }
         Global.context.identAsmSet(max_length + max_address);
-        this.routine = null;
         this.routine_name = data.graph[0].name;
         this.instructions = instructions;
         this.print = function() {

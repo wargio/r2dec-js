@@ -25,23 +25,6 @@
  */
 
 /**
- * https://github.com/svaarala/duktape/blob/master/doc/error-objects.rst
- */
-Duktape.errCreate = function(err) {
-    try {
-        if (typeof err === 'object') {
-            var p = {
-                message: '' + err.message,
-                stack: '' + err.stack,
-                lineNumber: '' + err.lineNumber
-            };
-            return p;
-        }
-    } catch (e) {}
-    return err;
-};
-
-/**
  * Global data accessible from everywhere.
  * @type {Object}
  */

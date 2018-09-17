@@ -24,28 +24,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-/**
- * https://github.com/svaarala/duktape/blob/master/doc/error-objects.rst
- * 
- * this is required to be the first thing to be setup
- * when there is an exception i want to have the whole
- * stack to be printed.
- */
-Duktape.errCreate = function(err) {
-    try {
-        if (typeof err === 'object') {
-            var p = {
-                message: '' + err.message,
-                stack: '' + err.stack,
-                lineNumber: '' + err.lineNumber
-            };
-            return p;
-        }
-    } catch (e) {}
-    return err;
-};
-
 /**
  * Global data accessible from everywhere.
  * @type {Object}
