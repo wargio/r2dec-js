@@ -51,9 +51,9 @@ require.src = {};
 (function() {
     var _find_function_name = function(line, src) {
         for (var i = line; i >= 0; i--) {
-            var result = src[i].match(/([_\w]+)\s{0,100}=\s{0,100}function\s{0,100}\(|function\s+([_\w]+)\s{0,100}\(/);
+            var result = src[i].match(/([_\w]+)\s{0,100}=\s{0,100}function\s{0,100}\(|function\s+([_\w]+)\s{0,100}\(|([_\w]+)\s{0,100}:\s{0,100}function\s{0,100}\(/);
             if (result) {
-                return result[2] || result[1];
+                return result[3] || result[2] || result[1];
             }
         }
         return '[unknown]';
