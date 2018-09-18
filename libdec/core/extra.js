@@ -28,6 +28,10 @@
 module.exports = (function() {
     const _call_common = require('libdec/db/macros');
 
+    /**
+     * Types size
+     * @type {Object}
+     */
     const _standard_types = {
         'void': 0,
         'char': 8,
@@ -38,6 +42,10 @@ module.exports = (function() {
         'double': 64,
     };
 
+    /**
+     * Is helpers
+     * @type {Object}
+     */
     const _is = {
         string: function(s) {
             return typeof s == 'string';
@@ -58,6 +66,10 @@ module.exports = (function() {
         },
     };
 
+    /**
+     * To helpers
+     * @type {Object}
+     */
     const _to = {
         type: function(bits, signed) {
             if (bits == 0 || !bits) {
@@ -88,6 +100,10 @@ module.exports = (function() {
         },
     };
 
+    /**
+     * Find helpers
+     * @type {Object}
+     */
     const _find = {
         arguments_number: function(name) {
             name = _replace.call(name);
@@ -98,6 +114,10 @@ module.exports = (function() {
         }
     };
 
+    /**
+     * Replace helpers
+     * @type {Object}
+     */
     const _replace = {
         call: function(name) {
             if (typeof name != 'string' || name.startsWith('0x')) {
@@ -121,6 +141,10 @@ module.exports = (function() {
         }
     };
 
+    /**
+     * Extra object
+     * @return {Function} - Extra object
+     */
     return {
         is: _is,
         to: _to,
