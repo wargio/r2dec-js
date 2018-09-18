@@ -48,7 +48,7 @@ var _generic_asm = function(asm) {
     this.asm = asm;
 
     this.toString = function() {
-        return Global.printer.theme.callname('__asm') + ' ("' + Global.printer.theme.text(this.asm) + '")';
+        return Global.printer.theme.callname('__asm') + ' (' + Global.printer.theme.text('"' + this.asm + '"') + ')';
     };
 };
 
@@ -56,7 +56,7 @@ var _generic_asm = function(asm) {
  * Unary expression
  * @constructor
  * @inner
-*/
+ */
 var _uexpr = function(operator, operand) {
     this.operator = operator;
 
@@ -77,7 +77,7 @@ var _uexpr = function(operator, operand) {
  * Unary expression with postfix notation
  * @constructor
  * @inner
-*/
+ */
 var _uexpr_pf = function(operator, operand) {
     _uexpr.call(this, operator, [operand]);
 
@@ -96,7 +96,7 @@ _uexpr_pf.prototype = Object.create(_uexpr.prototype);
  * Binary expression
  * @constructor
  * @inner
-*/
+ */
 var _bexpr = function(operator, lhand, rhand) {
     this.operator = operator;
 
@@ -119,7 +119,7 @@ var _bexpr = function(operator, lhand, rhand) {
  * Ternary expression
  * @constructor
  * @inner
-*/
+ */
 var _texpr = function(operator1, operator2, operand1, operand2, operand3) {
     this.operators = [operator1, operator2];
 
