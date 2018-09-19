@@ -42,7 +42,6 @@ Duktape.errCreate = function(err) {
 
 var JSON = require('libdec/json64');
 var Decoder = require('libdec/core/decoder');
-var Simplify = require('libdec/core/simplify');
 
 /**
  * Global data accessible from everywhere.
@@ -77,32 +76,55 @@ function r2dec_main(args) {
     try {
         var iIj = r2cmdj('iIj');
 
-        if (iIj.arch in Decoder.architectures)
+        if (iIj.arch in Decoder.archs)
         {
-            var agj = r2cmdj('agj').pop();
-            var aoj = r2cmdj('aoj', agj.ninstr, '@', agj.name);
+            var decoder = new Decoder.decoder(iIj);
+            var afbj = r2cmdj('afbj');
 
-            if (aoj) {
-                var decoder = new Decoder(iIj);
-                var statements = decoder.transform_ir(aoj);
+            if (afbj) {
+                var blocks = afbj.map(function(b) {
+                    var aoj = r2cmdj('aoj', b.ninstr, '@', b.addr);
+    
+                    return {
+                        ea:         b.addr,
+                        jump_to:    b.jump,
+                        jump_from:  [],
+                        falls_into: b.fail,
+                        statements: decoder.transform_ir(aoj)
+                    };
+                });
 
-                /*
-                var p = new libdec.core.session(data, architecture);
-                var arch_context = architecture.context(data);
-                libdec.core.analysis.pre(p, architecture, arch_context);
-                libdec.core.decompile(p, architecture, arch_context);
-                libdec.core.analysis.post(p, architecture, arch_context);
-                libdec.core.print(p);
-                */
+                blocks.forEach(function(b) {
+                    // look for all blocks b jumps to
+                    var jumped_to = blocks.filter(function(bb) {
+                        return (b.jump_to && bb.ea.eq(b.jump_to));
+                    });
 
-                console.log('----- simplification');
-                statements.forEach(function(s) {
-                    Simplify.run(s);
+                    // look for all blocks b falls into
+                    var fell_into = blocks.filter(function(bb) {
+                        return (b.falls_into && bb.ea.eq(b.falls_into));
+                    });
+
+                    // add b to those blocks jump_from
+                    jumped_to.concat(fell_into).forEach(function(bb) {
+                        bb.jump_from.push(b);
+                    });
+
+                    // correct block's fields to hold refs rather than addresses
+                    b.jump_to = jumped_to;
+                    b.falls_into = fell_into;
                 });
 
                 console.log('----- result');
-                statements.forEach(function(s) {
-                    console.log(s.toString());
+                blocks.forEach(function(b) {
+                    console.log('{');
+                    console.log('  jump fr: ', b.jump_from.map(function(j) { return '0x' + j.ea.toString(16); }).join(', '));
+                    console.log('  jump to: ', b.jump_to.map(function(j) { return '0x' + j.ea.toString(16); }).join(', '));
+                    console.log('\n');
+                    b.statements.forEach(function(s) {
+                        console.log('  ' + s.toString({ human_readable: true }));
+                    });
+                    console.log('}');
                 });
             } else {
                 console.log('error: no data available; analyze the function / binary first');

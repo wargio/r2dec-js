@@ -1,6 +1,6 @@
 
 module.exports = (function() {
-
+    const Expr = require('libdec/core/ir/expressions');
     const Stmt = require('libdec/core/ir/statements');
 
     var _ssa_context = function(block, parent) {
@@ -102,11 +102,98 @@ module.exports = (function() {
         };
     };
 
+    // collect live assignments at the end of each block
+    var _ssa_phase1 = function(func, selector) {
+        _contextual_iterator.call(this, func, selector);
 
+        this.exit_context = {};
 
+        this.traverse = function(context) {
+            var seen = context.block in this.blocks_done;
 
+            super.traverse(context);
+            if (!seen) {
+                this.exit_context[context.block] = context;
+            }
+        };
+    };
 
+    _ssa_phase1.prototype = Object.create(_contextual_iterator.prototype);
 
+    // for each start of block, add phi statements where necessary
+    var _ssa_phase2 = function(func, selector, exit_contexts) {
+        _contextual_iterator.call(this, func, selector);
+
+        this.exit_contexts = exit_contexts;
+        this.index = 0;
+
+        this.entry_contexts = function(block) {
+            return block.jump_from.map(function(j) {
+                return this.exit_contexts[j];
+            }, this);
+        };
+
+        this.indexify = function(expr) {
+            if (expr.index == undefined) {
+                expr.index = this.index++;
+            }
+
+            return expr;
+        };
+
+        this.find_uninitialized = function(use) {
+            var found;
+
+            for (var i = 0; !found && (i < this.func.uninitialized.length); i++) {
+                var def = this.func.uninitialized[i];
+
+                if (use.no_index_eq(def)) {
+                    found = def;
+                }
+            }
+
+            return found;
+        };
+
+        this.insert_exit_definition = function(context, def) {
+            var ctx = this.exit_contexts[context.block];
+            var other_def = ctx.get_local_definition(def);
+
+            if (!other_def || (other_def.parent_statement.index() < def.parent_statement.index())) {
+                ctx.assign(def);
+            }
+
+            other_def = context.get_local_definition(def);
+            if (!other_def) {
+                context.assign(def);
+            }
+        };
+
+        this.create_phi = function(context, use) {
+            var pstmt = use.parent_statement;
+            var block = context.block;
+
+            var def = use.clone(true);  // TODO: check for cloning 'with definition'
+            def.definition = undefined;
+            def.index = undefined;
+            this.indexify(def);
+
+            var phi = new Expr.phi();
+            var stmt = Stmt.make_statement(block.ea, new Expr.assign(def, phi));
+            this.insert_exit_definition(context, def);
+
+            var index = use.parent_statement.container.block === block ? pstmt.index() : 0;
+            block.container.insert(index, stmt);
+
+            return [stmt, phi];
+        };
+
+        this.create_unininitialized = function(use) {
+
+        };
+    };
+
+    _ssa_phase2.prototype = Object.create(_contextual_iterator.prototype);
 
 
     var tagger = function() {

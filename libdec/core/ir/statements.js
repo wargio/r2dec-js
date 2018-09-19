@@ -16,20 +16,21 @@
  */
 
 module.exports = (function() {
-
     const Expr = require('libdec/core/ir/expressions');
 
     /**
      * @constructor
      */
     var _statement = function(addr, exprs) {
-        /** @type {number} */
+        /** @type {!number} */
         this.addr = addr;
 
-        /** @type {Array} */
-        this.expressions = exprs.map(function(e) {
-            e.parent = this;
-            return e;
+        /** @type {Array>} */
+        this.expressions = exprs || [];
+
+        // set parent to each expression
+        this.expressions.forEach(function(e, i) {
+            e.parent = [this, i];
         }, this);
 
         /** @type {Array} */
@@ -52,7 +53,11 @@ module.exports = (function() {
          * @returns {!string}
          */
         this.toString = function(opt) {
-            return ['0x' + this.addr.toString(16), ':', this.expressions.map(function (e) { return e.toString(opt); }).join('\n')].join(' ');
+            var exprs = this.expressions.map(function(e) {
+                return e.toString(opt);
+            }).join('\n');
+
+            return ['0x' + this.addr.toString(16), ':', exprs].join(' ');
         };
     };
 

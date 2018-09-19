@@ -1,41 +1,61 @@
-module.exports = Decoder;
-
-var Stmt = require('libdec/core/ir/statements');
-
-/**
- * @exports Decoder
- * @constructor
+/** 
+ * Copyright (C) 2018 elicn
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-function Decoder(iIj) {
-    var a = architectures[iIj.arch];
 
-    this.arch = new a(iIj.bits, iIj.bintype, iIj.endian);
-}
+module.exports = (function() {
+    var Stmt = require('libdec/core/ir/statements');
+    var Simplify = require('libdec/core/simplify');
 
-/** available architectures */
-var architectures = {
-    'x86': require('libdec/arch/x86')
-};
+    /** available architectures */
+    var _archs = {
+        'x86': require('libdec/arch/x86')
+    };
 
-Decoder.architectures = architectures;
+    /** @constructor */
+    var _decoder = function(iIj) {
+        var a = _archs[iIj.arch];
 
-/** Processes assembly listing into a list of generic expressions */
-Decoder.prototype.transform_ir = function(aoj) {
-    var ir = [];
+        this.arch = new a(iIj.bits, iIj.bintype, iIj.endian);
 
-    aoj.forEach(function(item) {
-        var decoded = this.arch.r2decode(item);
-        var handler = this.arch.instructions[decoded.mnemonic] || this.arch.invalid;
+        /** Processes assembly listing into a list of generic expressions */
+        this.transform_ir = function(aoj) {
+            var ir = [];
 
-        console.log(item.opcode);
-        handler(decoded).forEach(function(o) {
-            console.log('|  ' + o.toString());
+            aoj.forEach(function(item) {
+                var decoded = this.arch.r2decode(item);
+                var handler = this.arch.instructions[decoded.mnemonic] || this.arch.invalid;
 
-            // TODO: 'Stmt' does not really belong here
-            ir.push(Stmt.make_statement(decoded.address, o));
-        });
+                console.log(item.opcode);
+                handler(decoded).forEach(function(o) {
+                    // TODO: 'Stmt' does not really belong here
+                    var s = Stmt.make_statement(decoded.address, o);
 
-    }, this);
+                    Simplify.run(s);
+                    console.log('|  ' + s.toString());
 
-    return ir;
-};
+                    ir.push(s);
+                });
+            }, this);
+
+            return ir;
+        };
+    };
+
+    return {
+        decoder: _decoder,
+        archs: _archs
+    };
+})();

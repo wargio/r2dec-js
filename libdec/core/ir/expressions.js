@@ -16,62 +16,139 @@
  */
 
  module.exports = (function() {
-    /** @constructor */
+
+    // --------------- helper functions ---------------
+
+    /**
+     * Wraps a string with parenthesis.
+     * @param {!string} s A string to wrap
+     * @returns {!string} `s` wrapped by parenthesis
+     */
+    var parenthesize = function(s) {
+        return '(' + s + ')';
+    };
+
+    /**
+     * Wraps a string with parenthesis only if it is complex.
+     * @param {string} s A string to wrap
+     * @returns {string} `s` wrapped by parenthesis if `s` is a complex string, and `s` otherwise
+     */
+    var autoParen = function(s) {
+        return (s.indexOf(' ') > (-1) ? parenthesize(s) : s);
+    };
+
+    // --------------- classes ---------------
+
+    /**
+     * System register.
+     *
+     * @param {!string} name Register name
+     * @param {number} size Register size in bits
+     * @constructor
+     */
     var _register = function(name, size) {
         /** @type {!string} */
         this.name = name;
 
         /** @type {!number} */
-        this.size = size;
+        this.size = size || 0;
 
+        /** @returns {Array} */
         this.iter_operands = function() {
             return [];
         };
 
         /** @returns {boolean} */
         this.equals = function(other) {
-            return (other &&
+            return ((other instanceof _register) &&
                 (this.name === other.name) &&
                 (this.size === other.size));
         };
 
-        /** @returns {!Register} */
+        /** @returns {!_register} */
         this.clone = function() {
             return Object.create(this);
         };
 
         /** @returns {string} */
         this.toString = function() {
-            return this.name.toString();
+            return '%' + this.name.toString();
         };
     };
 
-    /** @constructor */
+    /**
+     * Literal value.
+     *
+     * @param {!number} value Numeric value
+     * @param {number} size Value size in bits
+     * @constructor
+     */
     var _value = function(value, size) {
         /** @type {!number} */
         this.value = value;
 
         /** @type {!number} */
-        this.size = size;
+        this.size = size || 0;
 
+        /** @returns {Array} */
         this.iter_operands = function() {
             return [];
         };
 
         /** @returns {boolean} */
         this.equals = function(other) {
-            return (other &&
+            return ((other instanceof _value) &&
                 (this.value === other.value) &&
                 (this.size === other.size));    // TODO: should we be bothered about matching sizes?
         };
 
-        /** @returns {!Value} */
+        /** @returns {!_value} */
         this.clone = function() {
             return Object.create(this);
         };
 
+        /**
+         * Get string representation of `this` in a human readable form.
+         * @returns {string} Human readable string
+         */
+        this.toReadableString = function() {
+            var n = this.value;
+            var size = this.size;
+
+            // TODO: adjust comparisons to Long's?
+
+            // an index or small offset?
+            if (n < 32)
+            {
+                return n.toString();
+            }
+
+            // TODO: consider adding a comment next to the immediate value instead of
+            // tranfroming it into a character - which is not always desirable
+
+            // an ascii character?
+            if ((size == 8) && (n >= 32) && (n <= 126)) {
+                return "'" + String.fromCharCode(n) + "'";
+            }
+
+            // -1 ?
+            if (((size ==  8) && (n == 0xff)) ||
+                ((size == 16) && (n == 0xffff)) ||
+                ((size == 32) && (n == 0xffffffff)) ||
+                ((size == 64) && (n == Long.MAX_UNSIGNED_VALUE))) {
+                    return '-1';
+            }
+
+            // default: return hexadecimal representation
+            return '0x' + n.toString(16);
+        };
+
         /** @returns {string} */
         this.toString = function(opt) {
+            if (opt && opt.human_readable) {
+                return this.toReadableString();
+            }
+
             return this.value.toString(opt);
         };
     };
@@ -86,15 +163,15 @@
      */
     var _expr = function(operator, operands) {
         this.operator = operator;
+        this.operands = operands || [];
 
-        /** @type {Array} */
-        this.operands = operands.map(function(o) {
-            // mimic "push_operand" for every operand we got
-            o._parent = this;
-            return o;
+        // set parent for every operand we got
+        this.operands.forEach(function(o, i) {
+            o.parent = [this, i];
         }, this);
 
         this.is_def = false;
+        this.parent = [undefined, undefined];
 
         /**
          * Perform a deep iteratation over expression's operands, from left to right.
@@ -102,30 +179,22 @@
          * @returns {!Array<_expr>}
          */
         this.iter_operands = function(depth_first) {
-            // TODO: sadly Duktape does not support function* and yield* keywords. so
-            // this is not a true generator, rather it is just a long list.
+            // TODO: sadly Duktape does not support function* and yield* keywords so
+            // this is not a true generator, rather it is just a list.
 
-            var ops = [];
-
-            if (depth_first) {
-                Array.prototype.push.apply(ops, this.operands);
-            }
-
-            this.operands.forEach(function(o) {
-                if (o instanceof _expr) {
-                    Array.prototype.push.apply(ops, o.iter_operands(depth_first));
-                }
+            var depth = this.operands.map(function(o) {
+                return o.iter_operands(depth_first);
             });
 
-            if (!depth_first) {
-                Array.prototype.push.apply(ops, this.operands);
-            }
-
-            return ops;
+            return Array.prototype.concat.apply([],
+                depth_first
+                ? depth.concat(this.operands)
+                : this.operands.concat(depth));
         };
 
+        /*
         this.push_operand = function(op) {
-            op._parent = this;
+            op.parent = [this, this.operands.length];
 
             this.operands.push(op);
         };
@@ -137,14 +206,20 @@
         };
 
         this.pluck = function() {
-            return this._parent.remove_operand(this);
+            return this.parent.remove_operand(this);
         };
+        */
 
-        this.overwrite = function(other) {
-            var i = this._parent.operands.indexOf(this);
-
-            other._parent = this._parent;
-            other._parent.operands[i] = other;
+        /**
+         * Have parent replace `this` expression with `other`
+         * @param {!_expr} other Replacement expression
+         */
+        this.replace = function(other) {
+            var p = this.parent[0];
+            var i = this.parent[1];
+    
+            other.parent = this.parent;
+            p.operands[i] = other;
         };
 
         /**
@@ -153,9 +228,9 @@
          * @returns {boolean} `true` iff this and other are equal in operators and operands, `false` otherwise
          */
         this.equals = function(other) {
-            var eq = other &&
+            var eq = (other &&
                 (this.operator === other.operator) &&
-                (this.operands.length === other.operands.length);
+                (this.operands.length === other.operands.length));
 
             for (var i = 0; eq && (i < this.operands.length); i++) {
                 eq &= (this.operands[i].equals(other.operands[i]));
@@ -176,14 +251,40 @@
             });
         };
 
-        /**
-         * Generate a string representation of this, currently in a form of prefix notation (LISP-like)
-         * @returns {!string}
-         */
+        /** [!] This abstract method must be implemented by the inheriting class */
+        this.toString = undefined;
+    };
+
+    var _fcall = function(name, args) {
+        _expr.call(this, name, args);
+
+        // TODO: callee name stored in this.operator is in fact an expr, and not
+        // a plain string, like everywhere else. callee name should be resolved
+
         this.toString = function(opt) {
-            return '(' + [this.operator].concat(this.operands.map(function(e){ return e.toString(opt); })).join(' ') + ')';
+            var args = this.operands.map(function(a) {
+                return a.toString(opt);
+            });
+
+            return this.operator + parenthesize(args.join(', '));
         };
     };
+
+    _fcall.prototype = Object.create(_expr.prototype);
+
+    var _phi = function() {
+        _expr.call(this, 'phi', Array.from(arguments));
+
+        this.toString = function(opt) {
+            var args = this.operands.map(function(a) {
+                return a.toString(opt);
+            });
+
+            return this.operator + parenthesize(args.join(', '));
+        };
+    };
+
+    _phi.prototype = Object.create(_expr.prototype);
 
     /**
      * Unary expression base class.
@@ -203,7 +304,21 @@
 
     _uexpr.prototype = Object.create(_expr.prototype);
 
-    // TODO: _pfuexpr for postfix _uexpr (++, --)
+    /**
+     * Unary expression with postfix notation
+     *
+     * @constructor
+    */
+    var _uexpr_pf = function(operator, operand) {
+        _uexpr.call(this, operator, operand);
+
+        /** @returns {!string} */
+        this.toString = function(opt) {
+            return this.operands[0].toString(opt) + this.operator;
+        };
+    };
+
+    _uexpr_pf.prototype = Object.create(_uexpr.prototype);
 
     /**
      * Binary expression base class.
@@ -255,15 +370,6 @@
 
     _texpr.prototype = Object.create(_expr.prototype);
 
-    var _call = function(name, args) {
-        this.name = name;
-        this.args = args || [];
-
-        this.toString = function() {
-            return this.name + '(', args.join(', ') + ')';
-        };
-    };
-
     var _nop = function() {
         this.toString = function() {
             return '';
@@ -283,13 +389,43 @@
         _bexpr.call(this, '=', lhand, rhand);
 
         lhand.is_def = true;
+        /*
+        this.toString = function(opt) {
+            // "x = x op y" --> "x op= y"
+            if ((rhand instanceof _bexpr) && (lhand == rhand.operands[0])) {
+                return [
+                    this.operands[0].toString(opt),
+                    rhand.operator + this.operator,
+                    rhand.operands[1].toString(opt)
+                ].join(' ');
+            }
+
+            // return parent's toString result
+            // TODO: buggy? it turns all _bexpr's subclasses toString method to undefined
+            return Object.getPrototypeOf(_assign.prototype).toString.call(this, opt);
+        };
+        */
     };
+
+    _assign.prototype = Object.create(_bexpr.prototype);
 
     // unary expressions
     var _not    = function(op) { _uexpr.call(this, '-', op); };
     var _neg    = function(op) { _uexpr.call(this, '~', op); };
     var _deref  = function(op) { _uexpr.call(this, '*', op); };
     var _addrof = function(op) { _uexpr.call(this, '&', op); };
+
+    _not.prototype    = Object.create(_uexpr.prototype);
+    _neg.prototype    = Object.create(_uexpr.prototype);
+    _deref.prototype  = Object.create(_uexpr.prototype);
+    _addrof.prototype = Object.create(_uexpr.prototype);
+
+    // postfix unary expression
+    var _inc = function(op) { _uexpr_pf.call(this, '++', op); };
+    var _dec = function(op) { _uexpr_pf.call(this, '--', op); };
+    
+    _inc.prototype = Object.create(_uexpr_pf.prototype);
+    _dec.prototype = Object.create(_uexpr_pf.prototype);
 
     // binary expressions
     var _add = function(op1, op2) { _bexpr.call(this, '+',  op1, op2); };
@@ -303,29 +439,6 @@
     var _shl = function(op1, op2) { _bexpr.call(this, '<<', op1, op2); };
     var _shr = function(op1, op2) { _bexpr.call(this, '>>', op1, op2); };
 
-    // ternary expressions
-    var _tcond = function(op1, op2, op3) { _texpr.call(this, '?', ':', op1, op2, op3); };
-
-    // boolean expressions
-    var _bool_and = function(expr1, expr2) { _bexpr.call(this, '&&', expr1, expr2); };
-    var _bool_or  = function(expr1, expr2) { _bexpr.call(this, '||', expr1, expr2); };
-    var _bool_not = function(expr) { _uexpr.call(this, '!', expr); };
-
-    // comparisons
-    var _eq = function(expr1, expr2) { _bexpr.call(this, '==', expr1, expr2); };
-    var _ne = function(expr1, expr2) { _bexpr.call(this, '!=', expr1, expr2); };
-    var _gt = function(expr1, expr2) { _bexpr.call(this, '>',  expr1, expr2); };
-    var _lt = function(expr1, expr2) { _bexpr.call(this, '<',  expr1, expr2); };
-    var _ge = function(expr1, expr2) { _bexpr.call(this, '>=', expr1, expr2); };
-    var _le = function(expr1, expr2) { _bexpr.call(this, '<=', expr1, expr2); };
-
-    _assign.prototype = Object.create(_bexpr.prototype);
-
-    _not.prototype    = Object.create(_uexpr.prototype);
-    _neg.prototype    = Object.create(_uexpr.prototype);
-    _deref.prototype  = Object.create(_uexpr.prototype);
-    _addrof.prototype = Object.create(_uexpr.prototype);
-
     _add.prototype = Object.create(_bexpr.prototype);
     _sub.prototype = Object.create(_bexpr.prototype);
     _mul.prototype = Object.create(_bexpr.prototype);
@@ -337,11 +450,27 @@
     _shl.prototype = Object.create(_bexpr.prototype);
     _shr.prototype = Object.create(_bexpr.prototype);
 
+    // ternary expressions
+    var _tcond = function(op1, op2, op3) { _texpr.call(this, '?', ':', op1, op2, op3); };
+
     _tcond.prototype = Object.create(_texpr.prototype);
+
+    // boolean expressions
+    var _bool_and = function(expr1, expr2) { _bexpr.call(this, '&&', expr1, expr2); };
+    var _bool_or  = function(expr1, expr2) { _bexpr.call(this, '||', expr1, expr2); };
+    var _bool_not = function(expr) { _uexpr.call(this, '!', expr); };
 
     _bool_and.prototype = Object.create(_bexpr.prototype);
     _bool_or.prototype  = Object.create(_bexpr.prototype);
     _bool_not.prototype = Object.create(_uexpr.prototype);
+
+    // comparisons
+    var _eq = function(expr1, expr2) { _bexpr.call(this, '==', expr1, expr2); };
+    var _ne = function(expr1, expr2) { _bexpr.call(this, '!=', expr1, expr2); };
+    var _gt = function(expr1, expr2) { _bexpr.call(this, '>',  expr1, expr2); };
+    var _lt = function(expr1, expr2) { _bexpr.call(this, '<',  expr1, expr2); };
+    var _ge = function(expr1, expr2) { _bexpr.call(this, '>=', expr1, expr2); };
+    var _le = function(expr1, expr2) { _bexpr.call(this, '<=', expr1, expr2); };
 
     _eq.prototype = Object.create(_bexpr.prototype);
     _ne.prototype = Object.create(_bexpr.prototype);
@@ -355,13 +484,16 @@
         _bexpr: _bexpr,
         _texpr: _texpr,
 
-        reg:    _register,
-        val:    _value,
+        reg:        _register,
+        val:        _value,
         assign:     _assign,
         deref:      _deref,
         address_of: _addrof,
+
         not:        _not,
         neg:        _neg,
+        inc:        _inc,
+        dec:        _dec,
         add:        _add,
         sub:        _sub,
         mul:        _mul,
@@ -378,7 +510,7 @@
         cmp_gt:     _gt,
         cmp_le:     _le,
         cmp_ge:     _ge,
-        call:       _call,
+        fcall:      _fcall,
         tcond:      _tcond,
         bool_and:   _bool_and,
         bool_or:    _bool_or,

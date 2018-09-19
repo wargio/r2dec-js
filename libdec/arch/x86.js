@@ -57,6 +57,7 @@ function x86(nbits, btype, endianess) {
     }[nbits];
 
     this.instructions = {
+        // basic
         'mov'   : _mov.bind(this),
         'push'  : _push.bind(this),
         'pop'   : _pop.bind(this),
@@ -134,6 +135,11 @@ function x86(nbits, btype, endianess) {
         'stc' : _stc.bind(this),
         'std' : _std.bind(this),
 
+        // signed assingments
+        'movsx': _mov.bind(this),   // TODO: dest is signed
+        'movsxd':_mov.bind(this),   // TODO: dest is signed
+        'movzx':_mov.bind(this),    // TODO: dest is unsigned
+
         // misc
         'nop'   : _nop.bind(this),
         'hlt'   : _hlt.bind(this)
@@ -169,13 +175,13 @@ var OF = (1 << 11);
 
 var get_flag = function(f) {
     var flags = {
-        'CF': function() { return new Expr.reg('%eflags.cf', 1); },
-        'PF': function() { return new Expr.reg('%eflags.pf', 1); },
-        'AF': function() { return new Expr.reg('%eflags.af', 1); },
-        'ZF': function() { return new Expr.reg('%eflags.zf', 1); },
-        'SF': function() { return new Expr.reg('%eflags.sf', 1); },
-        'DF': function() { return new Expr.reg('%eflags.df', 1); },
-        'OF': function() { return new Expr.reg('%eflags.of', 1); }
+        'CF': function() { return new Expr.reg('eflags.cf', 1); },
+        'PF': function() { return new Expr.reg('eflags.pf', 1); },
+        'AF': function() { return new Expr.reg('eflags.af', 1); },
+        'ZF': function() { return new Expr.reg('eflags.zf', 1); },
+        'SF': function() { return new Expr.reg('eflags.sf', 1); },
+        'DF': function() { return new Expr.reg('eflags.df', 1); },
+        'OF': function() { return new Expr.reg('eflags.of', 1); }
     };
 
     return flags[f]();
@@ -562,10 +568,11 @@ var _leave = function(p) {
 };
 
 var _call = function(p) {
+    var callee = get_operand_expr(p.operands[0]);
     var rreg = this.get_result_reg();
     var fargs = []; // TODO: populate function call arguments list
 
-    return [new Expr.assign(rreg, new Expr.call(p.operands[0].value, fargs))];
+    return [new Expr.assign(rreg, new Expr.fcall(callee, fargs))];
 };
 
 var _ret = function(p) {
@@ -778,9 +785,6 @@ var _invalid = function() {
 // cbw
 // cwde
 // cdqe
-// movsx
-// movsxd
-// movzx
 // rol
 // ror
 // lodsb
