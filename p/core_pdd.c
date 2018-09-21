@@ -266,14 +266,14 @@ RCorePlugin r_core_plugin_test = {
 	.init = r_cmd_pdd_init
 };
 
-#ifdef WINDOWS
+#ifdef _MSC_VER
 #define _R_API __declspec(dllexport)
 #else
 #define _R_API
 #endif
 
 #ifndef CORELIB
-RLibStruct _R_API radare_plugin = {
+_R_API RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_CORE,
 	.data = &r_core_plugin_test,
 	.version = R2_VERSION
