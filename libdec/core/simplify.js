@@ -27,20 +27,27 @@ module.exports = (function() {
 
             // x = x + 1
             if ((rhand instanceof Expr.add) && (rhand.operands[0].equals(lhand)) && (rhand.operands[1].equals(one))) {
-                expr.replace(new Expr.inc(lhand));
-
-                return true;
+                return new Expr.inc(lhand);
             }
 
             // x = x - 1
             if ((rhand instanceof Expr.sub) && (rhand.operands[0].equals(lhand)) && (rhand.operands[1].equals(one))) {
-                expr.replace(new Expr.dec(lhand));
-
-                return true;
+                return new Expr.dec(lhand);
             }
         }
 
-        return false;
+        // x + 0
+        // x - 0
+        if ((expr instanceof Expr.add) || (expr instanceof Expr.sub)) {
+            var lhand = expr.operands[0];
+            var rhand = expr.operands[1];
+
+            if ((rhand instanceof Expr.val) && rhand.value == 0) {
+                return lhand;
+            }
+        }
+
+        return null;
     };
 
     var _correct_sign = function(expr) {
@@ -51,9 +58,7 @@ module.exports = (function() {
 
             rhand.value = Math.abs(rhand.value);
 
-            expr.replace(new Expr.sub(lhand, rhand));
-
-            return true;
+            return new Expr.sub(lhand, rhand);
         }
 
         // x - -y
@@ -63,30 +68,24 @@ module.exports = (function() {
 
             rhand.value = Math.abs(rhand.value);
 
-            expr.replace(new Expr.add(lhand, rhand));
-
-            return true;
+            return new Expr.add(lhand, rhand);
         }
 
-        return false;
+        return null;
     };
 
     var _correct_ref = function(expr) {
         // &*x
         if ((expr instanceof Expr.address_of) && (expr.operands[0] instanceof Expr.deref)) {
-            expr.replace(expr.operands[0].operands[0]);
-
-            return true;
+            return expr.operands[0].operands[0];
         }
 
         // *&x
         if ((expr instanceof Expr.deref) && (expr.operands[0] instanceof Expr.address_of)) {
-            expr.replace(expr.operands[0].operands[0]);
-
-            return true;
+            return expr.operands[0].operands[0];
         }
 
-        return false;
+        return null;
     };
 
     var _correct_bitwise = function(expr) {
@@ -99,13 +98,11 @@ module.exports = (function() {
             var zero = new Expr.val(0, lhand.size);
             
             if (rhand.equals(zero)) {
-                expr.replace(lhand);
+                return lhand;
+            }
 
-                return true;
-            } else if (lhand.equals(rhand)) {
-                expr.replace(zero);
-
-                return true;
+            if (rhand.equals(lhand)) {
+                return zero;
             }
         }
 
@@ -118,17 +115,32 @@ module.exports = (function() {
             var zero = new Expr.val(0, lhand.size);
 
             if (rhand.equals(zero)) {
-                expr.replace(zero);
+                return zero;
+            }
 
-                return true;
-            } else if (lhand.equals(rhand)) {
-                expr.replace(lhand);
-
-                return true;
+            if (rhand.equals(lhand)) {
+                return lhand;
             }
         }
 
-        return false;
+        // ((x >> c) << c) yields (x & ~((1 << c) - 1))
+        if (expr instanceof Expr.shl) {
+            var lhand = expr.operands[0];
+            var rhand = expr.operands[1];
+
+            if ((lhand instanceof Expr.shr) && (rhand instanceof Expr.val)) {
+                var inner_lhand = lhand.operands[0];
+                var inner_rhand = lhand.operands[1];
+    
+                if (inner_rhand instanceof Expr.val && inner_rhand.equals(rhand)) {
+                    var mask = new Expr.val(~((1 << rhand.value) - 1), rhand.size);
+
+                    return new Expr.and(inner_lhand, mask);
+                }
+            }
+        }
+
+        return null;
     };
 
     var _equality = function(expr) {
@@ -142,7 +154,7 @@ module.exports = (function() {
                     var new_lhand = lhand.operands[0];
                     var new_rhand = new Expr.val(rhand.value - lhand.operands[1].value);
 
-                    expr.replace(new Expr.cmp_eq(new_lhand, new_rhand));
+                    return new Expr.cmp_eq(new_lhand, new_rhand);
                 }
 
                 // ((x - c1) == c2) yields (x == c3) where c3 = c2 + c1
@@ -150,10 +162,12 @@ module.exports = (function() {
                     var new_lhand = lhand.operands[0];
                     var new_rhand = new Expr.val(rhand.value + lhand.operands[1].value);
 
-                    expr.replace(new Expr.cmp_eq(new_lhand, new_rhand));
+                    return new Expr.cmp_eq(new_lhand, new_rhand);
                 }
             }
         }
+
+        return null;
     };
 
     // TODO: 'or' conditions and 'eq', 'ne' comparisons are commotative
@@ -167,9 +181,7 @@ module.exports = (function() {
                 (rhand instanceof Expr.cmp_eq) &&
                 (lhand.operands[0].equals(rhand.operands[0])) &&
                 (lhand.operands[1].equals(rhand.operands[1]))) {
-               expr.replace(new Expr.cmp_ge(lhand.operands[0], lhand.operands[1]));
-
-               return true;
+                    return new Expr.cmp_ge(lhand.operands[0], lhand.operands[1]);
             }
 
             // ((x < y) || (x == y)) yields (x <= y)
@@ -177,9 +189,7 @@ module.exports = (function() {
                 (rhand instanceof Expr.cmp_eq) &&
                 (lhand.operands[0].equals(rhand.operands[0])) &&
                 (lhand.operands[1].equals(rhand.operands[1]))) {
-               expr.replace(new Expr.cmp_le(lhand.operands[0], lhand.operands[1]));
-
-               return true;
+                    return new Expr.cmp_le(lhand.operands[0], lhand.operands[1]);
             }
 
             // ((x < y) || (x > y))  yields (x != y)
@@ -187,9 +197,7 @@ module.exports = (function() {
                 (rhand instanceof Expr.cmp_gt) &&
                 (lhand.operands[0].equals(rhand.operands[0])) &&
                 (lhand.operands[1].equals(rhand.operands[1]))) {
-               expr.replace(new Expr.cmp_ne(lhand.operands[0], lhand.operands[1]));
-
-               return true;
+                    return new Expr.cmp_ne(lhand.operands[0], lhand.operands[1]);
             }
         }
 
@@ -211,13 +219,12 @@ module.exports = (function() {
 
         }
 
-        return false;
+        return null;
     };
-
 
     // --------------------
 
-    var _filters = [
+    var _rules = [
         _correct_arith,
         _correct_sign,
         _correct_ref,
@@ -235,11 +242,13 @@ module.exports = (function() {
                 modified = false;
 
                 stmt.expressions.forEach(function(e) {
-                    var operands = e.iter_operands();
+                    e.iter_operands().forEach(function(o) {
+                        _rules.forEach(function(r) {
+                            var new_expr = r(o);
 
-                    operands.forEach(function(o) {
-                        modified |= _filters.some(function(f) {
-                            return f(o);
+                            if (new_expr) {
+                                o.replace(new_expr);
+                            }
                         });
                     });
                 });

@@ -75,10 +75,10 @@ module.exports = (function() {
     var _if = function(addr, cond_expr, then_block, else_block) {
         _statement.call(this, addr, [cond_expr]);
 
-        /** @returns {!_statement} */
+        /** @returns {!_container} */
         this.then_block = then_block;
 
-        /** @returns {_statement} */
+        /** @returns {_container} */
         this.else_block = else_block;
 
         this.statements = Array.prototype.concat(
@@ -92,6 +92,15 @@ module.exports = (function() {
             this.else_block
                 ? [this.else_block]
                 : []);
+
+        this.toString = function(opt) {
+            var cond = ['if', '(' + this.expressions[0].toString(opt) + ')'].join(' ');
+            var then_blk = ['{', this.then_block.toString(opt), '}'].join('\n');
+            var else_blk = this.else_block
+                ? ['else', '{', this.else_block.toString(opt), '}'].join('\n')
+                : '';
+            return [cond, then_blk, else_blk].join('\n');
+        };
     };
 
     _if.prototype = Object.create(_statement.prototype);
@@ -145,8 +154,8 @@ module.exports = (function() {
     var _ret = function(addr, expr) {
         _statement.call(this, addr, [expr]);
 
-        this.toString = function() {
-            return ['return', this.expressions[0]].join(' ').trim();
+        this.toString = function(opt) {
+            return ['return', this.expressions[0].toString(opt)].join(' ').trim();
         };
     };
 
@@ -159,8 +168,11 @@ module.exports = (function() {
             return this.expressions[0] instanceof Expr.val;
         };
 
-        this.toString = function() {
-            return ['goto', '0x' + this.expressions[0].toString(16)].join(' ');
+        this.toString = function(opt) {
+            return [
+                'goto',
+                this.expressions[0].toString(16)
+            ].join(' ');
         };
     };
 
@@ -172,8 +184,13 @@ module.exports = (function() {
         this.taken = taken;
         this.not_taken = not_taken;
 
-        this.toString = function() {
-            return ['if', this.expressions[0], 'goto', '0x' + this.expressions[1].toString(16)].join(' ');
+        this.toString = function(opt) {
+            return [
+                'if',
+                this.expressions[0].toString(opt),
+                'goto',
+                this.expressions[1].toString(opt)
+            ].join(' ');
         };
     };
 

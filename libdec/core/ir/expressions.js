@@ -72,7 +72,9 @@
 
         /** @returns {string} */
         this.toString = function() {
-            return '%' + this.name.toString();
+            var subscript = this.idx === undefined ? '' : '.' + this.idx;
+
+            return this.name.toString() + subscript;
         };
     };
 
@@ -171,6 +173,7 @@
         }, this);
 
         this.is_def = false;
+        this.idx = undefined;
         this.parent = [undefined, undefined];
 
         /**
@@ -179,7 +182,7 @@
          * @returns {!Array<_expr>}
          */
         this.iter_operands = function(depth_first) {
-            // TODO: sadly Duktape does not support function* and yield* keywords so
+            // TODO: sadly Duktape does not support the function* and yield* keywords so
             // this is not a true generator, rather it is just a list.
 
             var depth = this.operands.map(function(o) {

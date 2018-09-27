@@ -42,6 +42,7 @@ Duktape.errCreate = function(err) {
 
 var JSON = require('libdec/json64');
 var Decoder = require('libdec/core/decoder');
+var SSA = require('libdec/core/ssa');
 
 /**
  * Global data accessible from everywhere.
@@ -84,25 +85,25 @@ function r2dec_main(args) {
             if (afbj) {
                 var blocks = afbj.map(function(b) {
                     var aoj = r2cmdj('aoj', b.ninstr, '@', b.addr);
-    
+
                     return {
-                        ea:         b.addr,
+                        addr:       b.addr,
                         jump_to:    b.jump,
                         jump_from:  [],
                         falls_into: b.fail,
-                        statements: decoder.transform_ir(aoj)
+                        statements: decoder.transform_ir(aoj),
                     };
                 });
 
                 blocks.forEach(function(b) {
                     // look for all blocks b jumps to
                     var jumped_to = blocks.filter(function(bb) {
-                        return (b.jump_to && bb.ea.eq(b.jump_to));
+                        return (b.jump_to && bb.addr.eq(b.jump_to));
                     });
 
                     // look for all blocks b falls into
                     var fell_into = blocks.filter(function(bb) {
-                        return (b.falls_into && bb.ea.eq(b.falls_into));
+                        return (b.falls_into && bb.addr.eq(b.falls_into));
                     });
 
                     // add b to those blocks jump_from
@@ -115,12 +116,15 @@ function r2dec_main(args) {
                     b.falls_into = fell_into;
                 });
 
+                console.log('----- tagging');
+                SSA.tag_regs(blocks[0]);
+
                 console.log('----- result');
                 blocks.forEach(function(b) {
                     console.log('{');
-                    console.log('  jump fr: ', b.jump_from.map(function(j) { return '0x' + j.ea.toString(16); }).join(', '));
-                    console.log('  jump to: ', b.jump_to.map(function(j) { return '0x' + j.ea.toString(16); }).join(', '));
-                    console.log('\n');
+                    console.log('  jump fr: ', b.jump_from.map(function(j) { return '0x' + j.addr.toString(16); }).join(', '));
+                    console.log('  jump to: ', b.jump_to.map(function(j) { return '0x' + j.addr.toString(16); }).join(', '));
+                    console.log();
                     b.statements.forEach(function(s) {
                         console.log('  ' + s.toString({ human_readable: true }));
                     });
