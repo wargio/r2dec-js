@@ -120,6 +120,14 @@ module.exports = (function() {
         'open': {
             macro: ['#include <unistd.h>'],
             args: 2
+        },
+        'setlocale': {
+            macro: ['#include <locale.h>'],
+            args: 2
+        },
+        'dcgettext': {
+            macro:['#include <libintl.h>'],
+            args: 2
         }
     };
 

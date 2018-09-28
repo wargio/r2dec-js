@@ -29,6 +29,10 @@ module.exports = (function() {
         'std::basic_string<char,std::char_traits<char>,std::allocator<char>>': 'std::string ',
         'std::basic_ostream<char,std::char_traits<char>>': 'std::string ',
         'std::basic_istream<char,std::char_traits<char>>': 'std::string ',
+
+        'operatordelete(void*)': 'delete',
+
+        '<char,std::char_traits<char>,std::allocator<char>>': ' ',
         '<std::char_traits<char>>': 'std::string ',
 
         'std::_Ios_Openmode': 'std::ios_base::openmode ',
@@ -37,6 +41,8 @@ module.exports = (function() {
         '&std::operator<<': '& std::operator << ',
         '&std::operator[]': '& std::operator [] ',
         '&std::operator|': '& std::operator | ',
+        '&std::operator+': '& std::operator + ',
+        '&std::operator+=': '& std::operator += ',
 
         'operator>>': 'operator >> ',
         'operator<<': 'operator << ',
@@ -50,6 +56,7 @@ module.exports = (function() {
     };
 
     return function(str) {
+        str = str.replace(/::_cxx11::/g, '::')
         for (var key in _known_cpp_data) {
             if (str.indexOf(key) >= 0) {
                 var find = new RegExp(key.replace(/([()[\]|\\*+])/g, '\\$1'), 'g');
