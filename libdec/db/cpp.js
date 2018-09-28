@@ -56,7 +56,7 @@ module.exports = (function() {
     };
 
     return function(str) {
-        str = str.replace(/::_cxx11::/g, '::')
+        str = str.replace(/::_cxx\d\d::/g, '::')
         for (var key in _known_cpp_data) {
             if (str.indexOf(key) >= 0) {
                 var find = new RegExp(key.replace(/([()[\]|\\*+])/g, '\\$1'), 'g');
