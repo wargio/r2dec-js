@@ -209,6 +209,9 @@ module.exports = (function() {
             };
             this.graph = r2json('agj', []);
         },
+        argdb : function() {
+            this.data = r2json('afcfqj', []);
+        },
         sanitize: function(enable, evars) {
             var s = evars.sanitize;
             r2dec_sanitize(enable, 'asm.ucase', s.ucase, 'false');
