@@ -116,6 +116,10 @@ module.exports = (function() {
         'localtime': {
             macro: ['#include <time.h>'],
             args: 1
+        },
+        'open': {
+            macro: ['#include <unistd.h>'],
+            args: 2
         }
     };
 
