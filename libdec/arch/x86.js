@@ -542,7 +542,7 @@ var _pop = function(p) {
 };
 
 var _nop = function(p) {
-    return [new Expr.nop()];
+    return [];
 };
 
 var _lea = function(p) {
@@ -768,11 +768,11 @@ var _std = function(p) {
 };
 
 var _hlt = function() {
-    return [new Expr.call('_hlt', [])];
+    return [new Expr.fcall('_hlt', [])];
 };
 
 var _invalid = function() {
-    return [new Expr.nop()];
+    return [new Expr.unknown('?')]; // TODO: improve handling of unknown instructions
 };
 
 // imul

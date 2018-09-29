@@ -61,15 +61,32 @@ module.exports = (function() {
         };
     };
 
-    var _container = function(block, list) {
+    var _container = function(block, stmts) {
         this.block = block;
-        this.list = list || [];
+        this.statements = stmts || [];
 
-        this.list.forEach(function(e) {
-            e.container = this;
+        this.statements.forEach(function(stmt) {
+            stmt.container = this;
         }, this);
 
-        this.statements = this.list;
+        this.push = function(stmt) {
+            stmt.container = this;
+
+            this.statements.push(stmt);
+        };
+
+        /**
+         * Generate a deep copy of this.
+         * @returns {!_container}
+         */
+        this.clone = function() {
+            return Object.create(this, {
+                'statements': {
+                    value: this.statements.map(function(s) { return s.clone(); })
+                }
+            });
+        };
+
     };
 
     var _if = function(addr, cond_expr, then_block, else_block) {
@@ -201,6 +218,7 @@ module.exports = (function() {
             return exp instanceof _statement ? exp : new _statement(addr, [exp]);
         },
 
+        container:  _container,
         ret:        _ret,
         goto:       _goto,
         branch:     _branch,

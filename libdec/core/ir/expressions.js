@@ -62,7 +62,15 @@
         this.equals = function(other) {
             return ((other instanceof _register) &&
                 (this.name === other.name) &&
-                (this.size === other.size));
+                (this.size === other.size) &&   // TODO: ax == eax == rax
+                (this.idx === other.idx));
+        };
+
+        /** @returns {boolean} */
+        this.like = function(other) {
+            return ((other instanceof _register) &&
+                (this.name === other.name) &&
+                (this.size === other.size));   // TODO: ax == eax == rax
         };
 
         /** @returns {!_register} */
@@ -71,8 +79,8 @@
         };
 
         /** @returns {string} */
-        this.toString = function() {
-            var subscript = this.idx === undefined ? '' : '.' + this.idx;
+        this.toString = function(opt) {
+            var subscript = this.idx == undefined ? '' : '.' + this.idx.toString(10);
 
             return this.name.toString() + subscript;
         };
@@ -218,8 +226,8 @@
          * @param {!_expr} other Replacement expression
          */
         this.replace = function(other) {
-            var p = this.parent[0];
-            var i = this.parent[1];
+            var p = this.parent[0]; // parent object
+            var i = this.parent[1]; // operand index at parent's
     
             other.parent = this.parent;
             p.operands[i] = other;
@@ -373,12 +381,6 @@
 
     _texpr.prototype = Object.create(_expr.prototype);
 
-    var _nop = function() {
-        this.toString = function() {
-            return '';
-        };
-    };
-
     var _asm = function(line) {
         this.line = line;
 
@@ -518,7 +520,6 @@
         bool_and:   _bool_and,
         bool_or:    _bool_or,
         bool_not:   _bool_not,
-        nop:        _nop,
         unknown:    _asm
     };
 })();

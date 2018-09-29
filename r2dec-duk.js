@@ -87,49 +87,45 @@ function r2dec_main(args) {
                     var aoj = r2cmdj('aoj', b.ninstr, '@', b.addr);
 
                     return {
-                        addr:       b.addr,
-                        jump_to:    b.jump,
-                        jump_from:  [],
-                        falls_into: b.fail,
+                        address:    b.addr,
+                        inbound:    [],
+                        outbound:   [b.jump, b.fail].filter(function(ob) { return ob; }),
                         statements: decoder.transform_ir(aoj),
                     };
                 });
 
                 blocks.forEach(function(b) {
-                    // look for all blocks b jumps to
-                    var jumped_to = blocks.filter(function(bb) {
-                        return (b.jump_to && bb.addr.eq(b.jump_to));
+                    // collect outbound blocks refs
+                    var outbound = b.outbound.map(function(ob) {
+                        return blocks.filter(function(bb) {
+                            return bb.address.eq(ob);
+                        })[0];
                     });
 
-                    // look for all blocks b falls into
-                    var fell_into = blocks.filter(function(bb) {
-                        return (b.falls_into && bb.addr.eq(b.falls_into));
+                    // let outbound targets know their inbounds
+                    outbound.forEach(function(ob) {
+                        ob.inbound.push(b);
                     });
 
-                    // add b to those blocks jump_from
-                    jumped_to.concat(fell_into).forEach(function(bb) {
-                        bb.jump_from.push(b);
-                    });
-
-                    // correct block's fields to hold refs rather than addresses
-                    b.jump_to = jumped_to;
-                    b.falls_into = fell_into;
+                    b.outbound = outbound;
                 });
 
-                console.log('----- tagging');
-                SSA.tag_regs(blocks[0]);
+                console.log('[tagging]');
+                var tagger = new SSA.tagger(blocks[0]);
+                tagger.tag_regs();
 
-                console.log('----- result');
+                console.log('[result]');
                 blocks.forEach(function(b) {
                     console.log('{');
-                    console.log('  jump fr: ', b.jump_from.map(function(j) { return '0x' + j.addr.toString(16); }).join(', '));
-                    console.log('  jump to: ', b.jump_to.map(function(j) { return '0x' + j.addr.toString(16); }).join(', '));
+                    console.log('  ib: ', b.inbound.map(function(ib) { return '0x' + ib.address.toString(16); }).join(', '));
+                    console.log('  ob: ', b.outbound.map(function(ob) { return '0x' + ob.address.toString(16); }).join(', '));
                     console.log();
                     b.statements.forEach(function(s) {
                         console.log('  ' + s.toString({ human_readable: true }));
                     });
                     console.log('}');
                 });
+                console.log('\033[1;31mbold red text\033[0m');
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }
