@@ -16,7 +16,7 @@
  */
 
 module.exports = (function() {
-    var Expr = require('libdec/core/ir/expressions');
+    var Expr = require('core2/analysis/ir/expressions');
 
     var _correct_arith = function(expr) {
         if (expr instanceof Expr.assign) {
@@ -224,6 +224,7 @@ module.exports = (function() {
 
     // --------------------
 
+    // TODO: convert this to a Map, where prototypes are mapped to simplification routines
     var _rules = [
         _correct_arith,
         _correct_sign,

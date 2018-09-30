@@ -17,8 +17,8 @@
 
 module.exports = x86;
 
-var Expr = require('libdec/core/ir/expressions');
-var Stmt = require('libdec/core/ir/statements');
+var Expr = require('core2/analysis/ir/expressions');
+var Stmt = require('core2/analysis/ir/statements');
 
 /** @constructor */
 function x86(nbits, btype, endianess) {

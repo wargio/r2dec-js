@@ -16,9 +16,10 @@
  */
 
 module.exports = (function() {
-    const Expr = require('libdec/core/ir/expressions');
-
     /**
+     * Statement abstract base class.
+     * @param {!Long} addr Address of original assembly instruction
+     * @param {Array} exprs List of expressions enclosed by this statement; usually just one
      * @constructor
      */
     var _statement = function(addr, exprs) {
@@ -89,32 +90,30 @@ module.exports = (function() {
 
     };
 
-    var _if = function(addr, cond_expr, then_block, else_block) {
+    var _if = function(addr, cond_expr, then_cntr, else_cntr) {
         _statement.call(this, addr, [cond_expr]);
 
-        /** @returns {!_container} */
-        this.then_block = then_block;
-
-        /** @returns {_container} */
-        this.else_block = else_block;
+        this.cond_expr = cond_expr;
+        this.then_cntr = then_cntr;
+        this.else_cntr = else_cntr;
 
         this.statements = Array.prototype.concat(
-                this.then_block.statements,
-                this.else_block
-                    ? this.else_block.statements
+                this.then_cntr.statements,
+                this.else_cntr
+                    ? this.else_cntr.statements
                     : []);
 
         this.containers = Array.prototype.concat(
-            [this.then_block],
-            this.else_block
-                ? [this.else_block]
+            [this.then_cntr],
+            this.else_cntr
+                ? [this.else_cntr]
                 : []);
 
         this.toString = function(opt) {
-            var cond = ['if', '(' + this.expressions[0].toString(opt) + ')'].join(' ');
-            var then_blk = ['{', this.then_block.toString(opt), '}'].join('\n');
-            var else_blk = this.else_block
-                ? ['else', '{', this.else_block.toString(opt), '}'].join('\n')
+            var cond = ['if', '(' + this.cond_expr.toString(opt) + ')'].join(' ');
+            var then_blk = ['{', this.then_cntr.toString(opt), '}'].join('\n');
+            var else_blk = this.else_cntr
+                ? ['else', '{', this.else_cntr.toString(opt), '}'].join('\n')
                 : '';
             return [cond, then_blk, else_blk].join('\n');
         };
@@ -124,6 +123,9 @@ module.exports = (function() {
 
     var _while = function(addr, expr, loop_container) {
         _statement.call(this, addr, [expr]);
+
+        this.cond_expr = expr;
+        this.loop_body = loop_container;
 
         this.statements = loop_container.statements;
         this.containers = [loop_container];
@@ -137,6 +139,9 @@ module.exports = (function() {
 
     var _do_while = function(addr, expr, loop_container) {
         _statement.call(this, addr, [expr]);
+
+        this.cond_expr = expr;
+        this.loop_body = loop_container;
 
         this.statements = loop_container.statements;
         this.containers = [loop_container];
@@ -181,9 +186,7 @@ module.exports = (function() {
     var _goto = function(addr, dst) {
         _statement.call(this, addr, [dst]);
 
-        this.is_known = function() {
-            return this.expressions[0] instanceof Expr.val;
-        };
+        this.dest = dst;
 
         this.toString = function(opt) {
             return [

@@ -16,12 +16,12 @@
  */
 
 module.exports = (function() {
-    var Stmt = require('libdec/core/ir/statements');
-    var Simplify = require('libdec/core/simplify');
+    var Stmt = require('core2/analysis/ir/statements');
+    var Simplify = require('core2/analysis/ir/simplify');
 
     /** available architectures */
     var _archs = {
-        'x86': require('libdec/arch/x86')
+        'x86': require('core2/frontend/arch/x86')
     };
 
     /** @constructor */
@@ -39,14 +39,14 @@ module.exports = (function() {
                 var handler = this.arch.instructions[decoded.mnemonic] || this.arch.invalid;
 
                 console.log(item.opcode);
-                handler(decoded).forEach(function(o) {
+                handler(decoded).forEach(function(expr) {
                     // TODO: 'Stmt' does not really belong here
-                    var s = Stmt.make_statement(decoded.address, o);
+                    var stmt = Stmt.make_statement(decoded.address, expr);
 
-                    Simplify.run(s);
-                    console.log('|  ' + s.toString());
+                    Simplify.run(stmt);
+                    console.log('|  ' + stmt.toString());
 
-                    ir.push(s);
+                    ir.push(stmt);
                 });
             }, this);
 

@@ -1,6 +1,6 @@
 
 module.exports = (function() {
-    const Expr = require('libdec/core/ir/expressions');
+    const Expr = require('core2/analysis/ir/expressions');
 
     var _ssa_context = function(block, parent) {
         this.block = block;
@@ -19,7 +19,7 @@ module.exports = (function() {
             return findings[0];
         };
 
-        this.assign = function(expr) {
+        this.update = function(expr) {
             var def = this.get_local_def(expr);
 
             // if already exist with a lower index, pop it
@@ -33,7 +33,7 @@ module.exports = (function() {
 
     var _contextual_iterator = function(selector) {
         this.selector = selector;
-        this.done = [];
+        this.done = []; // TODO: Map ?
 
         this.defs = function(expr) {
             return expr.iter_operands().filter(function(o) {
@@ -47,9 +47,9 @@ module.exports = (function() {
             }, this);
         };
 
-        this.assign_defs = function(context, expr) {
+        this.update_defs = function(context, expr) {
             this.defs(expr).forEach(function(d) {
-                context.assign(d);
+                context.update(d);
             });
         };
     };
@@ -63,7 +63,7 @@ module.exports = (function() {
 
         context.block.statements.forEach(function(s) {
             s.expressions.forEach(function(e) {
-                    this.assign_defs(context, e);
+                    this.update_defs(context, e);
             }, this);
         }, this);
 
@@ -105,7 +105,6 @@ module.exports = (function() {
             p1.traverse(new _ssa_context(this.entry_block));
             this.exit_contexts[this.step] = p1.exit_contexts;
 
-            console.log(p1.toString());
             // TODO: p2
         };
 
