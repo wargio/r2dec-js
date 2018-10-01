@@ -68,9 +68,9 @@ module.exports = (function() {
 
     function merge_arrays(input) {
         input = input.split('\n').map(function(x){
-            return x.trim().substr(1, x.length).substr(0, x.length - 2);
+            return x.length > 2 ? x.trim().substr(1, x.length).substr(0, x.length - 2) : '';
         });
-        var array = '[' + input.join(',') + ']';
+        var array = '[' + input.filter(Boolean).join(',') + ']';
         return array;
     }
 
@@ -226,13 +226,12 @@ module.exports = (function() {
                     "sp": [],
                     "bp": [],
                     "reg": []
-                }),
-                database: r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays_json)
+                })
             };
             this.graph = r2json('agj', []);
         },
         argdb : function() {
-            this.data = r2json('afcfqj', []);
+            this.data = r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays_json);
         },
         sanitize: function(enable, evars) {
             var s = evars.sanitize;
