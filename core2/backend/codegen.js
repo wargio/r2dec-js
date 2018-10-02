@@ -36,7 +36,7 @@ module.exports = (function() {
             }
             this._emit_token(')');
             this._emit_whitespace('\n');
-            this._emit_scope(func.container, 0);
+            this._emit_scope(func.entry_block.container, 0);
 
             return this.text.join('');
         };
@@ -55,66 +55,66 @@ module.exports = (function() {
         };
 
         this._emit_expression = function(expr) {
-            if (expr instanceof Expr.val) {
+            if (expr instanceof Expr.Val) {
                 // TODO: use a representation according to context (r2 flag, char, hex, dec, signed, -1)
 
-            } else if (expr instanceof Expr.reg) {
+            } else if (expr instanceof Expr.Reg) {
 
-            } else if (expr instanceof Expr.assign) {
+            } else if (expr instanceof Expr.Assign) {
 
-            } else if (expr instanceof Expr.deref) {
+            } else if (expr instanceof Expr.Deref) {
 
-            } else if (expr instanceof Expr.address_of) {
+            } else if (expr instanceof Expr.AddrOf) {
 
-            } else if (expr instanceof Expr.not) {
+            } else if (expr instanceof Expr.Not) {
 
-            } else if (expr instanceof Expr.neg) {
+            } else if (expr instanceof Expr.Neg) {
 
-            } else if (expr instanceof Expr.inc) {
+            } else if (expr instanceof Expr.Inc) {
 
-            } else if (expr instanceof Expr.dec) {
+            } else if (expr instanceof Expr.Dec) {
 
-            } else if (expr instanceof Expr.add) {
+            } else if (expr instanceof Expr.Add) {
 
-            } else if (expr instanceof Expr.sub) {
+            } else if (expr instanceof Expr.Sub) {
 
-            } else if (expr instanceof Expr.mul) {
+            } else if (expr instanceof Expr.Mul) {
 
-            } else if (expr instanceof Expr.div) {
+            } else if (expr instanceof Expr.Div) {
 
-            } else if (expr instanceof Expr.mod) {
+            } else if (expr instanceof Expr.Mod) {
 
-            } else if (expr instanceof Expr.and) {
+            } else if (expr instanceof Expr.And) {
 
-            } else if (expr instanceof Expr.or) {
+            } else if (expr instanceof Expr.Or) {
 
-            } else if (expr instanceof Expr.xor) {
+            } else if (expr instanceof Expr.Xor) {
 
-            } else if (expr instanceof Expr.shl) {
+            } else if (expr instanceof Expr.Shl) {
 
-            } else if (expr instanceof Expr.shr) {
+            } else if (expr instanceof Expr.Shr) {
 
-            } else if (expr instanceof Expr.cmp_eq) {
+            } else if (expr instanceof Expr.EQ) {
 
-            } else if (expr instanceof Expr.cmp_ne) {
+            } else if (expr instanceof Expr.NE) {
 
-            } else if (expr instanceof Expr.cmp_lt) {
+            } else if (expr instanceof Expr.LT) {
 
-            } else if (expr instanceof Expr.cmp_gt) {
+            } else if (expr instanceof Expr.GT) {
 
-            } else if (expr instanceof Expr.cmp_le) {
+            } else if (expr instanceof Expr.LE) {
 
-            } else if (expr instanceof Expr.cmp_ge) {
+            } else if (expr instanceof Expr.GE) {
 
-            } else if (expr instanceof Expr.fcall) {
+            } else if (expr instanceof Expr.Call) {
 
-            } else if (expr instanceof Expr.tcond) {
+            } else if (expr instanceof Expr.TCond) {
 
-            } else if (expr instanceof Expr.bool_and) {
+            } else if (expr instanceof Expr.BoolAnd) {
 
-            } else if (expr instanceof Expr.bool_or) {
+            } else if (expr instanceof Expr.BoolOr) {
 
-            } else if (expr instanceof Expr.bool_not) {
+            } else if (expr instanceof Expr.BoolNot) {
 
             }
 
@@ -123,36 +123,37 @@ module.exports = (function() {
         };
 
         this._emit_statement = function(stmt, depth) {
+            console.log('emitting', stmt.toString());
             this._emit_whitespace(this._pad(depth));
 
-            if (stmt instanceof Stmt.branch) {
-                // ?
-            } else if (stmt instanceof Stmt.break) {
+            if (stmt instanceof Stmt.Branch) {
+                // a Branch is meant to be replaced by an 'If'
+            } else if (stmt instanceof Stmt.Break) {
                 this._emit_token('break');
                 this._emit_token(';');
-            } else if (stmt instanceof Stmt.continue) {
+            } else if (stmt instanceof Stmt.Continue) {
                 this._emit_token('continue');
                 this._emit_token(';');
-            } else if (stmt instanceof Stmt.do_while) {
+            } else if (stmt instanceof Stmt.DoWhile) {
                 this._emit_token('do');
 
-                this._emit_scope(stmt.loop_body, depth + 1);
+                this._emit_scope(stmt.body, depth + 1);
 
                 this._emit_token('while');
                 this._emit_whitespace(' ');
                 this._emit_token('(');
-                this._emit_expression(stmt.cond_expr);
+                this._emit_expression(stmt.cond);
                 this._emit_token(')');
-            } else if (stmt instanceof Stmt.goto) {
+            } else if (stmt instanceof Stmt.Goto) {
                 this._emit_token('goto');
                 this._emit_whitespace(' ');
                 this._emit_expression(stmt.dest);
                 this._emit_token(';');
-            } else if (stmt instanceof Stmt.if) {
+            } else if (stmt instanceof Stmt.If) {
                 this._emit_token('if');
                 this._emit_whitespace(' ');
                 this._emit_token('(');
-                this._emit_expression(stmt.cond_expr);
+                this._emit_expression(stmt.cond);
                 this._emit_token(')');
                 this._emit_whitespace('\n');
 
@@ -162,7 +163,7 @@ module.exports = (function() {
                     this._emit_token('else');
                     this._emit_scope(stmt.else_cntr, depth + 1);
                 }
-            } else if (stmt instanceof Stmt.ret) {
+            } else if (stmt instanceof Stmt.Return) {
                 this._emit_token('return');
 
                 if (stmt.value) {
@@ -171,15 +172,15 @@ module.exports = (function() {
                 }
                 this._emit_token(';');
 
-            } else if (stmt instanceof Stmt.while) {
+            } else if (stmt instanceof Stmt.While) {
                 this._emit_token('while');
                 this._emit_whitespace(' ');
                 this._emit_token('(');
-                this._emit_expression(stmt.cond_expr);
+                this._emit_expression(stmt.cond);
                 this._emit_token(')');
                 this._emit_whitespace('\n');
 
-                this._emit_scope(stmt.loop_body, depth + 1);
+                this._emit_scope(stmt.body, depth + 1);
             } else {
                 this._emit_expression(stmt.expressions.pop());
                 this._emit_token(';');
@@ -193,14 +194,14 @@ module.exports = (function() {
             this._emit_whitespace('\n');
         };
 
-        this._emit_scope = function(block, depth) {
+        this._emit_scope = function(cntr, depth) {
             const p = this._pad(depth);
 
             this._emit_whitespace(p);
             this._emit_token('{');
             this._emit_whitespace('\n');
 
-            block.statements.forEach(function(s) {
+            cntr.statements.forEach(function(s) {
                 this._emit_statement(s, depth + 1);
             }, this);
 

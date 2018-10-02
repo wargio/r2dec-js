@@ -149,19 +149,19 @@ function x86(nbits, btype, endianess) {
 }
 
 x86.prototype.get_frame_reg = function() {
-    return new Expr.reg(this.FRAME_REG, this.asize);
+    return new Expr.Reg(this.FRAME_REG, this.asize);
 };
 
 x86.prototype.get_result_reg = function() {
-    return new Expr.reg(this.RESULT_REG, this.asize);
+    return new Expr.Reg(this.RESULT_REG, this.asize);
 };
 
 x86.prototype.get_stack_reg = function() {
-    return new Expr.reg(this.STACK_REG, this.asize);
+    return new Expr.Reg(this.STACK_REG, this.asize);
 };
 
 x86.prototype.get_flags_reg = function() {
-    return new Expr.reg(this.FLAGS_REG, this.asize);
+    return new Expr.Reg(this.FLAGS_REG, this.asize);
 };
 
 // system flags
@@ -175,54 +175,54 @@ var OF = (1 << 11);
 
 var get_flag = function(f) {
     var flags = {
-        'CF': function() { return new Expr.reg('eflags.cf', 1); },
-        'PF': function() { return new Expr.reg('eflags.pf', 1); },
-        'AF': function() { return new Expr.reg('eflags.af', 1); },
-        'ZF': function() { return new Expr.reg('eflags.zf', 1); },
-        'SF': function() { return new Expr.reg('eflags.sf', 1); },
-        'DF': function() { return new Expr.reg('eflags.df', 1); },
-        'OF': function() { return new Expr.reg('eflags.of', 1); }
+        'CF': function() { return new Expr.Reg('eflags.cf', 1); },
+        'PF': function() { return new Expr.Reg('eflags.pf', 1); },
+        'AF': function() { return new Expr.Reg('eflags.af', 1); },
+        'ZF': function() { return new Expr.Reg('eflags.zf', 1); },
+        'SF': function() { return new Expr.Reg('eflags.sf', 1); },
+        'DF': function() { return new Expr.Reg('eflags.df', 1); },
+        'OF': function() { return new Expr.Reg('eflags.of', 1); }
     };
 
     return flags[f]();
 };
 
-var _carry    = function(op) { Expr._uexpr.call(this, '<carry>', op); };
-var _parity   = function(op) { Expr._uexpr.call(this, '<parity>', op); };
-var _adjust   = function(op) { Expr._uexpr.call(this, '<adjust>', op); };
-var _zero     = function(op) { Expr._uexpr.call(this, '<zero>', op); };
-var _sign     = function(op) { Expr._uexpr.call(this, '<sign of>', op); };
-var _overflow = function(op) { Expr._uexpr.call(this, '<overflow of>', op); };
+function Carry    (op) { Expr.UExpr.call(this, '<carry>', op); }
+function Parity   (op) { Expr.UExpr.call(this, '<parity>', op); }
+function Adjust   (op) { Expr.UExpr.call(this, '<adjust>', op); }
+function Zero     (op) { Expr.UExpr.call(this, '<zero>', op); }
+function Sign     (op) { Expr.UExpr.call(this, '<sign of>', op); }
+function Overflow (op) { Expr.UExpr.call(this, '<overflow of>', op); }
 
-_carry.prototype    = Object.create(Expr._uexpr.prototype);
-_parity.prototype   = Object.create(Expr._uexpr.prototype);
-_adjust.prototype   = Object.create(Expr._uexpr.prototype);
-_zero.prototype     = Object.create(Expr._uexpr.prototype);
-_sign.prototype     = Object.create(Expr._uexpr.prototype);
-_overflow.prototype = Object.create(Expr._uexpr.prototype);
+Carry.prototype    = Object.create(Expr.UExpr.prototype);
+Parity.prototype   = Object.create(Expr.UExpr.prototype);
+Adjust.prototype   = Object.create(Expr.UExpr.prototype);
+Zero.prototype     = Object.create(Expr.UExpr.prototype);
+Sign.prototype     = Object.create(Expr.UExpr.prototype);
+Overflow.prototype = Object.create(Expr.UExpr.prototype);
 
 var get_flag_op = function(f, expr) {
     var ops = {
-        'CF': function() { return new _carry(expr);    },
-        'PF': function() { return new _parity(expr);   },
-        'AF': function() { return new _adjust(expr);   },
-        'ZF': function() { return new _zero(expr);     },
-        'SF': function() { return new _sign(expr);     },
-        'OF': function() { return new _overflow(expr); }
+        'CF': function() { return new Carry(expr);    },
+        'PF': function() { return new Parity(expr);   },
+        'AF': function() { return new Adjust(expr);   },
+        'ZF': function() { return new Zero(expr);     },
+        'SF': function() { return new Sign(expr);     },
+        'OF': function() { return new Overflow(expr); }
     };
 
     return ops[f]();
 };
 
 var set_flag = function(f, bval) {
-    return new Expr.assign(get_flag(f), new Expr.val(bval, 1));
+    return new Expr.Assign(get_flag(f), new Expr.Val(bval, 1));
 };
 
 x86.prototype.eval_flags = function(expr, flist) {
-    var e = [new Expr.assign(this.get_flags_reg(), expr.clone())];
+    var e = [new Expr.Assign(this.get_flags_reg(), expr.clone())];
 
     return e.concat(flist.map(function(f) {
-        return new Expr.assign(get_flag(f), get_flag_op(f, expr.clone()));
+        return new Expr.Assign(get_flag(f), get_flag_op(f, expr.clone()));
     }));
 };
 
@@ -290,28 +290,28 @@ var get_operand_expr = function(op) {
 
     switch (op.type) {
     case 'reg':
-        expr = new Expr.reg(op.value, op.size);
+        expr = new Expr.Reg(op.value, op.size);
         break;
 
     case 'imm':
-        expr = new Expr.val(op.value, op.size);
+        expr = new Expr.Val(op.value, op.size);
         break;
 
     case 'mem':
-        var base = op.mem.base && new Expr.reg(op.mem.base, op.size);
-        var index = op.mem.index && new Expr.reg(op.mem.index, op.size);
-        var scale = op.mem.scale && new Expr.val(op.mem.scale, op.size);
-        var disp = op.mem.disp && new Expr.val(op.mem.disp, op.size);
+        var base = op.mem.base && new Expr.Reg(op.mem.base, op.size);
+        var index = op.mem.index && new Expr.Reg(op.mem.index, op.size);
+        var scale = op.mem.scale && new Expr.Val(op.mem.scale, op.size);
+        var disp = op.mem.disp && new Expr.Val(op.mem.disp, op.size);
 
         if (base && index && disp) {
             // [base + index*scale + disp]
-            expr = new Expr.add(base, new Expr.add(scale ? new Expr.mul(index, scale) : index, disp));
+            expr = new Expr.Add(base, new Expr.Add(scale ? new Expr.Mul(index, scale) : index, disp));
         } else if (base && index) {
             // [base + index*scale]
-            expr = new Expr.add(base, scale ? new Expr.mul(index, scale) : index);
+            expr = new Expr.Add(base, scale ? new Expr.Mul(index, scale) : index);
         } else if (base && disp) {
             // [base + disp]
-            expr = new Expr.add(base, disp);
+            expr = new Expr.Add(base, disp);
         } else if (base) {
             // [base]
             expr = base;
@@ -320,7 +320,7 @@ var get_operand_expr = function(op) {
             expr = disp;
         }
 
-        expr = new Expr.deref(expr, op.size);
+        expr = new Expr.Deref(expr, op.size);
         break;
 
     default:
@@ -337,7 +337,7 @@ var _common_uop = function(p, op) {
     var expr = get_operand_expr(p.operands[0]);
 
     // expr = op expr
-    return [new Expr.assign(expr.clone(), op(expr))];
+    return [new Expr.Assign(expr.clone(), op(expr))];
 };
 
 /** common handler for binary operators */
@@ -346,7 +346,7 @@ var _common_bop = function(p, op) {
     var rexpr = get_operand_expr(p.operands[1]);
 
     // lexpr = lexpr op rexpr
-    return [new Expr.assign(lexpr.clone(), new op(lexpr, rexpr))];
+    return [new Expr.Assign(lexpr.clone(), new op(lexpr, rexpr))];
 };
 
 var _common_bitwise = function(p, op) {
@@ -357,7 +357,7 @@ var _common_bitwise = function(p, op) {
 
     // lexpr = lexpr op rexpr
     return [
-        new Expr.assign(lexpr.clone(), op_expr),
+        new Expr.Assign(lexpr.clone(), op_expr),
         set_flag('CF', 0),
         set_flag('OF', 0)
     ].concat(this.eval_flags(op_expr, ['PF', 'ZF', 'SF']));
@@ -366,10 +366,10 @@ var _common_bitwise = function(p, op) {
 /** common handler for conditional jumps */
 var _common_jcc = function(p, cond) {
     var taken = get_operand_expr(p.operands[0]);
-    var not_taken = new Expr.val(p.address + p.isize, p.operands[0].size);
+    var not_taken = new Expr.Val(p.address.add(p.isize), p.operands[0].size);
 
-    // if cond goto taken otherwise fallthrough to not_taken
-    return [new Stmt.branch(p.address, cond, taken, not_taken)];
+    // if cond goto taken, otherwise fallthrough to not_taken
+    return [new Stmt.Branch(p.address, cond, taken, not_taken)];
 };
 
 /** common handler for conditional movs */
@@ -378,7 +378,7 @@ var _common_cmov = function(p, cond) {
     var rexpr = get_operand_expr(p.operands[1]);
 
     // lexpr = cond ? lexpr : rexpr
-    return [new Expr.assign(lexpr.clone(), new Expr.tcond(cond, lexpr, rexpr))];
+    return [new Expr.Assign(lexpr.clone(), new Expr.TCond(cond, lexpr, rexpr))];
 };
 
 /** common handler for conditional sets */
@@ -386,7 +386,7 @@ var _common_setcc = function(p, cond) {
     var expr = get_operand_expr(p.operands[0]);
 
     // expr = cond ? 1 : 0
-    return [new Expr.assign(expr, cond)];
+    return [new Expr.Assign(expr, cond)];
 };
 
 var _common_set_flag = set_flag;
@@ -398,18 +398,18 @@ var _mov = function(p) {
     var rexpr = get_operand_expr(p.operands[1]);
 
     // lexpr = rexpr
-    return [new Expr.assign(lexpr, rexpr)];
+    return [new Expr.Assign(lexpr, rexpr)];
 };
 
 var _add = function(p) {
     var lexpr = get_operand_expr(p.operands[0]);
     var rexpr = get_operand_expr(p.operands[1]);
 
-    var op = new Expr.add(lexpr, rexpr);
+    var op = new Expr.Add(lexpr, rexpr);
 
     // lexpr = lexpr + rexpr
     return [
-        new Expr.assign(lexpr.clone(), op)
+        new Expr.Assign(lexpr.clone(), op)
     ].concat(this.eval_flags(op, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']));
 };
 
@@ -417,11 +417,11 @@ var _sub = function(p) {
     var lexpr = get_operand_expr(p.operands[0]);
     var rexpr = get_operand_expr(p.operands[1]);
 
-    var op = new Expr.sub(lexpr, rexpr);
+    var op = new Expr.Sub(lexpr, rexpr);
 
     // lexpr = lexpr - rexpr
     return [
-        new Expr.assign(lexpr.clone(), op)
+        new Expr.Assign(lexpr.clone(), op)
     ].concat(this.eval_flags(op, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']));
 };
 
@@ -452,15 +452,15 @@ var _div = function(p) {
 
     // TODO: the dividend is actually composed of: (hi << osize) | (lo)
     // this may appear funny if osize = 64 and regs are shifted by this number.
-    var arg_dividend  = new Expr.reg(dividend[dividend.length - 1]);
-    var arg_quotient  = new Expr.reg(quotient,  osize);
-    var arg_remainder = new Expr.reg(remainder, osize);
+    var arg_dividend  = new Expr.Reg(dividend[dividend.length - 1]);
+    var arg_quotient  = new Expr.Reg(quotient,  osize);
+    var arg_remainder = new Expr.Reg(remainder, osize);
 
     // quotient = dividend / divisor
     // remainder = dividend % divisor
     return [
-        new Expr.assign(arg_quotient,  new Expr.div(arg_dividend, divisor)),
-        new Expr.assign(arg_remainder, new Expr.mod(arg_dividend.clone(), divisor.clone()))
+        new Expr.Assign(arg_quotient,  new Expr.Div(arg_dividend, divisor)),
+        new Expr.Assign(arg_remainder, new Expr.Mod(arg_dividend.clone(), divisor.clone()))
     ];
 };
 
@@ -484,36 +484,36 @@ var _mul = function(p) {
 
     // TODO: the product is actually composed of: (hi << osize) | (lo)
     // this may appear funny if osize = 64 and regs are shifted by this number.
-    var arg_product = new Expr.reg(product[product.length - 1]);
-    var arg_multiplier = new Expr.reg(multiplier, osize);
+    var arg_product = new Expr.Reg(product[product.length - 1]);
+    var arg_multiplier = new Expr.Reg(multiplier, osize);
 
     // TODO: %of, %cf = (upper part is non-zero)
 
     // product = multiplier * multiplicand
-    return [new Expr.assign(arg_product, new Expr.div(arg_multiplier, multiplicand))];
+    return [new Expr.Assign(arg_product, new Expr.Div(arg_multiplier, multiplicand))];
 };
 
 var _inc = function(p) {
     var lexpr = get_operand_expr(p.operands[0]);
-    var one = new Expr.val(1, p.operands[0].size);
+    var one = new Expr.Val(1, p.operands[0].size);
 
-    var op = new Expr.add(lexpr, one);
+    var op = new Expr.Add(lexpr, one);
 
     // lexpr = lexpr + 1
     return [
-        new Expr.assign(lexpr.clone(), op)
+        new Expr.Assign(lexpr.clone(), op)
     ].concat(this.eval_flags(op, ['PF', 'AF', 'ZF', 'SF', 'OF']));
 };
 
 var _dec = function(p) {
     var lexpr = get_operand_expr(p.operands[0]);
-    var one = new Expr.value(1, p.operands[0].size);
+    var one = new Expr.Val(1, p.operands[0].size);
 
-    var op = new Expr.sub(lexpr, one);
+    var op = new Expr.Sub(lexpr, one);
 
     // lexpr = lexpr - 1
     return [
-        new Expr.assign(lexpr.clone(), op)
+        new Expr.Assign(lexpr.clone(), op)
     ].concat(this.eval_flags(op, ['PF', 'AF', 'ZF', 'SF', 'OF']));
 };
 
@@ -524,8 +524,8 @@ var _push = function(p) {
     // *rsp = expr
     // rsp = rsp - asize
     return [
-        new Expr.assign(new Expr.deref(sreg, this.asize), expr),
-        new Expr.assign(sreg.clone(), new Expr.sub(sreg.clone(), new Expr.val(this.asize, this.asize)))
+        new Expr.Assign(new Expr.Deref(sreg, this.asize), expr),
+        new Expr.Assign(sreg.clone(), new Expr.Sub(sreg.clone(), new Expr.Val(this.asize, this.asize)))
     ];
 };
 
@@ -536,8 +536,8 @@ var _pop = function(p) {
     // rsp = rsp + asize
     // expr = *rsp
     return [
-        new Expr.assign(sreg, new Expr.add(sreg.clone(), new Expr.val(this.asize, this.asize))),
-        new Expr.assign(expr, new Expr.deref(sreg.clone(), this.asize))
+        new Expr.Assign(sreg, new Expr.Add(sreg.clone(), new Expr.Val(this.asize, this.asize))),
+        new Expr.Assign(expr, new Expr.Deref(sreg.clone(), this.asize))
     ];
 };
 
@@ -550,7 +550,7 @@ var _lea = function(p) {
     var rexpr = get_operand_expr(p.operands[1]);
 
     // lexpr = &rexpr
-    return [new Expr.assign(lexpr, new Expr.address_of(rexpr))];
+    return [new Expr.Assign(lexpr, new Expr.AddrOf(rexpr))];
 };
 
 var _leave = function(p) {
@@ -561,9 +561,9 @@ var _leave = function(p) {
     // rsp = rsp + asize
     // rbp = *rsp
     return [
-        new Expr.assign(sreg, freg),
-        new Expr.assign(sreg.clone(), new Expr.add(sreg.clone(), new Expr.val(this.asize, this.asize))),
-        new Expr.assign(freg.clone(), new Expr.deref(sreg.clone(), this.asize))
+        new Expr.Assign(sreg, freg),
+        new Expr.Assign(sreg.clone(), new Expr.Add(sreg.clone(), new Expr.Val(this.asize, this.asize))),
+        new Expr.Assign(freg.clone(), new Expr.Deref(sreg.clone(), this.asize))
     ];
 };
 
@@ -572,29 +572,29 @@ var _call = function(p) {
     var rreg = this.get_result_reg();
     var fargs = []; // TODO: populate function call arguments list
 
-    return [new Expr.assign(rreg, new Expr.fcall(callee, fargs))];
+    return [new Expr.Assign(rreg, new Expr.Call(callee, fargs))];
 };
 
 var _ret = function(p) {
-    return [new Stmt.ret(p.address, this.get_result_reg())];
+    return [new Stmt.Return(p.address, this.get_result_reg())];
 };
 
-var _and = function(p) { return _common_bitwise.call(this, p, Expr.and); };
-var _or  = function(p) { return _common_bitwise.call(this, p, Expr.or);  };
-var _xor = function(p) { return _common_bitwise.call(this, p, Expr.xor); };
+var _and = function(p) { return _common_bitwise.call(this, p, Expr.And); };
+var _or  = function(p) { return _common_bitwise.call(this, p, Expr.Or);  };
+var _xor = function(p) { return _common_bitwise.call(this, p, Expr.Xor); };
 
-var _shr = function(p) { return _common_bop(p, Expr.shr); };    // TODO: evaluate flags for shr
-var _shl = function(p) { return _common_bop(p, Expr.shl); };    // TODO: evaluate flags for shl
-var _sar = function(p) { return _common_bop(p, Expr.sar); };    // TODO: evaluate flags for sar
+var _shr = function(p) { return _common_bop(p, Expr.Shr); };    // TODO: evaluate flags for shr
+var _shl = function(p) { return _common_bop(p, Expr.Shl); };    // TODO: evaluate flags for shl
+var _sar = function(p) { return _common_bop(p, Expr.Sar); };    // TODO: evaluate flags for sar
 
-var _neg = function(p) { return _common_uop(p, Expr.neg); };    // cf = (opnd is non-zero)
-var _not = function(p) { return _common_uop(p, Expr.not); };
+var _neg = function(p) { return _common_uop(p, Expr.Neg); };    // cf = (opnd is non-zero)
+var _not = function(p) { return _common_uop(p, Expr.Not); };
 
 var _cmp = function(p) {
     var lhand = get_operand_expr(p.operands[0]);
     var rhand = get_operand_expr(p.operands[1]);
 
-    return this.eval_flags(new Expr.sub(lhand, rhand), ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']);
+    return this.eval_flags(new Expr.Sub(lhand, rhand), ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']);
 };
 
 var _test = function(p) {
@@ -604,7 +604,7 @@ var _test = function(p) {
     return [
         set_flag('CF', 0),
         set_flag('OF', 0)
-    ].concat(this.eval_flags(new Expr.and(lhand, rhand), ['PF', 'ZF', 'SF']));
+    ].concat(this.eval_flags(new Expr.And(lhand, rhand), ['PF', 'ZF', 'SF']));
 };
 
 var _jmp = function(p) {
@@ -612,7 +612,7 @@ var _jmp = function(p) {
 
     // TODO: identify tail call optimizations
 
-    return [new Stmt.goto(p.address, dst)];
+    return [new Stmt.Goto(p.address, dst)];
 };
 
 var _je = function(p) {
@@ -620,7 +620,7 @@ var _je = function(p) {
 };
 
 var _ja = function(p) {
-    return _common_jcc(p, new Expr.bool_and(new Expr.bool_not(get_flag('ZF')), new Expr.bool_not(get_flag('CF'))));
+    return _common_jcc(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.BoolNot(get_flag('CF'))));
 };
 
 var _jb = function(p) {
@@ -628,11 +628,11 @@ var _jb = function(p) {
 };
 
 var _jg = function(p) {
-    return _common_jcc(p, new Expr.bool_and(new Expr.bool_not(get_flag('ZF')), new Expr.cmp_eq(get_flag('SF'), get_flag('OF'))));
+    return _common_jcc(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.EQ(get_flag('SF'), get_flag('OF'))));
 };
 
 var _jl = function(p) {
-    return _common_jcc(p, new Expr.cmp_ne(get_flag('SF'), get_flag('OF')));
+    return _common_jcc(p, new Expr.NE(get_flag('SF'), get_flag('OF')));
 };
 
 var _jo = function(p) {
@@ -644,39 +644,39 @@ var _js = function(p) {
 };
 
 var _jne = function(p) {
-    return _common_jcc(p, new Expr.bool_not(get_flag('ZF')));
+    return _common_jcc(p, new Expr.BoolNot(get_flag('ZF')));
 };
 
 var _jae = function(p) {
-    return _common_jcc(p, new Expr.bool_not(get_flag('CF')));
+    return _common_jcc(p, new Expr.BoolNot(get_flag('CF')));
 };
 
 var _jbe = function(p) {
-    return _common_jcc(p, new Expr.bool_or(get_flag('ZF'), get_flag('CF')));
+    return _common_jcc(p, new Expr.BoolOr(get_flag('ZF'), get_flag('CF')));
 };
 
 var _jge = function(p) {
-    return _common_jcc(p, new Expr.cmp_eq(get_flag('SF'), get_flag('OF')));
+    return _common_jcc(p, new Expr.EQ(get_flag('SF'), get_flag('OF')));
 };
 
 var _jle = function(p) {
-    return _common_jcc(p, new Expr.bool_or(get_flag('ZF'), new Expr.cmp_ne(get_flag('SF'), get_flag('OF'))));
+    return _common_jcc(p, new Expr.BoolOr(get_flag('ZF'), new Expr.NE(get_flag('SF'), get_flag('OF'))));
 };
 
 var _jns = function(p) {
-    return _common_jcc(p, new Expr.bool_not(get_flag('SF')));
+    return _common_jcc(p, new Expr.BoolNot(get_flag('SF')));
 };
 
 var _jno = function(p) {
-    return _common_jcc(p, new Expr.bool_not(get_flag('OF')));
+    return _common_jcc(p, new Expr.BoolNot(get_flag('OF')));
 };
 
 var _cmova = function(p) {
-    return _common_cmov(p, new Expr.bool_and(new Expr.bool_not(get_flag('ZF')), new Expr.bool_not(get_flag('CF'))));
+    return _common_cmov(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.BoolNot(get_flag('CF'))));
 };
 
 var _cmovae = function(p) {
-    return _common_cmov(p, new Expr.bool_not(get_flag('CF')));
+    return _common_cmov(p, new Expr.BoolNot(get_flag('CF')));
 };
 
 var _cmovb = function(p) {
@@ -684,23 +684,23 @@ var _cmovb = function(p) {
 };
 
 var _cmovbe = function(p) {
-    return _common_cmov(p, new Expr.bool_or(get_flag('ZF'), get_flag('CF')));
+    return _common_cmov(p, new Expr.BoolOr(get_flag('ZF'), get_flag('CF')));
 };
 
 var _cmovg = function(p) {
-    return _common_cmov(p, new Expr.bool_and(new Expr.bool_not(get_flag('ZF')), new Expr.cmp_eq(get_flag('SF'), get_flag('OF'))));
+    return _common_cmov(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.EQ(get_flag('SF'), get_flag('OF'))));
 };
 
 var _cmovge = function(p) {
-    return _common_cmov(p, new Expr.cmp_eq(get_flag('SF'), get_flag('OF')));
+    return _common_cmov(p, new Expr.EQ(get_flag('SF'), get_flag('OF')));
 };
 
 var _cmovl = function(p) {
-    return _common_cmov(p, new Expr.cmp_ne(get_flag('SF'), get_flag('OF')));
+    return _common_cmov(p, new Expr.NE(get_flag('SF'), get_flag('OF')));
 };
 
 var _cmovle = function(p) {
-    return _common_cmov(p, new Expr.bool_or(get_flag('ZF'), new Expr.cmp_ne(get_flag('SF'), get_flag('OF'))));
+    return _common_cmov(p, new Expr.BoolOr(get_flag('ZF'), new Expr.NE(get_flag('SF'), get_flag('OF'))));
 };
 
 var _cmove = function(p) {
@@ -708,15 +708,15 @@ var _cmove = function(p) {
 };
 
 var _cmovne = function(p) {
-    return _common_cmov(p, new Expr.bool_not(get_flag('ZF')));
+    return _common_cmov(p, new Expr.BoolNot(get_flag('ZF')));
 };
 
 var _seta = function(p) {
-    return _common_setcc(p, new Expr.bool_and(new Expr.bool_not(get_flag('ZF')), new Expr.bool_not(get_flag('CF'))));
+    return _common_setcc(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.BoolNot(get_flag('CF'))));
 };
 
 var _setae = function(p) {
-    return _common_setcc(p, new Expr.bool_not(get_flag('CF')));
+    return _common_setcc(p, new Expr.BoolNot(get_flag('CF')));
 };
 
 var _setb = function(p) {
@@ -724,23 +724,23 @@ var _setb = function(p) {
 };
 
 var _setbe = function(p) {
-    return _common_setcc(p, new Expr.bool_or(get_flag('ZF'), get_flag('CF')));
+    return _common_setcc(p, new Expr.BoolOr(get_flag('ZF'), get_flag('CF')));
 };
 
 var _setg = function(p) {
-    return _common_setcc(p, new Expr.bool_and(new Expr.bool_not(get_flag('ZF')), new Expr.cmp_eq(get_flag('SF'), get_flag('OF'))));
+    return _common_setcc(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.EQ(get_flag('SF'), get_flag('OF'))));
 };
 
 var _setge = function(p) {
-    return _common_setcc(p, new Expr.cmp_eq(get_flag('SF'), get_flag('OF')));
+    return _common_setcc(p, new Expr.EQ(get_flag('SF'), get_flag('OF')));
 };
 
 var _setl = function(p) {
-    return _common_setcc(p, new Expr.cmp_ne(get_flag('SF'), get_flag('OF')));
+    return _common_setcc(p, new Expr.NE(get_flag('SF'), get_flag('OF')));
 };
 
 var _setle = function(p) {
-    return _common_setcc(p, new Expr.bool_or(get_flag('ZF'), new Expr.cmp_ne(get_flag('SF'), get_flag('OF'))));
+    return _common_setcc(p, new Expr.BoolOr(get_flag('ZF'), new Expr.NE(get_flag('SF'), get_flag('OF'))));
 };
 
 var _sete = function(p) {
@@ -748,7 +748,7 @@ var _sete = function(p) {
 };
 
 var _setne = function(p) {
-    return _common_setcc(p, new Expr.bool_not(get_flag('ZF')));
+    return _common_setcc(p, new Expr.BoolNot(get_flag('ZF')));
 };
 
 var _clc = function(p) {
@@ -768,11 +768,11 @@ var _std = function(p) {
 };
 
 var _hlt = function() {
-    return [new Expr.fcall('_hlt', [])];
+    return [new Expr.Call('_hlt', [])];
 };
 
 var _invalid = function() {
-    return [new Expr.unknown('?')]; // TODO: improve handling of unknown instructions
+    return [new Expr.Unknown('?')]; // TODO: improve handling of unknown instructions
 };
 
 // imul

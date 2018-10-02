@@ -19,30 +19,30 @@ module.exports = (function() {
     var Expr = require('core2/analysis/ir/expressions');
 
     var _correct_arith = function(expr) {
-        if (expr instanceof Expr.assign) {
+        if (expr instanceof Expr.Assign) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
-            var one = new Expr.val(1, lhand.size);
+            var one = new Expr.Val(1, lhand.size);
 
             // x = x + 1
-            if ((rhand instanceof Expr.add) && (rhand.operands[0].equals(lhand)) && (rhand.operands[1].equals(one))) {
-                return new Expr.inc(lhand);
+            if ((rhand instanceof Expr.Add) && (rhand.operands[0].equals(lhand)) && (rhand.operands[1].equals(one))) {
+                return new Expr.Inc(lhand);
             }
 
             // x = x - 1
-            if ((rhand instanceof Expr.sub) && (rhand.operands[0].equals(lhand)) && (rhand.operands[1].equals(one))) {
-                return new Expr.dec(lhand);
+            if ((rhand instanceof Expr.Sub) && (rhand.operands[0].equals(lhand)) && (rhand.operands[1].equals(one))) {
+                return new Expr.Dec(lhand);
             }
         }
 
         // x + 0
         // x - 0
-        if ((expr instanceof Expr.add) || (expr instanceof Expr.sub)) {
+        if ((expr instanceof Expr.Add) || (expr instanceof Expr.Sub)) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
-            if ((rhand instanceof Expr.val) && rhand.value == 0) {
+            if ((rhand instanceof Expr.Val) && rhand.value == 0) {
                 return lhand;
             }
         }
@@ -52,23 +52,23 @@ module.exports = (function() {
 
     var _correct_sign = function(expr) {
         // x + -y
-        if ((expr instanceof Expr.add) && (expr.operands[1] instanceof Expr.val) && (expr.operands[1].value < 0)) {
+        if ((expr instanceof Expr.Add) && (expr.operands[1] instanceof Expr.Val) && (expr.operands[1].value < 0)) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
             rhand.value = Math.abs(rhand.value);
 
-            return new Expr.sub(lhand, rhand);
+            return new Expr.Sub(lhand, rhand);
         }
 
         // x - -y
-        if ((expr instanceof Expr.sub) && (expr.operands[1] instanceof Expr.val) && (expr.operands[1].value < 0)) {
+        if ((expr instanceof Expr.Sub) && (expr.operands[1] instanceof Expr.Val) && (expr.operands[1].value < 0)) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
             rhand.value = Math.abs(rhand.value);
 
-            return new Expr.add(lhand, rhand);
+            return new Expr.Add(lhand, rhand);
         }
 
         return null;
@@ -76,12 +76,12 @@ module.exports = (function() {
 
     var _correct_ref = function(expr) {
         // &*x
-        if ((expr instanceof Expr.address_of) && (expr.operands[0] instanceof Expr.deref)) {
+        if ((expr instanceof Expr.AddrOf) && (expr.operands[0] instanceof Expr.Deref)) {
             return expr.operands[0].operands[0];
         }
 
         // *&x
-        if ((expr instanceof Expr.deref) && (expr.operands[0] instanceof Expr.address_of)) {
+        if ((expr instanceof Expr.Deref) && (expr.operands[0] instanceof Expr.AddrOf)) {
             return expr.operands[0].operands[0];
         }
 
@@ -91,11 +91,11 @@ module.exports = (function() {
     var _correct_bitwise = function(expr) {
         // x ^ 0
         // x ^ x
-        if (expr instanceof Expr.xor) {
+        if (expr instanceof Expr.Xor) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
-            var zero = new Expr.val(0, lhand.size);
+            var zero = new Expr.Val(0, lhand.size);
             
             if (rhand.equals(zero)) {
                 return lhand;
@@ -108,11 +108,11 @@ module.exports = (function() {
 
         // x & 0
         // x & x
-        if (expr instanceof Expr.and) {
+        if (expr instanceof Expr.And) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
             
-            var zero = new Expr.val(0, lhand.size);
+            var zero = new Expr.Val(0, lhand.size);
 
             if (rhand.equals(zero)) {
                 return zero;
@@ -124,18 +124,18 @@ module.exports = (function() {
         }
 
         // ((x >> c) << c) yields (x & ~((1 << c) - 1))
-        if (expr instanceof Expr.shl) {
+        if (expr instanceof Expr.Shl) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
-            if ((lhand instanceof Expr.shr) && (rhand instanceof Expr.val)) {
+            if ((lhand instanceof Expr.Shr) && (rhand instanceof Expr.Val)) {
                 var inner_lhand = lhand.operands[0];
                 var inner_rhand = lhand.operands[1];
     
-                if (inner_rhand instanceof Expr.val && inner_rhand.equals(rhand)) {
-                    var mask = new Expr.val(~((1 << rhand.value) - 1), rhand.size);
+                if (inner_rhand instanceof Expr.Val && inner_rhand.equals(rhand)) {
+                    var mask = new Expr.Val(~((1 << rhand.value) - 1), rhand.size);
 
-                    return new Expr.and(inner_lhand, mask);
+                    return new Expr.And(inner_lhand, mask);
                 }
             }
         }
@@ -144,25 +144,25 @@ module.exports = (function() {
     };
 
     var _equality = function(expr) {
-        if (expr instanceof Expr.cmp_eq) {
+        if (expr instanceof Expr.EQ) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
-            if (rhand instanceof Expr.val) {
+            if (rhand instanceof Expr.Val) {
                 // ((x + c1) == c2) yields (x == c3) where c3 = c2 - c1
-                if ((lhand instanceof Expr.add) && (lhand.operands[1] instanceof Expr.val)) {
+                if ((lhand instanceof Expr.Add) && (lhand.operands[1] instanceof Expr.Val)) {
                     var new_lhand = lhand.operands[0];
-                    var new_rhand = new Expr.val(rhand.value - lhand.operands[1].value);
+                    var new_rhand = new Expr.Val(rhand.value - lhand.operands[1].value);
 
-                    return new Expr.cmp_eq(new_lhand, new_rhand);
+                    return new Expr.EQ(new_lhand, new_rhand);
                 }
 
                 // ((x - c1) == c2) yields (x == c3) where c3 = c2 + c1
-                if ((lhand instanceof Expr.sub) && (lhand.operands[1] instanceof Expr.val)) {
+                if ((lhand instanceof Expr.Sub) && (lhand.operands[1] instanceof Expr.Val)) {
                     var new_lhand = lhand.operands[0];
-                    var new_rhand = new Expr.val(rhand.value + lhand.operands[1].value);
+                    var new_rhand = new Expr.Val(rhand.value + lhand.operands[1].value);
 
-                    return new Expr.cmp_eq(new_lhand, new_rhand);
+                    return new Expr.EQ(new_lhand, new_rhand);
                 }
             }
         }
@@ -172,32 +172,32 @@ module.exports = (function() {
 
     // TODO: 'or' conditions and 'eq', 'ne' comparisons are commotative
     var _converged_cond = function(expr) {
-        if (expr instanceof Expr.bool_or) {
+        if (expr instanceof Expr.BoolOr) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
             // ((x > y) || (x == y)) yields (x >= y)
-            if ((lhand instanceof Expr.cmp_gt) &&
-                (rhand instanceof Expr.cmp_eq) &&
+            if ((lhand instanceof Expr.GT) &&
+                (rhand instanceof Expr.EQ) &&
                 (lhand.operands[0].equals(rhand.operands[0])) &&
                 (lhand.operands[1].equals(rhand.operands[1]))) {
-                    return new Expr.cmp_ge(lhand.operands[0], lhand.operands[1]);
+                    return new Expr.GE(lhand.operands[0], lhand.operands[1]);
             }
 
             // ((x < y) || (x == y)) yields (x <= y)
-            if ((lhand instanceof Expr.cmp_lt) &&
-                (rhand instanceof Expr.cmp_eq) &&
+            if ((lhand instanceof Expr.LT) &&
+                (rhand instanceof Expr.EQ) &&
                 (lhand.operands[0].equals(rhand.operands[0])) &&
                 (lhand.operands[1].equals(rhand.operands[1]))) {
-                    return new Expr.cmp_le(lhand.operands[0], lhand.operands[1]);
+                    return new Expr.LE(lhand.operands[0], lhand.operands[1]);
             }
 
             // ((x < y) || (x > y))  yields (x != y)
-            if ((lhand instanceof Expr.cmp_lt) &&
-                (rhand instanceof Expr.cmp_gt) &&
+            if ((lhand instanceof Expr.LT) &&
+                (rhand instanceof Expr.GT) &&
                 (lhand.operands[0].equals(rhand.operands[0])) &&
                 (lhand.operands[1].equals(rhand.operands[1]))) {
-                    return new Expr.cmp_ne(lhand.operands[0], lhand.operands[1]);
+                    return new Expr.NE(lhand.operands[0], lhand.operands[1]);
             }
         }
 
@@ -205,15 +205,15 @@ module.exports = (function() {
         // (!(x < y))  yields (x >= y)
         // (!(x == y)) yields (x != y)
         // (!(x != y)) yields (x == y)
-        if (expr instanceof Expr.bool_not) {
+        if (expr instanceof Expr.BoolNot) {
             /*
             var inv = {
-                Expr.cmp_eq : Expr.cmp_ne,
-                Expr.cmp_ne : Expr.cmp_eq,
-                Expr.cmp_gt : Expr.cmp_le,
-                Expr.cmp_ge : Expr.cmp_lt,
-                Expr.cmp_lt : Expr.cmp_ge,
-                Expr.cmp_le : Expr.cmp_gt
+                Expr.EQ : Expr.NE,
+                Expr.NE : Expr.EQ,
+                Expr.GT : Expr.LE,
+                Expr.GE : Expr.LT,
+                Expr.LT : Expr.GE,
+                Expr.LE : Expr.GT
             };
             */
 

@@ -24,25 +24,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-Duktape.errCreate = function(err) {
-    try {
-        if (typeof err === 'object') {
-            return {
-                message: '' + err.message,
-                stack: '' + err.stack,
-                lineNumber: '' + err.lineNumber
-            };
-        }
-    } catch (e) {
-        // nothing
-    }
-
-    return err;
-};
-
 var JSON = require('libdec/json64');
-var Decoder = require('libdec/core/decoder');
-var SSA = require('libdec/core/ssa');
+var Decoder = require('core2/frontend/decoder');
+var SSA = require('core2/analysis/ssa');
+var Stmt = require('core2/analysis/ir/statements');
+var ControlFlow = require('core2/analysis/ir/controlflow');
+var CodeGen = require('core2/backend/codegen');
 
 /**
  * Global data accessible from everywhere.
@@ -83,21 +70,22 @@ function r2dec_main(args) {
             var afbj = r2cmdj('afbj');
 
             if (afbj) {
-                var blocks = afbj.map(function(b) {
-                    var aoj = r2cmdj('aoj', b.ninstr, '@', b.addr);
+                // read function's basic blocks
+                var bblocks = afbj.map(function(bb) {
+                    var aoj = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
 
                     return {
-                        address:    b.addr,
+                        address:    bb.addr,
                         inbound:    [],
-                        outbound:   [b.jump, b.fail].filter(function(ob) { return ob; }),
+                        outbound:   [bb.jump, bb.fail].filter(function(ob) { return ob; }),
                         statements: decoder.transform_ir(aoj),
                     };
                 });
 
-                blocks.forEach(function(b) {
+                bblocks.forEach(function(b) {
                     // collect outbound blocks refs
                     var outbound = b.outbound.map(function(ob) {
-                        return blocks.filter(function(bb) {
+                        return bblocks.filter(function(bb) {
                             return bb.address.eq(ob);
                         })[0];
                     });
@@ -110,22 +98,41 @@ function r2dec_main(args) {
                     b.outbound = outbound;
                 });
 
-                console.log('[tagging]');
-                var tagger = new SSA.tagger(blocks[0]);
-                tagger.tag_regs();
+                // console.log('[tagging]');
+                // var tagger = new SSA.tagger(blocks[0]);
+                // tagger.tag_regs();
 
                 console.log('[result]');
-                blocks.forEach(function(b) {
-                    console.log('{');
-                    console.log('  ib: ', b.inbound.map(function(ib) { return '0x' + ib.address.toString(16); }).join(', '));
-                    console.log('  ob: ', b.outbound.map(function(ob) { return '0x' + ob.address.toString(16); }).join(', '));
-                    console.log();
-                    b.statements.forEach(function(s) {
-                        console.log('  ' + s.toString({ human_readable: true }));
-                    });
-                    console.log('}');
+                var afcfj = r2cmdj('afcfj').pop();
+                var func = {
+                    name:   afcfj.name,
+                    rtype:  afcfj.return,
+                    args:   afcfj.args,
+
+                    entry_block: undefined,
+                    blocks: {}
+                };
+
+                bblocks.forEach(function(bb) {
+                    func.blocks[bb.address] = { container: new Stmt.Container(bb, bb.statements) };
                 });
-                console.log('\033[1;31mbold red text\033[0m');
+
+                func.entry_block = func.blocks[bblocks[0].address];
+
+                // ControlFlow.run(func);
+
+                console.log(new CodeGen(func).emit());
+
+                // blocks.forEach(function(b) {
+                //     console.log('{');
+                //     console.log('  ib: ', b.inbound.map(function(ib) { return '0x' + ib.address.toString(16); }).join(', '));
+                //     console.log('  ob: ', b.outbound.map(function(ob) { return '0x' + ob.address.toString(16); }).join(', '));
+                //     console.log();
+                //     b.statements.forEach(function(s) {
+                //         console.log('  ' + s.toString({ human_readable: true }));
+                //     });
+                //     console.log('}');
+                // });
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }
