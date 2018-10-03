@@ -52,6 +52,7 @@ function r2dec_main(filename) {
             var jsonstr = read_file(filename).trim();
             var data = r2util.dataTestSuite(jsonstr);
             Global.evars = new r2util.evarsTestSuite(data);
+            Global.argdb = data.argdb;
             Global.printer = new Printer();
 
             var architecture = libdec.archs[data.arch];

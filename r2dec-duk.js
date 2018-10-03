@@ -65,7 +65,7 @@ function r2dec_main(args) {
         if (architecture) {
             var data = new r2util.data();
             Global.context = new libdec.context();
-            Global.argdb = new r2util.argdb();
+            Global.argdb = data.argdb;
             // af seems to break renaming.
             /* asm.pseudo breaks things.. */
             if (data.graph && data.graph.length > 0) {

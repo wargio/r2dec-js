@@ -190,7 +190,8 @@ module.exports = (function() {
                         "bp": [],
                         "reg": []
                     }
-                }
+                },
+                argdb: o.afcfj
             };
         },
         evars: function(args) {
@@ -229,9 +230,7 @@ module.exports = (function() {
                 })
             };
             this.graph = r2json('agj', []);
-        },
-        argdb : function() {
-            this.data = r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays_json);
+            this.argdb = r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays_json);
         },
         sanitize: function(enable, evars) {
             var s = evars.sanitize;
