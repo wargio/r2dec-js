@@ -109,6 +109,13 @@ module.exports = (function() {
             name = _replace.call(name);
             if (_call_common[name]) {
                 return _call_common[name].args;
+            } else if (Global.argdb){
+                var db  = Global.argdb.data;
+                for(var k in db) {
+                    if (db[k].name == name) {
+                        return parseInt(db[k].count);
+                    }
+                }
             }
             return -1;
         }

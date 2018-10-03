@@ -32,6 +32,7 @@ var Global = {
     context: null,
     evars: null,
     printer: null,
+    argdb: null,
     warning: require('libdec/warning')
 };
 
@@ -64,6 +65,7 @@ function r2dec_main(args) {
         if (architecture) {
             var data = new r2util.data();
             Global.context = new libdec.context();
+            Global.argdb = new r2util.argdb();
             // af seems to break renaming.
             /* asm.pseudo breaks things.. */
             if (data.graph && data.graph.length > 0) {
