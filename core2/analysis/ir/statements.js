@@ -16,10 +16,31 @@
  */
 
 module.exports = (function() {
+
+    /**
+     * This module defines IR statements that are common to all architectures. Each
+     * generated expression is wrapped in a Statement, and each statement belongs to
+     * a Container (i.e. a scope).
+     *
+     * Class hierarchy:
+     *      Statement       : generic statement base class
+     *          Branch      : conditional jump; would be translted into an "If"
+     *          Goto        : an unconditional jump
+     *          If
+     *          While
+     *          DoWhile
+     *          Break
+     *          Continue
+     *          Return
+     *
+     *      Container       : container (scope) class
+     */
+
     /**
      * Statement abstract base class.
      * @param {!Long} addr Address of original assembly instruction
-     * @param {Array} exprs List of expressions enclosed by this statement; usually just one
+     * @param {Expr[]} exprs List of expressions enclosed by this statement; usually just one
+     * @returns {Statement}
      * @constructor
      */
     function Statement(addr, exprs) {
@@ -27,16 +48,36 @@ module.exports = (function() {
         this.addr = addr;
 
         /** @type {Array>} */
-        this.expressions = exprs || [];
+        this.expressions = [];
 
         // set this as a parent to all enclosed expressions
-        this.expressions.forEach(function(e, i) {
-            e.parent = [this, i];
-        }, this);
+        exprs.forEach(this.push_expr, this);
 
         /** @type {Array} */
         this.statements = [];
     }
+
+    /**
+     * Get the enclosing container of `this` to replace it with `other`.
+     * @param {!Statement} other Replacement statement
+     */
+    Statement.prototype.replace = function(other) {
+        var p = this.container;
+        var i = p.statements.indexOf(this);
+
+        other.container = p;
+        p.statements[i] = other;
+    };
+
+    /**
+     * Enclose an existing expression inside `this`.
+     * @param {Expr} expr An expression instance to add
+     */
+    Statement.prototype.push_expr = function(expr) {
+        expr.parent = [this, this.expressions.length];
+
+        this.expressions.push(expr);
+    };
 
     /**
      * Generate a deep copy of this.
@@ -54,9 +95,9 @@ module.exports = (function() {
      * Generate a string representation of this
      * @returns {!string}
      */
-    Statement.prototype.toString = function(opt) {
+    Statement.prototype.toString = function() {
         var exprs = this.expressions.map(function(e) {
-            return e.toString(opt);
+            return e.toString();
         }).join('\n');
 
         return ['0x' + this.addr.toString(16), ':', exprs].join(' ');
@@ -67,7 +108,8 @@ module.exports = (function() {
     /**
      * Goto statement.
      * @param {!Long} addr Address of original assembly instruction
-     * @param {Expr.val} dst Jump destination
+     * @param {Expr.Val} dst Jump destination
+     * @returns {Goto}
      * @constructor
      */
     function Goto(addr, dst) {
@@ -77,9 +119,16 @@ module.exports = (function() {
     }
 
     Goto.prototype = Object.create(Statement.prototype);
+    Goto.prototype.constructor = Goto;
 
-    Goto.prototype.toString = function(opt) {
-        return ['goto', this.dest.toString(opt)].join(' ');
+    /** @override */
+    Goto.prototype.toString = function() {
+        var repr = [
+            this.constructor.name,
+            this.dest.toString()
+        ].join(' ');
+
+        return '[' + repr + ']';
     };
 
     // ------------------------------------------------------------
@@ -88,9 +137,10 @@ module.exports = (function() {
      * Conditional jump statement.
      * This is usually replaced by an 'if' statement later on.
      * @param {!Long} addr Address of original assembly instruction
-     * @param {Expr._expr} cond Condition expression
-     * @param {Expr.val} taken Jump destination if condition holds
-     * @param {Expr.val} not_taken Jump destination if condition does not hold
+     * @param {Expr.Expr} cond Condition expression
+     * @param {Expr.Val} taken Jump destination if condition holds
+     * @param {Expr.Val} not_taken Jump destination if condition does not hold
+     * @returns {Branch}
      * @constructor
      */
     function Branch(addr, cond, taken, not_taken) {
@@ -102,14 +152,18 @@ module.exports = (function() {
     }
 
     Branch.prototype = Object.create(Statement.prototype);
+    Branch.prototype.constructor = Branch;
 
-    Branch.prototype.toString = function(opt) {
-        return [
-            'if', this.cond.toString(opt),
-            'goto', this.taken.toString(opt),
-            'else',
-            'goto', this.not_taken.toString(opt)
+    /** @override */
+    Branch.prototype.toString = function() {
+        var repr = [
+            this.constructor.name,
+            this.cond.toString(),
+            this.taken.toString(),
+            this.not_taken.toString()
         ].join(' ');
+
+        return '[' + repr + ']';
     };
 
     // ------------------------------------------------------------
@@ -120,6 +174,7 @@ module.exports = (function() {
      * @param {Expr._expr} cond Condition expression
      * @param {Container} then_cntr The 'then' container
      * @param {Container} else_cntr The 'else' container
+     * @returns {If}
      * @constructor
      */
     function If(addr, cond, then_cntr, else_cntr) {
@@ -143,14 +198,18 @@ module.exports = (function() {
     }
 
     If.prototype = Object.create(Statement.prototype);
+    If.prototype.constructor = If;
 
-    If.prototype.toString = function(opt) {
-        var cond = ['if', '(' + this.cond_expr.toString(opt) + ')'].join(' ');
-        var then_blk = ['{', this.then_cntr.toString(opt), '}'].join('\n');
-        var else_blk = this.else_cntr
-            ? ['else', '{', this.else_cntr.toString(opt), '}'].join('\n')
-            : '';
-        return [cond, then_blk, else_blk].join('\n');
+    /** @override */
+    If.prototype.toString = function() {
+        var repr = [
+            this.constructor.name,
+            this.cond.toString(),
+            this.then_cntr.toString(),
+            this.else_cntr.toString()
+        ].join(' ');
+
+        return '[' + repr + ']';
     };
 
     // ------------------------------------------------------------
@@ -160,6 +219,7 @@ module.exports = (function() {
      * @param {!Long} addr Address of original assembly instruction
      * @param {Expr._expr} cond Condition expression
      * @param {Container} body The loop body container
+     * @returns {While}
      * @constructor
      */
     function While(addr, cond, body) {
@@ -173,9 +233,17 @@ module.exports = (function() {
     }
 
     While.prototype = Object.create(Statement.prototype);
+    While.prototype.constructor = While;
 
-    While.prototype.toString = function(opt) {
-        // TODO: implement this
+    /** @override */
+    While.prototype.toString = function() {
+        var repr = [
+            this.constructor.name,
+            this.cond.toString(),
+            this.body.toString()
+        ].join(' ');
+
+        return '[' + repr + ']';
     };
 
     // ------------------------------------------------------------
@@ -185,6 +253,7 @@ module.exports = (function() {
      * @param {!Long} addr Address of original assembly instruction
      * @param {Expr._expr} cond Condition expression
      * @param {Container} body The loop body container
+     * @returns {DoWhile}
      * @constructor
      */
     function DoWhile(addr, cond, body) {
@@ -198,9 +267,17 @@ module.exports = (function() {
     }
 
     DoWhile.prototype = Object.create(Statement.prototype);
+    DoWhile.prototype.constructor = DoWhile;
 
-    DoWhile.prototype.toString = function(opt) {
-        // TODO: implement this
+    /** @override */
+    DoWhile.prototype.toString = function() {
+        var repr = [
+            this.constructor.name,
+            this.cond.toString(),
+            this.body.toString()
+        ].join(' ');
+
+        return '[' + repr + ']';
     };
 
     // ------------------------------------------------------------
@@ -208,6 +285,7 @@ module.exports = (function() {
     /**
      * Break statement.
      * @param {!Long} addr Address of original assembly instruction
+     * @returns {Break}
      * @constructor
      */
     function Break(addr) {
@@ -215,9 +293,11 @@ module.exports = (function() {
     }
 
     Break.prototype = Object.create(Statement.prototype);
+    Break.prototype.constructor = Break;
 
+    /** @override */
     Break.prototype.toString = function() {
-        return 'break';
+        return '[' + this.constructor.name + ']';
     };
 
     // ------------------------------------------------------------
@@ -225,6 +305,7 @@ module.exports = (function() {
     /**
      * Continue statement.
      * @param {!Long} addr Address of original assembly instruction
+     * @returns {continue}
      * @constructor
      */
     function Continue(addr) {
@@ -232,9 +313,11 @@ module.exports = (function() {
     }
 
     Continue.prototype = Object.create(Statement.prototype);
+    Continue.prototype.constructor = Continue;
 
+    /** @override */
     Continue.prototype.toString = function() {
-        return 'continue';
+        return '[' + this.constructor.name + ']';
     };
 
     // ------------------------------------------------------------
@@ -242,26 +325,37 @@ module.exports = (function() {
     /**
      * Return statement.
      * @param {!Long} addr Address of original assembly instruction
-     * @param {Expr._expr} expr Expression returned
+     * @param {Expr.Expr} expr Expression returned, could be undefined
+     * @returns {Return}
      * @constructor
      */
     function Return(addr, expr) {
         Statement.call(this, addr, [expr]);
+
+        this.retval = expr;
     }
 
     Return.prototype = Object.create(Statement.prototype);
+    Return.prototype.constructor = Return;
 
-    Return.prototype.toString = function(opt) {
-        return ['return', this.expressions[0].toString(opt)].join(' ').trim();
+    /** @override */
+    Return.prototype.toString = function() {
+        var repr = [
+            this.constructor.name,
+            this.retval ? this.retval.toString(): ''
+        ].join(' ');
+
+        return '[' + repr + ']';
     };
 
     // ------------------------------------------------------------
 
     /**
-     * Container class. Encloses a list of consecutive statements that serve as once
+     * Container class. Encloses a list of consecutive statements that serve as one
      * logical block, e.g. a loop body or an 'if' body.
-     * @param {!Long} addr Address of original assembly instruction
-     * @param {Expr._expr} expr Expression returned
+     * @param {Object} block Enclosed function node
+     * @param {Array.<Statement>} stmts List of enclosed statements
+     * @returns {Container}
      * @constructor
      */
     function Container(block, stmts) {
@@ -286,20 +380,28 @@ module.exports = (function() {
         });
     };
 
+    Container.prototype.toString = function() {
+        var repr = [
+            this.constructor.name,
+            this.block.address.toString()
+        ].join(' ');
+
+        return '[' + repr + ']';
+    };
+
     // ------------------------------------------------------------
 
     return {
         /**
          * Turn an expression into a statement.
          * @param {!Long} addr Address of original assembly instruction
-         * @param {Expr._expr} expr Expression to turn into a statement
+         * @param {Expr.Expr} expr Expression to turn into a statement
          * @returns {Statement}
          */
         make_statement: function(addr, expr) {
             return expr instanceof Statement ? expr : new Statement(addr, [expr]);
         },
 
-        Container:  Container,
         Return:     Return,
         Goto:       Goto,
         Branch:     Branch,
@@ -308,5 +410,7 @@ module.exports = (function() {
         DoWhile:    DoWhile,
         Break:      Break,
         Continue:   Continue,
+
+        Container:  Container
     };
 })();

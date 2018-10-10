@@ -18,6 +18,52 @@
  module.exports = (function() {
 
     /**
+     * This module defines IR expressions that are common to all architectures. Each
+     * assembly instruction is translated into a list of one or more expressions, and
+     * wrapped by a statement later on. Note that an architecture may define its own
+     * dedicated expressions as well.
+     *
+     * Class hierarchy:
+     *      Number              : a number literal
+     *      Register            : a register literal
+     *      Expr                : generic expression base class
+     *          Asm
+     *          Call
+     *          Phi
+     *
+     *          UExpr           : unary expression base class
+     *              Deref
+     *              AddressOf
+     *              Not
+     *              Neg
+     *
+     *          BExpr           : binary expression base class
+     *              Assign
+     *              Add
+     *              Sub
+     *              Mul
+     *              Div
+     *              Mod
+     *              And
+     *              Or
+     *              Xor
+     *              Shl
+     *              Shr
+     *              EQ
+     *              NE
+     *              LT
+     *              GT
+     *              LE
+     *              GE
+     *              BoolAnd
+     *              BoolOr
+     *              BoolNot
+     *
+     *          TExpr           : ternary expression base class
+     *              TCond
+     */
+
+    /**
      * Wraps a string with parenthesis.
      * @param {!string} s A string to wrap
      * @returns {!string} `s` wrapped by parenthesis
@@ -44,11 +90,17 @@
      * @constructor
      */
     function Register(name, size) {
+        // TODO: registers should be denoted by an enumeration rather than a name, since some
+        // registers contain other, e.g. ax == eax == rax
+
         /** @type {!string} */
         this.name = name;
 
         /** @type {!number} */
         this.size = size || 0;
+
+        /** @type {number} */
+        this.idx = undefined;
     }
 
     /** @returns {Array} */
@@ -60,7 +112,7 @@
     Register.prototype.equals = function(other) {
         return ((other instanceof Register) &&
             (this.name === other.name) &&
-            (this.size === other.size) &&   // TODO: ax == eax == rax
+            (this.size === other.size) &&
             (this.idx === other.idx));
     };
 
@@ -68,7 +120,7 @@
     Register.prototype.like = function(other) {
         return ((other instanceof Register) &&
             (this.name === other.name) &&
-            (this.size === other.size));   // TODO: ax == eax == rax
+            (this.size === other.size));
     };
 
     /** @returns {!Register} */
@@ -116,49 +168,55 @@
         return Object.create(this);
     };
 
-    /**
-     * Get string representation of `this` in a human readable form.
-     * @returns {string} Human readable string
-     */
-    Value.prototype.toReadableString = function() {
-        var n = this.value;
-        var size = this.size;
+    // /**
+    //  * Get string representation of `this` in a human readable form.
+    //  * @returns {string} Human readable string
+    //  */
+    // Value.prototype.toReadableString = function() {
+    //     var n = this.value;
+    //     var size = this.size;
 
-        // TODO: adjust comparisons to Long's?
+    //     // TODO: adjust comparisons to Long's?
 
-        // an index or small offset?
-        if (n < 32)
-        {
-            return n.toString();
-        }
+    //     // an index or small offset?
+    //     if (n < 32)
+    //     {
+    //         return n.toString();
+    //     }
 
-        // TODO: consider adding a comment next to the immediate value instead of
-        // tranfroming it into a character - which is not always desirable
+    //     // TODO: consider adding a comment next to the immediate value instead of
+    //     // tranfroming it into a character - which is not always desirable
 
-        // an ascii character?
-        if ((size == 8) && (n >= 32) && (n <= 126)) {
-            return "'" + String.fromCharCode(n) + "'";
-        }
+    //     // an ascii character?
+    //     if ((size == 8) && (n >= 32) && (n <= 126)) {
+    //         return "'" + String.fromCharCode(n) + "'";
+    //     }
 
-        // -1 ?
-        if (((size ==  8) && (n == 0xff)) ||
-            ((size == 16) && (n == 0xffff)) ||
-            ((size == 32) && (n == 0xffffffff)) ||
-            ((size == 64) && (n == Long.MAX_UNSIGNED_VALUE))) {
-                return '-1';
-        }
+    //     // -1 ?
+    //     if (((size ==  8) && (n == 0xff)) ||
+    //         ((size == 16) && (n == 0xffff)) ||
+    //         ((size == 32) && (n == 0xffffffff)) ||
+    //         ((size == 64) && (n == Long.MAX_UNSIGNED_VALUE))) {
+    //             return '-1';
+    //     }
 
-        // default: return hexadecimal representation
-        return '0x' + n.toString(16);
-    };
+    //     // default: return hexadecimal representation
+    //     return '0x' + n.toString(16);
+    // };
 
     /** @returns {string} */
-    Value.prototype.toString = function(opt) {
-        if (opt && opt.human_readable) {
-            return this.toReadableString();
+    Value.prototype.toString = function() {
+        // TODO: this implementation serves as a temporary workaround. value
+        // should be emitted according to the context it appears in
+        var radix;
+
+        if (typeof(this.value) === 'number') {
+            radix = (this.value > (-32) && this.value < 32) ? 10 : 16;
+        } else {
+            radix = (this.value.gt(-32) && this.value.lt(32)) ? 10 : 16;
         }
 
-        return this.value.toString(opt);
+        return (radix === 16? '0x' : '') + this.value.toString(radix);
     };
 
     // ------------------------------------------------------------
@@ -172,15 +230,14 @@
      */
     function Expr(operator, operands) {
         this.operator = operator;
-        this.operands = operands || [];
+        this.operands = [];
 
         // set this as parent for all operands it got
-        this.operands.forEach(function(o, i) {
-            o.parent = [this, i];
-        }, this);
+        operands.forEach(this.push_operand, this);
 
-        this.is_def = false;
-        this.idx = undefined;
+        this.is_def = false;    // ssa: is a definition?
+        this.idx = undefined;   // ssa: subscript index
+
         this.parent = [undefined, undefined];
     }
 
@@ -203,23 +260,11 @@
             : this.operands.concat(depth));
     };
 
-    /*
     Expr.prototype.push_operand = function(op) {
         op.parent = [this, this.operands.length];
 
         this.operands.push(op);
     };
-
-    Expr.prototype.remove_operand = function(op) {
-        var i = this.operands.indexOf(op);
-
-        return (i > (-1) ? this.operands.splice(i, 1) : null);
-    };
-
-    Expr.prototype.pluck = function() {
-        return this.parent.remove_operand(this);
-    };
-    */
 
     /**
      * Have parent replace `this` expression with `other`
@@ -257,7 +302,7 @@
     Expr.prototype.clone = function() {
         return Object.create(this, {
             'operands': {
-                value: this.operands.map(function(o) { return o.clone(); })
+                value: this.operands.map(function(op) { return op.clone(); })
             }
         });
     };
@@ -283,6 +328,7 @@
     }
 
     Call.prototype = Object.create(Expr.prototype);
+    Call.prototype.constructor = Call;
 
     Call.prototype.toString = function(opt) {
         var args = this.operands.map(function(a) {
@@ -299,10 +345,11 @@
      * @constructor
      */
     function Phi() {
-        Expr.call(this, 'phi', Array.from(arguments));
+        Expr.call(this, '\u03a6', Array.from(arguments));
     }
 
     Phi.prototype = Object.create(Expr.prototype);
+    Phi.prototype.constructor = Phi;
 
     Phi.prototype.toString = function(opt) {
         var args = this.operands.map(function(a) {
@@ -326,6 +373,9 @@
         this.line = line;
     }
 
+    Asm.prototype = Object.create(Expr.prototype);
+    Asm.prototype.constructor = Asm;
+
     Asm.prototype.toString = function() {
         return '__asm ("' + this.line + '")';
     };
@@ -343,27 +393,11 @@
     }
 
     UExpr.prototype = Object.create(Expr.prototype);
+    UExpr.prototype.constructor = UExpr;
 
-    /** @returns {!string} */
+    /** @override */
     UExpr.prototype.toString = function(opt) {
         return this.operator + this.operands[0].toString(opt);
-    };
-
-    // ------------------------------------------------------------
-
-    /**
-     * Unary expression with postfix notation.
-     * @constructor
-    */
-    function UExprPF(operator, operand) {
-        UExpr.call(this, operator, operand);
-    }
-
-    UExprPF.prototype = Object.create(UExpr.prototype);
-
-    /** @returns {!string} */
-    UExprPF.prototype.toString = function(opt) {
-        return this.operands[0].toString(opt) + this.operator;
     };
 
     // ------------------------------------------------------------
@@ -380,8 +414,9 @@
     }
 
     BExpr.prototype = Object.create(Expr.prototype);
+    BExpr.prototype.constructor = BExpr;
 
-    /** @returns {!string} */
+    /** @override */
     BExpr.prototype.toString = function(opt) {
         return [
             this.operands[0].toString(opt),
@@ -406,8 +441,9 @@
     }
 
     TExpr.prototype = Object.create(Expr.prototype);
+    TExpr.prototype.constructor = TExpr;
 
-    /** @returns {!string} */
+    /** @override */
     TExpr.prototype.toString = function(opt) {
         return [
             this.operands[0].toString(opt),
@@ -428,13 +464,30 @@
     }
 
     Assign.prototype = Object.create(BExpr.prototype);
+    Assign.prototype.constructor = Assign;
 
+    /** @override */
     Assign.prototype.toString = function(opt) {
         var lhand = this.operands[0];
         var rhand = this.operands[1];
 
-        // "x = x op y" --> "x op= y"
+        // there are three special cases where assignments should be displayed diffreently:
+        //  x = x op y  -> x op= y
+        //  x = x + 1   -> x++
+        //  x = x - 1   -> x--
+
+        // "x = x op y"
         if ((rhand instanceof BExpr) && (lhand.equals(rhand.operands[0]))) {
+            // "x = x op 1"
+            if (rhand.operands[1].equals(new Value(1, lhand.size))) {
+                // x = x +/- 1
+                if ((rhand instanceof Add) || (rhand instanceof Sub)) {
+                    // x++ / x--
+                    return lhand.toString() + rhand.operator.repeat(2);
+                }
+            }
+
+            // "x op= y"
             return [
                 this.operands[0].toString(opt),
                 rhand.operator + this.operator,
@@ -442,7 +495,7 @@
             ].join(' ');
         }
 
-        // return super's toString result
+        // not a speaicl case? use super's toString result
         return Object.getPrototypeOf(Object.getPrototypeOf(this)).toString.call(this, opt);
     };
 
@@ -459,12 +512,10 @@
     Deref.prototype     = Object.create(UExpr.prototype);
     AddressOf.prototype = Object.create(UExpr.prototype);
 
-    // postfix unary expression
-    function Inc (op) { UExprPF.call(this, '++', op); }
-    function Dec (op) { UExprPF.call(this, '--', op); }
-
-    Inc.prototype = Object.create(UExprPF.prototype);
-    Dec.prototype = Object.create(UExprPF.prototype);
+    Not.prototype.constructor = Not;
+    Neg.prototype.constructor = Neg;
+    Deref.prototype.constructor = Deref;
+    AddressOf.prototype.constructor = AddressOf;
 
     // binary expressions
     function Add (op1, op2) { BExpr.call(this, '+',  op1, op2); }
@@ -489,6 +540,17 @@
     Shl.prototype = Object.create(BExpr.prototype);
     Shr.prototype = Object.create(BExpr.prototype);
 
+    Add.prototype.constructor = Add;
+    Sub.prototype.constructor = Sub;
+    Mul.prototype.constructor = Mul;
+    Div.prototype.constructor = Div;
+    Mod.prototype.constructor = Mod;
+    And.prototype.constructor = And;
+    Or.prototype.constructor  = Or;
+    Xor.prototype.constructor = Xor;
+    Shl.prototype.constructor = Shl;
+    Shr.prototype.constructor = Shr;
+
     // ternary expressions
     function TCond (op1, op2, op3) { TExpr.call(this, '?', ':', op1, op2, op3); }
 
@@ -503,37 +565,49 @@
     BoolOr.prototype  = Object.create(BExpr.prototype);
     BoolNot.prototype = Object.create(UExpr.prototype);
 
+    BoolAnd.prototype.constructor = BoolAnd;
+    BoolOr.prototype.constructor = BoolOr;
+    BoolNot.prototype.constructor = BoolNot;
+
     // comparisons
     function EQ (expr1, expr2) { BExpr.call(this, '==', expr1, expr2); }
     function NE (expr1, expr2) { BExpr.call(this, '!=', expr1, expr2); }
-    function Gt (expr1, expr2) { BExpr.call(this, '>',  expr1, expr2); }
+    function GT (expr1, expr2) { BExpr.call(this, '>',  expr1, expr2); }
     function LT (expr1, expr2) { BExpr.call(this, '<',  expr1, expr2); }
     function GE (expr1, expr2) { BExpr.call(this, '>=', expr1, expr2); }
     function LE (expr1, expr2) { BExpr.call(this, '<=', expr1, expr2); }
 
     EQ.prototype = Object.create(BExpr.prototype);
     NE.prototype = Object.create(BExpr.prototype);
-    Gt.prototype = Object.create(BExpr.prototype);
+    GT.prototype = Object.create(BExpr.prototype);
     LT.prototype = Object.create(BExpr.prototype);
     GE.prototype = Object.create(BExpr.prototype);
     LE.prototype = Object.create(BExpr.prototype);
 
+    EQ.prototype.constructor = EQ;
+    NE.prototype.constructor = NE;
+    GT.prototype.constructor = GT;
+    LT.prototype.constructor = LT;
+    GE.prototype.constructor = GE;
+    LE.prototype.constructor = LE;
+
     return {
+        // abstract base classes: use only to define arch-spoecific exprs
         UExpr:  UExpr,
         BExpr:  BExpr,
         TExpr:  TExpr,
+
+        // ssa phi instruction
         Phi:    Phi,
 
+        // common expressions
         Reg:    Register,
         Val:    Value,
-        Assign: Assign,
         Deref:  Deref,
         AddrOf: AddressOf,
-
         Not:     Not,
         Neg:     Neg,
-        Inc:     Inc,
-        Dec:     Dec,
+        Assign: Assign,
         Add:     Add,
         Sub:     Sub,
         Mul:     Mul,
@@ -547,7 +621,7 @@
         EQ:      EQ,
         NE:      NE,
         LT:      LT,
-        GT:      Gt,
+        GT:      GT,
         LE:      LE,
         GE:      GE,
         Call:    Call,
@@ -555,7 +629,6 @@
         BoolAnd: BoolAnd,
         BoolOr:  BoolOr,
         BoolNot: BoolNot,
-
         Unknown: Asm
     };
 })();

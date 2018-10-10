@@ -12,21 +12,26 @@ module.exports = (function() {
         this.emit = function() {
             var func = this.func;
 
-            this._emit_token(func.rtype);
+            this._emit_token(func.rettype);
             this._emit_whitespace(' ');
             this._emit_token(func.name);
             this._emit_whitespace(' ');
             this._emit_token('(');
-            if (func.args.length == 0) {
+
+            var args = Array.prototype.concat(this.func.bpvars, this.func.spvars, this.func.regvars).filter(function(v) {
+                return v.kind === 'arg';
+            });
+
+            if (args.length == 0) {
                 this._emit_token('void');
             } else {
-                var a = func.args.pop();
+                var a = args.pop();
 
                 this._emit_token(a.type);
                 this._emit_whitespace(' ');
                 this._emit_token(a.name);
 
-                func.args.forEach(function(a) {
+                args.forEach(function(a) {
                     this._emit_token(',');
                     this._emit_whitespace(' ');
                     this._emit_token(a.type);
@@ -36,7 +41,13 @@ module.exports = (function() {
             }
             this._emit_token(')');
             this._emit_whitespace('\n');
-            this._emit_scope(func.entry_block.container, 0);
+            
+            var block = func.entry_block;
+            while (block) {
+                this._emit_scope(block.container, 0);
+
+                block = this.func.blocks[block.container.next];
+            }
 
             return this.text.join('');
         };
@@ -69,10 +80,6 @@ module.exports = (function() {
             } else if (expr instanceof Expr.Not) {
 
             } else if (expr instanceof Expr.Neg) {
-
-            } else if (expr instanceof Expr.Inc) {
-
-            } else if (expr instanceof Expr.Dec) {
 
             } else if (expr instanceof Expr.Add) {
 
@@ -123,8 +130,11 @@ module.exports = (function() {
         };
 
         this._emit_statement = function(stmt, depth) {
-            console.log('emitting', stmt.toString());
-            this._emit_whitespace(this._pad(depth));
+            var p = this._pad(depth);
+            this._emit_whitespace(p);
+
+            // TODO: for debug purposes; remove this
+            this._emit_token('0x' + stmt.addr.toString(16) + ' : ');
 
             if (stmt instanceof Stmt.Branch) {
                 // a Branch is meant to be replaced by an 'If'
@@ -137,7 +147,7 @@ module.exports = (function() {
             } else if (stmt instanceof Stmt.DoWhile) {
                 this._emit_token('do');
 
-                this._emit_scope(stmt.body, depth + 1);
+                this._emit_scope(stmt.body, depth);
 
                 this._emit_token('while');
                 this._emit_whitespace(' ');
@@ -157,18 +167,20 @@ module.exports = (function() {
                 this._emit_token(')');
                 this._emit_whitespace('\n');
 
-                this._emit_scope(stmt.then_cntr, depth + 1);
+                this._emit_scope(stmt.then_cntr, depth);
 
                 if (stmt.else_cntr) {
+                    this._emit_whitespace(p);
                     this._emit_token('else');
-                    this._emit_scope(stmt.else_cntr, depth + 1);
+                    this._emit_whitespace('\n');
+                    this._emit_scope(stmt.else_cntr, depth);
                 }
             } else if (stmt instanceof Stmt.Return) {
                 this._emit_token('return');
 
-                if (stmt.value) {
+                if (stmt.retval) {
                     this._emit_whitespace(' ');
-                    this._emit_expression(stmt.value);
+                    this._emit_expression(stmt.retval);
                 }
                 this._emit_token(';');
 
@@ -180,7 +192,7 @@ module.exports = (function() {
                 this._emit_token(')');
                 this._emit_whitespace('\n');
 
-                this._emit_scope(stmt.body, depth + 1);
+                this._emit_scope(stmt.body, depth);
             } else {
                 this._emit_expression(stmt.expressions.pop());
                 this._emit_token(';');

@@ -28,7 +28,7 @@ var JSON = require('libdec/json64');
 var Decoder = require('core2/frontend/decoder');
 var SSA = require('core2/analysis/ssa');
 var Stmt = require('core2/analysis/ir/statements');
-var ControlFlow = require('core2/analysis/ir/controlflow');
+var ControlFlow = require('core2/analysis/controlflow');
 var CodeGen = require('core2/backend/codegen');
 
 /**
@@ -64,12 +64,13 @@ function r2dec_main(args) {
     try {
         var iIj = r2cmdj('iIj');
 
-        if (iIj.arch in Decoder.archs)
+        if (Decoder.has(iIj.arch))
         {
-            var decoder = new Decoder.decoder(iIj);
             var afbj = r2cmdj('afbj');
 
             if (afbj) {
+                var decoder = new Decoder(iIj);
+
                 // read function's basic blocks
                 var bblocks = afbj.map(function(bb) {
                     var aoj = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
@@ -82,6 +83,7 @@ function r2dec_main(args) {
                     };
                 });
 
+                // now that all basic blocks are created, we can link them
                 bblocks.forEach(function(b) {
                     // collect outbound blocks refs
                     var outbound = b.outbound.map(function(ob) {
@@ -103,18 +105,23 @@ function r2dec_main(args) {
                 // tagger.tag_regs();
 
                 console.log('[result]');
-                var afcfj = r2cmdj('afcfj').pop();
+                var afij = r2cmdj('afij').pop();
                 var func = {
-                    name:   afcfj.name,
-                    rtype:  afcfj.return,
-                    args:   afcfj.args,
+                    rettype: 'void',    // TODO
+                    name:    afij.name,
+                    bpvars:  afij.bpvars,
+                    spvars:  afij.spvars,
+                    regvars: afij.regvars,
 
                     entry_block: undefined,
                     blocks: {}
                 };
 
                 bblocks.forEach(function(bb) {
-                    func.blocks[bb.address] = { container: new Stmt.Container(bb, bb.statements) };
+                    func.blocks[bb.address] = {
+                        func: func,
+                        container: new Stmt.Container(bb, bb.statements)
+                    };
                 });
 
                 func.entry_block = func.blocks[bblocks[0].address];

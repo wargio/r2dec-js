@@ -16,7 +16,7 @@
  */
 
 module.exports = (function() {
-    var Stmt = require('core2/analysis/ir/statements');
+    const Stmt = require('core2/analysis/ir/statements');
     var Simplify = require('core2/analysis/ir/simplify');
 
     /** available architectures */
@@ -24,38 +24,48 @@ module.exports = (function() {
         'x86': require('core2/frontend/arch/x86')
     };
 
-    /** @constructor */
-    var _decoder = function(iIj) {
+    /**
+     * Decoder utility object, used to turn assembly instructions retrieved from
+     * r2 into expressions and statements.
+     * @param {Object} iIj Parsed output of 'iIj' r2 command
+     * @constructor
+     */
+    function Decoder(iIj) {
         var a = _archs[iIj.arch];
 
         this.arch = new a(iIj.bits, iIj.bintype, iIj.endian);
+    }
 
-        /** Processes assembly listing into a list of generic expressions */
-        this.transform_ir = function(aoj) {
-            var ir = [];
-
-            aoj.forEach(function(item) {
-                var decoded = this.arch.r2decode(item);
-                var handler = this.arch.instructions[decoded.mnemonic] || this.arch.invalid;
-
-                console.log(item.opcode);
-                handler(decoded).forEach(function(expr) {
-                    // TODO: 'Stmt' does not really belong here
-                    var stmt = Stmt.make_statement(decoded.address, expr);
-
-                    Simplify.run(stmt);
-                    console.log('|  ' + stmt.toString());
-
-                    ir.push(stmt);
-                });
-            }, this);
-
-            return ir;
-        };
+    Decoder.has = function(name) {
+        return name in _archs;
     };
 
-    return {
-        decoder: _decoder,
-        archs: _archs
+    /**
+     * Process instruction data in the form of 'aoj' r2 command output into a list of
+     * generic statements.
+     * @param {Object} aoj Parsed output of 'aoj' r2 command
+     * @returns {Array} Array of statement instances representing 
+     */
+    Decoder.prototype.transform_ir = function(aoj) {
+        var ir = [];
+
+        aoj.forEach(function(item) {
+            var decoded = this.arch.r2decode(item);
+            var handler = this.arch.instructions[decoded.mnemonic] || this.arch.invalid;
+
+            console.log(item.opcode);
+            handler(decoded).forEach(function(expr) {
+                var stmt = Stmt.make_statement(decoded.address, expr);
+
+                Simplify.run(stmt);
+                console.log('|  ' + stmt.toString());
+
+                ir.push(stmt);
+            });
+        }, this);
+
+        return ir;
     };
+
+    return Decoder;
 })();

@@ -136,9 +136,13 @@ function x86(nbits, btype, endianess) {
         'std' : _std.bind(this),
 
         // signed assingments
-        'movsx': _mov.bind(this),   // TODO: dest is signed
-        'movsxd':_mov.bind(this),   // TODO: dest is signed
-        'movzx':_mov.bind(this),    // TODO: dest is unsigned
+        'movsx' : _mov.bind(this),  // TODO: dest is signed
+        'movsxd': _mov.bind(this),  // TODO: dest is signed
+        'movzx' : _mov.bind(this),  // TODO: dest is unsigned
+
+        // rare stuff
+        'movbe' : _movbe.bind(this),
+        'popcnt': _popcnt.bind(this),
 
         // misc
         'nop'   : _nop.bind(this),
@@ -229,11 +233,12 @@ x86.prototype.eval_flags = function(expr, flist) {
 x86.prototype.r2decode = function(aoj) {
     var process_ops = function(op) {
 
+        // if `n` was meant to be a numeric value, convert it to number
         var toInt = function(n) {
-            return typeof n === 'string' ? n : parseInt(n);
+            return n && n.__isLong__ ? parseInt(n) : n;
         };
 
-        var processed = {
+        return {
             /**
              * Operand size in bytes
              * @type {number}
@@ -242,12 +247,14 @@ x86.prototype.r2decode = function(aoj) {
 
             /**
              * Access type to operand: either read, write or none
+             * @see {@link OP_ACCESS} for possible values
              * @type {number}
              */
             access: toInt(op.rw),
 
             /**
              * Operand type: either register, memory or immediate
+             * @see {@link OP_TYPE} for possible values
              * @type {string}
              */
             type: op.type,
@@ -265,39 +272,69 @@ x86.prototype.r2decode = function(aoj) {
                 disp:  op.disp
             }
         };
-
-        return processed;
     };
 
     var parsed = {
-        //TODO: get instruction prefix
         address : aoj.addr,
         isize   : aoj.size,
+        disasm  : aoj.disasm,
+        prefix  : aoj.prefix,
         mnemonic: aoj.mnemonic,
-        operands: aoj.opex.operands.map(process_ops),
+        operands: aoj.opex.operands.map(process_ops)
     };
 
     return parsed;
 };
 
-var OP_ACCESS_NONE  = 0;
-var OP_ACCESS_READ  = 1;
-var OP_ACCESS_WRITE = 2;
+/**
+ * List of possible instruction prefixes.
+ * see R_ANAL_OP_PREFIX_* definitions in r2.
+ * @enum {number}
+ * @readonly
+ */
+const INSN_PREFIX = {
+    NONE:       0,
+    PREF_REP:   2,
+    PREF_REPNZ: 4,
+    PREF_LOCK:  8
+};
+
+/**
+ * List of possible operand types.
+ * @enum {string}
+ * @readonly
+ */
+const OP_TYPE = {
+    REG: 'reg',
+    IMM: 'imm',
+    MEM: 'mem'
+};
+
+/**
+ * List of possible operand access types.
+ * @enum {number}
+ * @readonly
+ */
+const OP_ACCESS = {
+    NONE:  0,
+    READ:  1,
+    WRITE: 2
+};
 
 /** @inner */
 var get_operand_expr = function(op) {
     var expr;
 
     switch (op.type) {
-    case 'reg':
+    case OP_TYPE.REG:
         expr = new Expr.Reg(op.value, op.size);
         break;
 
-    case 'imm':
+    case OP_TYPE.IMM:
         expr = new Expr.Val(op.value, op.size);
         break;
 
-    case 'mem':
+    case OP_TYPE.MEM:
         var base = op.mem.base && new Expr.Reg(op.mem.base, op.size);
         var index = op.mem.index && new Expr.Reg(op.mem.index, op.size);
         var scale = op.mem.scale && new Expr.Val(op.mem.scale, op.size);
@@ -570,15 +607,21 @@ var _leave = function(p) {
 var _call = function(p) {
     var callee = get_operand_expr(p.operands[0]);
     var rreg = this.get_result_reg();
-    var fargs = []; // TODO: populate function call arguments list
+    var fargs = []; // the function call arguments list will be populated later on
 
     return [new Expr.Assign(rreg, new Expr.Call(callee, fargs))];
 };
 
 var _ret = function(p) {
-    return [new Stmt.Return(p.address, this.get_result_reg())];
+    // a function might need to clean up a few bytes from the stack as it returns
+    var cleanup = p.operands.length > 0 ?
+        [new Expr.Add(this.get_stack_reg(), get_operand_expr(p.operands[0]))] :
+        [];
+
+    return [new Stmt.Return(p.address, this.get_result_reg())].concat(cleanup);
 };
 
+// bitwise operations
 var _and = function(p) { return _common_bitwise.call(this, p, Expr.And); };
 var _or  = function(p) { return _common_bitwise.call(this, p, Expr.Or);  };
 var _xor = function(p) { return _common_bitwise.call(this, p, Expr.Xor); };
@@ -767,20 +810,49 @@ var _std = function(p) {
     return _common_set_flag('DF', 1);
 };
 
-var _hlt = function() {
+var _movbe = function(p) {
+    var lhand = get_operand_expr(p.operands[0]);
+    var rhand = get_operand_expr(p.operands[1]);
+
+    var bifunc = {
+        16: '__builtin_bswap16',
+        32: '__builtin_bswap32',
+        64: '__builtin_bswap64'
+    }[rhand.size];
+
+    return [new Expr.Assign(lhand, new Expr.Call(bifunc, [rhand]))];
+};
+
+var _popcnt = function(p) {
+    var lhand = get_operand_expr(p.operands[0]);
+    var rhand = get_operand_expr(p.operands[1]);
+
+    var bifunc = {
+        32: '__builtin_popcount',
+        64: '__builtin_popcountll'
+    }[rhand.size];
+
+    return [
+        new Expr.Assign(lhand, new Expr.Call(bifunc, [rhand])),
+        set_flag('PF', 0),
+        set_flag('CF', 0),
+        set_flag('AF', 0),
+        set_flag('SF', 0),
+        set_flag('OF', 0)
+    ].concat(this.eval_flags(rhand, ['ZF']));
+};
+
+var _hlt = function(p) {
     return [new Expr.Call('_hlt', [])];
 };
 
-var _invalid = function() {
-    return [new Expr.Unknown('?')]; // TODO: improve handling of unknown instructions
+var _invalid = function(p) {
+    return [new Expr.Unknown(p.disasm)]; // TODO: improve handling of unknown instructions
 };
 
+// TODO: to be implemented
 // imul
 // idiv
-// pand
-// por
-// pxor
-// bswap
 // movabs
 // cbw
 // cwde
