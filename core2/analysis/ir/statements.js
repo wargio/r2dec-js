@@ -352,37 +352,40 @@ module.exports = (function() {
     /**
      * Container class. Encloses a list of consecutive statements that serve as one
      * logical block, e.g. a loop body or an 'if' body.
-     * @param {Object} block Enclosed function node
+     * @param {number|Long} addr Scope starting address
      * @param {Array.<Statement>} stmts List of enclosed statements
      * @returns {Container}
      * @constructor
      */
-    function Container(block, stmts) {
-        this.block = block;
-        this.statements = stmts || [];
+    function Container(addr, stmts) {
+        this.address = addr;
+        this.statements = [];
 
         // set this as the container of all statements enclosed in the block
-        this.statements.forEach(function(stmt) {
-            stmt.container = this;
-        }, this);
+        stmts.forEach(this.push_stmt, this);
     }
+
+    Container.prototype.push_stmt = function(stmt) {
+        stmt.container = this;
+
+        this.statements.push(stmt);
+    };
 
     /**
      * Generate a deep copy of this.
      * @returns {!Container}
      */
     Container.prototype.clone = function() {
-        return Object.create(this, {
-            'statements': {
-                value: this.statements.map(function(s) { return s.clone(); })
-            }
-        });
+        var inst = Object.create(this.constructor.prototype);
+        var cloned = this.constructor.apply(inst, this.statements.map(function(stmt) { return stmt.clone(); }));
+
+        return ((cloned !== null) && (typeof cloned === 'object')) ? cloned : inst;
     };
 
     Container.prototype.toString = function() {
         var repr = [
             this.constructor.name,
-            this.block.address.toString()
+            this.address.toString(16)
         ].join(' ');
 
         return '[' + repr + ']';

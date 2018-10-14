@@ -5,8 +5,8 @@ module.exports = (function() {
     // TODO: an inferior implementation of Map
     const Map = require('core2/analysis/map');
 
-    function Node(value) {
-        this.val = value;
+    function Node(key) {
+        this.key = key;
         this.inbound = [];
         this.outbound = [];
     }
@@ -16,16 +16,18 @@ module.exports = (function() {
         this.root = undefined;
     }
 
-    Graph.prototype.addNode = function(k, node) {
-        this.nodes.set(k, node);
+    Graph.prototype.addNode = function(key) {
+        var node = new Node(key);
+
+        this.nodes.set(key, node);
     };
 
-    Graph.prototype.getNode = function(k) {
-        return this.nodes.get(k);
+    Graph.prototype.getNode = function(key) {
+        return this.nodes.get(key);
     };
 
-    Graph.prototype.setRoot = function(k) {
-        this.root = this.nodes.get(k);
+    Graph.prototype.setRoot = function(key) {
+        this.root = this.getNode(key);
     };
 
     Graph.prototype.addEdge = function(k0, k1) {
@@ -36,8 +38,5 @@ module.exports = (function() {
         dst.inbound.push(src);
     };
 
-    return {
-        Node: Node,
-        Graph: Graph
-    };
+    return Graph;
 })();

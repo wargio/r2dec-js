@@ -28,6 +28,7 @@ var JSON = require('libdec/json64');
 var Decoder = require('core2/frontend/decoder');
 var SSA = require('core2/analysis/ssa');
 var Stmt = require('core2/analysis/ir/statements');
+var Graph = require('core2/analysis/graph');
 var ControlFlow = require('core2/analysis/controlflow');
 var CodeGen = require('core2/backend/codegen');
 
@@ -98,43 +99,53 @@ function r2dec_main(args) {
             if (afbj) {
                 var decoder = new Decoder(iIj);
 
+                var nodes = []; // graph nodes: a graph node represents a function basic block
+                var edges = []; // graph edges: a graph edge represents a jump, branch or fall-through
+                var stmts = []; // basic block's contents: each entry contains a list of statements
+
                 // read function's basic blocks
-                var bblocks = afbj.map(function(bb) {
+                afbj.forEach(function(bb) {
                     var aoj = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
 
-                    return {
-                        address:    bb.addr,
-                        inbound:    [],
-                        outbound:   [bb.jump, bb.fail].filter(function(ob) { return ob; }),
-                        statements: decoder.transform_ir(aoj),
-                    };
+                    nodes.push(bb.addr);
+
+                    // 'jump' stands for unconditional jump destination, or conditional 'taken' destination
+                    if (bb.jump) {
+                        edges.push([bb.addr, bb.jump]);
+                    }
+
+                    // 'fail' stands for block fall-through, or conditional 'not-taken' destination
+                    if (bb.fail) {
+                        edges.push([bb.addr, bb.fail]);
+                    }
+
+                    // generate statements for current basic block
+                    stmts.push(decoder.transform_ir(aoj));
                 });
 
-                // now that all basic blocks are created, we can link them
-                bblocks.forEach(function(b) {
-                    // collect outbound blocks refs
-                    var outbound = b.outbound.map(function(ob) {
-                        return bblocks.filter(function(bb) {
-                            return bb.address.eq(ob);
-                        })[0];
-                    });
+                // set up graph
+                var graph = new Graph();
 
-                    // let outbound targets know their inbounds
-                    outbound.forEach(function(ob) {
-                        ob.inbound.push(b);
-                    });
-
-                    b.outbound = outbound;
+                nodes.forEach(function(n) {
+                    graph.addNode(n);
                 });
 
-                // console.log('[tagging]');
+                edges.forEach(function(e) {
+                    graph.addEdge(e[0], e[1]);
+                });
+
+                graph.setRoot(nodes[0]);
+
+                // console.log('[ssa tagging]');
                 // var tagger = new SSA.tagger(blocks[0]);
                 // tagger.tag_regs();
 
                 console.log('[result]');
                 var afij = r2cmdj('afij').pop();
+
+                // TODO: a temporary representation of decompiled function
                 var func = {
-                    rettype: 'void',    // TODO
+                    rettype: 'void',    // TODO: get actual function return type
                     name:    afij.name,
                     bpvars:  afij.bpvars,
                     spvars:  afij.spvars,
@@ -144,18 +155,20 @@ function r2dec_main(args) {
                     blocks: {}
                 };
 
-                bblocks.forEach(function(bb) {
-                    func.blocks[bb.address] = {
-                        func: func,
-                        container: new Stmt.Container(bb, bb.statements)
-                    };
-                });
+                for (var i = 0; i < nodes.length; i++) {
+                    var key = nodes[i];
 
-                func.entry_block = func.blocks[bblocks[0].address];
+                    func.blocks[key] = {
+                        node: graph.getNode(key),
+                        container: new Stmt.Container(key, stmts[i])
+                    };
+                }
+
+                func.entry_block = func.blocks[graph.root.key];
 
                 // ControlFlow.run(func);
 
-                console.log(new CodeGen(func).emit());
+                // console.log(new CodeGen(func).emit());
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }

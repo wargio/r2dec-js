@@ -125,7 +125,7 @@ module.exports = (function() {
 
             }
 
-            // hack! remove this
+            // ... TODO: lazy implementation; remove this
             this.text.push(expr.toString());
         };
 
