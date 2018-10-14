@@ -139,7 +139,7 @@
 
     /**
      * Literal value.
-     * @param {!number} value Numeric value
+     * @param {!number|!Long} value Numeric value
      * @param {number} size Value size in bits
      * @constructor
      */
@@ -159,7 +159,7 @@
     /** @returns {boolean} */
     Value.prototype.equals = function(other) {
         return ((other instanceof Value) &&
-            (this.value === other.value) &&
+            (this.value == other.value) &&
             (this.size === other.size));    // TODO: should we be bothered about matching sizes?
     };
 
@@ -275,7 +275,7 @@
         var i = this.parent[1]; // operand index at parent's
 
         other.parent = this.parent;
-        p.operands[i] = other;
+        p.operands[i] = other;  // TODO: 'operands' when parent is expr, but 'expressions' when parent is stmt
     };
 
     /**
@@ -300,11 +300,10 @@
      * @returns {!Expr}
      */
     Expr.prototype.clone = function() {
-        return Object.create(this, {
-            'operands': {
-                value: this.operands.map(function(op) { return op.clone(); })
-            }
-        });
+        var inst = Object.create(this.constructor.prototype);
+        var cloned = this.constructor.apply(inst, this.operands.map(function(op) { return op.clone(); }));
+
+        return ((cloned !== null) && (typeof cloned === 'object')) ? cloned : inst;
     };
 
     /** [!] This abstract method must be implemented by the inheriting class */

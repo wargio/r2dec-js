@@ -36,6 +36,11 @@ module.exports = (function() {
         this.arch = new a(iIj.bits, iIj.bintype, iIj.endian);
     }
 
+    /**
+     * Check if a certain architecture is supported.
+     * @param {string} name Architecture name
+     * @returns {boolean}
+     */
     Decoder.has = function(name) {
         return name in _archs;
     };

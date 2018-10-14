@@ -20,7 +20,7 @@ module.exports = (function() {
     /**
      * This module defines IR statements that are common to all architectures. Each
      * generated expression is wrapped in a Statement, and each statement belongs to
-     * a Container (i.e. a scope).
+     * a Container (i.e. a logical scope).
      *
      * Class hierarchy:
      *      Statement       : generic statement base class
@@ -53,8 +53,8 @@ module.exports = (function() {
         // set this as a parent to all enclosed expressions
         exprs.forEach(this.push_expr, this);
 
-        /** @type {Array} */
-        this.statements = [];
+        // /** @type {Array} */
+        // this.statements = [];
     }
 
     /**
@@ -84,11 +84,10 @@ module.exports = (function() {
      * @returns {!Statement}
      */
     Statement.prototype.clone = function() {
-        return Object.create(this, {
-            'expressions': {
-                value: this.expressions.map(function(e) { return e.clone(); })
-            }
-        });
+        var inst = Object.create(this.constructor.prototype);
+        var cloned = this.constructor.apply(inst, this.expressions.map(function(expr) { return expr.clone(); }));
+
+        return ((cloned !== null) && (typeof cloned === 'object')) ? cloned : inst;
     };
 
     /**

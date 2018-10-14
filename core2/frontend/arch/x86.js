@@ -152,43 +152,66 @@ function x86(nbits, btype, endianess) {
     this.invalid = _invalid;
 }
 
+/**
+ * Get a copy of the system frame pointer.
+ * @returns {Expr.Reg}
+ */
 x86.prototype.get_frame_reg = function() {
     return new Expr.Reg(this.FRAME_REG, this.asize);
 };
 
+/**
+ * Get a copy of the system function result register.
+ * @returns {Expr.Reg}
+ */
 x86.prototype.get_result_reg = function() {
     return new Expr.Reg(this.RESULT_REG, this.asize);
 };
 
+/**
+ * Get a copy of the system stack pointer.
+ * @returns {Expr.Reg}
+ */
 x86.prototype.get_stack_reg = function() {
     return new Expr.Reg(this.STACK_REG, this.asize);
 };
 
+/**
+ * Get a copy of the system [pseudo] flags register.
+ * @returns {Expr.Reg}
+ */
 x86.prototype.get_flags_reg = function() {
     return new Expr.Reg(this.FLAGS_REG, this.asize);
 };
 
-// system flags
-var CF = (1 << 0);
-var PF = (1 << 2);
-var AF = (1 << 4);
-var ZF = (1 << 6);
-var SF = (1 << 7);
-var DF = (1 << 10);
-var OF = (1 << 11);
+/**
+ * Lists system flags.
+ * @enum {number}
+ * @readonly
+ */
+const FLAGS = {
+    CF: (1 << 0),
+    PF: (1 << 2),
+    AF: (1 << 4),
+    ZF: (1 << 6),
+    SF: (1 << 7),
+    DF: (1 << 10),
+    OF: (1 << 11)
+};
 
-var get_flag = function(f) {
+var Flag = function(f) {
     var flags = {
-        'CF': function() { return new Expr.Reg('eflags.cf', 1); },
-        'PF': function() { return new Expr.Reg('eflags.pf', 1); },
-        'AF': function() { return new Expr.Reg('eflags.af', 1); },
-        'ZF': function() { return new Expr.Reg('eflags.zf', 1); },
-        'SF': function() { return new Expr.Reg('eflags.sf', 1); },
-        'DF': function() { return new Expr.Reg('eflags.df', 1); },
-        'OF': function() { return new Expr.Reg('eflags.of', 1); }
+        'CF': 'eflags.cf',
+        'PF': 'eflags.pf',
+        'AF': 'eflags.af',
+        'ZF': 'eflags.zf',
+        'SF': 'eflags.sf',
+        'DF': 'eflags.df',
+        'OF': 'eflags.of'
     };
 
-    return flags[f]();
+    // create a new instance of a 1-bit register
+    return new Expr.Reg(flags[f], 1);
 };
 
 function Carry    (op) { Expr.UExpr.call(this, '<carry>', op); }
@@ -205,29 +228,84 @@ Zero.prototype     = Object.create(Expr.UExpr.prototype);
 Sign.prototype     = Object.create(Expr.UExpr.prototype);
 Overflow.prototype = Object.create(Expr.UExpr.prototype);
 
-var get_flag_op = function(f, expr) {
+Carry.prototype.constructor    = Carry;
+Parity.prototype.constructor   = Parity;
+Adjust.prototype.constructor   = Adjust;
+Zero.prototype.constructor     = Zero;
+Sign.prototype.constructor     = Sign;
+Overflow.prototype.constructor = Overflow;
+
+/**
+ * Create a special expression representing the operation of the given flag.
+ * Note that the returned expression is arch-specific.
+ * @param {string} f Flag token
+ * @param {Expr.Expr} expr Expression to operate on (i.e. whose carry)
+ * @returns {Expr.Expr}
+ */
+var FlagOp = function(f, expr) {
     var ops = {
-        'CF': function() { return new Carry(expr);    },
-        'PF': function() { return new Parity(expr);   },
-        'AF': function() { return new Adjust(expr);   },
-        'ZF': function() { return new Zero(expr);     },
-        'SF': function() { return new Sign(expr);     },
-        'OF': function() { return new Overflow(expr); }
+        'CF': Carry,
+        'PF': Parity,
+        'AF': Adjust,
+        'ZF': Zero,
+        'SF': Sign,
+        'OF': Overflow
     };
 
-    return ops[f]();
+    return new ops[f](expr);
 };
 
+/**
+ * Create an Assign expression to system flags
+ * @param {string} f Flag token to modify
+ * @param {number} bval Either 0 or 1
+ * @returns {Expr.Expr}
+ */
 var set_flag = function(f, bval) {
-    return new Expr.Assign(get_flag(f), new Expr.Val(bval, 1));
+    return new Expr.Assign(Flag(f), new Expr.Val(bval, 1));
 };
 
 x86.prototype.eval_flags = function(expr, flist) {
     var e = [new Expr.Assign(this.get_flags_reg(), expr.clone())];
 
     return e.concat(flist.map(function(f) {
-        return new Expr.Assign(get_flag(f), get_flag_op(f, expr.clone()));
+        return new Expr.Assign(Flag(f), FlagOp(f, expr.clone()));
     }));
+};
+
+/**
+ * List of possible instruction prefixes.
+ * see R_ANAL_OP_PREFIX_* definitions in r2.
+ * @enum {number}
+ * @readonly
+ */
+const INSN_PREFIX = {
+    NONE:       0,
+    PREF_REP:   2,
+    PREF_REPNZ: 4,
+    PREF_LOCK:  8
+};
+
+/**
+ * List of possible operand types.
+ * @enum {string}
+ * @readonly
+ */
+const OP_TYPE = {
+    REG: 'reg',
+    IMM: 'imm',
+    MEM: 'mem'
+};
+
+/**
+ * List of possible operand access types.
+ * @enum {number}
+ * @readonly
+ */
+const OP_ACCESS = {
+    NONE:  0,
+    READ:  1,
+    WRITE: 2
 };
 
 x86.prototype.r2decode = function(aoj) {
@@ -286,41 +364,6 @@ x86.prototype.r2decode = function(aoj) {
     return parsed;
 };
 
-/**
- * List of possible instruction prefixes.
- * see R_ANAL_OP_PREFIX_* definitions in r2.
- * @enum {number}
- * @readonly
- */
-const INSN_PREFIX = {
-    NONE:       0,
-    PREF_REP:   2,
-    PREF_REPNZ: 4,
-    PREF_LOCK:  8
-};
-
-/**
- * List of possible operand types.
- * @enum {string}
- * @readonly
- */
-const OP_TYPE = {
-    REG: 'reg',
-    IMM: 'imm',
-    MEM: 'mem'
-};
-
-/**
- * List of possible operand access types.
- * @enum {number}
- * @readonly
- */
-const OP_ACCESS = {
-    NONE:  0,
-    READ:  1,
-    WRITE: 2
-};
-
 /** @inner */
 var get_operand_expr = function(op) {
     var expr;
@@ -361,7 +404,7 @@ var get_operand_expr = function(op) {
         break;
 
     default:
-        throw 'unknown operand type: ' + op.type;
+        throw new Error('unknown operand type: ' + op.type);
     }
 
     return expr;
@@ -426,7 +469,9 @@ var _common_setcc = function(p, cond) {
     return [new Expr.Assign(expr, cond)];
 };
 
-var _common_set_flag = set_flag;
+var _common_set_flag = function(f, bval) {
+    return [set_flag(f, bval)];
+};
 
 // ---------- instructions ----------//
 
@@ -607,9 +652,9 @@ var _leave = function(p) {
 var _call = function(p) {
     var callee = get_operand_expr(p.operands[0]);
     var rreg = this.get_result_reg();
-    var fargs = []; // the function call arguments list will be populated later on
 
-    return [new Expr.Assign(rreg, new Expr.Call(callee, fargs))];
+    // the function call arguments list will be populated later on, according to calling convention
+    return [new Expr.Assign(rreg, new Expr.Call(callee, []))];
 };
 
 var _ret = function(p) {
@@ -659,139 +704,139 @@ var _jmp = function(p) {
 };
 
 var _je = function(p) {
-    return _common_jcc(p, get_flag('ZF'));
+    return _common_jcc(p, Flag('ZF'));
 };
 
 var _ja = function(p) {
-    return _common_jcc(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.BoolNot(get_flag('CF'))));
+    return _common_jcc(p, new Expr.BoolAnd(new Expr.BoolNot(Flag('ZF')), new Expr.BoolNot(Flag('CF'))));
 };
 
 var _jb = function(p) {
-    return _common_jcc(p, get_flag('CF'));
+    return _common_jcc(p, Flag('CF'));
 };
 
 var _jg = function(p) {
-    return _common_jcc(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.EQ(get_flag('SF'), get_flag('OF'))));
+    return _common_jcc(p, new Expr.BoolAnd(new Expr.BoolNot(Flag('ZF')), new Expr.EQ(Flag('SF'), Flag('OF'))));
 };
 
 var _jl = function(p) {
-    return _common_jcc(p, new Expr.NE(get_flag('SF'), get_flag('OF')));
+    return _common_jcc(p, new Expr.NE(Flag('SF'), Flag('OF')));
 };
 
 var _jo = function(p) {
-    return _common_jcc(p, get_flag('OF'));
+    return _common_jcc(p, Flag('OF'));
 };
 
 var _js = function(p) {
-    return _common_jcc(p, get_flag('SF'));
+    return _common_jcc(p, Flag('SF'));
 };
 
 var _jne = function(p) {
-    return _common_jcc(p, new Expr.BoolNot(get_flag('ZF')));
+    return _common_jcc(p, new Expr.BoolNot(Flag('ZF')));
 };
 
 var _jae = function(p) {
-    return _common_jcc(p, new Expr.BoolNot(get_flag('CF')));
+    return _common_jcc(p, new Expr.BoolNot(Flag('CF')));
 };
 
 var _jbe = function(p) {
-    return _common_jcc(p, new Expr.BoolOr(get_flag('ZF'), get_flag('CF')));
+    return _common_jcc(p, new Expr.BoolOr(Flag('ZF'), Flag('CF')));
 };
 
 var _jge = function(p) {
-    return _common_jcc(p, new Expr.EQ(get_flag('SF'), get_flag('OF')));
+    return _common_jcc(p, new Expr.EQ(Flag('SF'), Flag('OF')));
 };
 
 var _jle = function(p) {
-    return _common_jcc(p, new Expr.BoolOr(get_flag('ZF'), new Expr.NE(get_flag('SF'), get_flag('OF'))));
+    return _common_jcc(p, new Expr.BoolOr(Flag('ZF'), new Expr.NE(Flag('SF'), Flag('OF'))));
 };
 
 var _jns = function(p) {
-    return _common_jcc(p, new Expr.BoolNot(get_flag('SF')));
+    return _common_jcc(p, new Expr.BoolNot(Flag('SF')));
 };
 
 var _jno = function(p) {
-    return _common_jcc(p, new Expr.BoolNot(get_flag('OF')));
+    return _common_jcc(p, new Expr.BoolNot(Flag('OF')));
 };
 
 var _cmova = function(p) {
-    return _common_cmov(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.BoolNot(get_flag('CF'))));
+    return _common_cmov(p, new Expr.BoolAnd(new Expr.BoolNot(Flag('ZF')), new Expr.BoolNot(Flag('CF'))));
 };
 
 var _cmovae = function(p) {
-    return _common_cmov(p, new Expr.BoolNot(get_flag('CF')));
+    return _common_cmov(p, new Expr.BoolNot(Flag('CF')));
 };
 
 var _cmovb = function(p) {
-    return _common_cmov(p, get_flag('CF'));
+    return _common_cmov(p, Flag('CF'));
 };
 
 var _cmovbe = function(p) {
-    return _common_cmov(p, new Expr.BoolOr(get_flag('ZF'), get_flag('CF')));
+    return _common_cmov(p, new Expr.BoolOr(Flag('ZF'), Flag('CF')));
 };
 
 var _cmovg = function(p) {
-    return _common_cmov(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.EQ(get_flag('SF'), get_flag('OF'))));
+    return _common_cmov(p, new Expr.BoolAnd(new Expr.BoolNot(Flag('ZF')), new Expr.EQ(Flag('SF'), Flag('OF'))));
 };
 
 var _cmovge = function(p) {
-    return _common_cmov(p, new Expr.EQ(get_flag('SF'), get_flag('OF')));
+    return _common_cmov(p, new Expr.EQ(Flag('SF'), Flag('OF')));
 };
 
 var _cmovl = function(p) {
-    return _common_cmov(p, new Expr.NE(get_flag('SF'), get_flag('OF')));
+    return _common_cmov(p, new Expr.NE(Flag('SF'), Flag('OF')));
 };
 
 var _cmovle = function(p) {
-    return _common_cmov(p, new Expr.BoolOr(get_flag('ZF'), new Expr.NE(get_flag('SF'), get_flag('OF'))));
+    return _common_cmov(p, new Expr.BoolOr(Flag('ZF'), new Expr.NE(Flag('SF'), Flag('OF'))));
 };
 
 var _cmove = function(p) {
-    return _common_cmov(p, get_flag('ZF'));
+    return _common_cmov(p, Flag('ZF'));
 };
 
 var _cmovne = function(p) {
-    return _common_cmov(p, new Expr.BoolNot(get_flag('ZF')));
+    return _common_cmov(p, new Expr.BoolNot(Flag('ZF')));
 };
 
 var _seta = function(p) {
-    return _common_setcc(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.BoolNot(get_flag('CF'))));
+    return _common_setcc(p, new Expr.BoolAnd(new Expr.BoolNot(Flag('ZF')), new Expr.BoolNot(Flag('CF'))));
 };
 
 var _setae = function(p) {
-    return _common_setcc(p, new Expr.BoolNot(get_flag('CF')));
+    return _common_setcc(p, new Expr.BoolNot(Flag('CF')));
 };
 
 var _setb = function(p) {
-    return _common_setcc(p, get_flag('CF'));
+    return _common_setcc(p, Flag('CF'));
 };
 
 var _setbe = function(p) {
-    return _common_setcc(p, new Expr.BoolOr(get_flag('ZF'), get_flag('CF')));
+    return _common_setcc(p, new Expr.BoolOr(Flag('ZF'), Flag('CF')));
 };
 
 var _setg = function(p) {
-    return _common_setcc(p, new Expr.BoolAnd(new Expr.BoolNot(get_flag('ZF')), new Expr.EQ(get_flag('SF'), get_flag('OF'))));
+    return _common_setcc(p, new Expr.BoolAnd(new Expr.BoolNot(Flag('ZF')), new Expr.EQ(Flag('SF'), Flag('OF'))));
 };
 
 var _setge = function(p) {
-    return _common_setcc(p, new Expr.EQ(get_flag('SF'), get_flag('OF')));
+    return _common_setcc(p, new Expr.EQ(Flag('SF'), Flag('OF')));
 };
 
 var _setl = function(p) {
-    return _common_setcc(p, new Expr.NE(get_flag('SF'), get_flag('OF')));
+    return _common_setcc(p, new Expr.NE(Flag('SF'), Flag('OF')));
 };
 
 var _setle = function(p) {
-    return _common_setcc(p, new Expr.BoolOr(get_flag('ZF'), new Expr.NE(get_flag('SF'), get_flag('OF'))));
+    return _common_setcc(p, new Expr.BoolOr(Flag('ZF'), new Expr.NE(Flag('SF'), Flag('OF'))));
 };
 
 var _sete = function(p) {
-    return _common_setcc(p, get_flag('ZF'));
+    return _common_setcc(p, Flag('ZF'));
 };
 
 var _setne = function(p) {
-    return _common_setcc(p, new Expr.BoolNot(get_flag('ZF')));
+    return _common_setcc(p, new Expr.BoolNot(Flag('ZF')));
 };
 
 var _clc = function(p) {

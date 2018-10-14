@@ -293,13 +293,13 @@ module.exports = (function() {
             do {
                 modified = false;
 
-                stmt.expressions.forEach(function(e) {
-                    e.iter_operands().forEach(function(o) {
-                        _rules.forEach(function(r) {
-                            var new_expr = r(o);
+                stmt.expressions.forEach(function(expr) {
+                    expr.iter_operands().forEach(function(op) {
+                        _rules.forEach(function(rule) {
+                            var alt = rule(op);
 
-                            if (new_expr) {
-                                o.replace(new_expr);
+                            if (alt) {
+                                op.replace(alt);
                             }
                         });
                     });
