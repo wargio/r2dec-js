@@ -18,6 +18,14 @@
 module.exports = (function() {
     var _JSON = require('libdec/json64');
 
+    function r2custom(value, regex, function_fix) {
+        var x = r2cmd(value);
+        if (regex) {
+            x = x.replace(regex, '');
+        }
+        return function_fix ? function_fix(x.trim()) : x.trim();
+    }
+
     function r2str(value, multiline) {
         var x = r2cmd(value);
         if (multiline) {
@@ -56,6 +64,18 @@ module.exports = (function() {
         } else {
             r2cmd('e ' + evar + ' = ' + oldstatus);
         }
+    }
+
+    function merge_arrays(input) {
+        input = input.split('\n').map(function(x){
+            return x.length > 2 ? x.trim().substr(1, x.length).substr(0, x.length - 2) : '';
+        });
+        var array = '[' + input.filter(Boolean).join(',') + ']';
+        return array;
+    }
+
+    function merge_arrays_json(input) {
+        return _JSON.parse(merge_arrays(input));
     }
 
     var padding = '            ';
@@ -102,6 +122,7 @@ module.exports = (function() {
         var farguments = r2_sanitize(r2str('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
         var arch = r2_sanitize(r2str('e asm.arch'), '');
         var archbits = r2_sanitize(r2str('e asm.bits'), '32');
+        var database = r2_sanitize(r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays), '[]');
         console.log('{"name":"issue_' + (new Date()).getTime() +
             '","arch":"' + arch +
             '","archbits":' + archbits +
@@ -109,9 +130,9 @@ module.exports = (function() {
             ',"isj":' + xrefs +
             ',"izj":' + strings +
             ',"afvj":' + farguments +
+            ',"afcfj":' + database +
             ',"aflj":' + functions + '}');
     }
-
     var r2util = {
         check_args: function(args) {
             if (has_invalid_args(args)) {
@@ -169,7 +190,8 @@ module.exports = (function() {
                         "bp": [],
                         "reg": []
                     }
-                }
+                },
+                argdb: o.afcfj
             };
         },
         evars: function(args) {
@@ -208,6 +230,7 @@ module.exports = (function() {
                 })
             };
             this.graph = r2json('agj', []);
+            this.argdb = r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays_json);
         },
         sanitize: function(enable, evars) {
             var s = evars.sanitize;
@@ -229,6 +252,5 @@ module.exports = (function() {
             }
         }
     };
-
     return r2util;
 })();
