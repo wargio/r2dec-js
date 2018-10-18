@@ -24,6 +24,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+var JSON = require('libdec/json64');
+var Decoder = require('core2/frontend/decoder');
+var SSA = require('core2/analysis/ssa');
+var Stmt = require('core2/analysis/ir/statements');
+var Graph = require('core2/analysis/graph');
+var ControlFlow = require('core2/analysis/controlflow');
+var CodeGen = require('core2/backend/codegen');
+
 /**
  * Global data accessible from everywhere.
  * @type {Object}
@@ -32,59 +40,143 @@ var Global = {
     context: null,
     evars: null,
     printer: null,
-    argdb: null,
     warning: require('libdec/warning')
 };
 
+// ES6 version:
+//
+// var r2cmdj = function(...args) {
+//     var output = r2cmd(args.join(' ')).trim();
+//
+//     return output ? JSON.parse(output) : undefined;
+// };
 
 /**
- * Imports.
+ * Pipes a command to r2 and returns its output as a parsed JSON object
  */
-var libdec = require('libdec/libdec');
-var r2util = require('libdec/r2util');
+var r2cmdj = function() {
+    var output = r2cmd(Array.prototype.slice.call(arguments).join(' ')).trim();
 
-/**
- * r2dec main function.
- * @param  {Array} args - r2dec arguments to be used to configure the output.
- */
+    return output ? JSON.parse(output) : undefined;
+};
+
+/** Javascript entrypoint */
 function r2dec_main(args) {
-    var Printer = require('libdec/printer');
+
+    /**
+     * Proposed decompiler workflow:
+     *  Read function's basic blocks structure into a graph
+     *      Graph analysis needed for SSA: post-domination tree, dominance frontier
+     *  Read function's instructions, decode and lift them to internal representation (IR)
+     *      IR is composed of expressions and statements, where:
+     *          An expression may enclose zero or more operands, which are just other expressions
+     *          A statement may enclose zero or more expression; usually it is just one expression
+     *          Statements are grouped in a Container that represents a logical block [e.g. a loop body]
+     *      Each instruction is lifted to a list of zero or more expressions or statements
+     *          Some of the expressions and statements may be architecture-specific
+     *      Each expression is wrapped by a statement for simplicity
+     *      Each indevidual statement goes through simplification / relaxation routines
+     *          Architecture-specific statements may go through additional simplification routines set, dedicated to arch
+     *  IR is tagged by SSA to enable context-aware optimizations
+     *  IR goes through several optimization routines repeatedly until it cannot be optimized any further
+     *      Constant propagation and elimination
+     *      Common subexpression elimination
+     *      Dead code elimination
+     *  Resolve and propagate r2 flags [variables, names, labels, strings, ...]
+     *  Propagate types to help code generator get expressions in the right context [integers, chars, arrays, structures fields ... ]
+     *  Build control flow [conditions and loops] out of funcion's statements; containers might be coalesced
+     *  Generate and output C code
+     *      [(!) currently not sure whether codegen should decide how to emit the code, or get of exprs to emit their own toString]
+     */
+
     try {
-        Global.evars = new r2util.evars(args);
-        r2util.sanitize(true, Global.evars);
-        if (r2util.check_args(args)) {
-            r2util.sanitize(false, Global.evars);
-            return;
-        }
+        var iIj = r2cmdj('iIj');
 
-        // theme (requires to be initialized after evars)
-        Global.printer = new Printer();
+        if (Decoder.has(iIj.arch))
+        {
+            var afbj = r2cmdj('afbj');
 
-        var architecture = libdec.archs[Global.evars.arch];
+            if (afbj) {
+                var decoder = new Decoder(iIj);
 
-        if (architecture) {
-            var data = new r2util.data();
-            Global.context = new libdec.context();
-            Global.argdb = data.argdb;
-            // af seems to break renaming.
-            /* asm.pseudo breaks things.. */
-            if (data.graph && data.graph.length > 0) {
-                var p = new libdec.core.session(data, architecture);
-                var arch_context = architecture.context(data);
-                libdec.core.analysis.pre(p, architecture, arch_context);
-                libdec.core.decompile(p, architecture, arch_context);
-                libdec.core.analysis.post(p, architecture, arch_context);
-                libdec.core.print(p);
+                var nodes = []; // graph nodes: a graph node represents a function basic block
+                var edges = []; // graph edges: a graph edge represents a jump, branch or fall-through
+                var stmts = []; // basic block's contents: each entry contains a list of statements
+
+                // read function's basic blocks
+                afbj.forEach(function(bb) {
+                    var aoj = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
+
+                    nodes.push(bb.addr);
+
+                    // 'jump' stands for unconditional jump destination, or conditional 'taken' destination
+                    if (bb.jump) {
+                        edges.push([bb.addr, bb.jump]);
+                    }
+
+                    // 'fail' stands for block fall-through, or conditional 'not-taken' destination
+                    if (bb.fail) {
+                        edges.push([bb.addr, bb.fail]);
+                    }
+
+                    // generate statements for current basic block
+                    stmts.push(decoder.transform_ir(aoj));
+                });
+
+                // set up graph
+                var graph = new Graph();
+
+                nodes.forEach(function(n) {
+                    graph.addNode(n);
+                });
+
+                edges.forEach(function(e) {
+                    graph.addEdge(e[0], e[1]);
+                });
+
+                graph.setRoot(nodes[0]);
+
+                // console.log('[ssa tagging]');
+                // var tagger = new SSA.tagger(blocks[0]);
+                // tagger.tag_regs();
+
+                console.log('[result]');
+                var afij = r2cmdj('afij').pop();
+
+                // TODO: a temporary representation of decompiled function
+                var func = {
+                    rettype: 'void',    // TODO: get actual function return type
+                    name:    afij.name,
+                    bpvars:  afij.bpvars,
+                    spvars:  afij.spvars,
+                    regvars: afij.regvars,
+
+                    entry_block: undefined,
+                    blocks: {}
+                };
+
+                for (var i = 0; i < nodes.length; i++) {
+                    var key = nodes[i];
+
+                    func.blocks[key] = {
+                        node: graph.getNode(key),
+                        container: new Stmt.Container(key, stmts[i])
+                    };
+                }
+
+                func.entry_block = func.blocks[graph.root.key];
+
+                // ControlFlow.run(func);
+
+                // console.log(new CodeGen(func).emit());
             } else {
-                console.log('Error: no data available.\nPlease analyze the function/binary first.');
+                console.log('error: no data available; analyze the function / binary first');
             }
         } else {
-            console.log(Global.evars.arch + ' is not currently supported.\n' +
-                'Please open an enhancement issue at https://github.com/wargio/r2dec-js/issues');
-            libdec.supported();
+            console.log('unsupported architecture "' + iIj.arch + '"');
         }
-        r2util.sanitize(false, Global.evars);
     } catch (e) {
-        r2util.debug(Global.evars, e);
+        console.log('\ndecompiler has crashed ¯\\_(ツ)_/¯');
+        console.log('exception:', e.stack);
     }
 }
