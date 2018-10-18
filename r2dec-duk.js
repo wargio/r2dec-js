@@ -168,7 +168,7 @@ function r2dec_main(args) {
 
                 // ControlFlow.run(func);
 
-                // console.log(new CodeGen(func).emit());
+                console.log(new CodeGen(func).emit());
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }
