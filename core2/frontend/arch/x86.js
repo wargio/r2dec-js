@@ -417,7 +417,7 @@ var _common_uop = function(p, op) {
     var expr = get_operand_expr(p.operands[0]);
 
     // expr = op expr
-    return [new Expr.Assign(expr.clone(), new op(expr, expr))];
+    return [new Expr.Assign(expr.clone(), new op(expr))];
 };
 
 /** common handler for binary operators */
