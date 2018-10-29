@@ -18,6 +18,7 @@
 module.exports = (function() {
     const Stmt = require('core2/analysis/ir/statements');
     var Simplify = require('core2/analysis/ir/simplify');
+    var Logger = require('core2/logger');
 
     /** available architectures */
     var _archs = {
@@ -58,12 +59,12 @@ module.exports = (function() {
             var decoded = this.arch.r2decode(item);
             var handler = this.arch.instructions[decoded.mnemonic] || this.arch.invalid;
 
-            console.log(item.opcode);
+            Logger.debug(item.opcode);
             handler(decoded).forEach(function(expr) {
                 var stmt = Stmt.make_statement(decoded.address, expr);
 
                 Simplify.run(stmt);
-                console.log('|  ' + stmt.toString());
+                Logger.debug('|  ' + stmt.toString());
 
                 ir.push(stmt);
             });

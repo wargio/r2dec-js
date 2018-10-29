@@ -113,8 +113,7 @@ module.exports = (function() {
      */
     function Goto(addr, dst) {
         Statement.call(this, addr, [dst]);
-
-        this.dest = dst;
+        this.taken = dst;
     }
 
     Goto.prototype = Object.create(Statement.prototype);
@@ -124,7 +123,7 @@ module.exports = (function() {
     Goto.prototype.toString = function() {
         var repr = [
             this.constructor.name,
-            this.dest.toString()
+            this.taken.toString()
         ].join(' ');
 
         return '[' + repr + ']';
@@ -385,7 +384,8 @@ module.exports = (function() {
     Container.prototype.toString = function() {
         var repr = [
             this.constructor.name,
-            this.address.toString(16)
+            '0x' + this.address.toString(16),
+            this.next != null
         ].join(' ');
 
         return '[' + repr + ']';

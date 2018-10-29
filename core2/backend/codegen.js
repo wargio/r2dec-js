@@ -1,5 +1,5 @@
-
 module.exports = (function() {
+    var Logger = require('core2/logger');
     var Expr = require('core2/analysis/ir/expressions');
     var Stmt = require('core2/analysis/ir/statements');
 
@@ -41,11 +41,11 @@ module.exports = (function() {
             }
             this._emit_token(')');
             this._emit_whitespace('\n');
-            
+
             var block = func.entry_block;
             while (block) {
+                console.log(block.container)
                 this._emit_scope(block.container, 0);
-
                 block = this.func.blocks[block.container.next];
             }
 
@@ -133,8 +133,10 @@ module.exports = (function() {
             var p = this._pad(depth);
             this._emit_whitespace(p);
 
-            // TODO: for debug purposes; remove this
-            this._emit_token('0x' + stmt.addr.toString(16) + ' : ');
+            if (Logger.is(Logger.DEBUGGER)) {
+                // TODO: for debug purposes; remove this
+                this._emit_token('0x' + stmt.addr.toString(16) + ' : ');
+            }
 
             if (stmt instanceof Stmt.Branch) {
                 // a Branch is meant to be replaced by an 'If'

@@ -31,6 +31,9 @@ var Stmt = require('core2/analysis/ir/statements');
 var Graph = require('core2/analysis/graph');
 var ControlFlow = require('core2/analysis/controlflow');
 var CodeGen = require('core2/backend/codegen');
+var Logger = require('core2/logger');
+
+Logger.set(Logger.DEBUGGER);
 
 /**
  * Global data accessible from everywhere.
@@ -97,8 +100,8 @@ function r2dec_main(args) {
             var afbj = r2cmdj('afbj');
 
             if (afbj) {
+                Logger.info('\n\n[decoder]');
                 var decoder = new Decoder(iIj);
-
                 var nodes = []; // graph nodes: a graph node represents a function basic block
                 var edges = []; // graph edges: a graph edge represents a jump, branch or fall-through
                 var stmts = []; // basic block's contents: each entry contains a list of statements
@@ -140,7 +143,7 @@ function r2dec_main(args) {
                 // var tagger = new SSA.tagger(blocks[0]);
                 // tagger.tag_regs();
 
-                console.log('[result]');
+                Logger.info('\n\n[controlflow]');
                 var afij = r2cmdj('afij').pop();
 
                 // TODO: a temporary representation of decompiled function
@@ -166,8 +169,9 @@ function r2dec_main(args) {
 
                 func.entry_block = func.blocks[graph.root.key];
 
-                // ControlFlow.run(func);
+                ControlFlow.run(func);
 
+                Logger.info('\n\n[result]');
                 console.log(new CodeGen(func).emit());
             } else {
                 console.log('error: no data available; analyze the function / binary first');

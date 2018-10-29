@@ -76,7 +76,7 @@ require.src = {};
         var regex = new RegExp('\\b' + variable + '\\b');
         for (var filename in require.src) {
             var srcx = require.src[filename][line];
-            if (srcx && srcx.match(regex)) {
+            if (srcx && srcx.trim().indexOf('* ') != 0 && srcx.match(regex)) {
                 var funcname = _find_function_name(line, require.src[filename]);
                 return {
                     filename: filename,
@@ -139,3 +139,4 @@ require.src = {};
     };
 
 })();
+

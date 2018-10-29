@@ -396,7 +396,11 @@
 
     /** @override */
     UExpr.prototype.toString = function(opt) {
-        return this.operator + this.operands[0].toString(opt);
+        var p = this.operands[0].toString(opt);
+        if (p.indexOf(' ') > 0) {
+            return this.operator + '(' + p + ')';
+        }
+        return this.operator + p;
     };
 
     // ------------------------------------------------------------
@@ -559,6 +563,7 @@
     function BoolAnd (expr1, expr2) { BExpr.call(this, '&&', expr1, expr2); }
     function BoolOr  (expr1, expr2) { BExpr.call(this, '||', expr1, expr2); }
     function BoolNot (expr) { UExpr.call(this, '!', expr); }
+    function True () { UExpr.call(this, '', '1'); }
 
     BoolAnd.prototype = Object.create(BExpr.prototype);
     BoolOr.prototype  = Object.create(BExpr.prototype);
@@ -567,6 +572,7 @@
     BoolAnd.prototype.constructor = BoolAnd;
     BoolOr.prototype.constructor = BoolOr;
     BoolNot.prototype.constructor = BoolNot;
+    True.prototype.constructor = True;
 
     // comparisons
     function EQ (expr1, expr2) { BExpr.call(this, '==', expr1, expr2); }
@@ -628,6 +634,7 @@
         BoolAnd: BoolAnd,
         BoolOr:  BoolOr,
         BoolNot: BoolNot,
+        True: True,
         Unknown: Asm
     };
 })();
