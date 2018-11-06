@@ -114,6 +114,21 @@ require.src = {};
         return stack;
     };
 
+    var _extract_variable = function(exception) {
+        var variable = exception.message.match(/'([-_\w]+)'/);
+        if (!variable) {
+            lines = exception.stack.split('\n')
+            magic = ':' + exception.lineNumber + ')';
+            for (var i = lines.length - 1; i >= 0; i--) {
+                if (lines[i].indexOf(magic) > 0) {
+                    variable = lines[i - 1].match(/at\s([\w_]+)\s/);
+                    break;
+                }
+            }
+        }
+        return variable;
+    };
+
     /**
      * https://github.com/svaarala/duktape/blob/master/doc/error-objects.rst
      * 
@@ -129,14 +144,14 @@ require.src = {};
                     stack: '' + err.stack,
                     lineNumber: '' + err.lineNumber
                 };
-                exception.stack = _replace_stack_data(exception.message.match(/'([-_\w]+)'/), exception.stack);
+                exception.stack = _replace_stack_data(_extract_variable(exception), exception.stack);
                 return exception;
             }
         } catch (e) {
+            console.log('Duktape.errCreate exception.')
             console.log(e.stack);
         }
         return err;
     };
 
 })();
-
