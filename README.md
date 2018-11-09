@@ -13,8 +13,15 @@ Requires radare2 version 2.9.0 or newer.
 
 Follow the following steps to install r2dec via r2pm
 
+### *nix users (Linux/OSX/etc..):
+
     r2pm init
     r2pm install r2dec
+
+### Windows users only:
+
+ - clone
+ - run `make -C p` from inside the `r2dec` folder
 
 done
 
