@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/wargio/r2dec-js.svg?branch=master)](https://travis-ci.org/wargio/r2dec-js)
+[![Build Status](https://travis-ci.org/wargio/r2dec-js.svg?branch=master)](https://travis-ci.org/wargio/r2dec-js) [![CodeFactor](https://www.codefactor.io/repository/github/wargio/r2dec-js/badge)](https://www.codefactor.io/repository/github/wargio/r2dec-js)
 
 r2dec
 =====
