@@ -117,7 +117,7 @@ require.src = {};
     var _extract_variable = function(exception) {
         var variable = exception.message.match(/'([-_\w]+)'/);
         if (!variable) {
-            lines = exception.stack.split('\n')
+            lines = exception.stack.split('\n');
             magic = ':' + exception.lineNumber + ')';
             for (var i = lines.length - 1; i >= 0; i--) {
                 if (lines[i].indexOf(magic) > 0) {
@@ -148,7 +148,7 @@ require.src = {};
                 return exception;
             }
         } catch (e) {
-            console.log('Duktape.errCreate exception.')
+            console.log('Duktape.errCreate exception.');
             console.log(e.stack);
         }
         return err;
