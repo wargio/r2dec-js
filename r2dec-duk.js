@@ -24,11 +24,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+var Graph = require('core2/analysis/graph');
+
 var JSON = require('libdec/json64');
 var Decoder = require('core2/frontend/decoder');
 var SSA = require('core2/analysis/ssa');
-var Stmt = require('core2/analysis/ir/statements');
-var Graph = require('core2/analysis/graph');
 var ControlFlow = require('core2/analysis/controlflow');
 var CodeGen = require('core2/backend/codegen');
 
@@ -58,6 +58,79 @@ var r2cmdj = function() {
     var output = r2cmd(Array.prototype.slice.call(arguments).join(' ')).trim();
 
     return output ? JSON.parse(output) : undefined;
+};
+
+function Function(afbj) {
+
+    // read and process function's basic blocks
+    this.basic_blocks = afbj.map(function(bb) {
+        return new BasicBlock(this, bb);
+    }, this);
+
+    // the first block provided by r2 is the function's entry block
+    this.entry_block = this.basic_blocks[0];
+
+    // TODO:
+    // name
+    // return_type
+    // calling_conv
+    // args
+}
+
+function BasicBlock(parent, bb) {
+    // parent function object
+    this.parent = parent;
+
+    // block starting address
+    this.address = bb.addr;
+
+    // 'jump' stands for unconditional jump destination, or conditional 'taken' destination; may be undefined
+    // in case the basic block ends with a return statement rather than a goto or branch
+    this.jump = bb.jump;
+
+    // 'fail' stands for block fall-through, or conditional 'not-taken' destination; may be undefined in case
+    // the basic block ends with an unconditional jump or a return statement
+    this.fail = bb.fail;
+
+    // get instructions list
+    this.statements = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
+
+    // retrieve the block's terminating statement; normally this would be either a goto, branch or return statement
+    Object.defineProperty(this, 'terminator', {
+        get: function() {
+            return this.statements[this.statements.length - 1];
+        }
+    });
+}
+
+// this is used to hash basic blocks in arrays and enumerable objects
+BasicBlock.prototype.toString = function() {
+    var repr = [
+        this.constructor.name,
+        this.address.toString(16)
+    ].join(' ');
+
+    return '[' + repr + ']';
+};
+
+var get_cfg = function(func) {
+    var nodes = []; // basic blocks
+    var edges = []; // jumping, branching or falling into another basic block
+
+    func.basic_blocks.forEach(function(bb) {
+        nodes.push(bb.address);
+
+        if (bb.jump) {
+            edges.push([bb.address, bb.jump]);
+        }
+
+        if (bb.fail) {
+            edges.push([bb.address, bb.fail]);
+        }
+    });
+
+    // set up control flow graph
+    return new Graph.Directed(nodes, edges, nodes[0]);
 };
 
 /** Javascript entrypoint */
@@ -90,6 +163,71 @@ function r2dec_main(args) {
      */
 
     try {
+        // <TEST>
+        /*
+        // dfs and dom test
+        var ns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
+        var es = [
+                    ['A', 'B'], ['A', 'C'],
+                    ['B', 'D'], ['B', 'G'],
+                    ['C', 'E'], ['C', 'H'],
+                    ['D', 'F'], ['D', 'G'],
+                    ['E', 'C'], ['E', 'H'],
+                    ['F', 'I'], ['F', 'K'],
+                    ['G', 'J'],
+                    ['H', 'M'],
+                    ['I', 'L'],
+                    ['J', 'I'],
+                    ['K', 'L'],
+                    ['L', 'M'], ['L', 'B']
+                ];
+
+        // // dominanceFrontier test
+        // var ns = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
+        // var es = [
+        //     ['1', '2'], ['1', '5'], ['1', '9'],
+        //     ['2', '3'],
+        //     ['3', '3'], ['3', '4'],
+        //     ['4', '13'],
+        //     ['5', '6'], ['5', '7'],
+        //     ['6', '4'], ['6', '8'],
+        //     ['7', '8'], ['7', '12'],
+        //     ['8', '5'], ['8', '13'],
+        //     ['9', '10'], ['9', '11'],
+        //     ['10', '12'],
+        //     ['11', '12'],
+        //     ['12', '13']
+        // ];
+
+        // var decorate = function(s) { return s + '.'; };
+        // ns = ns.map(decorate);
+        // es = es.map(function(e) { return e.map(decorate); });
+
+        var cfg = new Graph.Directed(ns, es, ns[0]);
+        console.log();
+        console.log('cfg:');
+        console.log(cfg.toString());
+
+        var dfs = new Graph.DFSpanningTree(cfg);
+        console.log();
+        console.log('depth-first spanning tree:');
+        console.log(dfs.toString());
+
+        var dom = new Graph.DominatorTree(cfg);
+        console.log();
+        console.log('dominance tree:');
+        console.log(dom.toString());
+
+        console.log();
+        console.log('dom frontiers:');
+        dom.iterNodes().forEach(function(n) {
+            console.log(n.key, '::', dom.dominanceFrontier(n).map(function(d) { return d.key; }));
+        });
+
+        return;
+        */
+        // </TEST>
+
         var iIj = r2cmdj('iIj');
 
         if (Decoder.has(iIj.arch))
@@ -98,73 +236,19 @@ function r2dec_main(args) {
 
             if (afbj) {
                 var decoder = new Decoder(iIj);
+                var func = new Function(afbj);
 
-                var nodes = []; // graph nodes: a graph node represents a function basic block
-                var edges = []; // graph edges: a graph edge represents a jump, branch or fall-through
-                var stmts = []; // basic block's contents: each entry contains a list of statements
-
-                // read function's basic blocks
-                afbj.forEach(function(bb) {
-                    var aoj = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
-
-                    nodes.push(bb.addr);
-
-                    // 'jump' stands for unconditional jump destination, or conditional 'taken' destination
-                    if (bb.jump) {
-                        edges.push([bb.addr, bb.jump]);
-                    }
-
-                    // 'fail' stands for block fall-through, or conditional 'not-taken' destination
-                    if (bb.fail) {
-                        edges.push([bb.addr, bb.fail]);
-                    }
-
-                    // generate statements for current basic block
-                    stmts.push(decoder.transform_ir(aoj));
+                // transform assembly instructions into internal representation
+                // this is a prerequisit to ssa-based analysis and optimizations
+                func.basic_blocks.forEach(function(bb) {
+                    bb.statements = decoder.transform_ir(bb.statements);
                 });
 
-                // set up graph
-                var graph = new Graph();
+                var cfg = get_cfg(func);
+                console.log('cfg:');
+                console.log(cfg);
 
-                nodes.forEach(function(n) {
-                    graph.addNode(n);
-                });
-
-                edges.forEach(function(e) {
-                    graph.addEdge(e[0], e[1]);
-                });
-
-                graph.setRoot(nodes[0]);
-
-                // console.log('[ssa tagging]');
-                // var tagger = new SSA.tagger(blocks[0]);
-                // tagger.tag_regs();
-
-                console.log('[result]');
-                var afij = r2cmdj('afij').pop();
-
-                // TODO: a temporary representation of decompiled function
-                var func = {
-                    rettype: 'void',    // TODO: get actual function return type
-                    name:    afij.name,
-                    bpvars:  afij.bpvars,
-                    spvars:  afij.spvars,
-                    regvars: afij.regvars,
-
-                    entry_block: undefined,
-                    blocks: {}
-                };
-
-                for (var i = 0; i < nodes.length; i++) {
-                    var key = nodes[i];
-
-                    func.blocks[key] = {
-                        node: graph.getNode(key),
-                        container: new Stmt.Container(key, stmts[i])
-                    };
-                }
-
-                func.entry_block = func.blocks[graph.root.key];
+                SSA.insert_phi_exprs(cfg, func.basic_blocks);
 
                 // ControlFlow.run(func);
 

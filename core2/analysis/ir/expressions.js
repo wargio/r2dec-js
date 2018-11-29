@@ -81,6 +81,24 @@
     //     return (s.indexOf(' ') > (-1) ? parenthesize(s) : s);
     // };
 
+    // returns the unicode subscript representation of a number
+    var subscript = function(n) {
+        var uc_digits = [
+            '\u2080',
+            '\u2081',
+            '\u2082',
+            '\u2083',
+            '\u2084',
+            '\u2085',
+            '\u2086',
+            '\u2087',
+            '\u2088',
+            '\u2089'
+        ];
+
+        return n.toString().split('').map(function(d) { return uc_digits[d - 0]; }).join('');
+    };
+
     // ------------------------------------------------------------
 
     /**
@@ -98,6 +116,9 @@
 
         /** @type {!number} */
         this.size = size || 0;
+
+        /** @type {boolean} */
+        this.is_def = false;
 
         /** @type {number} */
         this.idx = undefined;
@@ -117,7 +138,7 @@
     };
 
     /** @returns {boolean} */
-    Register.prototype.like = function(other) {
+    Register.prototype.equals_no_idx = function(other) {
         return ((other instanceof Register) &&
             (this.name === other.name) &&
             (this.size === other.size));
@@ -125,14 +146,15 @@
 
     /** @returns {!Register} */
     Register.prototype.clone = function() {
-        return Object.create(this);
+        // do not retain source's 'is_def' property when cloning
+        return Object.create(this, { is_def: { value: false, writable: true} });
     };
 
     /** @returns {string} */
     Register.prototype.toString = function(opt) {
-        var subscript = this.idx == undefined ? '' : '.' + this.idx.toString(10);
+        var sub = this.idx === undefined ? '' : subscript(this.idx);
 
-        return this.name.toString() + subscript;
+        return this.name.toString() + sub;
     };
 
     // ------------------------------------------------------------
@@ -343,8 +365,8 @@
      * Phi expression: used for SSA stage, and eliminated afterwards.
      * @constructor
      */
-    function Phi() {
-        Expr.call(this, '\u03a6', Array.from(arguments));
+    function Phi(exprs) {
+        Expr.call(this, '\u03a6', exprs);
     }
 
     Phi.prototype = Object.create(Expr.prototype);
@@ -494,8 +516,24 @@
             ].join(' ');
         }
 
-        // not a speaicl case? use super's toString result
+        // not a special case? use super's toString result
         return Object.getPrototypeOf(Object.getPrototypeOf(this)).toString.call(this, opt);
+    };
+
+    // ------------------------------------------------------------
+
+    // memory dereference
+    function Deref(op) {
+        UExpr.call(this, '*', op);
+    }
+
+    Deref.prototype = Object.create(UExpr.prototype);
+    Deref.prototype.constructor = Deref;
+
+    /** @returns {boolean} */
+    Deref.prototype.equals_no_idx = function(other) {
+        return ((other instanceof Deref) &&
+            (this.operands[0].equals(other.operands[0])));
     };
 
     // ------------------------------------------------------------
@@ -503,17 +541,14 @@
     // unary expressions
     function Not       (op) { UExpr.call(this, '-', op); }
     function Neg       (op) { UExpr.call(this, '~', op); }
-    function Deref     (op) { UExpr.call(this, '*', op); }
     function AddressOf (op) { UExpr.call(this, '&', op); }
 
     Not.prototype       = Object.create(UExpr.prototype);
     Neg.prototype       = Object.create(UExpr.prototype);
-    Deref.prototype     = Object.create(UExpr.prototype);
     AddressOf.prototype = Object.create(UExpr.prototype);
 
     Not.prototype.constructor = Not;
     Neg.prototype.constructor = Neg;
-    Deref.prototype.constructor = Deref;
     AddressOf.prototype.constructor = AddressOf;
 
     // binary expressions
@@ -591,7 +626,7 @@
     LE.prototype.constructor = LE;
 
     return {
-        // abstract base classes: use only to define arch-spoecific exprs
+        // abstract base classes: use only to define arch-specific exprs
         UExpr:  UExpr,
         BExpr:  BExpr,
         TExpr:  TExpr,
@@ -600,34 +635,34 @@
         Phi:    Phi,
 
         // common expressions
-        Reg:    Register,
-        Val:    Value,
-        Deref:  Deref,
-        AddrOf: AddressOf,
-        Not:     Not,
-        Neg:     Neg,
-        Assign: Assign,
-        Add:     Add,
-        Sub:     Sub,
-        Mul:     Mul,
-        Div:     Div,
-        Mod:     Mod,
-        And:     And,
-        Or:      Or,
-        Xor:     Xor,
-        Shl:     Shl,
-        Shr:     Shr,
-        EQ:      EQ,
-        NE:      NE,
-        LT:      LT,
-        GT:      GT,
-        LE:      LE,
-        GE:      GE,
-        Call:    Call,
-        TCond:   TCond,
-        BoolAnd: BoolAnd,
-        BoolOr:  BoolOr,
-        BoolNot: BoolNot,
-        Unknown: Asm
+        Reg:        Register,
+        Val:        Value,
+        Deref:      Deref,
+        AddrOf:     AddressOf,
+        Not:        Not,
+        Neg:        Neg,
+        Assign:     Assign,
+        Add:        Add,
+        Sub:        Sub,
+        Mul:        Mul,
+        Div:        Div,
+        Mod:        Mod,
+        And:        And,
+        Or:         Or,
+        Xor:        Xor,
+        Shl:        Shl,
+        Shr:        Shr,
+        EQ:         EQ,
+        NE:         NE,
+        LT:         LT,
+        GT:         GT,
+        LE:         LE,
+        GE:         GE,
+        Call:       Call,
+        TCond:      TCond,
+        BoolAnd:    BoolAnd,
+        BoolOr:     BoolOr,
+        BoolNot:    BoolNot,
+        Unknown:    Asm
     };
 })();
