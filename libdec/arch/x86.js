@@ -1,4 +1,4 @@
-/* 
+/*
 * Copyright (C) 2017-2018 deroad, elicn
 *
 * This program is free software: you can redistribute it and/or modify
@@ -65,6 +65,10 @@ module.exports = (function() {
      */
     var _is_stack_reg = function(name) {
         return name && _REGEX_STACK_REG.test(name);
+    };
+
+    var _is_xmm = function(op) {
+        return op.token && op.token.startsWith('xmm');
     };
 
     var _REGEX_FRAME_REG = /^[re]?bp$/;
@@ -476,7 +480,7 @@ module.exports = (function() {
             var opd1 = instrs[i].parsed.opd[0];
 
             // a "push" instruction which is not the function's prologue indicates
-            // that it is probably a function's argument 
+            // that it is probably a function's argument
             if ((mnem === 'push') && !_is_frame_reg(opd1.token)) {
                 nargs++;
             } else if (mnem === 'mov' && ((opd1.mem_access && _is_stack_reg(opd1.token)) || _is_stack_based_local_var(opd1.token, context))) {
@@ -1182,7 +1186,17 @@ module.exports = (function() {
             stosq: _string_common,
             movsb: _string_common,
             movsw: _string_common,
-            movsd: _string_common,
+            movsd: function(instr, context) {
+                var p = instr.parsed;
+                var lhand = p.opd[0];
+                var rhand = p.opd[1];
+
+                if (_is_xmm(lhand) || _is_xmm(rhand)) {
+                    return _standard_mov(instr, context);
+                } else {
+                    return _string_common(instr, context);
+                }
+            },
             movsq: _string_common,
 
             // TODO: these ones are not supported since they require an additional condition to break the loop
