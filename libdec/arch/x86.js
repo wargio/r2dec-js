@@ -1,4 +1,4 @@
-/* 
+/*
 * Copyright (C) 2017-2018 deroad, elicn
 *
 * This program is free software: you can redistribute it and/or modify
@@ -480,7 +480,7 @@ module.exports = (function() {
             var opd1 = instrs[i].parsed.opd[0];
 
             // a "push" instruction which is not the function's prologue indicates
-            // that it is probably a function's argument 
+            // that it is probably a function's argument
             if ((mnem === 'push') && !_is_frame_reg(opd1.token)) {
                 nargs++;
             } else if (mnem === 'mov' && ((opd1.mem_access && _is_stack_reg(opd1.token)) || _is_stack_based_local_var(opd1.token, context))) {
