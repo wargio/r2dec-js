@@ -67,6 +67,10 @@ module.exports = (function() {
         return name && _REGEX_STACK_REG.test(name);
     };
 
+    var _is_xmm = function(op) {
+        return op.token && op.token.startsWith('xmm');
+    };
+
     var _REGEX_FRAME_REG = /^[re]?bp$/;
 
     /**
@@ -1182,7 +1186,17 @@ module.exports = (function() {
             stosq: _string_common,
             movsb: _string_common,
             movsw: _string_common,
-            movsd: _string_common,
+            movsd: function(instr, context) {
+                var p = instr.parsed;
+                var lhand = p.opd[0];
+                var rhand = p.opd[1];
+
+                if (_is_xmm(lhand) || _is_xmm(rhand)) {
+                    return _standard_mov(instr, context);
+                } else {
+                    return _string_common(instr, context);
+                }
+            },
             movsq: _string_common,
 
             // TODO: these ones are not supported since they require an additional condition to break the loop
