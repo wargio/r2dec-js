@@ -1000,6 +1000,10 @@ module.exports = (function() {
                 return Base.swap_endian(dst.token, dst.token, _find_bits(dst.token));
             },
             mov: _standard_mov,
+            movd: _standard_mov,
+            movq: _standard_mov,
+            movss: _standard_mov,
+            /* movsd: See below. Conflict with string operator */
             movabs: _standard_mov,
             cbw: function(instr, context) {
                 _has_changed_return('ax', true, context);
