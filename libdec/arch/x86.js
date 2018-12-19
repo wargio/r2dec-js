@@ -1244,10 +1244,10 @@ module.exports = (function() {
                 return _jcc_common(i, c, 'LT');
             },
             js: function(i, c) {
-                return _jcc_common(i, c, 'GE');
+                return _jcc_common(i, c, 'LT');
             },
             jns: function(i, c) {
-                return _jcc_common(i, c, 'LT');
+                return _jcc_common(i, c, 'GE');
             },
             xchg: function(instr, context) {
                 var lhand = instr.parsed.opd[0];
