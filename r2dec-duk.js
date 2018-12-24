@@ -36,12 +36,12 @@ var CodeGen = require('core2/backend/codegen');
  * Global data accessible from everywhere.
  * @type {Object}
  */
-var Global = {
-    context: null,
-    evars: null,
-    printer: null,
-    warning: require('libdec/warning')
-};
+// var Global = {
+//     context: null,
+//     evars: null,
+//     printer: null,
+//     warning: require('libdec/warning')
+// };
 
 // ES6 version:
 //
@@ -60,7 +60,13 @@ var r2cmdj = function() {
     return output ? JSON.parse(output) : undefined;
 };
 
-function Function(afbj) {
+function Function(afij, afbj) {
+    this.name = afij.name;
+    this.calltype = afij.calltype;
+
+    this.args = Array.prototype.concat(afij.bpvars, afij.spvars, afij.regvars).filter(function(v) {
+        return v.kind === 'arg';
+    });
 
     // read and process function's basic blocks
     this.basic_blocks = afbj.map(function(bb) {
@@ -70,12 +76,45 @@ function Function(afbj) {
     // the first block provided by r2 is the function's entry block
     this.entry_block = this.basic_blocks[0];
 
-    // TODO:
-    // name
-    // return_type
-    // calling_conv
-    // args
+    // a dummy statement that holds all variables referenced in function
+    // that were not explicitly initialized beforehand. normally it would
+    // consist of the stack and frame pointers, and function parameters
+    this.uninitialized = null;
+
+    // TODO: return_type
 }
+
+Function.prototype.getBlock = function(address) {
+    for (var i = 0; i < this.basic_blocks.length; i++) {
+        var block = this.basic_blocks[i];
+
+        if (block.address.eq(address)) {
+            return block;
+        }
+    }
+
+    return undefined;
+};
+
+Function.prototype.cfg = function() {
+    var nodes = []; // basic blocks
+    var edges = []; // jumping, branching or falling into another basic block
+
+    this.basic_blocks.forEach(function(bb) {
+        nodes.push(bb.address);
+
+        if (bb.jump) {
+            edges.push([bb.address, bb.jump]);
+        }
+
+        if (bb.fail) {
+            edges.push([bb.address, bb.fail]);
+        }
+    });
+
+    // set up control flow graph
+    return new Graph.Directed(nodes, edges, nodes[0]);
+};
 
 function BasicBlock(parent, bb) {
     // parent function object
@@ -95,7 +134,7 @@ function BasicBlock(parent, bb) {
     // get instructions list
     this.statements = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
 
-    // retrieve the block's terminating statement; normally this would be either a goto, branch or return statement
+    // retrieve the block's last statement; normally this would be either a goto, branch or return statement
     Object.defineProperty(this, 'terminator', {
         get: function() {
             return this.statements[this.statements.length - 1];
@@ -111,26 +150,6 @@ BasicBlock.prototype.toString = function() {
     ].join(' ');
 
     return '[' + repr + ']';
-};
-
-var get_cfg = function(func) {
-    var nodes = []; // basic blocks
-    var edges = []; // jumping, branching or falling into another basic block
-
-    func.basic_blocks.forEach(function(bb) {
-        nodes.push(bb.address);
-
-        if (bb.jump) {
-            edges.push([bb.address, bb.jump]);
-        }
-
-        if (bb.fail) {
-            edges.push([bb.address, bb.fail]);
-        }
-    });
-
-    // set up control flow graph
-    return new Graph.Directed(nodes, edges, nodes[0]);
 };
 
 /** Javascript entrypoint */
@@ -166,23 +185,23 @@ function r2dec_main(args) {
         // <TEST>
         /*
         // dfs and dom test
-        var ns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
-        var es = [
-                    ['A', 'B'], ['A', 'C'],
-                    ['B', 'D'], ['B', 'G'],
-                    ['C', 'E'], ['C', 'H'],
-                    ['D', 'F'], ['D', 'G'],
-                    ['E', 'C'], ['E', 'H'],
-                    ['F', 'I'], ['F', 'K'],
-                    ['G', 'J'],
-                    ['H', 'M'],
-                    ['I', 'L'],
-                    ['J', 'I'],
-                    ['K', 'L'],
-                    ['L', 'M'], ['L', 'B']
-                ];
+        // var ns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
+        // var es = [
+        //             ['A', 'B'], ['A', 'C'],
+        //             ['B', 'D'], ['B', 'G'],
+        //             ['C', 'E'], ['C', 'H'],
+        //             ['D', 'F'], ['D', 'G'],
+        //             ['E', 'C'], ['E', 'H'],
+        //             ['F', 'I'], ['F', 'K'],
+        //             ['G', 'J'],
+        //             ['H', 'M'],
+        //             ['I', 'L'],
+        //             ['J', 'I'],
+        //             ['K', 'L'],
+        //             ['L', 'M'], ['L', 'B']
+        //         ];
 
-        // // dominanceFrontier test
+        // // dominanceFrontier test 1
         // var ns = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
         // var es = [
         //     ['1', '2'], ['1', '5'], ['1', '9'],
@@ -199,9 +218,9 @@ function r2dec_main(args) {
         //     ['12', '13']
         // ];
 
-        // var decorate = function(s) { return s + '.'; };
-        // ns = ns.map(decorate);
-        // es = es.map(function(e) { return e.map(decorate); });
+        var decorate = function(s) { return s + '.'; };
+        ns = ns.map(decorate);
+        es = es.map(function(e) { return e.map(decorate); });
 
         var cfg = new Graph.Directed(ns, es, ns[0]);
         console.log();
@@ -232,27 +251,32 @@ function r2dec_main(args) {
 
         if (Decoder.has(iIj.arch))
         {
+            var afij = r2cmdj('afij');
             var afbj = r2cmdj('afbj');
 
-            if (afbj) {
+            if (afij && afbj) {
                 var decoder = new Decoder(iIj);
-                var func = new Function(afbj);
+                var func = new Function(afij.pop(), afbj);
 
                 // transform assembly instructions into internal representation
                 // this is a prerequisit to ssa-based analysis and optimizations
                 func.basic_blocks.forEach(function(bb) {
                     bb.statements = decoder.transform_ir(bb.statements);
+
+                    // TODO: this is a workaround until we work with Containers
+                    // <WORKAROUND>
+                    bb.statements.forEach(function(s) {
+                        s.container = bb;
+                    });
+                    // </WORKAROUND>
                 });
 
-                var cfg = get_cfg(func);
-                console.log('cfg:');
-                console.log(cfg);
-
-                SSA.insert_phi_exprs(cfg, func.basic_blocks);
+                var ssa = new SSA(func);
+                var defs = ssa.rename_variables();
 
                 // ControlFlow.run(func);
 
-                // console.log(new CodeGen(func).emit());
+                console.log(new CodeGen(func).emit());
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }

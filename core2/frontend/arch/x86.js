@@ -32,24 +32,28 @@ function x86(nbits, btype, endianess) {
     /** @type {string} */
     this.endianess = endianess;
 
+    /** @type {string} */
     this.FRAME_REG = {
         16: 'bp',
         32: 'ebp',
         64: 'rbp'
     }[nbits];
 
+    /** @type {string} */
     this.RESULT_REG = {
         16: 'ax',
         32: 'eax',
         64: 'rax'
     }[nbits];
 
+    /** @type {string} */
     this.STACK_REG = {
         16: 'sp',
         32: 'esp',
         64: 'rsp'
     }[nbits];
 
+    /** @type {string} */
     this.FLAGS_REG = {
         16: 'flags',
         32: 'eflags',
@@ -157,7 +161,7 @@ function x86(nbits, btype, endianess) {
  * @returns {Expr.Reg}
  */
 x86.prototype.get_frame_reg = function() {
-    return new Expr.Reg(this.FRAME_REG, this.asize);
+    return new Expr.Reg(this.FRAME_REG, this.asize * 8);
 };
 
 /**
@@ -165,7 +169,7 @@ x86.prototype.get_frame_reg = function() {
  * @returns {Expr.Reg}
  */
 x86.prototype.get_result_reg = function() {
-    return new Expr.Reg(this.RESULT_REG, this.asize);
+    return new Expr.Reg(this.RESULT_REG, this.asize * 8);
 };
 
 /**
@@ -173,7 +177,7 @@ x86.prototype.get_result_reg = function() {
  * @returns {Expr.Reg}
  */
 x86.prototype.get_stack_reg = function() {
-    return new Expr.Reg(this.STACK_REG, this.asize);
+    return new Expr.Reg(this.STACK_REG, this.asize * 8);
 };
 
 /**
@@ -181,7 +185,7 @@ x86.prototype.get_stack_reg = function() {
  * @returns {Expr.Reg}
  */
 x86.prototype.get_flags_reg = function() {
-    return new Expr.Reg(this.FLAGS_REG, this.asize);
+    return new Expr.Reg(this.FLAGS_REG, this.asize * 8);
 };
 
 /**
@@ -266,10 +270,11 @@ var set_flag = function(f, bval) {
 };
 
 x86.prototype.eval_flags = function(expr, flist) {
-    var e = [new Expr.Assign(this.get_flags_reg(), expr.clone())];
+    var flreg = this.get_flags_reg();
+    var e = [new Expr.Assign(flreg, expr.clone())];
 
     return e.concat(flist.map(function(f) {
-        return new Expr.Assign(Flag(f), FlagOp(f, expr.clone()));
+        return new Expr.Assign(Flag(f), FlagOp(f, flreg.clone()));
     }));
 };
 
@@ -286,42 +291,23 @@ const INSN_PREFIX = {
     PREF_LOCK:  8
 };
 
-/**
- * List of possible operand types.
- * @enum {string}
- * @readonly
- */
-const OP_TYPE = {
-    REG: 'reg',
-    IMM: 'imm',
-    MEM: 'mem'
-};
-
-/**
- * List of possible operand access types.
- * @enum {number}
- * @readonly
- */
-const OP_ACCESS = {
-    NONE:  0,
-    READ:  1,
-    WRITE: 2
-};
-
 x86.prototype.r2decode = function(aoj) {
     var process_ops = function(op) {
 
-        // if `n` was meant to be a numeric value, convert it to number
+        // r2cmd creates Long objects for all numeric values it finds. though it is required
+        // for the assembly listing, it is not required for its metadata. to make things
+        // simpler and lighter, we prefer to convert all meatadata Long objects back to
+        // primitive numeric values.
         var toInt = function(n) {
             return n && n.__isLong__ ? parseInt(n) : n;
         };
 
         return {
             /**
-             * Operand size in bytes
+             * Operand size in bits
              * @type {number}
              */
-            size: toInt(op.size),
+            size: toInt(op.size) * 8,
 
             /**
              * Access type to operand: either read, write or none
@@ -364,20 +350,23 @@ x86.prototype.r2decode = function(aoj) {
     return parsed;
 };
 
-/** @inner */
+/**
+ * Analyze a textual assembly operand and create a matching IR expression for it.
+ * @inner
+ */
 var get_operand_expr = function(op) {
     var expr;
 
     switch (op.type) {
-    case OP_TYPE.REG:
+    case 'reg':
         expr = new Expr.Reg(op.value, op.size);
         break;
 
-    case OP_TYPE.IMM:
+    case 'imm':
         expr = new Expr.Val(op.value, op.size);
         break;
 
-    case OP_TYPE.MEM:
+    case 'mem':
         var base = op.mem.base && new Expr.Reg(op.mem.base, op.size);
         var index = op.mem.index && new Expr.Reg(op.mem.index, op.size);
         var scale = op.mem.scale && new Expr.Val(op.mem.scale, op.size);
@@ -436,11 +425,11 @@ var _common_bitwise = function(p, op) {
     var op_expr = new op(lexpr, rexpr);
 
     // lexpr = lexpr op rexpr
-    return [
-        new Expr.Assign(lexpr.clone(), op_expr),
+    return this.eval_flags(op_expr, ['PF', 'ZF', 'SF']).concat([
         set_flag('CF', 0),
-        set_flag('OF', 0)
-    ].concat(this.eval_flags(op_expr, ['PF', 'ZF', 'SF']));
+        set_flag('OF', 0),
+        new Expr.Assign(lexpr.clone(), op_expr)
+    ]);
 };
 
 /** common handler for conditional jumps */
@@ -490,9 +479,9 @@ var _add = function(p) {
     var op = new Expr.Add(lexpr, rexpr);
 
     // lexpr = lexpr + rexpr
-    return [
+    return this.eval_flags(op, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']).concat([
         new Expr.Assign(lexpr.clone(), op)
-    ].concat(this.eval_flags(op, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']));
+    ]);
 };
 
 var _sub = function(p) {
@@ -502,9 +491,9 @@ var _sub = function(p) {
     var op = new Expr.Sub(lexpr, rexpr);
 
     // lexpr = lexpr - rexpr
-    return [
+    return this.eval_flags(op, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']).concat([
         new Expr.Assign(lexpr.clone(), op)
-    ].concat(this.eval_flags(op, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']));
+    ]);
 };
 
 var _div = function(p) {
@@ -582,9 +571,9 @@ var _inc = function(p) {
     var op = new Expr.Add(lexpr, one);
 
     // lexpr = lexpr + 1
-    return [
+    return this.eval_flags(op, ['PF', 'AF', 'ZF', 'SF', 'OF']).concat([
         new Expr.Assign(lexpr.clone(), op)
-    ].concat(this.eval_flags(op, ['PF', 'AF', 'ZF', 'SF', 'OF']));
+    ]);
 };
 
 var _dec = function(p) {
@@ -594,32 +583,34 @@ var _dec = function(p) {
     var op = new Expr.Sub(lexpr, one);
 
     // lexpr = lexpr - 1
-    return [
+    return this.eval_flags(op, ['PF', 'AF', 'ZF', 'SF', 'OF']).concat([
         new Expr.Assign(lexpr.clone(), op)
-    ].concat(this.eval_flags(op, ['PF', 'AF', 'ZF', 'SF', 'OF']));
+    ]);
 };
 
 var _push = function(p) {
     var expr = get_operand_expr(p.operands[0]);
     var sreg = this.get_stack_reg();
+    var asize = new Expr.Val(this.asize, this.asize * 8);
 
     // *rsp = expr
     // rsp = rsp - asize
     return [
-        new Expr.Assign(new Expr.Deref(sreg, this.asize), expr),
-        new Expr.Assign(sreg.clone(), new Expr.Sub(sreg.clone(), new Expr.Val(this.asize, this.asize)))
+        new Expr.Assign(new Expr.Deref(sreg, this.asize * 8), expr),
+        new Expr.Assign(sreg.clone(), new Expr.Sub(sreg.clone(), asize))
     ];
 };
 
 var _pop = function(p) {
     var expr = get_operand_expr(p.operands[0]);
     var sreg = this.get_stack_reg();
+    var asize = new Expr.Val(this.asize, this.asize * 8);
 
     // rsp = rsp + asize
     // expr = *rsp
     return [
-        new Expr.Assign(sreg, new Expr.Add(sreg.clone(), new Expr.Val(this.asize, this.asize))),
-        new Expr.Assign(expr, new Expr.Deref(sreg.clone(), this.asize))
+        new Expr.Assign(sreg, new Expr.Add(sreg.clone(), asize)),
+        new Expr.Assign(expr, new Expr.Deref(sreg.clone(), this.asize * 8))
     ];
 };
 
@@ -644,8 +635,8 @@ var _leave = function(p) {
     // rbp = *rsp
     return [
         new Expr.Assign(sreg, freg),
-        new Expr.Assign(sreg.clone(), new Expr.Add(sreg.clone(), new Expr.Val(this.asize, this.asize))),
-        new Expr.Assign(freg.clone(), new Expr.Deref(sreg.clone(), this.asize))
+        new Expr.Assign(sreg.clone(), new Expr.Add(sreg.clone(), new Expr.Val(this.asize, this.asize * 8))),
+        new Expr.Assign(freg.clone(), new Expr.Deref(sreg.clone(), this.asize * 8))
     ];
 };
 
@@ -689,10 +680,10 @@ var _test = function(p) {
     var lhand = get_operand_expr(p.operands[0]);
     var rhand = get_operand_expr(p.operands[1]);
 
-    return [
+    return this.eval_flags(new Expr.And(lhand, rhand), ['PF', 'ZF', 'SF']).concat([
         set_flag('CF', 0),
         set_flag('OF', 0)
-    ].concat(this.eval_flags(new Expr.And(lhand, rhand), ['PF', 'ZF', 'SF']));
+    ]);
 };
 
 var _jmp = function(p) {
@@ -877,14 +868,14 @@ var _popcnt = function(p) {
         64: '__builtin_popcountll'
     }[rhand.size];
 
-    return [
-        new Expr.Assign(lhand, new Expr.Call(bifunc, [rhand])),
+    return this.eval_flags(rhand, ['ZF']).concat([
         set_flag('PF', 0),
         set_flag('CF', 0),
         set_flag('AF', 0),
         set_flag('SF', 0),
-        set_flag('OF', 0)
-    ].concat(this.eval_flags(rhand, ['ZF']));
+        set_flag('OF', 0),
+        new Expr.Assign(lhand, new Expr.Call(bifunc, [rhand]))
+    ]);
 };
 
 var _hlt = function(p) {

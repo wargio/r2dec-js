@@ -18,6 +18,31 @@
 module.exports = (function() {
     const Expr = require('core2/analysis/ir/expressions');
 
+    var _constant_folding = function(expr) {
+        if (expr instanceof Expr.BExpr) {
+            var lhand = expr.operands[0];
+            var rhand = expr.operands[1];
+
+            // TODO: what happens when either one of them is a Long object?
+            if ((lhand instanceof Expr.Val) && (rhand instanceof Expr.Val)) {
+                var op = {
+                    'Add': function(a, b) { return a + b; },
+                    'Sub': function(a, b) { return a - b; },
+                    'Mul': function(a, b) { return a * b; },
+                    'Div': function(a, b) { return a / b; },
+                    'Mod': function(a, b) { return a % b; },
+                    'And': function(a, b) { return a & b; },
+                    'Or' : function(a, b) { return a | b; },
+                    'Xor': function(a, b) { return a ^ b; }
+                }[expr.constructor.name];
+
+                return new Expr.Val(op(lhand, rhand), lhand.size);
+            }
+        }
+
+        return null;
+    };
+
     var _correct_arith = function(expr) {
         if (expr instanceof Expr.BExpr) {
             var lhand = expr.operands[0];
@@ -282,7 +307,8 @@ module.exports = (function() {
         _correct_bitwise,
         _equality,
         _negate,
-        _converged_cond
+        _converged_cond,
+        _constant_folding
     ];
 
     return {
@@ -300,6 +326,8 @@ module.exports = (function() {
 
                             if (alt) {
                                 op.replace(alt);
+
+                                modified = true;
                             }
                         });
                     });

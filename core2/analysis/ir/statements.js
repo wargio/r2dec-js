@@ -53,8 +53,8 @@ module.exports = (function() {
         // set this as a parent to all enclosed expressions
         exprs.forEach(this.push_expr, this);
 
-        // /** @type {Array} */
-        // this.statements = [];
+        /** @type {Array} */
+        this.statements = [];
     }
 
     /**
@@ -67,6 +67,13 @@ module.exports = (function() {
 
         other.container = p;
         p.statements[i] = other;
+    };
+
+    Statement.prototype.pluck = function() {
+        var p = this.container;
+        var i = p.statements.indexOf(this);
+
+        return p.statements.splice(i, 1);
     };
 
     /**
@@ -403,6 +410,8 @@ module.exports = (function() {
         make_statement: function(addr, expr) {
             return expr instanceof Statement ? expr : new Statement(addr, [expr]);
         },
+
+        Statement:  Statement,
 
         Return:     Return,
         Goto:       Goto,

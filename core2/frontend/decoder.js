@@ -58,12 +58,16 @@ module.exports = (function() {
             var decoded = this.arch.r2decode(item);
             var handler = this.arch.instructions[decoded.mnemonic] || this.arch.invalid;
 
-            console.log(item.opcode);
+            // DEBUG
+            // console.log(item.opcode);
+
             handler(decoded).forEach(function(expr) {
                 var stmt = Stmt.make_statement(decoded.address, expr);
 
                 Simplify.run(stmt);
-                console.log('|  ' + stmt.toString());
+
+                // DEBUG
+                // console.log('| ', stmt.toString());
 
                 ir.push(stmt);
             });

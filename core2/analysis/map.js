@@ -1,19 +1,22 @@
 
 module.exports = (function() {
+    /** @type {number} */
     const NOT_FOUND = -1;
 
     // an alternate implementation of Map, it differs from the standard JS Map in
     // multiple aspects:
     //
     // - it retrieves items in linear time
-    // - keys are compared by simple equality '==' rather than strict equality '==='
+    // - keys are compared using the '==' equality semantics rather than the '===' strict equality
     // - keys(), values() and entries() do not return generators, rather they return arrays
 
     function Map(pairs) {
         this.clear();
 
         if (pairs) {
-            pairs.forEach(function(p) { this.set(p[0], p[1]); }, this);
+            pairs.forEach(function(p) {
+                this.set(p[0], p[1]);
+            }, this);
         }
 
         Object.defineProperty(this, 'size', {
@@ -49,7 +52,7 @@ module.exports = (function() {
     };
 
     // Array.protorype.indexOf uses the strict equality operator === to compare objects.
-    // use another equality instead.
+    // this Map implementation uses the == equality semantics instead.
     var _indexOf = function(arr, item) {
         for (var i = 0; i < arr.length; i++) {
             if (_equal(arr[i], item)) {
@@ -118,17 +121,17 @@ module.exports = (function() {
         return false;
     };
 
-    Map.prototype.keys = function() {
+    Map.prototype.clear = function() {
         this._keys = [];
         this._vals = [];
     };
 
-    // TODO: Duktape does not support generators, so passing an array; note this is not a copy
+    // note: Duktape does not support generators, so passing an array; note this is not a copy
     Map.prototype.keys = function() {
         return this._keys;
     };
 
-    // TODO: Duktape does not support generators, so passing an array; note this is not a copy
+    // note: Duktape does not support generators, so passing an array; note this is not a copy
     Map.prototype.values = function() {
         return this._vals;
     };

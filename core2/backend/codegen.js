@@ -18,20 +18,18 @@ module.exports = (function() {
             this._emit_whitespace(' ');
             this._emit_token('(');
 
-            var args = Array.prototype.concat(this.func.bpvars, this.func.spvars, this.func.regvars).filter(function(v) {
-                return v.kind === 'arg';
-            });
-
-            if (args.length == 0) {
+            if (func.args.length == 0) {
                 this._emit_token('void');
             } else {
-                var a = args.pop();
+                var a = func.args[0];
 
+                // handle first arg
                 this._emit_token(a.type);
                 this._emit_whitespace(' ');
                 this._emit_token(a.name);
 
-                args.forEach(function(a) {
+                // handle rest of the args
+                func.args.slice(1).forEach(function(a) {
                     this._emit_token(',');
                     this._emit_whitespace(' ');
                     this._emit_token(a.type);
@@ -41,13 +39,18 @@ module.exports = (function() {
             }
             this._emit_token(')');
             this._emit_whitespace('\n');
-            
-            var block = func.entry_block;
-            while (block) {
-                this._emit_scope(block.container, 0);
 
-                block = this.func.blocks[block.container.next];
-            }
+            // var block = func.entry_block;
+            // while (block) {
+            //     this._emit_scope(block, 0);
+            //
+            //     block = this.func.blocks[block.container.next];
+            // }
+            //
+            // TODO: temp
+            func.basic_blocks.forEach(function(bb) {
+                this._emit_scope(bb, 0);
+            }, this);
 
             return this.text.join('');
         };
@@ -137,7 +140,8 @@ module.exports = (function() {
             this._emit_token('0x' + stmt.addr.toString(16) + ' : ');
 
             if (stmt instanceof Stmt.Branch) {
-                // a Branch is meant to be replaced by an 'If'
+                // TODO: a Branch is meant to be replaced by an 'If'; it is here only for dev purpose
+                this._emit_token(stmt);
             } else if (stmt instanceof Stmt.Break) {
                 this._emit_token('break');
                 this._emit_token(';');

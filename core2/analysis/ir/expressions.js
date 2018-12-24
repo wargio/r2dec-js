@@ -72,14 +72,18 @@
         return '(' + s + ')';
     };
 
-    // /**
-    //  * Wraps a string with parenthesis only if it is complex.
-    //  * @param {string} s A string to wrap
-    //  * @returns {string} `s` wrapped by parenthesis if `s` is a complex string, and `s` otherwise
-    //  */
-    // var autoParen = function(s) {
-    //     return (s.indexOf(' ') > (-1) ? parenthesize(s) : s);
-    // };
+    /**
+     * Wraps a string with parenthesis only if needed.
+     * @param {string} s A string to wrap
+     * @return {string} `s` wrapped by parenthesis if `s` is a complex string and
+     * does not have parenthesis already; otherwise returns `s`
+     */
+    var auto_paren = function(s) {
+        var complex = s.indexOf(' ') > (-1);
+        var has_paren = s.startsWith('(') && s.endsWith(')');
+
+        return (complex && !has_paren) ? parenthesize(s) : s;
+    };
 
     // returns the unicode subscript representation of a number
     var subscript = function(n) {
@@ -122,11 +126,30 @@
 
         /** @type {number} */
         this.idx = undefined;
+
+        /** @type {Expr} */
+        this.def = undefined;
     }
 
     /** @returns {Array} */
     Register.prototype.iter_operands = function() {
-        return [];
+        return [this];
+    };
+
+    /**
+     * Have parent replace `this` expression with `other`
+     * @param {!Expr|!Register|!Value} other Replacement expression
+     */
+    Register.prototype.replace = function(other) {
+        var p = this.parent[0]; // parent object
+        var i = this.parent[1]; // operand index at parent's
+
+        // parent may be either a statement or another expressions, so we need to determine how
+        // their elements list is called: 'operands' (in expression) or 'expressions' (in statement)
+        var elements = p.operands ? p.operands : p.expressions;
+
+        other.parent = this.parent;
+        elements[i] = other;
     };
 
     /** @returns {boolean} */
@@ -144,10 +167,29 @@
             (this.size === other.size));
     };
 
-    /** @returns {!Register} */
-    Register.prototype.clone = function() {
-        // do not retain source's 'is_def' property when cloning
-        return Object.create(this, { is_def: { value: false, writable: true} });
+    /**
+     * Generate a deep copy of `this`.
+     * @param {?Array.<string>} keep A list of object properties to preserve [optional]
+     * @returns {!Register}
+     */
+    Register.prototype.clone = function(keep) {
+        // instantiating a new object using the ordinary constructor
+        // ssa-related data is reset as a side effect
+        var clone = new Register(this.name, this.size);
+
+        // allow preserving specific properties 
+        if (keep) {
+            keep.forEach(function(prop) {
+                clone[prop] = this[prop];
+            }, this);
+        }
+
+        return clone;
+    };
+
+    // ssa-suitable representation; this is the same as toString but without subscript
+    Register.prototype.repr = function() {
+        return this.name.toString();
     };
 
     /** @returns {string} */
@@ -175,7 +217,7 @@
 
     /** @returns {Array} */
     Value.prototype.iter_operands = function() {
-        return [];
+        return [this];
     };
 
     /** @returns {boolean} */
@@ -187,7 +229,7 @@
 
     /** @returns {!Value} */
     Value.prototype.clone = function() {
-        return Object.create(this);
+        return new Value(this.value, this.sisze);
     };
 
     // /**
@@ -259,6 +301,8 @@
 
         this.is_def = false;    // ssa: is a definition?
         this.idx = undefined;   // ssa: subscript index
+        // this.def = undefined
+        // this.uses = undefined;
 
         this.parent = [undefined, undefined];
     }
@@ -269,7 +313,7 @@
      * @returns {!Array<Expr>}
      */
     Expr.prototype.iter_operands = function(depth_first) {
-        // TODO: sadly Duktape does not support the function* and yield* keywords so
+        // note: sadly Duktape does not support the function* and yield* keywords so
         // this is not a true generator, rather it is just a list.
 
         var depth = this.operands.map(function(o) {
@@ -278,8 +322,8 @@
 
         return Array.prototype.concat.apply([],
             depth_first
-            ? depth.concat(this.operands)
-            : this.operands.concat(depth));
+            ? depth.concat([this])
+            : [this].concat(depth));
     };
 
     Expr.prototype.push_operand = function(op) {
@@ -296,8 +340,41 @@
         var p = this.parent[0]; // parent object
         var i = this.parent[1]; // operand index at parent's
 
+        // parent may be either a statement or another expressions, so we need to determine how
+        // their elements list is called: 'operands' (in expression) or 'expressions' (in statement)
+        var elements = p.operands ? p.operands : p.expressions;
+
         other.parent = this.parent;
-        p.operands[i] = other;  // TODO: 'operands' when parent is expr, but 'expressions' when parent is stmt
+        elements[i] = other;
+    };
+
+    /**
+     * Have parent pluck `this` expression. The plucked expression could be
+     * then inserted to another parent, or simply discarded.
+     * @returns {!Expr} `this`
+     */
+    Expr.prototype.pluck = function() {
+        var p = this.parent[0]; // parent object
+        var i = this.parent[1]; // operand index at parent's
+
+        // parent may be either a statement or another expressions, so we need to determine how
+        // their elements list is called: 'operands' (in expression) or 'expressions' (in statement)
+        var elements = p.operands ? p.operands : p.expressions;
+
+        // remove element from its parent
+        var plucked = elements.splice(i, 1);
+
+        // if parent has no elements left, pluck it as well. if parent has more elements left, update
+        // following operands to hold correct indices
+        if (elements.length === 0) {
+            p.pluck();
+        } else {
+            for (var j = i; j < elements.length; j++) {
+                elements[j].parent[1] = j;
+            }
+        }
+
+        return plucked;
     };
 
     /**
@@ -319,13 +396,24 @@
 
     /**
      * Generate a deep copy of `this`.
+     * @param {?Array.<string>} keep A list of object properties to preserve [optional]
      * @returns {!Expr}
      */
-    Expr.prototype.clone = function() {
-        var inst = Object.create(this.constructor.prototype);
-        var cloned = this.constructor.apply(inst, this.operands.map(function(op) { return op.clone(); }));
+    Expr.prototype.clone = function(keep) {
+        // create a shallow copy of this object; omitting the operands
+        var clone = Object.create(this.constructor.prototype, { operands: { value: [], writable: true }});
 
-        return ((cloned !== null) && (typeof cloned === 'object')) ? cloned : inst;
+        // calling this object's constructor with cloned operands, ssa-related data is reset as a side effect
+        this.constructor.apply(clone, this.operands.map(function(op) { return op.clone(keep); }));
+
+        // allow to preserve specific properties
+        if (keep) {
+            keep.forEach(function(prop) {
+                clone[prop] = this[prop];
+            }, this);
+        }
+
+        return clone;
     };
 
     /** [!] This abstract method must be implemented by the inheriting class */
@@ -418,7 +506,7 @@
 
     /** @override */
     UExpr.prototype.toString = function(opt) {
-        return this.operator + this.operands[0].toString(opt);
+        return this.operator + auto_paren(this.operands[0].toString(opt));
     };
 
     // ------------------------------------------------------------
@@ -536,6 +624,26 @@
             (this.operands[0].equals(other.operands[0])));
     };
 
+    // ssa-suitable representation; this is the same as toString but without subscript
+    Deref.prototype.repr = function() {
+        return Object.getPrototypeOf(Object.getPrototypeOf(this)).toString.call(this);
+    };
+
+    /** @override */
+    Deref.prototype.toString = function(opt) {
+        var str = Object.getPrototypeOf(Object.getPrototypeOf(this)).toString.call(this, opt);
+
+        // a Deref object may use a Register as its operand; that operand will
+        // most likely have its own subscript. here we surround the Deref object
+        // with parenthesis in order to tell inner (Reg's) subscript from outer
+        // (Deref's) subscript
+        if (this.idx !== undefined) {
+            str = parenthesize(str) + subscript(this.idx);
+        }
+
+        return str;
+    };
+
     // ------------------------------------------------------------
 
     // unary expressions
@@ -631,7 +739,7 @@
         BExpr:  BExpr,
         TExpr:  TExpr,
 
-        // ssa phi instruction
+        // ssa phi expression
         Phi:    Phi,
 
         // common expressions
