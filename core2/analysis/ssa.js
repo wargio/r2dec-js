@@ -61,7 +61,7 @@ module.exports = (function() {
 
         // map a block to its list of definitions
         blocks.forEach(function(blk) {
-            defs[blk.address] = get_defs(selector, blk);
+            defs[blk] = get_defs(selector, blk);
         });
 
         // JS causes defsites keys to be stored as strings. since we need the definitions
@@ -71,7 +71,7 @@ module.exports = (function() {
 
         // map a variable to blocks where it is defined
         blocks.forEach(function(blk) {
-            var block_defs = defs[blk.address];
+            var block_defs = defs[blk];
 
             block_defs.forEach(function(d) {
                 if (!(d in defsites)) {
@@ -79,7 +79,7 @@ module.exports = (function() {
                     defsites[d] = [];
                 }
 
-                defsites[d].push(blk.address);
+                defsites[d].push(blk);
             });
         });
 
@@ -91,7 +91,7 @@ module.exports = (function() {
 
             while (W.length > 0) {
                 // defsites value list elements are basic block addresses, while domTree accepts a Node
-                var n = this.dom.getNode(W.pop());
+                var n = block_to_node(this.dom, W.pop());
 
                 this.dom.dominanceFrontier(n).forEach(function(y) {
                     if (!(y in phis)) {
@@ -102,8 +102,9 @@ module.exports = (function() {
                     if (phis[y].indexOf(a) === (-1)) {
                         var args = new Array(this.cfg.predecessors(y).length);
 
-                        // duplicate 'a' as many times as 'y' has predecessors
-                        // note that ssa index is kept in this cloning
+                        // duplicate 'a' as many times as 'y' has predecessors. note that the
+                        // ssa index of the cloned expression is preserved, since memory dereferences
+                        // may be enclosing indexed expressions
                         for (var i = 0; i < args.length; i++) {
                             args[i] = a.clone(['idx']);
                         }
@@ -122,8 +123,8 @@ module.exports = (function() {
                         // </WORKAROUND>
 
                         phis[y].push(a);
-                        if (defs[y.key].indexOf(a) === (-1)) {
-                            W.push(y.key);
+                        if (defs[_y].indexOf(a) === (-1)) {
+                            W.push(_y);
                         }
                     }
                 }, this);
@@ -159,6 +160,7 @@ module.exports = (function() {
 
         var count = {};
         var stack = {};
+
         var defs = {};
         var uninit = new Stmt.Statement(0, []);
 
@@ -182,7 +184,7 @@ module.exports = (function() {
             if (!(key in defs)) {
                 var uc = u.clone(['idx']);
                 uc.is_def = true;
-                uninit.push_expr(uc);
+                uninit.expressions.push(uc);
 
                 add_def(uc);
             }
@@ -339,6 +341,9 @@ module.exports = (function() {
         rename.call(this, select_regs, entry_block);
 
         while (eliminate_def_zero_uses(defs)) { /* empty */ }
+
+        count = {};
+        stack = {};
 
         // ssa from derefs
         console.log('\u2501'.repeat(15), 'DEREFS', '\u2501'.repeat(15));

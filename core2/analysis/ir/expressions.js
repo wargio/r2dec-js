@@ -293,11 +293,29 @@
      * @constructor
      */
     function Expr(operator, operands) {
-        this.operator = operator;
-        this.operands = [];
+        var _this = this;
 
-        // set this as parent for all operands it got
-        operands.forEach(this.push_operand, this);
+        this.operator = operator;
+
+        // the operands array proxy sets this as parent for all assigned expressions.
+        // this comes handy when an operand is being replaced as well
+
+        this.operands = new Proxy([], {
+            set: function(obj, idx, val) {
+                val.parent = [_this, idx];
+
+                // keep the default behavior
+                obj[idx] = val;
+                return true;
+            }
+        });
+
+        // set this as parent for all operands it gets
+        Array.prototype.push.apply(this.operands, operands);
+
+        // this.operands = [];
+        //
+        // operands.forEach(this.push_operand, this);
 
         this.is_def = false;    // ssa: is a definition?
         this.idx = undefined;   // ssa: subscript index
@@ -326,11 +344,11 @@
             : [this].concat(depth));
     };
 
-    Expr.prototype.push_operand = function(op) {
-        op.parent = [this, this.operands.length];
-
-        this.operands.push(op);
-    };
+    // Expr.prototype.push_operand = function(op) {
+    //     op.parent = [this, this.operands.length];
+    //
+    //     this.operands.push(op);
+    // };
 
     /**
      * Have parent replace `this` expression with `other`
