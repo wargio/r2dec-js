@@ -24,7 +24,7 @@ var Stmt = require('core2/analysis/ir/statements');
 function x86(nbits, btype, endianess) {
 
     /** @type {number} */
-    this.asize = nbits / 8;
+    this.bits = nbits;
 
     /** @type {string} */
     this.bintype = btype;
@@ -72,6 +72,7 @@ function x86(nbits, btype, endianess) {
 
         // arithmetic operations
         'add'   : _add.bind(this),
+        'adc'   : _adc.bind(this),
         'sub'   : _sub.bind(this),
         'div'   : _div.bind(this),
         'mul'   : _mul.bind(this),
@@ -161,7 +162,7 @@ function x86(nbits, btype, endianess) {
  * @returns {Expr.Reg}
  */
 x86.prototype.get_frame_reg = function() {
-    return new Expr.Reg(this.FRAME_REG, this.asize * 8);
+    return new Expr.Reg(this.FRAME_REG, this.bits);
 };
 
 /**
@@ -169,7 +170,7 @@ x86.prototype.get_frame_reg = function() {
  * @returns {Expr.Reg}
  */
 x86.prototype.get_result_reg = function() {
-    return new Expr.Reg(this.RESULT_REG, this.asize * 8);
+    return new Expr.Reg(this.RESULT_REG, this.bits);
 };
 
 /**
@@ -177,7 +178,7 @@ x86.prototype.get_result_reg = function() {
  * @returns {Expr.Reg}
  */
 x86.prototype.get_stack_reg = function() {
-    return new Expr.Reg(this.STACK_REG, this.asize * 8);
+    return new Expr.Reg(this.STACK_REG, this.bits);
 };
 
 /**
@@ -185,7 +186,15 @@ x86.prototype.get_stack_reg = function() {
  * @returns {Expr.Reg}
  */
 x86.prototype.get_flags_reg = function() {
-    return new Expr.Reg(this.FLAGS_REG, this.asize * 8);
+    return new Expr.Reg(this.FLAGS_REG, this.bits);
+};
+
+/**
+ * Get a copy of the system native address size value.
+ * @returns {Expr.Val}
+ */
+x86.prototype.get_asize_val = function() {
+    return new Expr.Val(this.bits / 8, this.bits);
 };
 
 /**
@@ -295,9 +304,10 @@ x86.prototype.r2decode = function(aoj) {
     var process_ops = function(op) {
 
         // r2cmd creates Long objects for all numeric values it finds. though it is required
-        // for the assembly listing, it is not required for its metadata. to make things
-        // simpler and lighter, we prefer to convert all meatadata Long objects back to
-        // primitive numeric values.
+        // for the assembly listing, it is not required for its metadata and generates redundant
+        // overhead.
+        // to make things simpler and lighter, we prefer to convert all meatadata Long objects
+        // back to primitive numeric values.
         var toInt = function(n) {
             return n && n.__isLong__ ? parseInt(n) : n;
         };
@@ -484,6 +494,18 @@ var _add = function(p) {
     ]);
 };
 
+var _adc = function(p) {
+    var lexpr = get_operand_expr(p.operands[0]);
+    var rexpr = get_operand_expr(p.operands[1]);
+
+    var op = new Expr.Add(new Expr.Add(lexpr, rexpr), Flag('CF'));
+
+    // lexpr = lexpr + rexpr + eflags.cf
+    return this.eval_flags(op, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']).concat([
+        new Expr.Assign(lexpr.clone(), op)
+    ]);
+};
+
 var _sub = function(p) {
     var lexpr = get_operand_expr(p.operands[0]);
     var rexpr = get_operand_expr(p.operands[1]);
@@ -591,12 +613,12 @@ var _dec = function(p) {
 var _push = function(p) {
     var expr = get_operand_expr(p.operands[0]);
     var sreg = this.get_stack_reg();
-    var asize = new Expr.Val(this.asize, this.asize * 8);
+    var asize = this.get_asize_val();
 
     // *rsp = expr
     // rsp = rsp - asize
     return [
-        new Expr.Assign(new Expr.Deref(sreg, this.asize * 8), expr),
+        new Expr.Assign(new Expr.Deref(sreg, this.bits), expr),
         new Expr.Assign(sreg.clone(), new Expr.Sub(sreg.clone(), asize))
     ];
 };
@@ -604,13 +626,13 @@ var _push = function(p) {
 var _pop = function(p) {
     var expr = get_operand_expr(p.operands[0]);
     var sreg = this.get_stack_reg();
-    var asize = new Expr.Val(this.asize, this.asize * 8);
+    var asize = this.get_asize_val();
 
     // rsp = rsp + asize
     // expr = *rsp
     return [
         new Expr.Assign(sreg, new Expr.Add(sreg.clone(), asize)),
-        new Expr.Assign(expr, new Expr.Deref(sreg.clone(), this.asize * 8))
+        new Expr.Assign(expr, new Expr.Deref(sreg.clone(), this.bits))
     ];
 };
 
@@ -629,14 +651,15 @@ var _lea = function(p) {
 var _leave = function(p) {
     var freg = this.get_frame_reg();
     var sreg = this.get_stack_reg();
+    var asize = this.get_asize_val();
 
     // rsp = rbp
     // rsp = rsp + asize
     // rbp = *rsp
     return [
         new Expr.Assign(sreg, freg),
-        new Expr.Assign(sreg.clone(), new Expr.Add(sreg.clone(), new Expr.Val(this.asize, this.asize * 8))),
-        new Expr.Assign(freg.clone(), new Expr.Deref(sreg.clone(), this.asize * 8))
+        new Expr.Assign(sreg.clone(), new Expr.Add(sreg.clone(), asize)),
+        new Expr.Assign(freg.clone(), new Expr.Deref(sreg.clone(), this.bits))
     ];
 };
 
@@ -895,23 +918,12 @@ var _invalid = function(p) {
 // cdqe
 // rol
 // ror
-// lodsb
-// lodsw
-// lodsd
-// lodsq
-// stosb
-// stosw
-// stosd
-// stosq
-// movsb
-// movsw
-// movsd
-// movsq
-// cmpsb
-// cmpsw
-// cmpsd
-// cmpsq
-// scasb
-// scasw
-// scasd
-// scasq
+// lods{b,w,d,q}
+// stos{b,w,d,q}
+// movs{b,w,d,q}
+// cmps{b,w,d,q}
+// scas{b,w,d,q}
+// pushf{,d,q}
+// popf{,d,q}
+// pusha{,d}
+// popa{,d}

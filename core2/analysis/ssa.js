@@ -55,6 +55,11 @@ module.exports = (function() {
         return g.getNode(block.address) || null;
     };
 
+    // predicate to determine whether an expression is a phi definition
+    var is_phi_assignment = function(expr) {
+        return (expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Phi);
+    };
+
     SSA.prototype.insert_phi_exprs = function(selector) {
         var defs = {};
         var blocks = this.func.basic_blocks;
@@ -152,12 +157,6 @@ module.exports = (function() {
             });
         };
 
-        var is_phi_assignment = function(stmt) {
-            var expr = stmt.expressions[0];
-
-            return (expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Phi);
-        };
-
         var count = {};
         var stack = {};
 
@@ -184,7 +183,7 @@ module.exports = (function() {
             if (!(key in defs)) {
                 var uc = u.clone(['idx']);
                 uc.is_def = true;
-                uninit.expressions.push(uc);
+                uninit.push_expr(uc);
 
                 add_def(uc);
             }
@@ -202,7 +201,7 @@ module.exports = (function() {
         // <DEBUG>
         var parent_stmt = function(expr) {
             while (!(expr instanceof Stmt.Statement)) {
-                expr = expr.parent[0];
+                expr = expr.parent;
             }
 
             return expr.addr.toString(16);
@@ -236,8 +235,8 @@ module.exports = (function() {
                 console.log('\u250f', '', 'stmt:', stmt.toString());
 
                 console.log('\u2503', '  ', 'USE:');
-                if (!is_phi_assignment(stmt)) {
-                    stmt.expressions.forEach(function(expr) {
+                stmt.expressions.forEach(function(expr) {
+                    if (!is_phi_assignment(expr)) {
                         console.log('\u2503', '    ', 'expr:', expr.toString());
 
                         expr.iter_operands(true).forEach(function(op) {
@@ -252,8 +251,8 @@ module.exports = (function() {
                                 add_use(op);
                             }
                         });
-                    });
-                }
+                    }
+                });
 
                 console.log('\u2503', '  ', 'DEF:');
                 stmt.expressions.forEach(function(expr) {
@@ -286,19 +285,21 @@ module.exports = (function() {
 
                 // iterate over all phi functions in Y
                 node_to_block(this.func, Y).statements.forEach(function(stmt) {
-                    if (is_phi_assignment(stmt)) {
-                        var v = stmt.expressions[0].operands[0];
+                    stmt.expressions.forEach(function(expr) {
+                        if (is_phi_assignment(expr)) {
+                            var v = expr.operands[0];
 
-                        if (selector(v)) {
-                            var phi = stmt.expressions[0].operands[1];
-                            var op = phi.operands[j];
+                            if (selector(v)) {
+                                var phi = expr.operands[1];
+                                var op = phi.operands[j];
 
-                            console.log('|  found a phi stmt', stmt, ', replacing its', j, 'arg');
+                                console.log('|  found a phi stmt', stmt, ', replacing its', j, 'arg');
 
-                            op.idx = top(stack[op.repr()]);
-                            add_use(op);
+                                op.idx = top(stack[op.repr()]);
+                                add_use(op);
+                            }
                         }
-                    }
+                    });
                 });
             }, this);
 
@@ -339,6 +340,7 @@ module.exports = (function() {
         this.insert_phi_exprs(select_regs);
         initialize.call(this, select_regs, count, stack);
         rename.call(this, select_regs, entry_block);
+        relax_phi(defs);
 
         while (eliminate_def_zero_uses(defs)) { /* empty */ }
 
@@ -351,11 +353,66 @@ module.exports = (function() {
         this.insert_phi_exprs(select_derefs);
         initialize.call(this, select_derefs, count, stack);
         rename.call(this, select_derefs, entry_block);
+        relax_phi(defs);
 
         while (eliminate_def_zero_uses(defs)) { /* empty */ }
 
         print_defs();
         return defs;
+    };
+
+    var detach_user = function(u) {
+        if (u.def !== undefined) {
+            var list = u.def.uses;
+
+            list.splice(list.indexOf(u), 1);
+        }
+    };
+
+    var attach_user = function(u, def) {
+        u.def = def;
+        u.def.uses.push(u);
+    };
+
+    // if a phi expression has only one argument, propagate it into defined variable
+    var propagate_single_phi = function(defs) {
+        var eliminate = [];
+
+        for (var d in defs) {
+            var def = defs[d];
+            var p = def.parent;
+
+            if (is_phi_assignment(p)) {
+                var v = p.operands[0];
+                var phi = p.operands[1];
+
+                if (phi.operands.length === 1) {
+                    var phi_arg = phi.operands[0];
+                    var phi_arg_def = phi_arg.def;
+
+                    detach_user(phi_arg);
+
+                    while (v.uses.length > 0) {
+                        var u = v.uses.pop();
+                        var phi_arg_clone = phi_arg.clone(['idx']);
+
+                        attach_user(phi_arg_clone, phi_arg_def);
+                        u.replace(phi_arg_clone);
+                    }
+
+                    p.pluck();
+                    eliminate.push(d);
+                }
+            }
+        }
+
+        eliminate.forEach(function(d) {
+            delete defs[d];
+        });
+    };
+
+    var relax_phi = function(defs) {
+        propagate_single_phi(defs);
     };
 
     var propagate_stack_locations = function(defs) {
@@ -369,20 +426,14 @@ module.exports = (function() {
             var def = defs[d];
 
             if ((def.idx !== 0) && (def.uses.length === 0)) {
-                var p = def.parent[0];  // p is Expr.Assign
-                var lhand = p.operands[0];
-                var rhand = p.operands[1];
+                var p = def.parent;         // p is Expr.Assign
+                var lhand = p.operands[0];  // def
+                var rhand = p.operands[1];  // assigned expression
 
                 // if has no possible side effects, eliminate
                 if ((!(lhand instanceof Expr.Deref) || (rhand instanceof Expr.Phi)) && !(rhand instanceof Expr.Call)) { 
-                    rhand.iter_operands().forEach(function(o) {
-                        if (o.def !== undefined) {
-                            var u = defs[o.def].uses;
+                    rhand.iter_operands().forEach(detach_user);
 
-                            u.splice(u.indexOf(o), 1);
-                        }
-                    });
-                
                     p.pluck();
                     eliminate.push(d);
                 }

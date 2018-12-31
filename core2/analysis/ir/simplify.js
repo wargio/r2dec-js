@@ -172,9 +172,11 @@ module.exports = (function() {
             var rhand = expr.operands[1];
 
             const ZERO = new Expr.Val(0, lhand.size);
+            const FF = new Expr.Val((1 << lhand.size) - 1, lhand.size); // TODO: does it work in 64 bits..?
 
             // x ^ 0
             // x ^ x
+            // x ^ 0xff...
             if (expr instanceof Expr.Xor) {
                 if (rhand.equals(ZERO)) {
                     return lhand;
@@ -183,21 +185,35 @@ module.exports = (function() {
                 if (rhand.equals(lhand)) {
                     return ZERO;
                 }
+
+                if (rhand.equals(FF)) {
+                    return new Expr.Not(lhand);
+                }
             }
 
             // x | 0
             // x | x
+            // x | 0xff...
             else if (expr instanceof Expr.Or) {
                 if (rhand.equals(ZERO) || rhand.equals(lhand)) {
                     return lhand;
+                }
+
+                if (rhand.equals(FF)) {
+                    return FF;
                 }
             }
 
             // x & 0
             // x & x
+            // x & 0xff...
             else if (expr instanceof Expr.And) {
                 if (rhand.equals(ZERO) || rhand.equals(lhand)) {
                     return rhand;
+                }
+
+                if (rhand.equals(FF)) {
+                    return lhand;
                 }
             }
 
@@ -320,7 +336,7 @@ module.exports = (function() {
                 modified = false;
 
                 stmt.expressions.forEach(function(expr) {
-                    expr.iter_operands().forEach(function(op) {
+                    expr.iter_operands(true).forEach(function(op) {
                         _rules.forEach(function(rule) {
                             var alt = rule(op);
 

@@ -44,33 +44,14 @@ module.exports = (function() {
      * @constructor
      */
     function Statement(addr, exprs) {
-        var _this = this;
-
         /** @type {!number} */
         this.addr = addr;
 
-        // the operands array proxy sets this as parent for all assigned expressions.
-        // this comes handy when an operand is being replaced as well
-
         /** @type {Array>} */
-        this.expressions = new Proxy([], {
-            set: function(obj, idx, val) {
-                val.parent = [_this, idx];
+        this.expressions = [];
 
-                // keep the default behavior
-                obj[idx] = val;
-                return true;
-            }
-        });
-
-        // set this as parent for all expressions it gets
-        Array.prototype.push.apply(this.expressions, exprs);
-
-        // /** @type {Array>} */
-        // this.expressions = [];
-        //
         // set this as a parent to all enclosed expressions
-        // exprs.forEach(this.push_expr, this);
+        exprs.forEach(this.push_expr, this);
 
         /** @type {Array} */
         this.statements = [];
@@ -95,15 +76,40 @@ module.exports = (function() {
         return p.statements.splice(i, 1);
     };
 
-    // /**
-    //  * Enclose an existing expression inside `this`.
-    //  * @param {Expr} expr An expression instance to add
-    //  */
-    // Statement.prototype.push_expr = function(expr) {
-    //     expr.parent = [this, this.expressions.length];
-    //
-    //     this.expressions.push(expr);
-    // };
+    /**
+     * Enclose an existing expression inside `this`.
+     * @param {Expr} expr An expression instance to add
+     */
+    Statement.prototype.push_expr = function(expr) {
+        expr.parent = this;
+    
+        this.expressions.push(expr);
+    };
+
+    /**
+     * Remove an expression from the expressions list.
+     * @param {!Expr} expr Expression instance to remove
+     * @returns {!Expr} The removed expression instance
+     */
+    Statement.prototype.remove_expr = function(expr) {
+        this.expressions.splice(this.expressions.indexOf(expr), 1);
+        expr.parent = undefined;
+
+        if (this.expressions.length === 0) {
+            this.pluck();
+        }
+
+        return expr;
+    };
+
+    Statement.prototype.replace_expr = function(old_expr, new_expr) {
+        old_expr.parent = undefined;
+        new_expr.parent = this;
+
+        this.expressions[this.operands.indexOf(old_expr)] = new_expr;
+
+        return old_expr;
+    };
 
     /**
      * Generate a deep copy of this.
@@ -384,35 +390,19 @@ module.exports = (function() {
      * @constructor
      */
     function Container(addr, stmts) {
-        var _this = this;
-
         this.address = addr;
 
-        /** @type {Array>} */
-        this.statements = new Proxy([], {
-            set: function(obj, idx, val) {
-                val.parent = _this;
+        this.statements = [];
 
-                // keep the default behavior
-                obj[idx] = val;
-                return true;
-            }
-        });
-
-        // set this as parent for all statements it gets
-        Array.prototype.push.apply(this.statements, stmts);
-
-        // this.statements = [];
-        // 
-        // // set this as the container of all statements enclosed in the block
-        // stmts.forEach(this.push_stmt, this);
+        // set this as the container of all statements enclosed in the block
+        stmts.forEach(this.push_stmt, this);
     }
 
-    // Container.prototype.push_stmt = function(stmt) {
-    //     stmt.container = this;
-    //
-    //     this.statements.push(stmt);
-    // };
+    Container.prototype.push_stmt = function(stmt) {
+        stmt.container = this;
+
+        this.statements.push(stmt);
+    };
 
     /**
      * Generate a deep copy of this.

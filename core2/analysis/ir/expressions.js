@@ -141,15 +141,11 @@
      * @param {!Expr|!Register|!Value} other Replacement expression
      */
     Register.prototype.replace = function(other) {
-        var p = this.parent[0]; // parent object
-        var i = this.parent[1]; // operand index at parent's
+        var p = this.parent;
+        var func = p.replace_operand || p.replace_expr;
+        var args = [this, other];
 
-        // parent may be either a statement or another expressions, so we need to determine how
-        // their elements list is called: 'operands' (in expression) or 'expressions' (in statement)
-        var elements = p.operands ? p.operands : p.expressions;
-
-        other.parent = this.parent;
-        elements[i] = other;
+        return func.apply(p, args);
     };
 
     /** @returns {boolean} */
@@ -229,7 +225,7 @@
 
     /** @returns {!Value} */
     Value.prototype.clone = function() {
-        return new Value(this.value, this.sisze);
+        return new Value(this.value, this.size);
     };
 
     // /**
@@ -239,23 +235,23 @@
     // Value.prototype.toReadableString = function() {
     //     var n = this.value;
     //     var size = this.size;
-
+    // 
     //     // TODO: adjust comparisons to Long's?
-
+    // 
     //     // an index or small offset?
     //     if (n < 32)
     //     {
     //         return n.toString();
     //     }
-
+    // 
     //     // TODO: consider adding a comment next to the immediate value instead of
     //     // tranfroming it into a character - which is not always desirable
-
+    // 
     //     // an ascii character?
     //     if ((size == 8) && (n >= 32) && (n <= 126)) {
     //         return "'" + String.fromCharCode(n) + "'";
     //     }
-
+    // 
     //     // -1 ?
     //     if (((size ==  8) && (n == 0xff)) ||
     //         ((size == 16) && (n == 0xffff)) ||
@@ -263,7 +259,7 @@
     //         ((size == 64) && (n == Long.MAX_UNSIGNED_VALUE))) {
     //             return '-1';
     //     }
-
+    // 
     //     // default: return hexadecimal representation
     //     return '0x' + n.toString(16);
     // };
@@ -293,36 +289,18 @@
      * @constructor
      */
     function Expr(operator, operands) {
-        var _this = this;
-
         this.operator = operator;
 
-        // the operands array proxy sets this as parent for all assigned expressions.
-        // this comes handy when an operand is being replaced as well
+        this.operands = [];
 
-        this.operands = new Proxy([], {
-            set: function(obj, idx, val) {
-                val.parent = [_this, idx];
-
-                // keep the default behavior
-                obj[idx] = val;
-                return true;
-            }
-        });
-
-        // set this as parent for all operands it gets
-        Array.prototype.push.apply(this.operands, operands);
-
-        // this.operands = [];
-        //
-        // operands.forEach(this.push_operand, this);
+        operands.forEach(this.push_operand, this);
 
         this.is_def = false;    // ssa: is a definition?
         this.idx = undefined;   // ssa: subscript index
         // this.def = undefined
         // this.uses = undefined;
 
-        this.parent = [undefined, undefined];
+        this.parent = undefined;
     }
 
     /**
@@ -344,26 +322,49 @@
             : [this].concat(depth));
     };
 
-    // Expr.prototype.push_operand = function(op) {
-    //     op.parent = [this, this.operands.length];
-    //
-    //     this.operands.push(op);
-    // };
+    // add an operand at the end of the operands list
+    Expr.prototype.push_operand = function(op) {
+        op.parent = this;
+    
+        this.operands.push(op);
+    };
 
     /**
-     * Have parent replace `this` expression with `other`
+     * Remove an operand from the operands list.
+     * @param {!Expr} op Operand instance to remove
+     * @returns {!Expr} The removed operand instance
+     */
+    Expr.prototype.remove_operand = function(op) {
+        this.operands.splice(this.operands.indexOf(op), 1);
+        op.parent = undefined;
+
+        if (this.operands.length === 0) {
+            this.pluck();
+        }
+
+        return op;
+    };
+
+    Expr.prototype.replace_operand = function(old_op, new_op) {
+        old_op.parent = undefined;
+        new_op.parent = this;
+
+        this.operands[this.operands.indexOf(old_op)] = new_op;
+
+        return old_op;
+    };
+
+    /**
+     * Have parent replace `this` expression with `other`.
      * @param {!Expr} other Replacement expression
+     * @returns Replaced expression
      */
     Expr.prototype.replace = function(other) {
-        var p = this.parent[0]; // parent object
-        var i = this.parent[1]; // operand index at parent's
+        var p = this.parent;
+        var func = p.replace_operand || p.replace_expr;
+        var args = [this, other];
 
-        // parent may be either a statement or another expressions, so we need to determine how
-        // their elements list is called: 'operands' (in expression) or 'expressions' (in statement)
-        var elements = p.operands ? p.operands : p.expressions;
-
-        other.parent = this.parent;
-        elements[i] = other;
+        return func.apply(p, args);
     };
 
     /**
@@ -372,27 +373,11 @@
      * @returns {!Expr} `this`
      */
     Expr.prototype.pluck = function() {
-        var p = this.parent[0]; // parent object
-        var i = this.parent[1]; // operand index at parent's
+        var p = this.parent;
+        var func = p.remove_operand || p.remove_expr;
+        var args = [this];
 
-        // parent may be either a statement or another expressions, so we need to determine how
-        // their elements list is called: 'operands' (in expression) or 'expressions' (in statement)
-        var elements = p.operands ? p.operands : p.expressions;
-
-        // remove element from its parent
-        var plucked = elements.splice(i, 1);
-
-        // if parent has no elements left, pluck it as well. if parent has more elements left, update
-        // following operands to hold correct indices
-        if (elements.length === 0) {
-            p.pluck();
-        } else {
-            for (var j = i; j < elements.length; j++) {
-                elements[j].parent[1] = j;
-            }
-        }
-
-        return plucked;
+        return func.apply(p, args);
     };
 
     /**
@@ -665,8 +650,8 @@
     // ------------------------------------------------------------
 
     // unary expressions
-    function Not       (op) { UExpr.call(this, '-', op); }
-    function Neg       (op) { UExpr.call(this, '~', op); }
+    function Not       (op) { UExpr.call(this, '~', op); }
+    function Neg       (op) { UExpr.call(this, '-', op); }
     function AddressOf (op) { UExpr.call(this, '&', op); }
 
     Not.prototype       = Object.create(UExpr.prototype);
