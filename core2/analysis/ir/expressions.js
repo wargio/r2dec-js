@@ -105,6 +105,9 @@
 
     // ------------------------------------------------------------
 
+    // TODO: change regs to work with enum rather than names, so we could identify overlapping
+    //       registers, for exmaple: al~ah~ax~eax~rax
+
     /**
      * System register.
      * @param {!string} name Register name

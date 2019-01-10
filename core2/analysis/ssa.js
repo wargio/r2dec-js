@@ -447,8 +447,6 @@ module.exports = (function() {
         return (eliminate.length > 0);
     };
 
-    // TODO: change regs to work with enum rather than names, so al~ah~ax~eax~rax
-
     // TODO: tag function calls arguments
     // TODO: propagate definitions with only one use to their users
     // TODO: eliminate duplicate phi arguments
