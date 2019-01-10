@@ -271,26 +271,14 @@ module.exports = (function() {
                 instr.setBadJump();
                 return Base.return(Base.call(instr.parsed.opd[0], []));
             },
-            'b.pl': function(instr, context) {
-                return _conditional(instr, context, 'GE');
-            },
             bpl: function(instr, context) {
                 return _conditional(instr, context, 'GE');
-            },
-            'b.ls': function(instr, context) {
-                return _conditional(instr, context, 'LT');
             },
             bls: function(instr, context) {
                 return _conditional(instr, context, 'LT');
             },
-            'b.ne': function(instr, context) {
-                return _conditional(instr, context, 'NE');
-            },
             bne: function(instr, context) {
                 return _conditional(instr, context, 'NE');
-            },
-            'b.eq': function(instr, context) {
-                return _conditional(instr, context, 'EQ');
             },
             beq: function(instr, context) {
                 return _conditional(instr, context, 'EQ');
@@ -307,8 +295,26 @@ module.exports = (function() {
             ble: function(instr, context) {
                 return _conditional(instr, context, 'LE');
             },
+            'b.pl': function(instr, context) {
+                return _conditional(instr, context, 'GE');
+            },
+            'b.ls': function(instr, context) {
+                return _conditional(instr, context, 'LT');
+            },
+            'b.ne': function(instr, context) {
+                return _conditional(instr, context, 'NE');
+            },
+            'b.eq': function(instr, context) {
+                return _conditional(instr, context, 'EQ');
+            },
             'b.lo': function(instr, context) {
                 return _conditional(instr, context, 'LO');
+            },
+            'b.hi': function(instr, context) {
+                return _conditional(instr, context, 'GT');
+            },
+            'b.hs': function(instr, context) {
+                return _conditional(instr, context, 'GE');
             },
             eor: function(instr) {
                 return _common_math(instr.parsed, Base.xor);
