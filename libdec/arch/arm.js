@@ -20,14 +20,39 @@ module.exports = (function() {
     var Variable = require('libdec/core/variable');
     var Base = require('libdec/core/base');
     var Extra = require('libdec/core/extra');
+    var Long = require('libdec/long');
 
     var _operands = {
         'lsl': '<<',
+        'sxtw': '<<',
+        'uxtw': '<<',
         'lsr': '>>',
         'asl': '<<',
         'asr': '>>',
         'ror': '>>>',
         'rrx': '>>>'
+    };
+
+    var _operands_base = {
+        'lsl': Base.shift_left,
+        'sxtw': Base.shift_left,
+        'uxtw': Base.shift_left,
+        'lsr': Base.shift_right,
+        'asl': Base.shift_left,
+        'asr': Base.shift_right,
+        'ror': Base.rotate_right,
+        'rrx': Base.rotate_right
+    };
+
+    var _reg_bits = {
+        'b': 8,
+        'h': 16,
+        's': 32,
+        'r': 32,
+        'w': 32,
+        'd': 64,
+        'x': 64,
+        'q': 128
     };
 
     var _is_register = function(name) {
@@ -53,82 +78,59 @@ module.exports = (function() {
         return op(e.opd[0], e.opd[1], '(' + p.join(' ') + ')');
     };
 
-    var _load = function(instr, bits) {
-        var e = instr.parsed;
-        if (e.opd[0] == 'lr') {
-            return Base.nop();
-        }
-        if (!bits) {
-            bits = 32;
-        }
-        var cast = (bits == 8) ? ' = *((uint8_t*) ' : ' = *((uint' + bits + '_t*)((uint8_t*) ';
-        var castend = (bits == 8) ? ');' : '))';
-
-        switch (e.opd.length) {
-            case 2:
-                if (_is_register(e.opd[1])) {
-                    if (instr.string) {
-                        return Base.assign(e.opd[0], Variable.string(instr.string));
-                    }
-                    return Base.read_memory(e.opd[0], e.opd[1], bits, false);
-                }
-                return Base.assign(e.opd[0], instr.string ? Variable.string(instr.string) : e.opd[1]);
-            case 3:
-                return Base.special(e.opd[0] + cast + e.opd[1] + ' + ' + e.opd[2] + castend);
-            case 4:
-                if (e.opd[2] != '-' && e.opd[2] != '+') {
-                    return Base.special(e.opd[1] + ' += ' + e.opd[2] + '; ' + e.opd[0] + ' = ' + e.opd[1] + '[0]');
-                }
-                if (e.opd[1] == 'fp') {
-                    return Base.cast(e.opd[0], e.opd[3], Extra.to.type(bits, true));
-                }
-                return Base.special(e.opd[0] + cast + e.opd[1] + ' ' + e.opd[2] + ' ' + e.opd[3] + castend);
-            case 5:
-                if (e.opd[3].toLowerCase() == 'lsl') {
-                    return Base.special(e.opd[0] + ' = ' + e.opd[1] + '[' + e.opd[2] + ' << ' + e.opd[4] + ']');
-                }
-                return Base.special(e.opd[0] + ' = ' + e.opd[1] + '[' + e.opd[2] + ' + ' + e.opd[4] + ']');
-            case 6:
-                if (e.opd[3].toLowerCase() == 'lsl') {
-                    return Base.special(e.opd[1] + ' += (' + e.opd[2] + ' << ' + e.opd[4] + '); ' + e.opd[0] + ' = ' + e.opd[1] + '[0]');
-                }
-                return Base.special(e.opd[0] + ' = ' + e.opd[1] + '[' + e.opd[2] + ' ' + e.opd[4] + ' ' + e.opd[5] + ']');
-            default:
-                break;
-        }
-        return instr.code;
-    };
-
-    var _store = function(instr, bits) {
-        var e = instr.parsed;
-        if (e.opd[0] == 'lr') {
+    var _memory = function(op, instr, bits, signed) {
+        signed = signed || false;
+        var e = instr.parsed.opd;
+        if (e[0] == 'lr') {
             return null;
         }
         if (!bits) {
             bits = 32;
         }
-        var cast = (bits == 8) ? '*((uint8_t*) ' : '*((uint' + bits + '_t*)((uint8_t*) ';
-        var castend = (bits == 8) ? ') = ' : ')) = ';
-        if (e.opd.length == 2) {
-            if (instr.string) {
-                return Base.assign(e.opd[0], Variable.string(instr.string));
+        var last = e[e.length - 1];
+        if (e.length == 2 && typeof e[1] == 'string') {
+            return Base.assign(e[0], instr.string || e[1]);
+        } else if (e.length == 2) {
+            //str A, [B...] is *((u32*) B...) = A;
+            var mem = e[1].filter(function(x) {
+                return x != '+';
+            });
+            if (mem.length < 3) {
+                return op(mem.join(' + ').replace(/\+ \-/, '- '), e[0], bits, false);
             }
-            return Base.write_memory(e.opd[1], e.opd[0], bits, false);
-        } else if (e.opd.length == 3) {
-            return Base.special(cast + e.opd[1] + ' + ' + e.opd[2] + castend + e.opd[0]);
-        } else if (e.opd.length == 4 && e.opd[2] != '-' && e.opd[2] != '+') {
-            return Base.special(e.opd[1] + ' += ' + e.opd[2] + '; ' + e.opd[1] + '[0] = ' + e.opd[0]);
-        } else if (e.opd.length == 4) {
-            if (e.opd[1] == 'fp') {
-                return Base.cast(e.opd[3], e.opd[0], Extra.to.type(bits, true));
+            var arg = Variable.uniqueName('offset');
+            return Base.composed([
+                _operands_base[mem[2]](arg, mem[1], mem[3], bits),
+                op([mem[0], arg].join(' + ').replace(/\+ \-/, '- '), e[0], bits, false),
+            ]);
+        } else if (e.length == 3 && last == "!") {
+            var mem = e[1].filter(function(x) {
+                return x != '+';
+            });
+            if (mem.length < 3) {
+                return op(mem.join(' += '), e[0], bits, false);
             }
-            return Base.special(cast + e.opd[1] + ' ' + e.opd[2] + ' ' + e.opd[3] + castend + e.opd[0]);
-        } else if (e.opd.length == 5 && e.opd[3].toLowerCase() == 'lsl') {
-            return Base.special(e.opd[1] + '[' + e.opd[2] + ' << ' + e.opd[4] + '] = ' + e.opd[0]);
-        } else if (e.opd.length == 6 && e.opd[3].toLowerCase() == 'lsl') {
-            return Base.special(e.opd[1] + ' += (' + e.opd[2] + ' << ' + e.opd[4] + '); ' + e.opd[1] + '[0] = ' + e.opd[0]);
+            var arg = Variable.uniqueName('offset');
+            return Base.composed([
+                _operands_base[mem[2]](arg, mem[1], mem[3], bits),
+                op([mem[0], arg].join(' += '), e[0], bits, false),
+            ]);
         }
-        return instr.code;
+        var mem = e[1].filter(function(x) {
+            return x != '+';
+        });
+        if (mem.length < 3) {
+            return Base.composed([
+                op(mem.join(' + ').replace(/\+ \-/, '- '), e[0], bits, false),
+                Base.add(mem[0], mem[0], last)
+            ]);
+        }
+        var arg = Variable.uniqueName('offset');
+        return Base.composed([
+            _operands_base[mem[2]](arg, mem[1], mem[3], bits),
+            op([mem[0], arg].join(' + ').replace(/\+ \-/, '- '), e[0], bits, false),
+            Base.add(mem[0], mem[0], last)
+        ]);
     };
 
     var _compare = function(instr, context) {
@@ -179,6 +181,7 @@ module.exports = (function() {
         } else if (known_args_n > 0) {
             regnum = known_args_n - 1;
         }
+
         var arg0 = null;
         var start = instructions.indexOf(instr);
         for (var i = start - 1; i >= 0 && regnum >= 0; i--) {
@@ -188,10 +191,12 @@ module.exports = (function() {
             }
             arg0 = instructions[i].parsed[1];
             var reg = 'r' + regnum;
+            var reg32 = 'w' + regnum;
+            var reg64 = 'x' + regnum;
             if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0) {
                 regnum--;
                 i = start;
-            } else if (arg0 == reg) {
+            } else if (arg0 == reg || arg0 == reg32 || arg0 == reg64) {
                 args.unshift(_fix_arg(instructions[i]));
                 regnum--;
                 i = start;
@@ -207,7 +212,29 @@ module.exports = (function() {
                 returnval = 'r0';
             } else if (instructions[start + 1].parsed[3] == 'r0') {
                 returnval = 'r0';
+            } else if (instructions[start + 1].parsed[0] &&
+                instructions[start + 1].parsed[0].charAt(0) == 'c' &&
+                instructions[start + 1].parsed[1] == 'w0') {
+                // cbz/cmp
+                returnval = 'w0';
+            } else if (instructions[start + 1].parsed[2] == 'w0') {
+                returnval = 'w0';
+            } else if (instructions[start + 1].parsed[3] == 'w0') {
+                returnval = 'w0';
+            } else if (instructions[start + 1].parsed[0] &&
+                instructions[start + 1].parsed[0].charAt(0) == 'c' &&
+                instructions[start + 1].parsed[1] == 'x0') {
+                // cbz/cmp
+                returnval = 'x0';
+            } else if (instructions[start + 1].parsed[2] == 'x0') {
+                returnval = 'x0';
+            } else if (instructions[start + 1].parsed[3] == 'x0') {
+                returnval = 'x0';
             }
+        }
+
+        if (callname.match(/^[rwx]\d+$/)) {
+            callname = Variable.functionPointer(callname, _reg_bits[callname[0]] || 0, args);
         }
 
         if (returnval) {
@@ -286,6 +313,12 @@ module.exports = (function() {
             bgt: function(instr, context) {
                 return _conditional(instr, context, 'GT');
             },
+            bhi: function(instr, context) {
+                return _conditional(instr, context, 'GT');
+            },
+            bhs: function(instr, context) {
+                return _conditional(instr, context, 'GE');
+            },
             bge: function(instr, context) {
                 return _conditional(instr, context, 'GE');
             },
@@ -299,6 +332,9 @@ module.exports = (function() {
                 return _conditional(instr, context, 'GE');
             },
             'b.ls': function(instr, context) {
+                return _conditional(instr, context, 'LT');
+            },
+            'b.lt': function(instr, context) {
                 return _conditional(instr, context, 'LT');
             },
             'b.ne': function(instr, context) {
@@ -315,6 +351,12 @@ module.exports = (function() {
             },
             'b.hs': function(instr, context) {
                 return _conditional(instr, context, 'GE');
+            },
+            'b.ge': function(instr, context) {
+                return _conditional(instr, context, 'GE');
+            },
+            'b.gt': function(instr, context) {
+                return _conditional(instr, context, 'GT');
             },
             eor: function(instr) {
                 return _common_math(instr.parsed, Base.xor);
@@ -335,13 +377,25 @@ module.exports = (function() {
                 return _conditional(instr, context, 'NE');
             },
             ldr: function(instr) {
-                return _load(instr, '32');
+                return _memory(Base.read_memory, instr, '32');
             },
             ldur: function(instr) {
-                return _load(instr, '32');
+                return _memory(Base.read_memory, instr, '32');
+            },
+            ldrh: function(instr) {
+                return _memory(Base.read_memory, instr, '16');
             },
             ldrb: function(instr) {
-                return _load(instr, '8');
+                return _memory(Base.read_memory, instr, '8');
+            },
+            ldrsr: function(instr) {
+                return _memory(Base.read_memory, instr, '32', true);
+            },
+            ldrsh: function(instr) {
+                return _memory(Base.read_memory, instr, '16', true);
+            },
+            ldrsb: function(instr) {
+                return _memory(Base.read_memory, instr, '8', true);
             },
             ldm: function(instr) {
                 for (var i = 1; i < instr.parsed.length; i++) {
@@ -454,24 +508,26 @@ module.exports = (function() {
                 return Base.return(returnval);
             },
             stp: function(instr) {
-                var e = instr.parsed;
-                return Base.write_memory(
-                    e.opd[2] + ' + ' + e.opd[3],
-                    e.opd[0] + ', ' + e.opd[1],
-                    64, false);
+                var e = instr.parsed.opd;
+                var bits = _reg_bits[e[0][0]] || 64;
+                return Base.composed([
+                    Base.write_memory(e[2].join(' + '), e[0], bits, false),
+                    Base.write_memory(e[2].concat([(bits / 8)]).join(' + '), e[1], bits, false)
+                ]);
             },
             ldp: function(instr) {
-                var e = instr.parsed;
-                var src = e.opd[3] == '+' ? e.opd[4] : e.opd[2] + ' + ' + e.opd[3];
-                return Base.read_memory(src,
-                    e.opd[0] + ', ' + e.opd[1],
-                    64, false);
+                var e = instr.parsed.opd;
+                var bits = _reg_bits[e[0][0]] || 64;
+                return Base.composed([
+                    Base.read_memory(e[2].join(' + '), e[0], bits, false),
+                    Base.read_memory(e[2].concat([(bits / 8)]).join(' + '), e[1], bits, false)
+                ]);
             },
             str: function(instr) {
-                return _store(instr, '32');
+                return _memory(Base.write_memory, instr, 32);
             },
             strb: function(instr) {
-                return _store(instr, '8');
+                return _memory(Base.write_memory, instr, 8);
             },
             sub: function(instr) {
                 return _common_math(instr.parsed, Base.subtract);
@@ -504,18 +560,208 @@ module.exports = (function() {
             uxth: function(instr) {
                 return Base.cast(instr.parsed.opd[0], instr.parsed.opd[1], Extra.to.type(16, true));
             },
+            /* ARM64 */
+            blr: _call,
+            bic: function(instr, context, instructions) {
+                return Base.bit_mask(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[2]);
+            },
+            bfc: function(instr, context, instructions) {
+                var arg0 = Variable.uniqueName();
+                return Base.composed([
+                    Base.bit_mask(arg0, instr.parsed.opd[2], instr.parsed.opd[3]),
+                    Base.not(arg0, arg0),
+                    Base.and(instr.parsed.opd[0], instr.parsed.opd[0], arg0),
+                ]);
+            },
+            bfi: function(instr, context, instructions) {
+                /*
+                    BFI R9, R2, #8, #12; 
+                    Replace bit 8 to bit 19 (12 bits) of R9 with bit 0 to bit 11 from R2.
+                */
+                var arg0 = Variable.uniqueName();
+                var arg1 = Variable.uniqueName();
+                return Base.composed([
+                    Base.bit_mask(arg0, instr.parsed.opd[2], instr.parsed.opd[3]),
+                    Base.and(arg1, instr.parsed.opd[1], arg0),
+                    Base.not(arg0, arg0),
+                    Base.and(instr.parsed.opd[0], instr.parsed.opd[0], arg0),
+                    Base.or(instr.parsed.opd[0], instr.parsed.opd[0], arg1),
+                ]);
+            },
+            csel: function(instr, context) {
+                var opds = instr.parsed.opd;
+                var cond = 'EQ';
+                for (var i = 0; i < _conditional_list.length; i++) {
+                    if (_conditional_list[i].ext == opds[3]) {
+                        cond = _conditional_list[i].type;
+                        break
+                    }
+                }
+                return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, opds[1], opds[2]);
+            },
+            cset: function(instr, context) {
+                var opds = instr.parsed.opd;
+                var cond = 'EQ';
+                for (var i = 0; i < _conditional_list.length; i++) {
+                    if (_conditional_list[i].ext == opds[1]) {
+                        cond = _conditional_list[i].type;
+                        break
+                    }
+                }
+                return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, 1, 0);
+            },
+            csinc: function(instr, context) {
+                var opds = instr.parsed.opd;
+                var cond = 'EQ';
+                for (var i = 0; i < _conditional_list.length; i++) {
+                    if (_conditional_list[i].ext == opds[3]) {
+                        cond = _conditional_list[i].type;
+                        break
+                    }
+                }
+                return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, opds[1], opds[2] + " + 1");
+            },
+            orn: function(instr) {
+                var opds = instr.parsed.opd;
+                var ops = [];
+                ops.push(Base.or(opds[0], opds[1], opds[2]));
+                ops.push(Base.not(opds[0], opds[0]));
+                return Base.composed(ops);
+            },
+            neg: function(instr) {
+                var dst = instr.parsed.opd[0];
+                if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
+                    return Base.nop();
+                }
+                return Base.negate(dst, instr.parsed.opd[1]);
+            },
+            movi: function(instr) {
+                var opds = instr.parsed.opd;
+                var val = Long.fromString(opds[1], true, opds[1].indexOf('0x') == 0 ? 16 : 10);
+                return Base.assign(opds[0], '0x' + val.toString(16));
+            },
+            movn: function(instr) {
+                var opds = instr.parsed.opd;
+                var val = Long.fromString(opds[1], true, opds[1].indexOf('0x') == 0 ? 16 : 10);
+                if (instr.parsed.opd.length == 2) {
+                    return Base.assign(opds[0], '0x' + val.toString(16));
+                }
+                val = val.shl(parseInt(opds[3]));
+                return Base.assign(opds[0], '0x' + val.toString(16));
+            },
+            movk: function(instr) {
+                var opds = instr.parsed.opd;
+                var ops = [];
+                var val = Long.fromString(opds[1], true, opds[1].indexOf('0x') == 0 ? 16 : 10);
+                var mask = Long.fromValue(0xffff, true);
+
+
+                if (instr.parsed.opd.length != 2) {
+                    var shift = parseInt(opds[3])
+                    mask = mask.shl(shift);
+                    val = val.shl(shift);
+                }
+                mask = mask.not();
+
+                if (opds[0][0] == 'w') {
+                    mask = mask.and(0xffffffff);
+                }
+
+                ops.push(Base.and(opds[0], opds[0], '0x' + mask.toString(16)));
+                if (parseInt(opds[1]) == 0) {
+                    return ops[0];
+                }
+                ops.push(Base.or(opds[0], opds[0], '0x' + val.toString(16)));
+                return Base.composed(ops);
+            },
+            ldrw: function(instr) {
+                return _memory(Base.read_memory, instr, '64', true);
+            },
+            ldrsw: function(instr) {
+                return _memory(Base.read_memory, instr, '64', true);
+            },
+            rev: function(instr) {
+                return Base.swap_endian(instr.parsed.opd[0], instr.parsed.opd[1], _reg_bits[instr.parsed.opd[0][0]]);
+            },
+            tst: function(instr, context) {
+                var a = instr.parsed.opd[0];
+                var b = instr.parsed.opd[1];
+                context.cond.a = (a === b) ? a : '(' + a + ' & ' + b + ')';
+                context.cond.b = '0';
+            },
+            tbnz: function(instr, context) {
+                var a = instr.parsed.opd[0];
+                var b = instr.parsed.opd[1];
+                context.cond.a = (a === b) ? a : '(' + a + ' & ' + b + ')';
+                context.cond.b = '0';
+                return _conditional(instr, context, 'NE');
+            },
+            sxtw: function(instr) {
+                var a = instr.parsed.opd[0];
+                var b = instr.parsed.opd[1];
+                return Base.cast(a, b, Extra.to.type(_reg_bits[a[0]], true));
+            },
+            ubfiz: function(instr) {
+                var opds = instr.parsed.opd;
+                var ops = [];
+                var arg = Variable.uniqueName();
+                var shift = parseInt(opds[2]);
+                var width = parseInt(opds[2]);
+                var bits = _reg_bits[opds[0][0]] || 32;
+                var rc = bits - width;
+                var lc = rc - shift;
+                return Base.composed([
+                    Base.shift_left(arg, opds[1], lc),
+                    Base.shift_right(opds[0], arg, rc)
+                ]);
+            },
+            sbfiz: function(instr) {
+                var opds = instr.parsed.opd;
+                var ops = [];
+                var arg = Variable.uniqueName();
+                var shift = parseInt(opds[2]);
+                var width = parseInt(opds[2]);
+                var bits = _reg_bits[opds[0][0]] || 32;
+                var rc = bits - width;
+                var lc = rc - shift;
+                return Base.composed([
+                    Base.shift_left(arg, opds[1], lc),
+                    Base.shift_right(opds[0], arg, rc),
+                    Base.cast(opds[0], opds[0], Extra.to.type(bits, true)),
+                ]);
+            },
+            /* SIMD/FP */
+            stur: function(instr) {
+                return _memory(Base.write_memory, instr, _reg_bits[instr.parsed.opd[0][0]]);
+            },
             invalid: function() {
                 return Base.nop();
             }
         },
         parse: function(asm) {
-            var ret = asm.replace(/\[|\]/g, ' ').replace(/,/g, ' ');
+            var ret = asm.replace(/(\[|\])/g, ' $1 ').replace(/,/g, ' ');
             ret = ret.replace(/\{|\}/g, ' ').replace(/\s+/g, ' ');
-            ret = ret.trim().split(' ');
-
+            //constant zero regs wz[rw]/xz[rw]
+            //ret = ret.replace(/\bwzr\b|\bwzw\b|\bxzw|\bxzr\b/g, "0");
+            ret = ret.replace(/\-\s/g, "-").trim().split(' ');
+            var ops = [ret[0]];
+            for (var i = 1, mem = false, mops = []; i < ret.length; i++) {
+                if (ret[i] == "[") {
+                    mem = true;
+                } else if (ret[i] == "]") {
+                    mem = false;
+                    ops.push(mops);
+                    mops = [];
+                } else if (mem) {
+                    if (ret[i].match(/^[su]xtw$/) && ret[i] == ']') continue;
+                    mops.push(ret[i]);
+                } else {
+                    ops.push(ret[i]);
+                }
+            }
             return {
-                mnem: ret.shift(),
-                opd: ret
+                mnem: ops.shift(),
+                opd: ops
             };
         },
         context: function() {
@@ -587,7 +833,7 @@ module.exports = (function() {
     }, {
         type: 'LO',
         ext: 'lo'
-    }, ];
+    }];
 
     for (var i = 0; i < _conditional_instruction_list.length; i++) {
         var e = _conditional_instruction_list[i];
