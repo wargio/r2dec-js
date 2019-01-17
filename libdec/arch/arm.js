@@ -55,10 +55,6 @@ module.exports = (function() {
         'q': 128
     };
 
-    var _is_register = function(name) {
-        return name && name.match(/r[0-9]+/) != null;
-    };
-
     var _common_math = function(e, op) {
         if (e.opd[0] == 'ip' || e.opd[0] == 'sp' || e.opd[0] == 'fp') {
             return Base.nop();
@@ -81,6 +77,7 @@ module.exports = (function() {
     var _memory = function(op, instr, bits, signed) {
         signed = signed || false;
         var e = instr.parsed.opd;
+        var mem, arg;
         if (e[0] == 'lr') {
             return null;
         }
@@ -92,43 +89,43 @@ module.exports = (function() {
             return Base.assign(e[0], instr.string || e[1]);
         } else if (e.length == 2) {
             //str A, [B...] is *((u32*) B...) = A;
-            var mem = e[1].filter(function(x) {
+            mem = e[1].filter(function(x) {
                 return x != '+';
             });
             if (mem.length < 3) {
-                return op(mem.join(' + ').replace(/\+ \-/, '- '), e[0], bits, false);
+                return op(mem.join(' + ').replace(/\+ -/, '- '), e[0], bits, false);
             }
-            var arg = Variable.uniqueName('offset');
+            arg = Variable.uniqueName('offset');
             return Base.composed([
                 _operands_base[mem[2]](arg, mem[1], mem[3], bits),
-                op([mem[0], arg].join(' + ').replace(/\+ \-/, '- '), e[0], bits, false),
+                op([mem[0], arg].join(' + ').replace(/\+ -/, '- '), e[0], bits, false),
             ]);
         } else if (e.length == 3 && last == "!") {
-            var mem = e[1].filter(function(x) {
+            mem = e[1].filter(function(x) {
                 return x != '+';
             });
             if (mem.length < 3) {
                 return op(mem.join(' += '), e[0], bits, false);
             }
-            var arg = Variable.uniqueName('offset');
+            arg = Variable.uniqueName('offset');
             return Base.composed([
                 _operands_base[mem[2]](arg, mem[1], mem[3], bits),
                 op([mem[0], arg].join(' += '), e[0], bits, false),
             ]);
         }
-        var mem = e[1].filter(function(x) {
+        mem = e[1].filter(function(x) {
             return x != '+';
         });
         if (mem.length < 3) {
             return Base.composed([
-                op(mem.join(' + ').replace(/\+ \-/, '- '), e[0], bits, false),
+                op(mem.join(' + ').replace(/\+ -/, '- '), e[0], bits, false),
                 Base.add(mem[0], mem[0], last)
             ]);
         }
-        var arg = Variable.uniqueName('offset');
+        arg = Variable.uniqueName('offset');
         return Base.composed([
             _operands_base[mem[2]](arg, mem[1], mem[3], bits),
-            op([mem[0], arg].join(' + ').replace(/\+ \-/, '- '), e[0], bits, false),
+            op([mem[0], arg].join(' + ').replace(/\+ -/, '- '), e[0], bits, false),
             Base.add(mem[0], mem[0], last)
         ]);
     };
@@ -594,7 +591,7 @@ module.exports = (function() {
                 for (var i = 0; i < _conditional_list.length; i++) {
                     if (_conditional_list[i].ext == opds[3]) {
                         cond = _conditional_list[i].type;
-                        break
+                        break;
                     }
                 }
                 return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, opds[1], opds[2]);
@@ -605,7 +602,7 @@ module.exports = (function() {
                 for (var i = 0; i < _conditional_list.length; i++) {
                     if (_conditional_list[i].ext == opds[1]) {
                         cond = _conditional_list[i].type;
-                        break
+                        break;
                     }
                 }
                 return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, 1, 0);
@@ -616,7 +613,7 @@ module.exports = (function() {
                 for (var i = 0; i < _conditional_list.length; i++) {
                     if (_conditional_list[i].ext == opds[3]) {
                         cond = _conditional_list[i].type;
-                        break
+                        break;
                     }
                 }
                 return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, opds[1], opds[2] + " + 1");
@@ -657,7 +654,7 @@ module.exports = (function() {
 
 
                 if (instr.parsed.opd.length != 2) {
-                    var shift = parseInt(opds[3])
+                    var shift = parseInt(opds[3]);
                     mask = mask.shl(shift);
                     val = val.shl(shift);
                 }
@@ -703,7 +700,6 @@ module.exports = (function() {
             },
             ubfiz: function(instr) {
                 var opds = instr.parsed.opd;
-                var ops = [];
                 var arg = Variable.uniqueName();
                 var shift = parseInt(opds[2]);
                 var width = parseInt(opds[2]);
@@ -717,7 +713,6 @@ module.exports = (function() {
             },
             sbfiz: function(instr) {
                 var opds = instr.parsed.opd;
-                var ops = [];
                 var arg = Variable.uniqueName();
                 var shift = parseInt(opds[2]);
                 var width = parseInt(opds[2]);
@@ -743,7 +738,7 @@ module.exports = (function() {
             ret = ret.replace(/\{|\}/g, ' ').replace(/\s+/g, ' ');
             //constant zero regs wz[rw]/xz[rw]
             //ret = ret.replace(/\bwzr\b|\bwzw\b|\bxzw|\bxzr\b/g, "0");
-            ret = ret.replace(/\-\s/g, "-").trim().split(' ');
+            ret = ret.replace(/-\s/g, "-").trim().split(' ');
             var ops = [ret[0]];
             for (var i = 1, mem = false, mops = []; i < ret.length; i++) {
                 if (ret[i] == "[") {
@@ -753,7 +748,7 @@ module.exports = (function() {
                     ops.push(mops);
                     mops = [];
                 } else if (mem) {
-                    if (ret[i].match(/^[su]xtw$/) && ret[i] == ']') continue;
+                    if (ret[i].match(/^[su]xtw$/) && ret[i] == ']') {continue;}
                     mops.push(ret[i]);
                 } else {
                     ops.push(ret[i]);
