@@ -17,6 +17,7 @@
 
 module.exports = (function() {
     var _JSON = require('libdec/json64');
+    var Long = require('libdec/long');
 
     function r2custom(value, regex, function_fix) {
         var x = r2cmd(value);
@@ -67,7 +68,7 @@ module.exports = (function() {
     }
 
     function merge_arrays(input) {
-        input = input.split('\n').map(function(x){
+        input = input.split('\n').map(function(x) {
             return x.length > 2 ? x.trim().substr(1, x.length).substr(0, x.length - 2) : '';
         });
         var array = '[' + input.filter(Boolean).join(',') + ']';
@@ -163,6 +164,8 @@ module.exports = (function() {
             };
             this.extra = {
                 theme: 'default',
+                file: 'testsuite',
+                offset: Long.ZERO,
                 debug: true
             };
         },
@@ -213,6 +216,8 @@ module.exports = (function() {
             };
             this.extra = {
                 theme: r2str('e r2dec.theme'),
+                file: r2str('i~^file[1:0]'),
+                offset: Long.fromString(r2str('s'), true, 16),
                 debug: has_option(args, '--debug')
             };
         },
@@ -244,7 +249,7 @@ module.exports = (function() {
                 console.log('Exception:', exception.stack);
             } else {
                 console.log(
-                    '\n\nr2dec has crashed.\n' +
+                    '\n\nr2dec has crashed (info: ' + r2str('i~^file[1:0]') + ' @ ' + r2str('s') + ').\n' +
                     'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
                     'Use the option \'--issue\' or the command \'pddi\' to generate \n' +
                     'the needed data for the issue.'

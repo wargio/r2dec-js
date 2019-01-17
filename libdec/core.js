@@ -91,7 +91,9 @@ module.exports = (function() {
     var _print = function(session) {
         var t = Global.printer.theme;
         var asm_header = '; assembly';
+        var details = '/* ' + Global.evars.extra.file + ' @ 0x' + Global.evars.extra.offset.toString(16) + ' */';
         console.log(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo C output */'));
+        console.log(Global.context.identfy() + t.comment(details));
 
         Global.context.printMacros();
         Global.context.printDependencies();

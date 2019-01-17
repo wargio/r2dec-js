@@ -433,7 +433,10 @@ module.exports = (function() {
                     }
                     args.unshift(context.stack.pop());
                 }
-                return Base.call('fcn_' + instr.parsed.opd[0], args);
+                if (instr.parsed.opd[0].match(/^\d+$/)) {
+                    return Base.call('fcn_' + instr.parsed.opd[0], args);
+                }
+                return Base.call(instr.parsed.opd[0], args);
             },
             return: function(instr, context, instructions) {
                 var ret = null;
