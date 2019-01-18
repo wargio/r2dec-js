@@ -89,9 +89,7 @@ module.exports = (function() {
             return Base.assign(e[0], instr.string || e[1]);
         } else if (e.length == 2) {
             //str A, [B...] is *((u32*) B...) = A;
-            mem = e[1].filter(function(x) {
-                return x != '+';
-            });
+            mem = e[1].slice();
             if (mem.length < 3) {
                 return op(mem.join(' + ').replace(/\+ -/, '- '), e[0], bits, false);
             }
@@ -101,9 +99,7 @@ module.exports = (function() {
                 op([mem[0], arg].join(' + ').replace(/\+ -/, '- '), e[0], bits, false),
             ]);
         } else if (e.length == 3 && last == "!") {
-            mem = e[1].filter(function(x) {
-                return x != '+';
-            });
+            mem = e[1].slice();
             if (mem.length < 3) {
                 return op(mem.join(' += '), e[0], bits, false);
             }
@@ -113,9 +109,7 @@ module.exports = (function() {
                 op([mem[0], arg].join(' += '), e[0], bits, false),
             ]);
         }
-        mem = e[1].filter(function(x) {
-            return x != '+';
-        });
+        mem = e[1].slice();
         if (mem.length < 3) {
             return Base.composed([
                 op(mem.join(' + ').replace(/\+ -/, '- '), e[0], bits, false),
@@ -741,14 +735,18 @@ module.exports = (function() {
             ret = ret.replace(/-\s/g, "-").trim().split(' ');
             var ops = [ret[0]];
             for (var i = 1, mem = false, mops = []; i < ret.length; i++) {
-                if (ret[i] == "[") {
+                if (mem && ret[i] == "+") {
+                    continue;
+                } else if (ret[i] == "[") {
                     mem = true;
                 } else if (ret[i] == "]") {
                     mem = false;
                     ops.push(mops);
                     mops = [];
                 } else if (mem) {
-                    if (ret[i].match(/^[su]xtw$/) && ret[i] == ']') {continue;}
+                    if (ret[i].match(/^[su]xtw$/) && ret[i] == ']') {
+                        continue;
+                    }
                     mops.push(ret[i]);
                 } else {
                     ops.push(ret[i]);
