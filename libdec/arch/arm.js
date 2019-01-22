@@ -101,12 +101,12 @@ module.exports = (function() {
         } else if (e.length == 3 && last == "!") {
             mem = e[1].slice();
             if (mem.length < 3) {
-                return op(mem.join(' += '), e[0], bits, false);
+                return op(mem.join(' += ').replace(/\+=\s-/, '-= '), e[0], bits, false);
             }
             arg = Variable.uniqueName('offset');
             return Base.composed([
                 _operands_base[mem[2]](arg, mem[1], mem[3], bits),
-                op([mem[0], arg].join(' += '), e[0], bits, false),
+                op([mem[0], arg].join(' += ').replace(/\+=\s-/, '-= '), e[0], bits, false),
             ]);
         }
         mem = e[1].slice();
@@ -277,8 +277,18 @@ module.exports = (function() {
             b: function() {
                 return Base.nop();
             },
+            br: function(instr, context, instructions) {
+                var callname = instr.parsed.opd[0];
+                instr.setBadJump();
+                callname = Variable.functionPointer(callname, _reg_bits[callname[0]] || 0, []);
+                if (instructions[instructions.length - 1] == instr) {
+                    return Base.return(Base.call(callname, []));
+                }
+                return Base.call(callname, []);
+            },
             bx: function(instr, context, instructions) {
-                if (instr.parsed.opd[0] == 'lr') {
+                var callname = instr.parsed.opd[0];
+                if (callname == 'lr') {
                     var start = instructions.indexOf(instr);
                     var returnval = null;
                     if (instructions[start - 1].parsed[1] == 'r0') {
@@ -287,7 +297,8 @@ module.exports = (function() {
                     return Base.return(returnval);
                 }
                 instr.setBadJump();
-                return Base.return(Base.call(instr.parsed.opd[0], []));
+                callname = Variable.functionPointer(callname, _reg_bits[callname[0]] || 0, []);
+                return Base.return(Base.call(callname, []));
             },
             bpl: function(instr, context) {
                 return _conditional(instr, context, 'GE');
@@ -348,6 +359,12 @@ module.exports = (function() {
             },
             'b.gt': function(instr, context) {
                 return _conditional(instr, context, 'GT');
+            },
+            eon: function(instr) {
+                return Base.composed([
+                    _common_math(instr.parsed, Base.xor),
+                    Base.not(instr.parsed.opd[0], instr.parsed.opd[0])
+                ]);
             },
             eor: function(instr) {
                 return _common_math(instr.parsed, Base.xor);
@@ -579,6 +596,22 @@ module.exports = (function() {
                     Base.or(instr.parsed.opd[0], instr.parsed.opd[0], arg1),
                 ]);
             },
+            bfxil: function(instr, context, instructions) {
+                var opds = instr.parsed.opd;
+                var lsb = parseInt(opds[2]);
+                var width = parseInt(opds[3]);
+                var bits = _reg_bits[opds[0][0]] || 32;
+                var mask_A = Long.MAX_UNSIGNED_VALUE.shl(lsb + width);
+                var mask_B = mask_A.not();
+
+                if (bits < 64) {
+                    mask_A = mask_A.and(0xffffffff);
+                    mask_B = mask_B.and(0xffffffff);
+                }
+                var sp = opds[0] + ' = (uint' + bits + '_t) (' + opds[0] + ' & 0x' + mask_A.toString(16);
+                sp += ') | (' + opds[1] + ' & 0x' + mask_B.toString(16) + ')';
+                return Base.special(sp);
+            },
             csel: function(instr, context) {
                 var opds = instr.parsed.opd;
                 var cond = 'EQ';
@@ -696,26 +729,26 @@ module.exports = (function() {
                 var opds = instr.parsed.opd;
                 var arg = Variable.uniqueName();
                 var shift = parseInt(opds[2]);
-                var width = parseInt(opds[2]);
+                var width = parseInt(opds[3]);
                 var bits = _reg_bits[opds[0][0]] || 32;
                 var rc = bits - width;
                 var lc = rc - shift;
                 return Base.composed([
-                    Base.shift_left(arg, opds[1], lc),
-                    Base.shift_right(opds[0], arg, rc)
+                    Base.shift_right(arg, opds[1], '0x' + lc.toString(16)),
+                    Base.shift_left(opds[0], arg, '0x' + lc.toString(16))
                 ]);
             },
             sbfiz: function(instr) {
                 var opds = instr.parsed.opd;
                 var arg = Variable.uniqueName();
                 var shift = parseInt(opds[2]);
-                var width = parseInt(opds[2]);
+                var width = parseInt(opds[3]);
                 var bits = _reg_bits[opds[0][0]] || 32;
                 var rc = bits - width;
                 var lc = rc - shift;
                 return Base.composed([
-                    Base.shift_left(arg, opds[1], lc),
-                    Base.shift_right(opds[0], arg, rc),
+                    Base.shift_right(arg, opds[1], '0x' + lc.toString(16)),
+                    Base.shift_left(opds[0], arg, '0x' + lc.toString(16)),
                     Base.cast(opds[0], opds[0], Extra.to.type(bits, true)),
                 ]);
             },
@@ -729,7 +762,8 @@ module.exports = (function() {
         },
         parse: function(asm) {
             var ret = asm.replace(/(\[|\])/g, ' $1 ').replace(/,/g, ' ');
-            ret = ret.replace(/\{|\}/g, ' ').replace(/\s+/g, ' ');
+            ret = ret.replace(/\{|\}/g, ' ').replace(/#/g, ' ');
+            ret = ret.replace(/\s+/g, ' ');
             //constant zero regs wz[rw]/xz[rw]
             //ret = ret.replace(/\bwzr\b|\bwzw\b|\bxzw|\bxzr\b/g, "0");
             ret = ret.replace(/-\s/g, "-").trim().split(' ');
