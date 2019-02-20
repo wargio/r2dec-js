@@ -899,19 +899,36 @@ module.exports = (function() {
         }
         var reglist = {};
         var pos = instructions.indexOf(instr);
-        for (var i = pos - 1; i >= pos - regs.length; i--) {
+        var end = pos - regs.length;
+        // push pop variable to save the register.
+        var push_instr = null;
+        var dst, src;
+        for (var i = pos - 1; i >= end; i--) {
             var prev = instructions[i] || {};
             if (!prev || !prev.parsed) {
                 continue;
             }
             if (prev.parsed.mnem == 'int' || prev.parsed.mnem == 'syscall') {
-                break
+                break;
             }
-            if (prev.parsed.mnem != 'mov') {
-                continue
+            if (prev.parsed.mnem == 'pop' && end > 0) {
+                end--;
+                push_instr = prev;
             }
-            var dst = prev.parsed.opd[0];
-            var src = prev.parsed.opd[1];
+            if (prev.parsed.mnem != 'mov' && prev.parsed.mnem != 'push') {
+                continue;
+            }
+            if (prev.parsed.mnem == 'push') {
+                if (!push_instr) {
+                    break;
+                }
+                dst = push_instr.parsed.opd[0];
+                push_instr = null;
+                src = prev.parsed.opd[0];
+            } else {
+                dst = prev.parsed.opd[0];
+                src = prev.parsed.opd[1];
+            }
             if (prev.string) {
                 src = Variable.string(prev.string);
             }
@@ -942,8 +959,8 @@ module.exports = (function() {
         for (i = 0; i < regs.length; i++) {
             var data = _get_reg_value_from_map(regs[i], reglist);
             if (!data || !data.instr) {
-                continue
-            };
+                continue;
+            }
             data.instr.valid = false;
             src = data.value;
             src = src.token ? Extra.tryas.int(src.token) : src;

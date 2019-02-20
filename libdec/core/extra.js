@@ -153,9 +153,7 @@ module.exports = (function() {
         int: function(x) {
             try {
                 return Long.fromString(x.trim(), false, (x.trim().indexOf('0x') == 0 ? 16 : 10));
-            } catch (e) {
-                console.log(e)
-            }
+            } catch (e) {}
             return x;
         }
     };
