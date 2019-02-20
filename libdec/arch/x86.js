@@ -695,7 +695,7 @@ module.exports = (function() {
 
             // every non-import callee has a known number of arguments
             // for imported libc functions, get the number of arguments out of a predefined list
-            var nargs = callee.name.startsWith('sym.imp.') ?
+            var nargs = callee.name.startsWith('sym.') ?
                 Extra.find.arguments_number(callee.name) :
                 callee.nargs;
 

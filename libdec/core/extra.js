@@ -131,17 +131,17 @@ module.exports = (function() {
                 return name;
             }
             if (name.startsWith('sym.imp.')) {
-                name = name.substring('sym.imp.'.length);
+                name = name.substring('sym.imp.'.length).replace(/^_+/, '');
             } else if (name.startsWith('sym.')) {
-                name = name.substring('sym.'.length);
+                name = name.substring('sym.'.length).replace(/^_+/, '');
             } else if (name.startsWith('imp.')) {
-                name = name.substring('imp.'.length);
+                name = name.substring('imp.'.length).replace(/^_+/, '');
                 //} else if (name.startsWith('fcn.')) {
                 //    name = name.substring('fcn.'.length);
                 //} else if (name.startsWith('func.')) {
                 //    name = name.substring('func.'.length);
             } else if (name.startsWith('reloc.')) {
-                name = name.substring('reloc.'.length);
+                name = name.substring('reloc.'.length).replace(/^_+/, '');
             }
             name = name.replace(/\./g, '_');
             return name.replace(/(\w|^):(\w|$)/g, '$1_$2').replace(/_+/g, '_');
