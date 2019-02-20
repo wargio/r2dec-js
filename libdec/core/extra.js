@@ -148,11 +148,19 @@ module.exports = (function() {
         }
     };
 
+    const _tryas = {
+        int: function(x) {
+            var p = parseInt(x);
+            return isNaN(p) ? x : p;
+        }
+    };
+
     /**
      * Extra object
      * @return {Function} - Extra object
      */
     return {
+        tryas: _tryas,
         is: _is,
         to: _to,
         find: _find,

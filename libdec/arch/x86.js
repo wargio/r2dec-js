@@ -19,6 +19,7 @@ module.exports = (function() {
     const Base = require('libdec/core/base');
     const Variable = require('libdec/core/variable');
     const Extra = require('libdec/core/extra');
+    const Syscalls = require('libdec/db/syscalls');
 
     /**
      * Maps a return register to its corresponding size in bits, This is used to
@@ -862,6 +863,68 @@ module.exports = (function() {
         return Base.composed(ops);
     };
 
+    var _syscall_common = function(instr, instructions, sysinfo, regs) {
+        if (!sysinfo) {
+            return null;
+        }
+        if (sysinfo.comment) {
+            instr.comments.push(sysinfo.comment);
+        }
+        if (!sysinfo.table) {
+            return null;
+        }
+        var reglist = {};
+        var pos = instructions.indexOf(instr);
+        for (var i = pos - 1; i >= pos - regs.length; i--) {
+            var prev = instructions[i] || {};
+            if (!prev || !prev.parsed || prev.parsed.mnem != 'mov') {
+                continue;
+            }
+            var dst = prev.parsed.opd[0];
+            var src = prev.parsed.opd[1];
+            if (prev.string) {
+                src = Variable.string(prev.string);
+            }
+            if (!reglist[dst.token]) {
+                reglist[dst.token] = {
+                    value: src,
+                    instr: prev,
+                };
+            }
+        }
+        var reg0 = regs.shift();
+        if (!reglist[reg0]) {
+            return null;
+        }
+        var syscall_num = parseInt(reglist[reg0].value.token).toString(16);
+        if (typeof syscall_num != 'string') {
+            return null;
+        }
+        sysinfo = sysinfo.table[syscall_num];
+        if (!sysinfo) {
+            return null;
+        }
+        if (sysinfo.comment) {
+            instr.comments.push(sysinfo.comment);
+        }
+        reglist[reg0].instr.valid = false;
+        regs = regs.slice(0, sysinfo.args);
+        for (i = 0; i < regs.length; i++) {
+            reglist[regs[i]].instr.valid = false;
+            src = reglist[regs[i]].value;
+            src = src.token ? Extra.tryas.int(src.token) : src;
+            if (typeof src == 'number') {
+                src = Variable.number(src);
+            }
+            regs[i] = src || regs[i];
+        }
+
+        return {
+            args: regs,
+            name: sysinfo.name
+        };
+    };
+
     return {
         instructions: {
             inc: function(instr, context) {
@@ -1260,6 +1323,27 @@ module.exports = (function() {
                     Base.assign(lhand.token, rhand.token),  // dest = src
                     Base.assign(rhand.token, tmp)           // src = tmp
                 ]);
+            },
+            int: function(instr, context, instructions) {
+                var syscall_num = parseInt(instr.parsed.opd[0].token).toString(16);
+                var name = 'syscall_' + syscall_num + 'h';
+                var regs = ['eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'edp'];
+                var info = _syscall_common(instr, instructions, Syscalls(syscall_num, 'x86'), regs);
+                if (info) {
+                    name = info.name;
+                    regs = info.args;
+                }
+                return Base.assign('eax', Base.call(name, regs));
+            },
+            syscall: function(instr, context, instructions) {
+                var name = 'syscall_80h';
+                var regs = ['rax', 'rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9'];
+                var info = _syscall_common(instr, instructions, Syscalls('80', 'x86'), regs);
+                if (info) {
+                    name = info.name;
+                    regs = info.args;
+                }
+                return Base.assign('rax', Base.call(name, regs));
             },
             hlt: function() {
                 return Base.return(Base.call('_hlt', []));

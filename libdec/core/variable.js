@@ -109,6 +109,18 @@ module.exports = (function() {
         };
     };
 
+    var _number = function(content) {
+        this.content = content;
+
+        this.toType = function() {
+            return '';
+        };
+
+        this.toString = function(define) {
+            return define ? null : Global.printer.theme.integers(this.content);
+        };
+    };
+
     var _macro = function(content) {
         this.content = content;
 
@@ -149,6 +161,9 @@ module.exports = (function() {
         },
         string: function(string_content) {
             return new _string(string_content);
+        },
+        number: function(number) {
+            return new _number(number);
         },
         macro: function(string_content) {
             return new _macro(string_content);
