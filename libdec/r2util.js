@@ -86,6 +86,7 @@ module.exports = (function() {
             }
             return x;
         };
+        if (!vars) return vars;
         vars.bp = vars.bp.map(p);
         vars.reg = vars.reg.map(p);
         vars.sp = vars.sp.map(p);
