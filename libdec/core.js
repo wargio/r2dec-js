@@ -16,14 +16,29 @@
  */
 
 module.exports = (function() {
-    var Base = require('libdec/core/base');
-    var Block = require('libdec/core/block');
-    var Scope = require('libdec/core/scope');
-    var Strings = require('libdec/core/strings');
-    var Symbols = require('libdec/core/symbols');
-    var Functions = require('libdec/core/functions');
-    var Instruction = require('libdec/core/instruction');
-    var ControlFlow = require('libdec/core/controlflow');
+    const Base = require('libdec/core/base');
+    const Block = require('libdec/core/block');
+    const Scope = require('libdec/core/scope');
+    const Extra = require('libdec/core/extra');
+    const Strings = require('libdec/core/strings');
+    const Symbols = require('libdec/core/symbols');
+    const Functions = require('libdec/core/functions');
+    const Instruction = require('libdec/core/instruction');
+    const ControlFlow = require('libdec/core/controlflow');
+
+
+    /**
+     * Fixes for known routine names that are standard (like main)
+     * @param  {String} routine_name Routine name
+     * @param  {String} return_type  Return type
+     * @return {String}              New return type
+     */
+    var _hardcoded_fixes = function(routine_name, return_type) {
+        if (Extra.replace.call(routine_name) == "main") {
+            return 'int32_t';
+        }
+        return return_type || 'void';
+    }
 
     /**
      * Is the function that is called after the opcode analisys.
@@ -39,7 +54,7 @@ module.exports = (function() {
             arch.postanalisys(session.instructions, arch_context);
         }
         var routine = new Scope.routine(session.instructions[0].location, {
-            returns: arch.returns(arch_context) || 'void',
+            returns: _hardcoded_fixes(session.routine_name, arch.returns(arch_context)),
             name: session.routine_name,
             args: arch.arguments(arch_context) || [],
             locals: arch.localvars(arch_context) || [],

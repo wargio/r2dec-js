@@ -79,6 +79,19 @@ module.exports = (function() {
         return _JSON.parse(merge_arrays(input));
     }
 
+    function offset_long(vars) {
+        var p = function(x) {
+            if (x.ref && typeof x.ref.offset == 'string') {
+                x.ref.offset = Long.fromString(x.ref.offset, false, 10);
+            }
+            return x;
+        };
+        vars.bp = vars.bp.map(p);
+        vars.reg = vars.reg.map(p);
+        vars.sp = vars.sp.map(p);
+        return vars;
+    }
+
     var padding = '            ';
     var usages = {
         "--help": "this help message",
@@ -188,7 +201,7 @@ module.exports = (function() {
                     symbols: o.isj || [],
                     strings: o.izj || [],
                     functions: o.aflj || [],
-                    arguments: o.afvj || {
+                    arguments: offset_long(o.afvj) || {
                         "sp": [],
                         "bp": [],
                         "reg": []
@@ -228,11 +241,11 @@ module.exports = (function() {
                 symbols: r2json('isj', []),
                 strings: r2json('izj', []),
                 functions: r2json('aflj', []),
-                arguments: r2json('afvj', {
+                arguments: offset_long(r2json('afvj', {
                     "sp": [],
                     "bp": [],
                     "reg": []
-                })
+                }))
             };
             this.graph = r2json('agj', []);
             this.argdb = r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays_json);
