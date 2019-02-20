@@ -38,7 +38,7 @@ module.exports = (function() {
             return 'int32_t';
         }
         return return_type || 'void';
-    }
+    };
 
     /**
      * Is the function that is called after the opcode analisys.
