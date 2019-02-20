@@ -1309,7 +1309,7 @@ module.exports = (function() {
             //     (byte|(?:[dq]|[xyz]mm)?word)            : first operand's memory access qualifier
             // )?
             // (?:\s*
-            //     ([d-g]s:)?                              : optional segment override
+            //     ([d-gs]s:)?                             : optional segment override
             //     (?:\[?)                                 : optional opening bracket (stripped)
             //     ([^[\],]+)                              : first operand
             //     (?:\]?)                                 : optional closing bracket (stripped)
@@ -1333,7 +1333,7 @@ module.exports = (function() {
             // )?
 
             /** @type {Array.<string>} */
-            var tokens = asm.match(/(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word)(?: ptr)?)?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?)?(?:,(?:\s+([^[\],]+))?)?/);
+            var tokens = asm.match(/(?:(repn?[ez]?|lock)\s+)?(\w+)(?:\s+(byte|(?:[dq]|[xyz]mm)?word))?(?:\s*([d-gs]s:)?(?:\[?)([^[\],]+)(?:\]?))?(?:(?:,)(?:\s+(byte|(?:[dq]|[xyz]mm)?word)(?: ptr)?)?(?:\s*([d-g]s:)?(?:\[?)([^[\],]+)(?:\]?))?)?(?:,(?:\s+([^[\],]+))?)?/);
 
             // tokens[0]: match string; irrelevant
             // tokens[1]: instruction prefix; undefined if no prefix
