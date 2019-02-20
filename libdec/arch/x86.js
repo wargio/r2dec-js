@@ -20,6 +20,7 @@ module.exports = (function() {
     const Variable = require('libdec/core/variable');
     const Extra = require('libdec/core/extra');
     const Syscalls = require('libdec/db/syscalls');
+    const Long = require('libdec/long');
 
     /**
      * Maps a return register to its corresponding size in bits, This is used to
@@ -863,6 +864,29 @@ module.exports = (function() {
         return Base.composed(ops);
     };
 
+    var _get_reg_value_from_map = function(expected, map) {
+        var regs_def = null;
+        if (map[expected]) {
+            return map[expected];
+        }
+        for (var i = 0; i < _x86_x64_registers.length; i++) {
+            if (_x86_x64_registers[i].indexOf(expected) >= 0) {
+                regs_def = _x86_x64_registers[i];
+                break;
+            }
+        }
+        if (!regs_def) {
+            return null;
+        }
+        for (i = 0; i < regs_def.length; i++) {
+            var data = map[regs_def[i]];
+            if (data) {
+                return data;
+            }
+        }
+        return null;
+    };
+
     var _syscall_common = function(instr, instructions, sysinfo, regs) {
         if (!sysinfo) {
             return null;
@@ -877,8 +901,14 @@ module.exports = (function() {
         var pos = instructions.indexOf(instr);
         for (var i = pos - 1; i >= pos - regs.length; i--) {
             var prev = instructions[i] || {};
-            if (!prev || !prev.parsed || prev.parsed.mnem != 'mov') {
+            if (!prev || !prev.parsed) {
                 continue;
+            }
+            if (prev.parsed.mnem == 'int' || prev.parsed.mnem == 'syscall') {
+                break
+            }
+            if (prev.parsed.mnem != 'mov') {
+                continue
             }
             var dst = prev.parsed.opd[0];
             var src = prev.parsed.opd[1];
@@ -910,11 +940,15 @@ module.exports = (function() {
         reglist[reg0].instr.valid = false;
         regs = regs.slice(0, sysinfo.args);
         for (i = 0; i < regs.length; i++) {
-            reglist[regs[i]].instr.valid = false;
-            src = reglist[regs[i]].value;
+            var data = _get_reg_value_from_map(regs[i], reglist);
+            if (!data || !data.instr) {
+                continue
+            };
+            data.instr.valid = false;
+            src = data.value;
             src = src.token ? Extra.tryas.int(src.token) : src;
-            if (typeof src == 'number') {
-                src = Variable.number(src);
+            if (Long.isLong(src)) {
+                src = Variable.number('0x' + src.toString(16));
             }
             regs[i] = src || regs[i];
         }

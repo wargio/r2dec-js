@@ -27,6 +27,7 @@
 
 module.exports = (function() {
     const _call_common = require('libdec/db/macros');
+    const Long = require('libdec/long');
 
     /**
      * Types size
@@ -109,9 +110,9 @@ module.exports = (function() {
             name = _replace.call(name);
             if (_call_common[name]) {
                 return _call_common[name].args;
-            } else if (Global.argdb){
-                var db  = Global.argdb;
-                for(var k in db) {
+            } else if (Global.argdb) {
+                var db = Global.argdb;
+                for (var k in db) {
                     if (db[k].name == name) {
                         return parseInt(db[k].count);
                     }
@@ -150,8 +151,12 @@ module.exports = (function() {
 
     const _tryas = {
         int: function(x) {
-            var p = parseInt(x);
-            return isNaN(p) ? x : p;
+            try {
+                return Long.fromString(x.trim(), false, (x.trim().indexOf('0x') == 0 ? 16 : 10));
+            } catch (e) {
+                console.log(e)
+            }
+            return x;
         }
     };
 
