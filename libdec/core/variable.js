@@ -133,6 +133,20 @@ module.exports = (function() {
         };
     };
 
+    var _object = function(content, create) {
+        this.content = Extra.replace.object(content);
+        this.create = create || false;
+
+        this.toType = function() {
+            return '';
+        };
+
+        this.toString = function(define) {
+            var snew = this.create ? Global.printer.theme.flow('new') + ' ' : '';
+            return define ? null : (snew + Global.printer.theme.callname(this.content));
+        };
+    };
+
     // ------------------------------
 
     return {
@@ -156,7 +170,6 @@ module.exports = (function() {
         },
         local: function(variable_name, ctype_or_bits, is_signed) {
             var ctype = Extra.is.number(ctype_or_bits) ? Extra.to.type(ctype_or_bits, is_signed) : ctype_or_bits;
-
             return new _local(variable_name, ctype);
         },
         string: function(string_content) {
@@ -167,6 +180,12 @@ module.exports = (function() {
         },
         macro: function(string_content) {
             return new _macro(string_content);
-        }
+        },
+        object: function(string_content) {
+            return new _object(string_content, false);
+        },
+        newobject: function(string_content, type) {
+            return new _object(string_content, true);
+        },
     };
 })();

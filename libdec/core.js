@@ -53,9 +53,11 @@ module.exports = (function() {
         if (arch.postanalisys) {
             arch.postanalisys(session.instructions, arch_context);
         }
+        var routine_name = arch.routine_name ? arch.routine_name(session.routine_name) : Extra.replace.call(session.routine_name);
         var routine = new Scope.routine(session.instructions[0].location, {
             returns: _hardcoded_fixes(session.routine_name, arch.returns(arch_context)),
             name: session.routine_name,
+            routine_name: routine_name,
             args: arch.arguments(arch_context) || [],
             locals: arch.localvars(arch_context) || [],
             globals: arch.globalvars(arch_context) || []

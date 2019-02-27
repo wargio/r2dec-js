@@ -146,6 +146,30 @@ module.exports = (function() {
             }
             name = name.replace(/\./g, '_');
             return name.replace(/(\w|^):(\w|$)/g, '$1_$2').replace(/_+/g, '_');
+        },
+        object: function(name) {
+            if (typeof name != 'string' || name.startsWith('0x')) {
+                return name;
+            }
+            if (name.startsWith('sym.imp.')) {
+                name = name.substring('sym.imp.'.length);
+            } else if (name.startsWith('sym.')) {
+                name = name.substring('sym.'.length);
+            } else if (name.startsWith('imp.')) {
+                name = name.substring('imp.'.length);
+                //} else if (name.startsWith('fcn.')) {
+                //    name = name.substring('fcn.'.length);
+                //} else if (name.startsWith('func.')) {
+                //    name = name.substring('func.'.length);
+            } else if (name.startsWith('reloc.')) {
+                name = name.substring('reloc.'.length);
+            }
+            if (name.startsWith('L')) {
+                // java object
+                name = name.replace(/(\._init_)?_.+V$|(\.<init>)?\(.+$/, '');
+                name = name.substr(1).replace(/\/|;->/g, '.').replace(/\s.+$|;$/, '');
+            }
+            return name;
         }
     };
 

@@ -176,6 +176,23 @@ var _generic_call = function(function_name, args) {
     };
 };
 
+var _generic_method_call = function(object_this, function_name, args, method_sep) {
+    this.object_this = Extra.is.string(object_this) ? Cpp(Extra.replace.call(object_this)) : object_this;
+    this.function_name = Extra.is.string(function_name) ? Cpp(Extra.replace.call(function_name)) : function_name;
+    this.arguments = args || [];
+    this.method_sep = method_sep;
+
+    this.toString = function() {
+        var fname = this.function_name;
+
+        if (Extra.is.string(fname)) {
+            fname = Global.printer.theme.callname(fname);
+        }
+
+        return this.object_this + this.method_sep + [fname, parenthesize(this.arguments.join(', '))].join(' ');
+    };
+};
+
 var _generic_rotate = function(destination, source_a, rotation, bits, is_left) {
     this.call = 'rotate_' + (is_left ? 'left' : 'right') + bits;
     this.destination = destination;
@@ -219,6 +236,21 @@ var _generic_flow = function(name) {
 
     this.toString = function(options) {
         return Global.printer.theme.flow(this.name);
+    };
+};
+
+var _assign_object_field = function(destination, object, field, method_sep) {
+    this.destination = destination;
+    this.object = object;
+    this.field = field;
+    this.method_sep = method_sep;
+
+    this.toString = function(options) {
+        return [
+            this.destination,
+            '=',
+            this.object + this.method_sep + this.field
+        ].join(' ');
     };
 };
 
@@ -390,6 +422,14 @@ module.exports = {
                 return Global.printer.auto(this.data);
             };
         }(data);
+    },
+    /* Object based langs */
+    method_call: function(object_this, method_separator, function_name, function_arguments) {
+        return new _generic_method_call(object_this, function_name, function_arguments, method_separator);
+    },
+    /* Object based langs */
+    assign_object_field: function(destination, object, method_separator, field) {
+        return new _assign_object_field(destination, object, field, method_separator);
     },
     /* UNKNOWN */
     unknown: function(asm) {
