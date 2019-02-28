@@ -52,7 +52,7 @@ module.exports = (function() {
         this.search = function(address) {
             if (address) {
                 var r = Utils.search(address, this.data, _compare);
-                return r ? ('"' + r.value + '"') : null;
+                return r ? r.value : null;
             }
             return null;
         };

@@ -16,7 +16,8 @@
  */
 
 module.exports = (function() {
-    var Extra = require('libdec/core/extra');
+    const Extra = require('libdec/core/extra');
+    const Objects = require('libdec/core/objects');
 
     var _internal_label_cnt = 0;
     var _internal_variable_cnt = 0;
@@ -99,6 +100,13 @@ module.exports = (function() {
 
     var _string = function(content) {
         this.content = content;
+        if (!this.content.startsWith('"') && !this.content.startsWith("'")) {
+            this.content = '"' + this.content;
+        }
+        if (!this.content.endsWith('"') && !this.content.endsWith("'")) {
+            this.content += '"';
+        }
+        this.content = this.content.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
 
         this.toType = function() {
             return Global.printer.theme.types('char') + '*';
@@ -130,20 +138,6 @@ module.exports = (function() {
 
         this.toString = function(define) {
             return define ? null : Global.printer.theme.macro(this.content);
-        };
-    };
-
-    var _object = function(content, create) {
-        this.content = Extra.replace.object(content);
-        this.create = create || false;
-
-        this.toType = function() {
-            return '';
-        };
-
-        this.toString = function(define) {
-            var snew = this.create ? Global.printer.theme.flow('new') + ' ' : '';
-            return define ? null : (snew + Global.printer.theme.callname(this.content));
         };
     };
 
@@ -181,11 +175,14 @@ module.exports = (function() {
         macro: function(string_content) {
             return new _macro(string_content);
         },
-        object: function(string_content) {
-            return new _object(string_content, false);
+        object: function(type, args) {
+            return Objects.object(type, args, false);
         },
-        newobject: function(string_content, type) {
-            return new _object(string_content, true);
+        newobject: function(type, args) {
+            return Objects.object(type, args, true);
+        },
+        newarray: function(type, size) {
+            return Objects.array(type, size, true);
         },
     };
 })();

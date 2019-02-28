@@ -97,6 +97,16 @@ module.exports = (function() {
         };
 
         /**
+         * Compare the max size of the identation line with the given one.
+         * @param  {Number} size - Size to set
+         * @return {Number}
+         */
+        this.identCompare = function(size) {
+            // size = 0x + addr + space + asm + space
+            return size - ((this.identAsm.length / 4) - 10);
+        };
+
+        /**
          * Scope identation
          * @type {String}
          */

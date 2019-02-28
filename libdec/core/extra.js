@@ -164,10 +164,13 @@ module.exports = (function() {
             } else if (name.startsWith('reloc.')) {
                 name = name.substring('reloc.'.length);
             }
-            if (name.startsWith('L')) {
+            if (name.startsWith('L') || name.startsWith('[L')) {
                 // java object
                 name = name.replace(/(\._init_)?_.+V$|(\.<init>)?\(.+$/, '');
-                name = name.substr(1).replace(/\/|;->/g, '.').replace(/\s.+$|;$/, '');
+                name = name.substr(name.startsWith('L') ? 1 : 2).replace(/\/|;->/g, '.').replace(/\s.+$|;$/, '');
+                if (name.indexOf('_L') > 0) {
+                    name = name.substring(0, name.indexOf('_L'));
+                }
             }
             return name;
         }

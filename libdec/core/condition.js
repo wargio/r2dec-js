@@ -28,6 +28,7 @@ module.exports = (function() {
         GT: [' > ', ' <= '],
         GE: [' >= ', ' < '],
         LO: [' overflow ', ' !overflow '],
+        INSTANCEOF: [' instanceof ', null],
     };
 
     return {
@@ -37,13 +38,19 @@ module.exports = (function() {
             };
         },
         convert: function(a, b, cond, invert) {
-            this.condition = cond ? _cmps[cond][invert ? 1 : 0] : '';
+            this.invert = invert;
+            this.condition = cond; // ? _cmps[cond][invert ? 1 : 0] : '';
             this.a = a;
             this.b = b || '';
             this.toString = function() {
                 var a = Extra.is.string(this.a) ? Global.printer.auto(this.a) : this.a;
                 var b = Extra.is.string(this.b) ? Global.printer.auto(this.b) : this.b;
-                return a + this.condition + b;
+                if (this.invert && _cmps[cond][1]) {
+                    return a + _cmps[cond][1] + b;
+                } else if (this.invert) {
+                    return '!(' + a + Global.printer.theme.flow(_cmps[cond][0]) + b + ')';
+                }
+                return a + _cmps[cond][0] + b;
             };
         },
     };
