@@ -153,6 +153,7 @@ static void usage(void) {
 	r_cons_printf ("Usage: pdd [args] - core plugin for r2dec\n");
 	r_cons_printf (" pdd   - decompile current function\n");
 	r_cons_printf (" pdd?  - show this help\n");
+	r_cons_printf (" pdd*  - the decompiled code is returned to r2 as comment (via CCu)\n");
 	r_cons_printf (" pdda  - decompile current function with side assembly\n");
 	r_cons_printf (" pddb  - decompile current function but shows only scopes\n");
 	r_cons_printf (" pddu  - install/upgrade r2dec via r2pm\n");
@@ -192,6 +193,10 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	case 'b':
 		// --blocks
 		duk_r2dec(core, "--blocks");
+		break;
+	case '*':
+		// --as-comment
+		duk_r2dec(core, "--as-comment");
 		break;
 	case '?':
 	default:
@@ -242,10 +247,13 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 
 	// autocomplete here..
 	RCoreAutocomplete *pdd = r_core_autocomplete_add (core->autocomplete, "pdd", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (core->autocomplete, "pdda", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pdd?", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pdd*", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddb", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (pdd, "--as-comment", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--as-opcode", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--assembly", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--blocks", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--casts", R_CORE_AUTOCMPLT_OPTN, true);

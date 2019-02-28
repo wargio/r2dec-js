@@ -31,6 +31,22 @@ module.exports = (function() {
         return instr.valid && instr.code && instr.code.toString().length > 0;
     };
 
+    var _asm_r2_view = function(instr, opcode) {
+        var s = '';
+        if (instr.code && instr.code.composed) {
+            for (var i = 0; i < instr.code.composed.length; i++) {
+                s += instr.code.composed[i] + '\n';
+            }
+        } else if (_printable(instr)) {
+            s += instr.code;
+        }
+        if (opcode) {
+            Global.evars.add_opcode(s.trim(), instr.location);
+        } else {
+            Global.evars.add_comment(s.trim(), instr.location);
+        }
+    };
+
     var _asm_view = function(instr) {
         var i;
         if (Global.evars.honor.blocks) {
@@ -113,6 +129,12 @@ module.exports = (function() {
                 console.log(Global.context.identfy(null, null, true) + this.label + ':');
             }
             _asm_view(this);
+        };
+        this.ascomment = function() {
+            _asm_r2_view(this, false);
+        };
+        this.asopcode = function() {
+            _asm_r2_view(this, true);
         };
     };
 
