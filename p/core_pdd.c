@@ -185,6 +185,7 @@ static void switch_git_branch(RCore *core, const char* branch) {
 		r_cons_printf ("[r2dec] Fail to get home directory.\n");
 		return;
 	}
+	r_core_cmdf (core, "!git -C %s fetch --all", env);
 	r_core_cmdf (core, "!git -C %s checkout %s", env, branch);
 	free (env);
 }
