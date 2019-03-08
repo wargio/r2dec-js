@@ -53,6 +53,9 @@ module.exports = (function() {
         if (arch.postanalisys) {
             arch.postanalisys(session.instructions, arch_context);
         }
+        if (session.instructions.length < 1) {
+            return;
+        }
         var routine = new Scope.routine(session.instructions[0].location, {
             returns: _hardcoded_fixes(session.routine_name, arch.returns(arch_context)),
             name: session.routine_name,
@@ -104,6 +107,10 @@ module.exports = (function() {
      * @param  {Object} session - Current session object.
      */
     var _print = function(session) {
+        if (!session.routine) {
+            console.log('Error: no "good" data given (all invalid opcodes).');
+            return;
+        }
         if (Global.evars.extra.ascomment) {
             session.ascomment();
             console.log('[r2dec] comments applied for "' + session.routine_name + '".');
