@@ -16,7 +16,8 @@
  */
 
 module.exports = (function() {
-    var Long = require('libdec/long');
+    const Long = require('libdec/long');
+    const Condition = require('libdec/core/condition');
 
     var _align = function(x) {
         var zeros32 = '00000000';
@@ -29,6 +30,42 @@ module.exports = (function() {
 
     var _printable = function(instr) {
         return instr.valid && instr.code && instr.code.toString().length > 0;
+    };
+
+    var _conditional = function(cond) {
+        return (new Condition.convert(cond.a, cond.b, cond.type, false)).toString();
+    };
+
+    var _asm_r2_view = function(instr, opcode) {
+        var s = '';
+        if (instr.label) {
+            s = instr.label.name + ":\n";
+        }
+        if (instr.code && instr.code.composed) {
+            if (instr.cond && instr.jump) {
+                s += (instr.jump.gt(instr.location) ? "if" : "while") + " (" + _conditional(instr.cond) + ") {\n";
+            }
+            for (var i = 0; i < instr.code.composed.length; i++) {
+                s += instr.code.composed[i] + '\n';
+            }
+            if (instr.cond && instr.jump) {
+                s += "}\n";
+            }
+        } else if (_printable(instr)) {
+            if (instr.cond && instr.jump) {
+                s += "if (" + _conditional(instr.cond) + ") " + instr.code + "\n";
+            } else {
+                s += instr.code + "\n";
+            }
+        } else if (instr.cond && !_printable(instr) && instr.jump) {
+            s += "if (" + _conditional(instr.cond) + ") goto 0x" + instr.jump.toString(16);
+        }
+
+        if (opcode) {
+            Global.evars.add_opcode(s.trim(), instr.location);
+        } else {
+            Global.evars.add_comment(s.trim(), instr.location);
+        }
     };
 
     var _asm_view = function(instr) {
@@ -113,6 +150,12 @@ module.exports = (function() {
                 console.log(Global.context.identfy(null, null, true) + this.label + ':');
             }
             _asm_view(this);
+        };
+        this.ascomment = function() {
+            _asm_r2_view(this, false);
+        };
+        this.asopcode = function() {
+            _asm_r2_view(this, true);
         };
     };
 

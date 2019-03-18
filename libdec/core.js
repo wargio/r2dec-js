@@ -54,6 +54,9 @@ module.exports = (function() {
             arch.postanalisys(session.instructions, arch_context);
         }
         var routine_name = arch.routine_name ? arch.routine_name(session.routine_name) : Extra.replace.call(session.routine_name);
+        if (session.instructions.length < 1) {
+            return;
+        }
         var routine = new Scope.routine(session.instructions[0].location, {
             returns: _hardcoded_fixes(session.routine_name, arch.returns(arch_context)),
             name: session.routine_name,
@@ -106,18 +109,29 @@ module.exports = (function() {
      * @param  {Object} session - Current session object.
      */
     var _print = function(session) {
+        if (!session.routine) {
+            console.log('Error: no "good" data given (all invalid opcodes).');
+            return;
+        }
+        if (Global.evars.extra.ascomment) {
+            session.ascomment();
+            console.log('[r2dec] comments applied for "' + session.routine_name + '".');
+            return;
+        } else if (Global.evars.extra.asopcode) {
+            session.asopcode();
+            console.log('[r2dec] new opcodes applied for "' + session.routine_name + '".');
+            return;
+        }
         var t = Global.printer.theme;
         var asm_header = '; assembly';
         var details = '/* ' + Global.evars.extra.file + ' @ 0x' + Global.evars.extra.offset.toString(16) + ' */';
         var lang_type = ['java', 'dalvik'].indexOf(Global.evars.arch) >= 0 ? 'Java' : 'C';
         console.log(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo ' + lang_type + ' output */'));
         console.log(Global.context.identfy() + t.comment(details));
-
         if (['java', 'dalvik'].indexOf(Global.evars.arch) < 0) {
             Global.context.printMacros();
             Global.context.printDependencies();
         }
-
         session.print();
         while (Global.context.ident.length > 0) {
             Global.context.identOut();
@@ -166,6 +180,16 @@ module.exports = (function() {
         Global.context.identAsmSet(max_length + max_address);
         this.routine_name = data.graph[0].name;
         this.instructions = instructions;
+        this.ascomment = function() {
+            for (var i = 0; i < this.blocks.length; i++) {
+                this.blocks[i].ascomment();
+            }
+        };
+        this.asopcode = function() {
+            for (var i = 0; i < this.blocks.length; i++) {
+                this.blocks[i].asopcode();
+            }
+        };
         this.print = function() {
             this.routine.print();
             for (var i = 0; i < this.blocks.length; i++) {

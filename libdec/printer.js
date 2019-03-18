@@ -122,6 +122,9 @@ module.exports = (function() {
         if (!input || input.length < 1) {
             return '';
         }
+        if (!Global.evars.honor.color && !Global.evars.honor.html) {
+            return input;
+        }
         /* control flow (if, else, while, do, etc..) */
         var x = input.split(_autotheme.controlflow);
         if (x.length > 1) {

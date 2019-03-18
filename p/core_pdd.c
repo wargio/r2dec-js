@@ -151,12 +151,14 @@ static void duk_r2dec(RCore *core, const char *input) {
 
 static void usage(void) {
 	r_cons_printf ("Usage: pdd [args] - core plugin for r2dec\n");
-	r_cons_printf (" pdd   - decompile current function\n");
-	r_cons_printf (" pdd?  - show this help\n");
-	r_cons_printf (" pdda  - decompile current function with side assembly\n");
-	r_cons_printf (" pddb  - decompile current function but shows only scopes\n");
-	r_cons_printf (" pddu  - install/upgrade r2dec via r2pm\n");
-	r_cons_printf (" pddi  - generates the issue data\n");
+	r_cons_printf (" pdd           - decompile current function\n");
+	r_cons_printf (" pdd?          - show this help\n");
+	r_cons_printf (" pdd*          - the decompiled code is returned to r2 as comment (via CCu)\n");
+	r_cons_printf (" pdda          - decompile current function with side assembly\n");
+	r_cons_printf (" pddb          - decompile current function but shows only scopes\n");
+	r_cons_printf (" pddu          - install/upgrade r2dec via r2pm\n");
+	r_cons_printf (" pdds <branch> - switches r2dec branch\n");
+	r_cons_printf (" pddi          - generates the issue data\n");
 	r_cons_printf ("Evaluable Variables:\n");
 	r_cons_printf (" r2dec.casts   - if false, hides all casts in the pseudo code.\n");
 	r_cons_printf (" r2dec.asm     - if true, shows pseudo next to the assembly.\n");
@@ -169,29 +171,56 @@ static void usage(void) {
 
 }
 
+static void switch_git_branch(RCore *core, const char* branch) {
+	if (strlen (branch) < 1) {
+		r_cons_printf ("[r2dec] No branch specified.\n");
+		return;
+	}
+	char *env = r_sys_getenv ("R2DEC_HOME");
+	if (!env) {
+		env = r_str_home (R2_HOME_DATADIR R_SYS_DIR
+			"r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js");
+	}
+	if (!env) {
+		r_cons_printf ("[r2dec] Fail to get home directory.\n");
+		return;
+	}
+	r_core_cmdf (core, "!git -C %s fetch --all", env);
+	r_core_cmdf (core, "!git -C %s checkout %s", env, branch);
+	free (env);
+}
+
 static void _cmd_pdd(RCore *core, const char *input) {
 	switch (*input) {
 	case '\0':
-		duk_r2dec(core, input);
+		duk_r2dec (core, input);
 		break;
 	case ' ':
-		duk_r2dec(core, input);
+		duk_r2dec (core, input + 1);
 		break;
 	case 'u':
 		// update
 		r_core_cmd0 (core, "!r2pm -ci r2dec");
 		break;
+	case 's':
+		// switch branch
+		switch_git_branch (core, input + 1);
+		break;
 	case 'i':
 		// --issue
-		duk_r2dec(core, "--issue");
+		duk_r2dec (core, "--issue");
 		break;
 	case 'a':
 		// --assembly
-		duk_r2dec(core, "--assembly");
+		duk_r2dec (core, "--assembly");
 		break;
 	case 'b':
 		// --blocks
-		duk_r2dec(core, "--blocks");
+		duk_r2dec (core, "--blocks");
+		break;
+	case '*':
+		// --as-comment
+		duk_r2dec (core, "--as-comment");
 		break;
 	case '?':
 	default:
@@ -242,10 +271,15 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 
 	// autocomplete here..
 	RCoreAutocomplete *pdd = r_core_autocomplete_add (core->autocomplete, "pdd", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pdd?", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pdd*", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pdda", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddb", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pdds", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (pdd, "--as-comment", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--as-opcode", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--assembly", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--blocks", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--casts", R_CORE_AUTOCMPLT_OPTN, true);

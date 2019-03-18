@@ -100,6 +100,16 @@ module.exports = (function() {
             b.update();
             return b;
         };
+        this.ascomment = function() {
+            for (var i = 0; i < this.instructions.length; i++) {
+                this.instructions[i].ascomment();
+            }
+        };
+        this.asopcode = function() {
+            for (var i = 0; i < this.instructions.length; i++) {
+                this.instructions[i].asopcode();
+            }
+        };
         this.print = function() {
             var h = 0;
             var t = 0;

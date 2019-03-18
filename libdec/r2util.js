@@ -107,6 +107,8 @@ module.exports = (function() {
         "--issue": "generates the json used for the test suite",
         "--paddr": "all xrefs uses physical addresses instead of virtual addresses",
         "--xrefs": "shows also instruction xrefs in the pseudo code",
+        "--as-comment": "the decompiled code is returned to r2 as comment (via CCu)",
+        "--as-opcode": "the decompiled code is returned to r2 as opcode (via aho)",
     };
 
     function has_option(args, name) {
@@ -176,12 +178,13 @@ module.exports = (function() {
                 paddr: false,
                 pseudo: false,
                 html: false,
-                color: false
             };
             this.extra = {
                 theme: 'default',
                 file: 'testsuite',
                 offset: Long.ZERO,
+                ascomment: false,
+                asopcode: false,
                 debug: true
             };
         },
@@ -234,8 +237,33 @@ module.exports = (function() {
                 theme: r2str('e r2dec.theme'),
                 file: r2str('i~^file[1:0]'),
                 offset: Long.fromString(r2str('s'), true, 16),
+                ascomment: has_option(args, '--as-comment'),
+                asopcode: has_option(args, '--as-opcode'),
                 debug: has_option(args, '--debug')
             };
+            this.add_comment = function(comment, offset) {
+                if (!comment || comment.length < 1) {
+                    return;
+                }
+                r2cmd('CC- @ 0x' + offset.toString(16));
+                r2cmd('CCu base64:' + Duktape.enc('base64', comment) + ' @ 0x' + offset.toString(16));
+            };
+            this.add_opcode = function(comment, offset) {
+                var off = r2str('s');
+                if (!comment || comment.length < 1) {
+                    comment = '-';
+                }
+                r2cmd('s 0x' + offset.toString(16));
+                r2cmd('aho ' + comment.replace(/\n/g, '\\; '));
+                r2cmd('s ' + off);
+            };
+
+            if (this.extra.ascomment || this.extra.asopcode) {
+                this.honor.assembly = false;
+                this.honor.color = false;
+                this.honor.html = false;
+                this.honor.blocks = false;
+            }
         },
         data: function() {
             this.arch = r2str('e asm.arch');

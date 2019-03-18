@@ -224,7 +224,7 @@ module.exports = (function() {
             }
         }
 
-        if (callname.match(/^[rwx]\d+$/)) {
+        if (callname.match(/^[rwx]\d+$/) || callname.match(/^0x[a-fA-F\d]+$/)) {
             callname = Variable.functionPointer(callname, _reg_bits[callname[0]] || 0, args);
         }
 
@@ -328,6 +328,9 @@ module.exports = (function() {
                 return _conditional(instr, context, 'LT');
             },
             ble: function(instr, context) {
+                return _conditional(instr, context, 'LE');
+            },
+            blo: function(instr, context) {
                 return _conditional(instr, context, 'LE');
             },
             'b.pl': function(instr, context) {
