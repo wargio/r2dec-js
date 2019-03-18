@@ -53,12 +53,14 @@ module.exports = (function() {
         if (arch.postanalisys) {
             arch.postanalisys(session.instructions, arch_context);
         }
+        var routine_name = arch.routine_name ? arch.routine_name(session.routine_name) : Extra.replace.call(session.routine_name);
         if (session.instructions.length < 1) {
             return;
         }
         var routine = new Scope.routine(session.instructions[0].location, {
             returns: _hardcoded_fixes(session.routine_name, arch.returns(arch_context)),
             name: session.routine_name,
+            routine_name: routine_name,
             args: arch.arguments(arch_context) || [],
             locals: arch.localvars(arch_context) || [],
             globals: arch.globalvars(arch_context) || []
@@ -123,10 +125,13 @@ module.exports = (function() {
         var t = Global.printer.theme;
         var asm_header = '; assembly';
         var details = '/* ' + Global.evars.extra.file + ' @ 0x' + Global.evars.extra.offset.toString(16) + ' */';
-        console.log(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo C output */'));
+        var lang_type = ['java', 'dalvik'].indexOf(Global.evars.arch) >= 0 ? 'Java' : 'C';
+        console.log(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo ' + lang_type + ' output */'));
         console.log(Global.context.identfy() + t.comment(details));
-        Global.context.printMacros();
-        Global.context.printDependencies();
+        if (['java', 'dalvik'].indexOf(Global.evars.arch) < 0) {
+            Global.context.printMacros();
+            Global.context.printDependencies();
+        }
         session.print();
         while (Global.context.ident.length > 0) {
             Global.context.identOut();

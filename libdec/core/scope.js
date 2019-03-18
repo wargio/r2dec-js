@@ -61,15 +61,16 @@ module.exports = (function() {
                 var e = this.extra;
                 var t = Global.printer.theme;
                 var a = Global.printer.auto;
-                return t.types(e.returns) + ' ' + t.callname(Extra.replace.call(e.name)) + ' (' + e.args.map(function(x) {
-                    return Extra.is.string(x) ? a(x) : a.toString();
+                return t.types(e.returns) + ' ' + t.callname(e.routine_name) + ' (' + e.args.map(function(x) {
+                    return Extra.is.string(x) ? a(x) : x.toString(true);
                 }).join(', ') + ') {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
             };
             this.print = function() {
                 var e = this.extra;
                 var t = Global.printer.theme;
                 _print_locals(e.globals, true);
-                var asmname = '; (fcn) ' + e.name + ' ()';
+                var s = Global.context.identCompare(e.name.length);
+                var asmname = '; (fcn) ' + (s < 0 ? e.name : e.name.substr(0, e.name.length + Global.context.identCompare(0) - 20) + '...') + ' ()';
                 var ident = Global.context.identfy(asmname.length, t.comment(asmname));
                 console.log(ident + this.toString());
                 Global.context.identIn();

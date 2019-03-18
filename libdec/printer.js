@@ -23,7 +23,7 @@ module.exports = (function() {
      * @type {Object}
      */
     const _autotheme = {
-        controlflow: /\bif\b|\belse\b|\bwhile\b|\bfor\b|\bdo\b|\breturn\b/g,
+        controlflow: /\bif\b|\belse\b|\bwhile\b|\bfor\b|\bdo\b|\breturn\b|\bthrow\b/g,
         definebits: /[ui]+nt[123468]+_t|\bvoid\b|\bconst\b|\bsizeof\b|\bfloat\b|\bdouble\b|\bchar\b|\bwchar_t\b|\bextern\b|\bstruct\b|\bsize_t\b|\btime_t\b/g,
         numbers: /0x[0-9a-fA-F]+|\b\d+\b/g,
         string: /("[^"]+")/

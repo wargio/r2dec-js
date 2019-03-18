@@ -16,7 +16,8 @@
  */
 
 module.exports = (function() {
-    var Extra = require('libdec/core/extra');
+    const Extra = require('libdec/core/extra');
+    const Objects = require('libdec/core/objects');
 
     var _internal_label_cnt = 0;
     var _internal_variable_cnt = 0;
@@ -99,6 +100,13 @@ module.exports = (function() {
 
     var _string = function(content) {
         this.content = content;
+        if (!this.content.startsWith('"') && !this.content.startsWith("'")) {
+            this.content = '"' + this.content;
+        }
+        if (!this.content.endsWith('"') && !this.content.endsWith("'")) {
+            this.content += '"';
+        }
+        this.content = this.content.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
 
         this.toType = function() {
             return Global.printer.theme.types('char') + '*';
@@ -156,7 +164,6 @@ module.exports = (function() {
         },
         local: function(variable_name, ctype_or_bits, is_signed) {
             var ctype = Extra.is.number(ctype_or_bits) ? Extra.to.type(ctype_or_bits, is_signed) : ctype_or_bits;
-
             return new _local(variable_name, ctype);
         },
         string: function(string_content) {
@@ -167,6 +174,15 @@ module.exports = (function() {
         },
         macro: function(string_content) {
             return new _macro(string_content);
-        }
+        },
+        object: function(type, args) {
+            return Objects.object(type, args, false);
+        },
+        newobject: function(type, args) {
+            return Objects.object(type, args, true);
+        },
+        newarray: function(type, size) {
+            return Objects.array(type, size, true);
+        },
     };
 })();
