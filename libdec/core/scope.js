@@ -70,7 +70,7 @@ module.exports = (function() {
                 var t = Global.printer.theme;
                 _print_locals(e.globals, true);
                 var s = Global.context.identCompare(e.name.length);
-                var asmname = '; (fcn) ' + (s < 0 ? e.name : e.name.substr(0, e.name.length + Global.context.identCompare(0) - 20) + '...') + ' ()';
+                var asmname = '; (fcn) ' + e.name + ' ()';
                 var ident = Global.context.identfy(asmname.length, t.comment(asmname));
                 console.log(ident + this.toString());
                 Global.context.identIn();
