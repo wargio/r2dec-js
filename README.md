@@ -23,14 +23,11 @@ Follow the following steps to install r2dec via r2pm
  - clone
  - run `make -C p` from inside the `r2dec` folder
 
-done
-
 # Usage
 
-* open with radare2 your file
-* analize the function you want to disassemble (`af`)
-* run the plugin via `pdd`
-* done.
+* Open your file with radare2
+* Analyze the function you want to disassemble (`af`)
+* Run the plugin via `pdd`
 
 # Arguments
 
@@ -77,11 +74,10 @@ e scr.color         | enables syntax colors.
 
 # Report an Issue
 
-* open with radare2 your file
-* analize the function you want to disassemble (`af`)
-* give the data to the plugin via `pddi` or `pdd --issue`
-* insert the JSON returned by the previous command into the issue (you can also upload the output)
-* done.
+* Open your file with radare2
+* Analyze the function you want to disassemble (`af`)
+* Give the data to the plugin via `pddi` or `pdd --issue`
+* Insert the JSON returned by the previous command into the issue (you can also upload the output)
 
 # Supported Arch
 
