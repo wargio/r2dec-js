@@ -69,7 +69,6 @@ module.exports = (function() {
                 var e = this.extra;
                 var t = Global.printer.theme;
                 _print_locals(e.globals, true);
-                var s = Global.context.identCompare(e.name.length);
                 var asmname = '; (fcn) ' + e.name + ' ()';
                 var ident = Global.context.identfy(asmname.length, t.comment(asmname));
                 console.log(ident + this.toString());
