@@ -55,6 +55,13 @@ module.exports = (function() {
         'q': 128
     };
 
+    function _register_size(reg) {
+        if (reg && reg.startsWith("x")) {
+            return 64;
+        }
+        return 32;
+    }
+
     var _common_math = function(e, op) {
         if (e.opd[0] == 'ip' || e.opd[0] == 'sp' || e.opd[0] == 'fp') {
             return Base.nop();
@@ -150,14 +157,14 @@ module.exports = (function() {
     };
 
     var _fix_arg = function(instr) {
-        var t = instr.code.toString();
-        if (t.match(/^.+[+-|&^*/%]=\s/) || t.match(/^\s[+-|&^*/%]\s/)) {
-            instr.valid = false;
-            return instr.string ? Variable.string(instr.string) : Variable.local(instr.parsed.opd[0]);
-        }
-        t = t.replace(/^.+\s=\s/, '').trim();
-        instr.valid = false;
-        return instr.string ? Variable.string(instr.string) : Variable.local(t);
+        //var t = instr.code.toString();
+        //if (t.match(/^.+[+-|&^*/%]=\s/) || t.match(/^\s[+-|&^*/%]\s/)) {
+        //instr.valid = false;
+        return instr.string ? Variable.string(instr.string) : Variable.local(instr.parsed.opd[0], _register_size(instr.parsed.opd[0]));
+        //}
+        //t = t.replace(/^.+\s=\s/, '').trim();
+        //instr.valid = false;
+        //return instr.string ? Variable.string(instr.string) : Variable.local(t, _register_size(t));
     };
 
     /**
@@ -224,9 +231,7 @@ module.exports = (function() {
                     continue;
                 }
 
-                arg = instrs[i].string ?
-                    Variable.string(instrs[i].string) :
-                    Variable[opd2.mem_access ? 'pointer' : 'local'](opd2, Extra.to.type(opd2.mem_access, false));
+                arg = instrs[i].string ? Variable.string(instrs[i].string) : Variable.local(opd2, _register_size(opd2));
 
                 instrs[i].valid = false;
                 args[offset / (Global.evars.archbits / 8)] = arg;
@@ -235,9 +240,7 @@ module.exports = (function() {
 
             // passing argument by pushing them to stack
             if (mnem === 'push') {
-                arg = instrs[i].string ?
-                    Variable.string(instrs[i].string) :
-                    Variable[opd1.mem_access ? 'pointer' : 'local'](opd1, Extra.to.type(opd1.mem_access, false));
+                arg = instrs[i].string ? Variable.string(instrs[i].string) : Variable.local(opd1, _register_size(opd1));
 
                 instrs[i].valid = false;
                 args[argidx++] = arg;
@@ -289,8 +292,14 @@ module.exports = (function() {
         // scan the preceding instructions to find where args registers are used, to take their values
         for (var i = (instrs.length - 1);
             (i >= 0) && (nargs > 0); i--) {
+            var op = instrs[i].parsed.mnem;
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
+            //var opd3 = instrs[i].parsed.opd[2];
+
+            if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0 || op.indexOf('tb') == 0) {
+                break;
+            }
 
             // look for an instruction that has two arguments. we assume that such an instruction would use
             // its second operand to set the value of the first. although this is not an accurate observation,
@@ -299,16 +308,19 @@ module.exports = (function() {
                 var argidx = armregs.indexOf(opd1) % _regs64.length;
 
                 // is destination operand an register argument which has not been considered yet?
-                if ((argidx > (-1)) && (typeof args[argidx] === 'string')) {
-
-                    // take the second operand value, that is likely to be used as the first operand's
-                    // initialization value.
-                    var arg = instrs[i].string ? Variable.string(instrs[i].string) : Variable.local(opd2);
-
-                    instrs[i].valid = false;
-                    args[argidx] = arg;
-                    nargs--;
-                }
+                //if ((argidx > (-1)) && (typeof args[argidx] === 'string') && !opd3) {
+                //    // take the second operand value, that is likely to be used as the first operand's
+                //    // initialization value.
+                //    var arg = instrs[i].string ? Variable.string(instrs[i].string) : (Array.isArray(opd2) ? 
+                //       Variable.pointer(opd2.join(' + '), _register_size(Math.max(opd2.map(_register_size)))) : Variable.local(opd2, _register_size(opd2)));
+                //    instrs[i].valid = false;
+                //    args[argidx] = arg;
+                //    nargs--;
+                //} else {
+                var arg = instrs[i].string ? Variable.string(instrs[i].string) : Variable.local(opd1, _register_size(opd1));
+                args[argidx] = arg;
+                nargs--;
+                //}
             }
         }
 
@@ -386,12 +398,12 @@ module.exports = (function() {
         var callname = Extra.replace.call(instr.parsed.opd[0]);
         var returnval = null;
         var args = [];
+        var current = instructions.indexOf(instr);
         var regnum = 3;
 
         var callee = instr.callee;
 
         if (callee) {
-
             var populate_call_args = {
                 'cdecl': _populate_cdecl_call_args,
                 'arm32': _populate_arm_call_args,
@@ -407,11 +419,11 @@ module.exports = (function() {
             // if number of arguments is unknown (either an unrecognized or a variadic function),
             // try to guess the number of arguments
             if (nargs == (-1) && callee.calltype == 'cdecl') {
-                nargs = _guess_cdecl_nargs(instructions.slice(0, start), context);
+                nargs = _guess_cdecl_nargs(instructions.slice(0, current), context);
             } else if (nargs == (-1)) {
                 nargs = 0;
             }
-            args = populate_call_args(instructions.slice(0, start), nargs, context);
+            args = populate_call_args(instructions.slice(0, current), nargs, context);
         } else {
             var known_args_n = Extra.find.arguments_number(callname);
             if (known_args_n == 0) {
@@ -419,25 +431,55 @@ module.exports = (function() {
             } else if (known_args_n > 0) {
                 regnum = known_args_n - 1;
             }
-
-            var arg0 = null;
-            var start = instructions.indexOf(instr);
-            for (var i = start - 1; i >= 0 && regnum >= 0; i--) {
-                var op = instructions[i].parsed.opd[0];
+            var i, op, reg, reg32, reg64, start, arg0 = null;
+            start = current;
+            for (i = start - 1; i >= 0 && regnum >= 0; i--) {
+                op = instructions[i].parsed.mnem;
                 if (!op) {
                     break;
                 }
-                arg0 = instructions[i].parsed.opd[1];
-                var reg = 'r' + regnum;
-                var reg32 = 'w' + regnum;
-                var reg64 = 'x' + regnum;
-                if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0) {
+                arg0 = instructions[i].parsed.opd[0];
+                reg = 'r' + regnum;
+                reg32 = 'w' + regnum;
+                reg64 = 'x' + regnum;
+                if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0 || op.indexOf('tb') == 0) {
                     regnum--;
                     i = start;
                 } else if (arg0 == reg || arg0 == reg32 || arg0 == reg64) {
                     args.unshift(_fix_arg(instructions[i]));
                     regnum--;
                     i = start;
+                }
+            }
+            if (args.length < 1) {
+                start = current;
+                for (i = 0; start >= 0 && i < 8; start--, i++) {
+                    op = instructions[i].parsed.mnem;
+                    if (!op) {
+                        break;
+                    }
+                    if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0) {
+                        break;
+                    }
+                    if (arg0 == reg || arg0 == reg32 || arg0 == reg64) {
+                        break;
+                    }
+                }
+                regnum = 0;
+                for (i = start; i < current; i++) {
+                    op = instructions[i].parsed.mnem;
+                    if (!op) {
+                        break;
+                    }
+                    arg0 = instructions[i].parsed.opd[0];
+                    reg = 'r' + regnum;
+                    reg32 = 'w' + regnum;
+                    reg64 = 'x' + regnum;
+                    if (arg0 == reg || arg0 == reg32 || arg0 == reg64) {
+                        args.unshift(_fix_arg(instructions[i]));
+                        regnum++;
+                        i = start;
+                    }
                 }
             }
         }
@@ -993,6 +1035,7 @@ module.exports = (function() {
             var ret = asm.replace(/(\[|\])/g, ' $1 ').replace(/,/g, ' ');
             ret = ret.replace(/\{|\}/g, ' ').replace(/#/g, ' ');
             ret = ret.replace(/\s+/g, ' ');
+            ret = ret.replace(/str\./g, 'str_');
             //constant zero regs wz[rw]/xz[rw]
             //ret = ret.replace(/\bwzr\b|\bwzw\b|\bxzw|\bxzr\b/g, "0");
             ret = ret.replace(/aav\.0x/g, "aav_");
