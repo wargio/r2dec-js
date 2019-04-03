@@ -17,6 +17,7 @@
 
 module.exports = (function() {
     const Base = require('libdec/core/base');
+    const ObjC = require('libdec/core/objc');
     const Variable = require('libdec/core/variable');
     const Extra = require('libdec/core/extra');
     const Syscalls = require('libdec/db/syscalls');
@@ -676,7 +677,7 @@ module.exports = (function() {
 
     var _call_function = function(instr, context, instrs, is_pointer) {
         var start = instrs.indexOf(instr);
-
+        var i, j;
         // indicates the function call return type (if used)
         var returnval = undefined;
 
@@ -689,7 +690,7 @@ module.exports = (function() {
             // scan the instructions down the road to see whether the function's call return
             // value is used or ignored. if it used, use that information to infer the return type
             // TODO: to do this properly, we need to follow possible branches rather than scan sequentially
-            for (var i = (start + 1); i < instrs.length; i++) {
+            for (i = (start + 1); i < instrs.length; i++) {
                 var mnem = instrs[i].parsed.mnem;
                 var dst = instrs[i].parsed.opd[0].token;
                 var src = instrs[i].parsed.opd[1].token;
@@ -726,11 +727,67 @@ module.exports = (function() {
 
         var callsite = instr.parsed.opd[0];
         var callname = instr.symbol || callsite.token;
-
         var nargs, args = [];
         var callee = instr.callee;
 
-        if (callee) {
+        if (ObjC.is(callname)) {
+            var pargs, receiver, selector, pcounted = 0;
+            receiver = ObjC.receiver(callname);
+            selector = ObjC.selector(callname);
+            returnval = ObjC.returns(callname);
+            pargs = ObjC.arguments(callname);
+            var subslice = instrs.slice((start - 8) < 0 ? 0 : start - 8, start);
+            args = [receiver, selector].map(function(reg) {
+                for (var i = subslice.length - 1; i >= 0; i--) {
+                    if (subslice[i].parsed.mnem == "call" || subslice[i].jump) {
+                        break;
+                    }
+                    if (reg == subslice[i].parsed.opd[0].token && ["mov", "lea"].indexOf(subslice[i].parsed.mnem) >= 0) {
+                        subslice[i].valid = false;
+                        var opd2 = subslice[i].parsed.opd[1];
+                        if (opd2.token.startsWith('str.') && !subslice[i].string) {
+                            return opd2.token.substr(4);
+                        }
+                        return subslice[i].string ?
+                            Variable.string(subslice[i].string) :
+                            Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                    }
+                }
+                return reg;
+            });
+            for (j = 0; j < pargs.length; j++) {
+                //seen = [];
+                for (i = subslice.length - 1; i >= 0; i--) {
+                    if (subslice[i].parsed.mnem == "call" || subslice[i].jump) {
+                        break;
+                    }
+                    if (pargs[j] == subslice[i].parsed.opd[0].token) {
+                        if (["mov", "lea"].indexOf(subslice[i].parsed.mnem) >= 0) {
+                            var opd2 = subslice[i].parsed.opd[1];
+                            if (opd2.token.startsWith('str.') && !subslice[i].string) {
+                                pargs[j] = opd2.token.substr(4);
+                            } else {
+                                pargs[j] = subslice[i].string ?
+                                    Variable.string(subslice[i].string) :
+                                    Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                            }
+                            subslice[i].valid = false;
+                        }
+                        pcounted++;
+                        break;
+                    }
+                }
+            }
+            call = Base.objc_call(args[0], args[1], pargs.slice(0, pcounted));
+            if (tailcall && _x86_x64_registers.indexOf(callsite.token) > (-1)) {
+                // ControlFlow does not interpret well the specific case of a tail jmp through
+                // a register. in this case, we will need to emit an explicit return statement
+                return Base.return(call);
+            } else if (returnval) {
+                // if return value is used, assign it. otherwise just emit the call
+                return Base.assign(returnval, call);
+            }
+        } else if (callee) {
             var guess_nargs = {
                 'cdecl': _guess_cdecl_nargs,
                 'amd64': _guess_amd64_nargs

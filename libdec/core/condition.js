@@ -43,6 +43,7 @@ module.exports = (function() {
             this.condition = cond; // ? _cmps[cond][invert ? 1 : 0] : '';
             this.a = a;
             this.b = b || '';
+            /* main method */
             this.toString = function() {
                 var a = Extra.is.string(this.a) ? Global.printer.auto(this.a) : this.a;
                 var b = Extra.is.string(this.b) ? Global.printer.auto(this.b) : this.b;

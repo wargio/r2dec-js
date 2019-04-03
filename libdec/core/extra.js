@@ -119,7 +119,7 @@ module.exports = (function() {
         arguments_number: function(name) {
             name = _replace.call(name);
             if (_call_common[name]) {
-                return _call_common[name].args;
+                return _call_common[name].required;
             } else if (Global.argdb) {
                 var db = Global.argdb;
                 for (var k in db) {
@@ -129,6 +129,13 @@ module.exports = (function() {
                 }
             }
             return -1;
+        },
+        call_additional: function(name) {
+            name = _replace.call(name);
+            if (_call_common[name]) {
+                return !!_call_common[name].additional;
+            }
+            return false;
         }
     };
 

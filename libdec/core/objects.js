@@ -42,7 +42,7 @@ module.exports = (function() {
 
 	const _all_langs = {
 		java: _java,
-		dalvik: _java
+		dalvik: _java,
 	};
 
 	return {
