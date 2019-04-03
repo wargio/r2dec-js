@@ -1,0 +1,8 @@
+PACKAGE=r2dec
+VERSION=3.4.1
+ARCH=amd64
+DEPENDS=radare2
+SECTION=user/shell
+PRIORITY=optional
+MAINTAINER=wargio <wargio@libero.it>
+# include ../../config.mk
