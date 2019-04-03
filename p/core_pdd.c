@@ -46,8 +46,12 @@ static char* r2dec_read_file(const char* file) {
 	if (env) {
 		r2dec_home = env;
 	} else {
+#ifdef R2DEC_HOME
+		r2dec_home = r_str_new (R2DEC_HOME);
+#else
 		r2dec_home = r_str_home (R2_HOME_DATADIR R_SYS_DIR
 			"r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js");
+#endif
 	}
 	int len = 0;
 	if (!r2dec_home) {
