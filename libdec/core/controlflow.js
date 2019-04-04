@@ -236,6 +236,9 @@ module.exports = (function() {
 
         // let's create the if block.
         var if_block = block.split(block.instructions.indexOf(instruction));
+        if (!if_block) {
+            return false;
+        }
         if_block.addExtraHead(new Scope.if(instruction.location, _condition(instruction, true)));
 
 
