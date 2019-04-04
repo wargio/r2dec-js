@@ -282,12 +282,11 @@ module.exports = (function() {
      * @param {Object} context Context object (not used)
      * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
      */
-    var _populate_arm_call_args = function(instrs, nargs, context) {
+    var _populate_arm64_call_args = function(instrs, nargs, context) {
         var _regs64 = ['x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6'];
         var _regs32 = ['w0', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6'];
-        var _regs = ['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
 
-        var armregs = Array.prototype.concat(_regs64, _regs32, _regs);
+        var armregs = Array.prototype.concat(_regs64, _regs32);
 
         var args = _regs64.slice(0, nargs);
 
@@ -330,6 +329,56 @@ module.exports = (function() {
     };
 
     /**
+     * Return a list of the amd64 systemv function call arguments.
+     * @param {Array<Object>} instrs Array of instructions preceding the function call
+     * @param {number} nargs Number of arguments expected for this function call
+     * @param {Object} context Context object (not used)
+     * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
+     */
+    var _populate_arm_call_args = function(instrs, nargs, context) {
+        var armregs = ['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
+
+        var args = armregs.slice(0, nargs);
+
+        // scan the preceding instructions to find where args registers are used, to take their values
+        for (var i = (instrs.length - 1);
+            (i >= 0) && (nargs > 0); i--) {
+            var op = instrs[i].parsed.mnem;
+            var opd1 = instrs[i].parsed.opd[0];
+            var opd2 = instrs[i].parsed.opd[1];
+            //var opd3 = instrs[i].parsed.opd[2];
+
+            if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0 || op.indexOf('tb') == 0) {
+                break;
+            }
+
+            // look for an instruction that has two arguments. we assume that such an instruction would use
+            // its second operand to set the value of the first. although this is not an accurate observation,
+            // it could be used to replace the argument with its value on the arguments list
+            if (opd2) {
+                var argidx = armregs.indexOf(opd1) % armregs.length;
+
+                // is destination operand an register argument which has not been considered yet?
+                //if ((argidx > (-1)) && (typeof args[argidx] === 'string') && !opd3) {
+                //    // take the second operand value, that is likely to be used as the first operand's
+                //    // initialization value.
+                //    var arg = instrs[i].string ? Variable.string(instrs[i].string) : (Array.isArray(opd2) ? 
+                //       Variable.pointer(opd2.join(' + '), _register_size(Math.max(opd2.map(_register_size)))) : Variable.local(opd2, _register_size(opd2)));
+                //    instrs[i].valid = false;
+                //    args[argidx] = arg;
+                //    nargs--;
+                //} else {
+                var arg = instrs[i].string ? Variable.string(instrs[i].string) : Variable.local(opd1, _register_size(opd1));
+                args[argidx] = arg;
+                nargs--;
+                //}
+            }
+        }
+
+        return args;
+    };
+
+    /**
      * Try to guess the number of arguments passed to a specific cdecl function call, when
      * number of arguments is either unknown or may vary (i.e. like in variadic functions).
      * @param {Array<Object>} instrs Array of instructions preceding the function call
@@ -348,11 +397,8 @@ module.exports = (function() {
             // that it is probably a function's argument
             if ((mnem.startsWith('st') || mnem.startsWith('ldr') || mnem.startsWith('mov')) && _is_stack_reg(opd1)) {
                 nargs++;
-            } else if ((mnem === 'add') && _is_stack_reg(opd1)) {
+            } else if (instrs[i].jump || ((mnem === 'add') && _is_stack_reg(opd1))) {
                 // reached the previous function call cleanup, stop searching
-                break;
-            } else if (mnem === 'call') {
-                // reached the previous function call, stop searching
                 break;
             }
         }
@@ -409,7 +455,7 @@ module.exports = (function() {
             var populate_call_args = {
                 'cdecl': _populate_cdecl_call_args,
                 'arm32': _populate_arm_call_args,
-                'arm64': _populate_arm_call_args
+                'arm64': _populate_arm64_call_args
             }[callee.calltype];
 
             // every non-import callee has a known number of arguments
@@ -426,6 +472,9 @@ module.exports = (function() {
                 nargs = 0;
             }
             args = populate_call_args(instructions.slice(0, current), nargs, context);
+            if (nargs > 0) {
+                args = args.slice(0, nargs);
+            }
         } else {
             var known_args_n = Extra.find.arguments_number(callname);
             if (known_args_n == 0) {
@@ -517,6 +566,10 @@ module.exports = (function() {
         return f;
     };
 
+    var _it_to_boolean_array = function(value) {
+        return value == 't' ? true : false;
+    };
+
     var _conditional_instruction_list = [
         'add', 'and', 'eor', 'ldr', 'ldrb', 'ldm', 'lsl', 'lsr',
         'mov', 'mvn', 'mul', 'orr', 'pop', 'str', 'strb', 'sub', 'bx'
@@ -524,7 +577,21 @@ module.exports = (function() {
 
     var _arm = {
         instructions: {
-            add: function(instr) {
+            add: function(instr, _, instructions) {
+                var p = instructions.indexOf(instr) - 1;
+                if (p > -1 &&
+                    instructions[p].parsed.mnem == 'adrp' &&
+                    instructions[p].parsed.opd[0] == instr.parsed.opd[0] &&
+                    instr.parsed.opd[1] == instr.parsed.opd[0]) {
+                    var v0 = Long.fromString(instructions[p].parsed.opd[1], 16).add(Long.fromString(instr.parsed.opd[2], 16));
+                    instructions[p].valid = false;
+                    var xref = Global.xrefs.find_string(v0);
+                    if (xref) {
+                        instr.string = xref;
+                        xref = Variable.string(xref);
+                    }
+                    return Base.assign(instr.parsed.opd[0], xref || '0x' + v0.toString(16));
+                }
                 return _common_math(instr.parsed, Base.add);
             },
             adr: function(instr) {
@@ -536,6 +603,9 @@ module.exports = (function() {
                 return Base.assign(dst, instr.parsed.opd[1]);
             },
             and: function(instr) {
+                return _common_math(instr.parsed, Base.and);
+            },
+            clz: function(instr) {
                 return _common_math(instr.parsed, Base.and);
             },
             b: function() {
@@ -568,6 +638,9 @@ module.exports = (function() {
                 return _conditional(instr, context, 'GE');
             },
             bls: function(instr, context) {
+                return _conditional(instr, context, 'LT');
+            },
+            bmi: function(instr, context) {
                 return _conditional(instr, context, 'LT');
             },
             bne: function(instr, context) {
@@ -685,6 +758,12 @@ module.exports = (function() {
                 return _common_math(instr.parsed, Base.shift_left);
             },
             lsr: function(instr) {
+                return _common_math(instr.parsed, Base.shift_right);
+            },
+            asls: function(instr) {
+                return _common_math(instr.parsed, Base.shift_left);
+            },
+            asrs: function(instr) {
                 return _common_math(instr.parsed, Base.shift_right);
             },
             msr: function(instr) {
@@ -1041,6 +1120,22 @@ module.exports = (function() {
                     Base.cast(opds[0], opds[0], Extra.to.type(bits, true)),
                 ]);
             },
+            it: function(instr, context, instructions) {
+                var table = instr.parsed.opd[0].split('').map(_it_to_boolean_array);
+                var cond = instr.parsed.opd[1];
+                var pos = instructions.indexOf(instr) + 1;
+                var type = _conditional_list.filter(function(x) {
+                    if (x.ext == cond.toLowerCase()) {
+                        return true;
+                    }
+                    return false;
+                })[0].type;
+                var invert = _conditional_list_inv[type];
+                for (var i = 0; i < table.length; i++) {
+                    _conditional_inline(instructions[pos + i], context, instructions, table[i] ? invert : type);
+                }
+                return Base.nop();
+            },
             /* SIMD/FP */
             stur: function(instr) {
                 return _memory(Base.write_memory, instr, _reg_bits[instr.parsed.opd[0][0]]);
@@ -1080,8 +1175,13 @@ module.exports = (function() {
                     ops.push(ret[i]);
                 }
             }
+            if (ops[0].startsWith('it')) {
+                ops.splice(1, 0, 't' + ops[0].substr(2));
+                ops[0] = ops[0].substr(0, 2);
+                console.log(ops[0], ops[1]);
+            }
             return {
-                mnem: ops.shift(),
+                mnem: ops.shift().replace(/\.w$/, ''),
                 opd: ops
             };
         },
@@ -1124,6 +1224,17 @@ module.exports = (function() {
         returns: function(context) {
             return 'void';
         }
+    };
+
+    var _conditional_list_inv = {
+        'LT': 'GE',
+        'LE': 'GT',
+        'GT': 'LE',
+        'GE': 'LT',
+        'EQ': 'NE',
+        'NE': 'EQ',
+        'LO': 'NO',
+        'NO': 'LO',
     };
 
     var _conditional_list = [{

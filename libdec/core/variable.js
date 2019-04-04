@@ -47,7 +47,7 @@ module.exports = (function() {
         this.name = name;
         this.type = type;
         this.args = args.map(function(x) {
-            return x.toType();
+            return x.toType ? x.toType() : ('uint' + Global.evars.archbits + '_t');
         });
 
         this.toType = function() {

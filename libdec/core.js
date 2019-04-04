@@ -25,7 +25,7 @@ module.exports = (function() {
     const Functions = require('libdec/core/functions');
     const Instruction = require('libdec/core/instruction');
     const ControlFlow = require('libdec/core/controlflow');
-
+    const XRefs = require('libdec/core/xrefs');
 
     /**
      * Fixes for known routine names that are standard (like main)
@@ -125,8 +125,7 @@ module.exports = (function() {
         var t = Global.printer.theme;
         var asm_header = '; assembly';
         var details = '/* ' + Global.evars.extra.file + ' @ 0x' + Global.evars.extra.offset.toString(16) + ' */';
-        var lang_type = ['java', 'dalvik'].indexOf(Global.evars.arch) >= 0 ? 'Java' : 'C';
-        console.log(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo ' + lang_type + ' output */'));
+        console.log(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo code output */'));
         console.log(Global.context.identfy() + t.comment(details));
         if (['java', 'dalvik'].indexOf(Global.evars.arch) < 0) {
             Global.context.printMacros();
@@ -152,6 +151,7 @@ module.exports = (function() {
         var functions = new Functions(data.xrefs.functions);
         var max_length = 0;
         var max_address = 8;
+        Global.xrefs = new XRefs(strings, symbols);
         for (var i = 0; i < data.graph[0].blocks.length; i++) {
             var block = data.graph[0].blocks[i];
             // This is hacky but it is required by wasm..

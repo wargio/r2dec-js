@@ -28,6 +28,7 @@ module.exports = (function() {
         GT: [' > ', ' <= '],
         GE: [' >= ', ' < '],
         LO: [' overflow ', ' !overflow '],
+        NO: [' !overflow ', ' overflow '],
         INSTANCEOF: [' instanceof ', null],
     };
 
