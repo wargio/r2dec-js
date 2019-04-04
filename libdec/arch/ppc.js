@@ -747,19 +747,19 @@ module.exports = (function() {
             b: function(instr, context, instructions) {
                 if (_is_jumping_outside(instructions, instr)) {
                     var arg = instr.parsed.opd[0];
-                    arg = arg.indexOf('0x') == 0 ? Base.functionPointer(arg) : arg;
+                    arg = arg.indexOf('0x') == 0 ? Variable.functionPointer(arg) : arg;
                     return Base.call(arg, []);
                 }
                 return Base.nop();
             },
             'bne': function(instr, context) {
-                return _conditional(instr, context, 'NE_');
+                return _conditional(instr, context, 'NE');
             },
             'bne-': function(instr, context) {
-                return _conditional(instr, context, 'NE_');
+                return _conditional(instr, context, 'NE');
             },
             'bne+': function(instr, context) {
-                return _conditional(instr, context, 'NE_');
+                return _conditional(instr, context, 'NE');
             },
             'beq': function(instr, context) {
                 return _conditional(instr, context, 'EQ');
@@ -817,6 +817,9 @@ module.exports = (function() {
                 var regs = ['r10', 'r9', 'r8', 'r7', 'r6', 'r5', 'r4', 'r3'];
                 var found = 0;
                 for (i = instructions.indexOf(instr) - 1; i >= 0; i--) {
+                    if (instructions[i].parsed.mnem.startsWith('b')) {
+                        break;
+                    }
                     var reg = instructions[i].parsed.opd[0];
                     if (regs.indexOf(reg) >= 0) {
                         var n = parseInt(reg.substr(1, 3));
@@ -1062,8 +1065,22 @@ module.exports = (function() {
             add: function(instr) {
                 return op_bits4(instr.parsed, Base.add);
             },
-            addi: function(instr) {
-                if (instr.parsed.opd[2] == '0') {
+            addi: function(instr, _, instructions) {
+                var p = instructions.indexOf(instr) - 1;
+                if (p > -1 &&
+                    instructions[p].parsed.mnem == 'lis' &&
+                    instructions[p].parsed.opd[0] == instr.parsed.opd[1]) {
+                    var v0 = Long.fromString(instructions[p].parsed.opd[1] + '0000', 16).add(Long.fromString(instr.parsed.opd[2], 16));
+                    if (instructions[p].parsed.opd[0] == instr.parsed.opd[0]) {
+                        instructions[p].valid = false;
+                    }
+                    var xref = Global.xrefs.find_string(v0);
+                    if (xref) {
+                        instr.string = xref;
+                        xref = Variable.string(xref);
+                    }
+                    return Base.assign(instr.parsed.opd[0], xref || '0x' + v0.toString(16));
+                } else if (instr.parsed.opd[2] == '0') {
                     return Base.assign(instr.parsed.opd[0], instr.parsed.opd[1]);
                 }
                 return op_bits4(instr.parsed, Base.add);
@@ -1746,8 +1763,11 @@ module.exports = (function() {
             "se_subi": function(instr, context, instructions) {
                 return op_bits3(instr.parsed, Base.subtract);
             },
+            nop: function() {
+                return Base.nop();
+            },
             invalid: function() {
-                return null;
+                return Base.nop();
             }
         },
         parse: function(asm) {

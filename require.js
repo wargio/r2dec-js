@@ -115,8 +115,11 @@ require.src = {};
     };
 
     var _extract_variable = function(exception) {
-        var variable = exception.message.match(/'([-_\w]+)'/);
-        if (!variable) {
+        var variable = null;
+        if (exception.message.trim().match(/^cannot read property \d+ of undefined$/)) {
+            // probably an array
+            variable = '[' + exception.message.match(/\d+/)[0] + ']';
+        } else if (!exception.message.match(/'([-_\w]+)'/)) {
             var lines = exception.stack.split('\n');
             var magic = ':' + exception.lineNumber + ')';
             for (var i = lines.length - 1; i >= 0; i--) {

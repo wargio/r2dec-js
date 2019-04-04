@@ -46,12 +46,12 @@ module.exports = (function() {
             this.toString = function() {
                 var a = Extra.is.string(this.a) ? Global.printer.auto(this.a) : this.a;
                 var b = Extra.is.string(this.b) ? Global.printer.auto(this.b) : this.b;
-                if (this.invert && _cmps[cond][1]) {
-                    return a + _cmps[cond][1] + b;
+                if (this.invert && _cmps[this.condition][1]) {
+                    return a + _cmps[this.condition][1] + b;
                 } else if (this.invert) {
-                    return '!(' + a + Global.printer.theme.flow(_cmps[cond][0]) + b + ')';
+                    return '!(' + a + Global.printer.theme.flow(_cmps[this.condition][0]) + b + ')';
                 }
-                return a + _cmps[cond][0] + b;
+                return a + _cmps[this.condition][0] + b;
             };
         },
     };
