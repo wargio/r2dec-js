@@ -113,8 +113,8 @@ module.exports = (function() {
             } else if (Global.argdb) {
                 var db = Global.argdb;
                 for (var k in db) {
-                    if (db[k].name == name) {
-                        return parseInt(db[k].count);
+                    if (_replace.call(db[k].name.replace(/^_+/, '')) == name) {
+                        return parseInt(db[k].count.toString());
                     }
                 }
             }

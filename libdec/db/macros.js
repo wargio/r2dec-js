@@ -117,13 +117,89 @@ module.exports = (function() {
             macro: ['#include <time.h>'],
             args: 1
         },
-        'open': {
-            macro: ['#include <unistd.h>'],
+        'dcgettext': {
+            macro: ['#include <libintl.h>'],
             args: 2
         },
-        'dcgettext': {
-            macro:['#include <libintl.h>'],
-            args: 2
+        'pthread_create': {
+            macro: ['#include <pthread.h>'],
+            args: 4,
+        },
+        'pthread_join': {
+            macro: ['#include <pthread.h>'],
+            args: 2,
+        },
+        'pthread_exit': {
+            macro: ['#include <pthread.h>'],
+            args: 1,
+        },
+        'pthread_cancel': {
+            macro: ['#include <pthread.h>'],
+            args: 1,
+        },
+        'pthread_attr_init': {
+            macro: ['#include <pthread.h>'],
+            args: 1,
+        },
+        'pthread_attr_destroy': {
+            macro: ['#include <pthread.h>'],
+            args: 1,
+        },
+        'socket': {
+            macro: ['#include <pthread.h>'],
+            args: 3,
+        },
+        'accept': {
+            macro: ['#include <sys/socket.h>'],
+            args: 3,
+        },
+        'bind': {
+            macro: ['#include <sys/socket.h>'],
+            args: 3,
+        },
+        'connect': {
+            macro: ['#include <sys/socket.h>'],
+            args: 3,
+        },
+        'getsockname': {
+            macro: ['#include <sys/socket.h>'],
+            args: 3,
+        },
+        'listen': {
+            macro: ['#include <sys/socket.h>'],
+            args: 2,
+        },
+        'recv': {
+            macro: ['#include <sys/socket.h>'],
+            args: 2,
+        },
+        'recvfrom': {
+            macro: ['#include <sys/socket.h>'],
+            args: 6,
+        },
+        'recvmsg': {
+            macro: ['#include <sys/socket.h>'],
+            args: 2,
+        },
+        'open': {
+            macro: ['#include <unistd.h>'],
+            args: 3,
+        },
+        'creat': {
+            macro: ['#include <unistd.h>'],
+            args: 2,
+        },
+        'close': {
+            macro: ['#include <unistd.h>'],
+            args: 1,
+        },
+        'read': {
+            macro: ['#include <unistd.h>'],
+            args: 3,
+        },
+        'write': {
+            macro: ['#include <unistd.h>'],
+            args: 3,
         }
     };
 

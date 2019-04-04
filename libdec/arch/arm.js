@@ -22,6 +22,8 @@ module.exports = (function() {
     var Extra = require('libdec/core/extra');
     var Long = require('libdec/long');
 
+    const _zero_regs = ['wzr', 'xzr'];
+
     var _operands = {
         'lsl': '<<',
         'sxtw': '<<',
@@ -685,12 +687,22 @@ module.exports = (function() {
             lsr: function(instr) {
                 return _common_math(instr.parsed, Base.shift_right);
             },
+            msr: function(instr) {
+                return Base.assign(instr.parsed.opd[0], instr.parsed.opd[1]);
+            },
+            mrs: function(instr) {
+                return Base.assign(instr.parsed.opd[0], instr.parsed.opd[1]);
+            },
             mov: function(instr) {
                 var dst = instr.parsed.opd[0];
+                var src = instr.parsed.opd[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
                     return Base.nop();
                 }
-                return Base.assign(dst, instr.parsed.opd[1]);
+                if (_zero_regs.indexOf(src) >= 0) {
+                    src = Variable.number('0');
+                }
+                return Base.assign(dst, src);
             },
             movt: function(instr) {
                 var dst = instr.parsed.opd[0];
@@ -736,6 +748,9 @@ module.exports = (function() {
                 return Base.nop();
             },
             orr: function(instr) {
+                if (_zero_regs.indexOf(instr.parsed.opd[1]) >= 0) {
+                    return Base.assign(instr.parsed.opd[0], instr.parsed.opd[2] || '0');
+                }
                 return _common_math(instr.parsed, Base.or);
             },
             pop: function(instr) {
@@ -800,6 +815,9 @@ module.exports = (function() {
                 return _memory(Base.write_memory, instr, 32);
             },
             strb: function(instr) {
+                return _memory(Base.write_memory, instr, 8);
+            },
+            strh: function(instr) {
                 return _memory(Base.write_memory, instr, 8);
             },
             sub: function(instr) {
@@ -1025,6 +1043,9 @@ module.exports = (function() {
             },
             /* SIMD/FP */
             stur: function(instr) {
+                return _memory(Base.write_memory, instr, _reg_bits[instr.parsed.opd[0][0]]);
+            },
+            sturh: function(instr) {
                 return _memory(Base.write_memory, instr, _reg_bits[instr.parsed.opd[0][0]]);
             },
             invalid: function() {
