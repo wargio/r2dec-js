@@ -113,6 +113,7 @@ module.exports = (function() {
         this.label = null;
         this.cond = null;
         this.xrefs = data.xrefs ? data.xrefs.slice() : [];
+        this.refs = data.refs ? data.refs.slice() : [];
         this.comments = data.comment ? [new TextDecoder().decode(Duktape.dec('base64', data.comment))] : [];
         if (Global.evars.honor.xrefs) {
             for (var i = 0; i < this.xrefs.length; i++) {

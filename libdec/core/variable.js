@@ -16,6 +16,7 @@
  */
 
 module.exports = (function() {
+    const Long = require('libdec/long');
     const Extra = require('libdec/core/extra');
     const Objects = require('libdec/core/objects');
 
@@ -118,7 +119,7 @@ module.exports = (function() {
     };
 
     var _number = function(content) {
-        this.content = content;
+        this.content = Long.isLong(content) ? ('0x' + content.toString(16)) : content;
 
         this.toType = function() {
             return '';

@@ -116,10 +116,11 @@ require.src = {};
 
     var _extract_variable = function(exception) {
         var variable = null;
-        if (exception.message.trim().match(/^cannot read property \d+ of undefined$/)) {
+        var msg = exception.message.trim();
+        if (msg.match(/^cannot read property \d+ of undefined$/)) {
             // probably an array
-            variable = '[' + exception.message.match(/\d+/)[0] + ']';
-        } else if (!exception.message.match(/'([-_\w]+)'/)) {
+            variable = '[' + msg.match(/\d+/)[0] + ']';
+        } else if (!msg.match(/'([-_\w]+)'/)) {
             var lines = exception.stack.split('\n');
             var magic = ':' + exception.lineNumber + ')';
             for (var i = lines.length - 1; i >= 0; i--) {
@@ -128,6 +129,8 @@ require.src = {};
                     break;
                 }
             }
+            //} else {
+            //    variable = msg.match(/'([-_\w]+)'/)[1];
         }
         return variable;
     };

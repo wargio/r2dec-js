@@ -22,6 +22,25 @@ module.exports = (function() {
     var Variable = require('libdec/core/variable');
     var Long = require('libdec/long');
 
+    const _mips_registers = [
+        'zero', 'at', 'v0', 'v1',
+        'a0', 'a1', 'a2', 'a3',
+        't0', 't1', 't2', 't3',
+        't4', 't5', 't6', 't7',
+        's0', 's1', 's2', 's3',
+        's4', 's5', 's6', 's7',
+        'k0', 'k1', 'gp', 'sp',
+        'fp', 'ra',
+        'f0', 'f1', 'f2', 'f3', 'f4',
+        'f5', 'f6', 'f7', 'f8',
+        'f9', 'f10', 'f11', 'f12',
+        'f13', 'f14', 'f15', 'f16',
+        'f17', 'f18', 'f19', 'f20',
+        'f21', 'f22', 'f23', 'f24',
+        'f25', 'f26', 'f27', 'f28',
+        'f29', 'f30', 'f31'
+    ];
+
     var op_bits4 = function(instr, op, bits, unsigned, swap) {
         instr.setBadJump();
         var e = instr.parsed;
@@ -50,9 +69,30 @@ module.exports = (function() {
         return Base.assign(e.opd[0], reg);
     };
 
+    var _value_at = function(address, bits) {
+        if ((bits == 32 || bits == 64) && r2cmd) {
+            //this is truly an hack
+            var p = JSON.parse(r2cmd('?j [0x' + address.toString(16) + ']').trim());
+            return Long.fromString(p['int' + bits], true, 10);
+        }
+        return address;
+    };
+
     var load_bits = function(instr, bits, unsigned) {
         instr.setBadJump();
         var e = instr.parsed;
+
+        if (instr.refs.length > 0) {
+            var addr = _value_at(instr.refs[0].addr, bits);
+            instr.string = Global.xrefs.find_string(addr);
+            instr.symbol = Global.xrefs.find_symbol(addr);
+            if (instr.string || instr.symbol) {
+                return Base.assign(e.opd[0], instr.string ? Variable.string(instr.string) : instr.symbol);
+            }
+            //pointer, register, bits, is_signed
+            return Base.read_memory(addr, e.opd[0], bits, !unsigned);
+        }
+
         var arg = e.opd[1].replace(/\)/, '').split('(');
         if (arg[1] == '0') {
             //pointer, register, bits, is_signed
@@ -84,8 +124,11 @@ module.exports = (function() {
             //pointer, register, bits, is_signed
             return Base.write_memory(arg[1], e.opd[0], bits, !unsigned);
         }
-        arg[0] = parseInt(arg[0]) / (bits / 8);
+        arg[0] = arg[0].length > 0 ? parseInt(arg[0]) : NaN;
         if (!isNaN(arg[0])) {
+            if (_mips_registers.indexOf(arg[1]) >= 0) {
+                arg[0] /= bits / 8;
+            }
             if (arg[0] < 0) {
                 arg[0] = " - " + Math.abs(arg[0]);
             } else {
@@ -107,7 +150,11 @@ module.exports = (function() {
         return Base.assign(instr.parsed.opd[0], instr.parsed.opd[1]);
     };
 
-    var lui32 = function(instr, start, instructions) {
+    var _hex = function(value) {
+        return parseInt(value).toString(16);
+    };
+
+    var lui32 = function(instr, start, instructions, context) {
         var addr = null;
         var check = [
             function(e, r) {
@@ -117,15 +164,17 @@ module.exports = (function() {
                 if (e.mnem == 'nop') {
                     return true;
                 }
-                return (e.mnem == 'ori' && e.opd[0] == r && e.opd[1] == r) || (e.mnem == 'addi' && e.opd[0] == r && e.opd[1] == r) || (e.mnem == 'addiu' && e.opd[0] == r && e.opd[1] == r);
+                return (e.mnem == 'ori' && e.opd[0] == r && e.opd[1] == r) ||
+                    (e.mnem == 'addi' && e.opd[0] == r && e.opd[1] == r) ||
+                    (e.mnem == 'addiu' && e.opd[0] == r && e.opd[1] == r);
             },
         ];
         var address = [
             function(e, addr) {
-                return Long.fromString(parseInt(e.opd[1]).toString(16) + '0000', false, 16);
+                return Long.fromString(_hex(e.opd[1]) + '0000', true, 16);
             },
             function(e, addr) {
-                var n = Long.fromString(parseInt(e.opd[2]).toString(16), false, 16);
+                var n = Long.fromString(_hex(e.opd[2]), e.mnem.indexOf('u') > 0, 16);
                 var op = e.mnem.replace(/[iu]/g, '');
                 return addr[op](n);
             },
@@ -139,11 +188,12 @@ module.exports = (function() {
             }
             addr = address[step](elem, addr);
             step++;
-            instructions[i].pseudocode = Base.nop();
+            instructions[i].valid = false;
         }
         --i;
-        addr = '0x' + addr.toString(16);
-        instr.code = Base.assign(instr.parsed.opd[0], addr.replace(/0x-/, '-0x'));
+        addr = Global.xrefs.find_string(addr) || Global.xrefs.find_symbol(addr) || ('0x' + addr.toString(16)).replace(/0x-/, '-0x');
+        instr.code = Base.assign(instr.parsed.opd[0], addr);
+        instr.valid = true;
         return i;
     };
 

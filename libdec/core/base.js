@@ -21,6 +21,7 @@ module.exports = (function() {
 
     const Extra = require('libdec/core/extra');
     const Variable = require('libdec/core/variable');
+    const Long = require('libdec/long');
     const Condition = require('libdec/core/condition');
 
     /**
@@ -434,14 +435,18 @@ module.exports = (function() {
         /* MEMORY */
         read_memory: function(pointer, register, bits, is_signed) {
             var value = (Extra.is.string(register) || Extra.is.number(register)) ? Variable.local(register.toString(), Extra.to.type(bits, is_signed)) : register;
-            var ptr = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? Variable.pointer(pointer.toString(), Extra.to.type(bits, is_signed)) : pointer;
-
+            var ptr = (Extra.is.number(pointer) || Long.isLong(pointer)) ? Variable.pointer('0x' + pointer.toString(16), Extra.to.type(bits, is_signed)) : pointer;
+            if (Extra.is.string(ptr)) {
+                ptr = Variable.pointer(pointer, Extra.to.type(bits, is_signed));
+            }
             return _assign(value, ptr);
         },
         write_memory: function(pointer, register, bits, is_signed) {
             var value = (Extra.is.string(register) || Extra.is.number(register)) ? Variable.local(register.toString(), Extra.to.type(bits, is_signed)) : register;
-            var ptr = (Extra.is.string(pointer) || Extra.is.number(pointer)) ? Variable.pointer(pointer.toString(), Extra.to.type(bits, is_signed)) : pointer;
-
+            var ptr = (Extra.is.number(pointer) || Long.isLong(pointer)) ? Variable.pointer('0x' + pointer.toString(16), Extra.to.type(bits, is_signed)) : pointer;
+            if (Extra.is.string(ptr)) {
+                ptr = Variable.pointer(pointer, Extra.to.type(bits, is_signed));
+            }
             return _assign(ptr, value);
         },
         /* SPECIAL */
