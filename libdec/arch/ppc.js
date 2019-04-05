@@ -641,11 +641,14 @@ module.exports = (function() {
             }
             addr = address[step](elem, addr);
             step++;
-            instructions[i].code = Base.nop();
+            instructions[i].valid = false;
         }
         --i;
-        addr = '0x' + addr.toString(16);
-        instr.code = Base.assign(instr.parsed.opd[0], addr.replace(/0x-/, '-0x'));
+        instr.string = Global.xrefs.find_string(addr);
+        instr.symbol = Global.xrefs.find_symbol(addr);
+        addr = instr.string ? Variable.string(instr.string) : (instr.symbol || ('0x' + addr.toString(16)).replace(/0x-/, '-0x'));
+        instr.code = Base.assign(instr.parsed.opd[0], addr);
+        instr.valid = true;
         return i;
     };
 
@@ -717,11 +720,14 @@ module.exports = (function() {
             }
             addr = address[step](elem, addr);
             step++;
-            instructions[i].pseudo = Base.nop();
+            instructions[i].valid = false;
         }
         --i;
-        addr = '0x' + addr.toString(16);
-        instr.pseudo = Base.assign(instr.parsed.opd[0], addr.replace(/0x-/, '-0x'));
+        instructions[i].valid = true;
+        instr.string = Global.xrefs.find_string(addr);
+        instr.symbol = Global.xrefs.find_symbol(addr);
+        addr = instr.string ? Variable.string(instr.string) : (instr.symbol || ('0x' + addr.toString(16)).replace(/0x-/, '-0x'));
+        instr.code = Base.assign(instr.parsed.opd[0], addr);
         return i;
     };
 
@@ -739,7 +745,7 @@ module.exports = (function() {
     };
 
     var _is_jumping_outside = function(instructions, instr) {
-        return instr.jump.lt(instructions[0].location) || instr.jump.gt(instr.location);
+        return instr.jump.lt(instructions[0].location) || instr.jump.gt(instructions[instructions.length - 1].location);
     };
 
     return {
