@@ -191,7 +191,9 @@ module.exports = (function() {
             instructions[i].valid = false;
         }
         --i;
-        addr = Global.xrefs.find_string(addr) || Global.xrefs.find_symbol(addr) || ('0x' + addr.toString(16)).replace(/0x-/, '-0x');
+        instr.string = Global.xrefs.find_string(addr);
+        instr.symbol = Global.xrefs.find_symbol(addr);
+        addr = instr.string ? Variable.string(instr.string) : (instr.symbol || ('0x' + addr.toString(16)).replace(/0x-/, '-0x'));
         instr.code = Base.assign(instr.parsed.opd[0], addr);
         instr.valid = true;
         return i;
@@ -209,6 +211,9 @@ module.exports = (function() {
                 return Base.nop();
             },
             'b': function(instr) {
+                return Base.nop();
+            },
+            'j': function(instr) {
                 return Base.nop();
             },
             'lui': function(instr) {
@@ -412,6 +417,30 @@ module.exports = (function() {
             },
             'bgez': function(instr, context, instructions) {
                 return compare(instr, context, instructions, 'GE', true);
+            },
+            'beqzl': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'EQ', true);
+            },
+            'bnezl': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'NE', true);
+            },
+            'bltzl': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'LT', true);
+            },
+            'blezl': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'LE', true);
+            },
+            'bgtzl': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'GT', true);
+            },
+            'bgezl': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'GE', true);
+            },
+            'beql': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'EQ', false);
+            },
+            'bnel': function(instr, context, instructions) {
+                return compare(instr, context, instructions, 'EQ', false);
             },
             'beq': function(instr, context, instructions) {
                 return compare(instr, context, instructions, 'EQ', false);
