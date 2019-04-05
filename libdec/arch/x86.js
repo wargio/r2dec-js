@@ -443,7 +443,7 @@ module.exports = (function() {
         instr.conditional(context.cond.a, context.cond.b, type);
         instr.jump = instrs[instrs.indexOf(instr) + 1].location;
 
-        return _standard_mov(instr, context);
+        return _standard_mov(instr, context, instrs);
     };
 
     // TODO: the following function should be moved to a higher analysis level, and be applied by operand size
@@ -600,18 +600,32 @@ module.exports = (function() {
         // in the preceding assembly code. for example, the caller passes its first argument ('rdi') as the first
         // argument to the callee; in such case we won't find its initialization instruction, so we'll just use 'rdi'.
         var args = _regs64.slice(0, nargs);
-
+        var seen_regs = []; // regs can be used only once.
         // scan the preceding instructions to find where args registers are used, to take their values
         for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
+            if (instrs[i].jump || instrs[i].parsed.mnem == 'call') {
+                break;
+            }
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
 
             // look for an instruction that has two arguments. we assume that such an instruction would use
             // its second operand to set the value of the first. although this is not an accurate observation,
             // it could be used to replace the argument with its value on the arguments list
-            if (opd2.token) {
+            if (opd2.token && ['mov', 'xor', 'lea'].indexOf(instrs[i].parsed.mnem) >= 0) {
                 var argidx = amd64.indexOf(opd1.token) % _regs64.length;
-
+                var argvalue = opd2.token;
+                var argsize  = opd2.mem_access;
+                var notseen  = seen_regs.indexOf(opd2.token) < 0;
+                if (notseen) {
+                    seen_regs.push(opd2.token);
+                    if (instrs[i].parsed.mnem == 'xor' && opd1.token == opd2.token) {
+                        argvalue = '0';
+                    }
+                } else {
+                    argvalue = opd1.token;
+                    argsize = opd1.mem_access;
+                }
                 // is destination operand an amd64 systemv argument which has not been considered yet?
                 if ((argidx > (-1)) && (typeof args[argidx] === 'string')) {
 
@@ -619,9 +633,9 @@ module.exports = (function() {
                     // initialization value.
                     var arg = instrs[i].string ?
                         Variable.string(instrs[i].string) :
-                        Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                        Variable[opd2.mem_access ? 'pointer' : 'local'](argvalue, Extra.to.type(argsize, false));
 
-                    instrs[i].valid = false;
+                    instrs[i].valid = !notseen;
                     args[argidx] = arg;
                     nargs--;
                 }
@@ -739,9 +753,10 @@ module.exports = (function() {
         }
     };
 
-    var _standard_mov = function(instr, context) {
+    var _standard_mov = function(instr, context, instructions) {
         var dst = instr.parsed.opd[0];
         var src = instr.parsed.opd[1];
+        var prev = instructions[instructions.indexOf(instr) - 1];
 
         _has_changed_return(dst.token, context.returns.signed, context);
 
@@ -752,6 +767,11 @@ module.exports = (function() {
         } else if (_is_stack_reg(dst.token) || _is_frame_reg(dst.token)) {
             return null;
         } else {
+            if (prev && prev.parsed.mnem == instr.parsed.mnem && 
+                prev.parsed.opd[0].token == src.token && 
+                !prev.parsed.opd[0].mem_access && !src.mem_access) {
+                src = instr.parsed.opd[1] = prev.parsed.opd[1];
+            }
             var arg = instr.string ?
                 Variable.string(instr.string) :
                 Variable[src.mem_access ? 'pointer' : 'local'](src.token, src.mem_access, false);
@@ -1304,13 +1324,13 @@ module.exports = (function() {
             stosq: _string_common,
             movsb: _string_common,
             movsw: _string_common,
-            movsd: function(instr, context) {
+            movsd: function(instr, context, instructions) {
                 var p = instr.parsed;
                 var lhand = p.opd[0];
                 var rhand = p.opd[1];
 
                 if (_is_xmm(lhand) || _is_xmm(rhand)) {
-                    return _standard_mov(instr, context);
+                    return _standard_mov(instr, context, instructions);
                 } else {
                     return _string_common(instr, context);
                 }
