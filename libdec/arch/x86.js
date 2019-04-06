@@ -526,10 +526,17 @@ module.exports = (function() {
         var argidx = 0;
         var arg;
 
+        var varsname = context.vars.map(function(x){
+            return x.name;
+        });
+
         for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
             var mnem = instrs[i].parsed.mnem;
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
+            if (instrs[i].jump || mnem == 'call') {
+                break;
+            }
 
             // passing argument by referring to stack pointer directly rather than pushing
             if (mnem === 'mov') {
@@ -537,7 +544,7 @@ module.exports = (function() {
                 // it is not guaranteed, so we will need the stack offset that is used to determine which argument
                 // is being set; for example, "mov [esp + 12], val" indicates that the 3rd argument is being set
 
-                var offset;
+                var offset, idx;
 
                 // opd1.token may be set to a variable name, and therefore mask the stack pointer dereference. for that
                 // reason we also check whether it appears as a stack variable, to extract its offset from stack pointer.
@@ -546,14 +553,17 @@ module.exports = (function() {
                 // check whether this is a plain stack pointer dereference, or a stack pointer dereference masekd by a
                 // variable name. if the former, extract the offset manually; if the latter, use r2 data to retreive
                 // that value.
-                if (opd1.mem_access && _is_stack_reg(opd1.token)) {
-                    var deref = opd1.token.match(/[er]?sp(?:\s+\+\s+(\d+))/);
 
-                    offset = deref ? parseInt(deref[1]) : 0;
+                idx = varsname.indexOf(opd1.token);
+                if (idx >= 0) {
+                    offset = nargs;
+                } else if (opd1.mem_access && _is_stack_reg(opd1.token)) {
+                    var deref = opd1.token.match(/[er]?[bs]p(?:\s+\+\s+(\d+))/);
+                    offset = deref ? (parseInt(deref[1]) / (Global.evars.archbits / 8)) : 0;
                 } else if (_is_stack_based_local_var(opd1.token, context)) {
-                    offset = Math.abs(_get_var_offset(opd1.token, context));
+                    offset = Math.abs(_get_var_offset(opd1.token, context)) / (Global.evars.archbits / 8);
                 } else {
-                    // an irrelevant 'mov' isntruction; nothing to do here
+                    // an irrelevant 'mov' instruction; nothing to do here
                     continue;
                 }
 
@@ -562,7 +572,7 @@ module.exports = (function() {
                     Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
 
                 instrs[i].valid = false;
-                args[offset / (Global.evars.archbits / 8)] = arg;
+                args[offset] = arg;
                 nargs--;
             }
 
@@ -578,7 +588,9 @@ module.exports = (function() {
             }
         }
 
-        return args;
+        return args.filter(function(x) {
+            return !!x;
+        });
     };
 
     /**
@@ -608,7 +620,6 @@ module.exports = (function() {
             }
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
-
             // look for an instruction that has two arguments. we assume that such an instruction would use
             // its second operand to set the value of the first. although this is not an accurate observation,
             // it could be used to replace the argument with its value on the arguments list
@@ -642,7 +653,9 @@ module.exports = (function() {
             }
         }
 
-        return args;
+        return args.filter(function(x) {
+            return !!x;
+        });
     };
 
     var _call_function = function(instr, context, instrs, is_pointer) {
@@ -727,8 +740,8 @@ module.exports = (function() {
         var callsite = instr.parsed.opd[0];
         var callname = instr.symbol || callsite.token;
 
-        if (callsite.mem_access && callname.startsWith('0x')) {
-            callname = Variable.functionPointer(callname.token, callname.mem_access, args);
+        if (callname.startsWith('0x')) {
+            callname = Variable.functionPointer(callname, callsite.mem_access, args);
         } else if (is_pointer || (!callsite.mem_access && _x86_x64_registers.indexOf(callname) > (-1))) {
             callname = Variable.functionPointer(callname, 0, args);
         }
