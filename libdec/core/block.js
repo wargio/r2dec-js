@@ -122,9 +122,6 @@ module.exports = (function() {
             var h = 0;
             var t = 0;
             var i;
-            if (!this.hasPrintables()) {
-                return;
-            }
             for (i = 0; i < this.instructions.length; i++) {
                 while (this.extraHead[h] && this.extraHead[h].address.lte(this.instructions[i].location)) {
                     this.extraHead[h].print();

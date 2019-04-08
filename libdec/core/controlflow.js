@@ -245,6 +245,9 @@ module.exports = (function() {
         // let's get the last element inside the if (jump instr -1).
         var outside_index = if_block.instructions.indexOf(outside);
         var last_if_instruction = if_block.instructions[outside_index - 1];
+        if (!last_if_instruction) {
+            return true;
+        }
 
         // let's check if the last instruction is a jump forward (outside), that can lead to an else
         if (last_if_instruction.jump && !last_if_instruction.cond && last_if_instruction.jump.gt(last_if_instruction.location)) {

@@ -536,8 +536,8 @@ module.exports = (function() {
             return x.name;
         });
 
-        for (var i = (instrs.length - 1);
-            (i >= 0) && (nargs > 0); i--) {
+        for (var i = instrs.length - 1; i >= 0 && nargs > 0; i--) {
+            arg = null;
             var mnem = instrs[i].parsed.mnem;
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
@@ -581,13 +581,21 @@ module.exports = (function() {
                 instrs[i].valid = false;
                 args[offset] = arg;
                 nargs--;
-            }
-
-            // passing argument by pushing them to stack
-            if (mnem === 'push') {
-                arg = instrs[i].string ?
-                    Variable.string(instrs[i].string) :
-                    Variable[opd1.mem_access ? 'pointer' : 'local'](opd1.token, Extra.to.type(opd1.mem_access, false));
+            } else if (mnem === 'push') {
+                // passing argument by pushing them to stack
+                if (instrs[i - 1] &&
+                    ['lea'].indexOf(instrs[i - 1].parsed.mnem) >= 0 &&
+                    opd1.token == instrs[i - 1].parsed.opd[0].token) {
+                    instrs[i - 1].valid = false;
+                    opd2 = instrs[i - 1].parsed.opd[1];
+                    arg = instrs[i - 1].string ?
+                        Variable.string(instrs[i - 1].string) :
+                        Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                } else {
+                    arg = instrs[i].string ?
+                        Variable.string(instrs[i].string) :
+                        Variable[opd1.mem_access ? 'pointer' : 'local'](opd1.token, Extra.to.type(opd1.mem_access, false));
+                }
                 instrs[i].valid = false;
                 args[argidx++] = arg;
                 nargs--;
@@ -607,10 +615,10 @@ module.exports = (function() {
      * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
      */
     var _populate_amd64_call_args = function(instrs, nargs, context) {
-        var _regs64 = ['rdi', 'rsi', 'rdx', 'rcx', 'r8',  'r9' ];
-        var _regs32 = ['edi', 'esi', 'edx', 'ecx', 'r8d', 'r9d'];
-        var _krnl64 = [     ,      ,      , 'r10',      ,      ]; // kernel interface uses r10 instead of rcx
-        var _krnl32 = [     ,      ,      , 'r10d',     ,      ];
+        var _regs64 = [ /**/ 'rdi', /**/ 'rsi', /**/ 'rdx', /* */ 'rcx', /* */ 'r8', /* */ 'r9'];
+        var _regs32 = [ /**/ 'edi', /**/ 'esi', /**/ 'edx', /* */ 'ecx', /**/ 'r8d', /**/ 'r9d'];
+        var _krnl64 = [ /*     */ , /*     */ , /*     */ , /* */ 'r10', /*     */ , /*     */ ]; // kernel interface uses r10 instead of rcx
+        var _krnl32 = [ /*     */ , /*     */ , /*     */ , /**/ 'r10d', /*     */ , /*     */ ];
 
 
         var amd64 = Array.prototype.concat(_regs64, _regs32, _krnl64, _krnl32);
