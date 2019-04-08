@@ -1,19 +1,19 @@
 /*
-* Copyright (C) 2017-2018 deroad, elicn
-*
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (C) 2017-2018 deroad, elicn
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 module.exports = (function() {
     const Base = require('libdec/core/base');
@@ -340,14 +340,14 @@ module.exports = (function() {
 
         switch (_num_operands(p)) {
             case 3:
-                multiplier   = p.opd[2];
+                multiplier = p.opd[2];
                 multiplicand = p.opd[1];
-                destination  = [p.opd[0].token];
+                destination = [p.opd[0].token];
                 break;
             case 2:
-                multiplier   = p.opd[1];
+                multiplier = p.opd[1];
                 multiplicand = p.opd[0];
-                destination  = [p.opd[0].token];
+                destination = [p.opd[0].token];
                 break;
             case 1:
                 multiplier = p.opd[0];
@@ -458,9 +458,15 @@ module.exports = (function() {
         var arch_minus_one;
 
         switch (Global.evars.archbits) {
-            case 64: arch_minus_one = '0xffffffffffffffff'; break;
-            case 32: arch_minus_one = '0xffffffff'; break;
-            case 16: arch_minus_one = '0xffff'; break;
+            case 64:
+                arch_minus_one = '0xffffffffffffffff';
+                break;
+            case 32:
+                arch_minus_one = '0xffffffff';
+                break;
+            case 16:
+                arch_minus_one = '0xffff';
+                break;
         }
 
         return (x === arch_minus_one ? '-1' : x);
@@ -526,11 +532,12 @@ module.exports = (function() {
         var argidx = 0;
         var arg;
 
-        var varsname = context.vars.map(function(x){
+        var varsname = context.vars.map(function(x) {
             return x.name;
         });
 
-        for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
+        for (var i = (instrs.length - 1);
+            (i >= 0) && (nargs > 0); i--) {
             var mnem = instrs[i].parsed.mnem;
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
@@ -581,7 +588,6 @@ module.exports = (function() {
                 arg = instrs[i].string ?
                     Variable.string(instrs[i].string) :
                     Variable[opd1.mem_access ? 'pointer' : 'local'](opd1.token, Extra.to.type(opd1.mem_access, false));
-
                 instrs[i].valid = false;
                 args[argidx++] = arg;
                 nargs--;
@@ -606,6 +612,7 @@ module.exports = (function() {
         var _krnl64 = [     ,      ,      , 'r10',      ,      ]; // kernel interface uses r10 instead of rcx
         var _krnl32 = [     ,      ,      , 'r10d',     ,      ];
 
+
         var amd64 = Array.prototype.concat(_regs64, _regs32, _krnl64, _krnl32);
 
         // arguments are set to default values which will be used in case we cannot find any reference to them
@@ -614,7 +621,8 @@ module.exports = (function() {
         var args = _regs64.slice(0, nargs);
         var seen_regs = []; // regs can be used only once.
         // scan the preceding instructions to find where args registers are used, to take their values
-        for (var i = (instrs.length - 1); (i >= 0) && (nargs > 0); i--) {
+        for (var i = (instrs.length - 1);
+            (i >= 0) && (nargs > 0); i--) {
             if (instrs[i].jump || instrs[i].parsed.mnem == 'call') {
                 break;
             }
@@ -626,8 +634,8 @@ module.exports = (function() {
             if (opd2.token && ['mov', 'xor', 'lea'].indexOf(instrs[i].parsed.mnem) >= 0) {
                 var argidx = amd64.indexOf(opd1.token) % _regs64.length;
                 var argvalue = opd2.token;
-                var argsize  = opd2.mem_access;
-                var notseen  = seen_regs.indexOf(opd2.token) < 0;
+                var argsize = opd2.mem_access;
+                var notseen = seen_regs.indexOf(opd2.token) < 0;
                 if (notseen) {
                     seen_regs.push(opd2.token);
                     if (instrs[i].parsed.mnem == 'xor' && opd1.token == opd2.token) {
@@ -708,7 +716,10 @@ module.exports = (function() {
             }
         }
 
-        var args = [];
+        var callsite = instr.parsed.opd[0];
+        var callname = instr.symbol || callsite.token;
+
+        var nargs, args = [];
         var callee = instr.callee;
 
         if (callee) {
@@ -724,7 +735,7 @@ module.exports = (function() {
 
             // every non-import callee has a known number of arguments
             // for imported libc functions, get the number of arguments out of a predefined list
-            var nargs = callee.name.startsWith('sym.') ?
+            nargs = callee.name.startsWith('sym.') ?
                 Extra.find.arguments_number(callee.name) :
                 callee.nargs;
 
@@ -735,10 +746,26 @@ module.exports = (function() {
             }
 
             args = populate_call_args(instrs.slice(0, start), nargs, context);
-        }
+        } else {
+            // trying to identify the fcn..
+            nargs = callname.startsWith('sym.') ?
+                Extra.find.arguments_number(callname) : -1;
 
-        var callsite = instr.parsed.opd[0];
-        var callname = instr.symbol || callsite.token;
+            // if number of arguments is unknown (either an unrecognized or a variadic function),
+            // try to guess the number of arguments
+            if (nargs == (-1)) {
+                nargs = _guess_cdecl_nargs(instrs.slice(0, start), context);
+                callee = _populate_cdecl_call_args;
+            }
+            if (nargs == (-1)) {
+                nargs = _guess_amd64_nargs(instrs.slice(0, start), context);
+                callee = _populate_amd64_call_args;
+            }
+
+            if (callee) {
+                args = callee(instrs.slice(0, start), nargs, context);
+            }
+        }
 
         if (callname.startsWith('0x')) {
             callname = Variable.functionPointer(callname, callsite.mem_access, args);
@@ -780,8 +807,8 @@ module.exports = (function() {
         } else if (_is_stack_reg(dst.token) || _is_frame_reg(dst.token)) {
             return null;
         } else {
-            if (prev && prev.parsed.mnem == instr.parsed.mnem && 
-                prev.parsed.opd[0].token == src.token && 
+            if (prev && prev.parsed.mnem == instr.parsed.mnem &&
+                prev.parsed.opd[0].token == src.token &&
                 !prev.parsed.opd[0].mem_access && !src.mem_access) {
                 src = instr.parsed.opd[1] = prev.parsed.opd[1];
             }
@@ -1224,8 +1251,7 @@ module.exports = (function() {
 
                 // in some cases, a jmp instruction would be considered as a function call
 
-                if (dst.mem_access)
-                {
+                if (dst.mem_access) {
                     if (_is_jumping_externally(instr, instructions) || dst.token.startsWith('reloc.')) {
                         // jumping to an address outside the function or to a relocatable symbol
                         return Base.call(dst.token);
@@ -1300,7 +1326,7 @@ module.exports = (function() {
                 //      push n  \
                 //      ...      } reg = n
                 //      pop reg /
-                if (!_is_frame_reg(dst.token) ) {
+                if (!_is_frame_reg(dst.token)) {
                     for (var i = instrs.indexOf(instr); i >= 0; i--) {
                         var mnem = instrs[i].parsed.mnem;
                         var opd1 = instrs[i].parsed.opd[0];
@@ -1403,9 +1429,9 @@ module.exports = (function() {
                 var tmp = Variable.uniqueName('tmp');
 
                 return Base.composed([
-                    Base.assign(tmp, lhand.token),          // tmp = dest
-                    Base.assign(lhand.token, rhand.token),  // dest = src
-                    Base.assign(rhand.token, tmp)           // src = tmp
+                    Base.assign(tmp, lhand.token), // tmp = dest
+                    Base.assign(lhand.token, rhand.token), // dest = src
+                    Base.assign(rhand.token, tmp) // src = tmp
                 ]);
             },
             int: function(instr, context, instructions) {

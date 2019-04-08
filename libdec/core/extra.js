@@ -144,6 +144,7 @@ module.exports = (function() {
             } else if (name.startsWith('reloc.')) {
                 name = name.substring('reloc.'.length).replace(/^_+/, '');
             }
+            name = name.replace(/MSVCRT.dll_/, '');
             name = name.replace(/\./g, '_');
             return name.replace(/(\w|^):(\w|$)/g, '$1_$2').replace(/_+/g, '_');
         },

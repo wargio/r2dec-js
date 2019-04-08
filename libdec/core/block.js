@@ -110,10 +110,21 @@ module.exports = (function() {
                 this.instructions[i].asopcode();
             }
         };
+        this.hasPrintables = function() {
+            for (var i = 0; i < this.instructions.length; i++) {
+                if (this.instructions[i].valid && this.instructions[i].code) {
+                    return true;
+                }
+            }
+            return false;
+        };
         this.print = function() {
             var h = 0;
             var t = 0;
             var i;
+            if (!this.hasPrintables()) {
+                return;
+            }
             for (i = 0; i < this.instructions.length; i++) {
                 while (this.extraHead[h] && this.extraHead[h].address.lte(this.instructions[i].location)) {
                     this.extraHead[h].print();
