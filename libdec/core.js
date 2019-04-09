@@ -179,7 +179,14 @@ module.exports = (function() {
         }
         Global.context.identAsmSet(max_length + max_address);
         this.routine_name = data.graph[0].name;
-        this.instructions = instructions;
+        this.instructions = instructions.filter(function(op, p, ops) {
+            for (var i = p - 1; i >= 0; i--) {
+                if (ops[i].location.eq(op.location)) {
+                    return false;
+                }
+            }
+            return true;
+        });
         this.ascomment = function() {
             for (var i = 0; i < this.blocks.length; i++) {
                 this.blocks[i].ascomment();
