@@ -18,15 +18,7 @@
 module.exports = (function() {
     const Long = require('libdec/long');
     const Condition = require('libdec/core/condition');
-
-    var _align = function(x) {
-        var zeros32 = '00000000';
-        var c = x.toString(16);
-        if (c.length > zeros32.length) {
-            return '0x' + c;
-        }
-        return '0x' + zeros32.substr(c.length, zeros32.length) + c;
-    };
+    const Extra = require('libdec/core/extra');
 
     var _printable = function(instr) {
         return instr.valid && instr.code && instr.code.toString().length > 0;
@@ -69,15 +61,27 @@ module.exports = (function() {
     };
 
     var _asm_view = function(instr) {
-        var i;
+        var i, t, b, s, addr;
         if (Global.evars.honor.blocks) {
             return;
         }
-        if (Global.evars.honor.assembly) {
-            var t = Global.printer.theme;
-            var b = Global.printer.auto;
-            var addr = _align(instr.location);
-            var s = 1 + addr.length + instr.simplified.length;
+        if (Global.evars.honor.offsets) {
+            t = Global.printer.theme;
+            b = Global.printer.auto;
+            addr = Extra.align_address(instr.location);
+            if (instr.code && instr.code.composed) {
+                console.log(Global.context.identfy(addr.length, t.integers(addr)) + instr.code.composed[0] + ';');
+                for (i = 1; i < instr.code.composed.length; i++) {
+                    console.log(Global.context.identfy(addr.length, t.integers(addr)) + instr.code.composed[i] + ';');
+                }
+            } else if (_printable(instr)) {
+                console.log(Global.context.identfy(addr.length, t.integers(addr)) + instr.code + ';');
+            }
+        } else if (Global.evars.honor.assembly) {
+            t = Global.printer.theme;
+            b = Global.printer.auto;
+            addr = Extra.align_address(instr.location);
+            s = 1 + addr.length + instr.simplified.length;
             if (instr.code && instr.code.composed) {
                 console.log(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + instr.code.composed[0] + ';');
                 for (i = 1; i < instr.code.composed.length; i++) {

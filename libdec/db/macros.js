@@ -33,6 +33,10 @@ module.exports = (function() {
      *  ]
      */
     return {
+        'libc_start_main': {
+            macro: [],
+            args: 7
+        },
         'exit': {
             macro: ['#include <stdlib.h>'],
             args: 1
@@ -51,11 +55,15 @@ module.exports = (function() {
         },
         'textdomain': {
             macro: ['#include <libintl.h>'],
-            args: -1
+            args: 2
+        },
+        'bindtextdomain': {
+            macro: ['#include <libintl.h>'],
+            args: 2
         },
         'setlocale': {
             macro: ['#include <locale.h>'],
-            args: -1
+            args: 2
         },
         'wcscmp': {
             macro: ['#include <wchar.h>'],

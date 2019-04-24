@@ -141,6 +141,10 @@ module.exports = (function() {
                 string_to_print = string_to_print || '';
                 size_no_colors = size_no_colors || 0;
                 return h('    ') + string_to_print + this.identAsm.substring(size_no_colors, this.identAsm.length) + h(' | ') + ident;
+            } else if (Global.evars.honor.offsets && !Global.evars.honor.blocks) {
+                string_to_print = string_to_print || '';
+                size_no_colors = size_no_colors || 0;
+                return h('    ') + string_to_print + this.identAsm.substring(size_no_colors, 14) + h(' | ') + ident;
             }
             return ident;
         };

@@ -51,7 +51,8 @@ module.exports = (function() {
             };
             this.print = function() {
                 Global.context.identOut();
-                console.log(Global.context.identfy() + this.toString());
+                var offset = Global.evars.honor.offsets ? Extra.align_address(this.address) : '';
+                console.log(Global.context.identfy(offset.length, Global.printer.theme.integers(offset)) + this.toString());
             };
         },
         routine: function(address, extra) {
@@ -69,8 +70,9 @@ module.exports = (function() {
                 var e = this.extra;
                 var t = Global.printer.theme;
                 _print_locals(e.globals, true);
-                var asmname = '; (fcn) ' + e.name + ' ()';
-                var ident = Global.context.identfy(asmname.length, t.comment(asmname));
+                var asmname = Global.evars.honor.offsets ? Extra.align_address(this.address) : '; (fcn) ' + e.name + ' ()';
+                var color = Global.evars.honor.offsets ? 'integers' : 'comment';
+                var ident = Global.context.identfy(asmname.length, t[color](asmname));
                 console.log(ident + this.toString());
                 Global.context.identIn();
                 _print_block_data(this);
@@ -86,7 +88,8 @@ module.exports = (function() {
                 return t.flow('if') + ' (' + this.condition + ') {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
             };
             this.print = function() {
-                console.log(Global.context.identfy() + this.toString());
+                var offset = Global.evars.honor.offsets ? Extra.align_address(this.address) : '';
+                console.log(Global.context.identfy(offset.length, Global.printer.theme.integers(offset)) + this.toString());
                 Global.context.identIn();
                 _print_block_data(this);
                 _print_locals(this.locals);
@@ -102,7 +105,8 @@ module.exports = (function() {
             };
             this.print = function() {
                 Global.context.identOut();
-                console.log(Global.context.identfy() + this.toString());
+                var offset = Global.evars.honor.offsets ? Extra.align_address(this.address) : '';
+                console.log(Global.context.identfy(offset.length, Global.printer.theme.integers(offset)) + this.toString());
                 Global.context.identIn();
                 _print_block_data(this);
                 _print_locals(this.locals);
@@ -131,7 +135,8 @@ module.exports = (function() {
                 return t.flow('while') + ' (' + this.condition + ') {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
             };
             this.print = function() {
-                console.log(Global.context.identfy() + this.toString());
+                var offset = Global.evars.honor.offsets ? Extra.align_address(this.address) : '';
+                console.log(Global.context.identfy(offset.length, Global.printer.theme.integers(offset)) + this.toString());
                 Global.context.identIn();
                 _print_block_data(this);
                 _print_locals(this.locals);
@@ -158,7 +163,8 @@ module.exports = (function() {
             };
             this.print = function() {
                 _print_block_data(this);
-                console.log(Global.context.identfy() + this.toString());
+                var offset = Global.evars.honor.offsets ? Extra.align_address(this.address) : '';
+                console.log(Global.context.identfy(offset.length, Global.printer.theme.integers(offset)) + this.toString());
             };
         }
     };

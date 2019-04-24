@@ -743,7 +743,7 @@ module.exports = (function() {
 
             // every non-import callee has a known number of arguments
             // for imported libc functions, get the number of arguments out of a predefined list
-            nargs = callee.name.startsWith('sym.') ?
+            nargs = callee.name.startsWith('sym.') || callname.startsWith('reloc.') ?
                 Extra.find.arguments_number(callee.name) :
                 callee.nargs;
 
@@ -756,22 +756,27 @@ module.exports = (function() {
             args = populate_call_args(instrs.slice(0, start), nargs, context);
         } else {
             // trying to identify the fcn..
-            nargs = callname.startsWith('sym.') ?
+            nargs = callname.startsWith('sym.') || callname.startsWith('reloc.') ?
                 Extra.find.arguments_number(callname) : -1;
 
             // if number of arguments is unknown (either an unrecognized or a variadic function),
             // try to guess the number of arguments
-            if (nargs == (-1)) {
+            if (nargs == -1) {
                 nargs = _guess_cdecl_nargs(instrs.slice(0, start), context);
                 callee = _populate_cdecl_call_args;
-            }
-            if (nargs == (-1)) {
-                nargs = _guess_amd64_nargs(instrs.slice(0, start), context);
-                callee = _populate_amd64_call_args;
-            }
+                if (nargs == -1) {
+                    nargs = _guess_amd64_nargs(instrs.slice(0, start), context);
+                    callee = _populate_amd64_call_args;
+                }
 
-            if (callee) {
-                args = callee(instrs.slice(0, start), nargs, context);
+                if (callee && nargs > -1) {
+                    args = callee(instrs.slice(0, start), nargs, context);
+                }
+            } else {
+                args = _populate_amd64_call_args(instrs.slice(0, start), nargs, context);
+                if (args.length < 1 && nargs > 0) {
+                    _populate_cdecl_call_args(instrs.slice(0, start), nargs, context);
+                }
             }
         }
 
