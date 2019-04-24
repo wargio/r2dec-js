@@ -123,7 +123,7 @@ module.exports = (function() {
             return;
         }
         var t = Global.printer.theme;
-        var asm_header = '; assembly';
+        var asm_header = Global.evars.honor.offsets ? '' : '; assembly';
         var details = '/* ' + Global.evars.extra.file + ' @ 0x' + Global.evars.extra.offset.toString(16) + ' */';
         console.log(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo code output */'));
         console.log(Global.context.identfy() + t.comment(details));

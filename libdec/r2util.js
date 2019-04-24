@@ -100,11 +100,12 @@ module.exports = (function() {
         "--help": "this help message",
         "--assembly": "shows pseudo next to the assembly",
         "--blocks": "shows only scopes blocks",
-        "--colors": "enables syntax colors",
         "--casts": "shows all casts in the pseudo code",
+        "--colors": "enables syntax colors",
         "--debug": "do not catch exceptions",
         "--html": "outputs html data instead of text",
         "--issue": "generates the json used for the test suite",
+        "--offsets": "shows pseudo next to the assembly offset",
         "--paddr": "all xrefs uses physical addresses instead of virtual addresses",
         "--xrefs": "shows also instruction xrefs in the pseudo code",
         "--as-comment": "the decompiled code is returned to r2 as comment (via CCu)",
@@ -178,6 +179,7 @@ module.exports = (function() {
                 paddr: false,
                 pseudo: false,
                 html: false,
+                offsets: false,
             };
             this.extra = {
                 theme: 'default',
@@ -225,6 +227,7 @@ module.exports = (function() {
                 blocks: r2bool('e r2dec.blocks') || has_option(args, '--blocks'),
                 xrefs: r2bool('e r2dec.xrefs') || has_option(args, '--xrefs'),
                 paddr: r2bool('e r2dec.paddr') || has_option(args, '--paddr'),
+                offsets: has_option(args, '--offsets'),
                 html: r2bool('e scr.html') || has_option(args, '--html'),
                 color: r2int('e scr.color', 0) > 0 || has_option(args, '--colors')
             };

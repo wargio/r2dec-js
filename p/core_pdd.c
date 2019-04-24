@@ -158,8 +158,9 @@ static void usage(void) {
 	r_cons_printf (" pdd           - decompile current function\n");
 	r_cons_printf (" pdd?          - show this help\n");
 	r_cons_printf (" pdd*          - the decompiled code is returned to r2 as comment (via CCu)\n");
-	r_cons_printf (" pdda          - decompile current function with side assembly\n");
+	r_cons_printf (" pdda          - decompile current function side by side with assembly\n");
 	r_cons_printf (" pddb          - decompile current function but shows only scopes\n");
+	r_cons_printf (" pddo          - decompile current function side by side with offsets\n");
 	r_cons_printf (" pddu          - install/upgrade r2dec via r2pm\n");
 	r_cons_printf (" pdds <branch> - switches r2dec branch\n");
 	r_cons_printf (" pddi          - generates the issue data\n");
@@ -217,6 +218,10 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	case 'a':
 		// --assembly
 		duk_r2dec (core, "--assembly");
+		break;
+	case 'o':
+		// --assembly
+		duk_r2dec (core, "--offsets");
 		break;
 	case 'b':
 		// --blocks
@@ -291,6 +296,7 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_core_autocomplete_add (pdd, "--debug", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--html", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--issue", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--offsets", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--paddr", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--xrefs", R_CORE_AUTOCMPLT_OPTN, true);
 	return true;

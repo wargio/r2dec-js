@@ -43,6 +43,16 @@ module.exports = (function() {
         'double': 64,
     };
 
+
+    var _align_address = function(x) {
+        var zeros32 = '00000000';
+        var c = x.toString(16);
+        if (c.length > zeros32.length) {
+            return '0x' + c;
+        }
+        return '0x' + zeros32.substr(c.length, zeros32.length) + c;
+    };
+
     /**
      * Is helpers
      * @type {Object}
@@ -141,7 +151,8 @@ module.exports = (function() {
                 //    name = name.substring('fcn.'.length);
                 //} else if (name.startsWith('func.')) {
                 //    name = name.substring('func.'.length);
-            } else if (name.startsWith('reloc.')) {
+            } 
+            if (name.startsWith('reloc.')) {
                 name = name.substring('reloc.'.length).replace(/^_+/, '');
             }
             name = name.replace(/^sub\./, '');
@@ -196,6 +207,7 @@ module.exports = (function() {
         is: _is,
         to: _to,
         find: _find,
-        replace: _replace
+        replace: _replace,
+        align_address: _align_address,
     };
 })();
