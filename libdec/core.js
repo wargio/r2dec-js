@@ -167,7 +167,7 @@ module.exports = (function() {
                 if (max_length < b.opcode.length) {
                     max_length = b.opcode.length;
                 }
-                var ins = new Instruction(b, arch);
+                var ins = new Instruction(b, arch, i);
                 if (max_address < ins.location.toString(16)) {
                     max_address = ins.location.toString(16).length;
                 }

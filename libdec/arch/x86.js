@@ -732,6 +732,10 @@ module.exports = (function() {
 
         if (ObjC.is(callname)) {
             var pargs, receiver, selector, pcounted = 0;
+            var newcall = ObjC.custom_calls(callname);
+            if (newcall) {
+                return newcall;
+            }
             receiver = ObjC.receiver(callname);
             selector = ObjC.selector(callname);
             returnval = ObjC.returns(callname);

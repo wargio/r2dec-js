@@ -117,9 +117,11 @@ require.src = {};
     var _extract_variable = function(exception) {
         var variable = null;
         var msg = exception.message.trim();
-        if (msg.match(/^cannot read property \d+ of undefined$/)) {
+        if (msg.match(/^cannot read property \d+ of undefined$/) || msg.match(/^cannot read property \d+ of null$/)) {
             // probably an array
             variable = '[' + msg.match(/\d+/)[0] + ']';
+        } else  if (msg.match(/^cannot read property '([-_\w]+)' of undefined$/) || msg.match(/^cannot read property '([-_\w]+)' of null$/)) {
+            variable = '.' + msg.match(/'([-_\w]+)'/)[1];
         } else if (!msg.match(/'([-_\w]+)'/)) {
             var lines = exception.stack.split('\n');
             var magic = ':' + exception.lineNumber + ')';

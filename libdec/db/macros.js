@@ -211,7 +211,16 @@ module.exports = (function() {
         'write': {
             macro: ['#include <unistd.h>'],
             required: 3,
-        }
+        },
+        /* iOS */
+        'UIApplicationMain': {
+            macro: [],
+            required: 4,
+        },
+        'NSStringFromClass': {
+            macro: [],
+            required: 1,
+        },
     };
 
 })();

@@ -55,6 +55,19 @@ module.exports = (function() {
                 console.log(Global.context.identfy(offset.length, Global.printer.theme.integers(offset)) + this.toString());
             };
         },
+        custom: function(address, colorname) {
+            this.address = address;
+            this.colorname = colorname;
+            this.toString = function() {
+                return this.colorname + ' {' + (__debug ? Global.printer.theme.comment(' // 0x' + this.address.toString(16)) : '');
+            };
+            this.print = function() {
+                var offset = Global.evars.honor.offsets ? Extra.align_address(this.address) : '';
+                console.log(Global.context.identfy(offset.length, Global.printer.theme.integers(offset)) + this.toString());
+                Global.context.identIn();
+                _print_block_data(this);
+            };
+        },
         routine: function(address, extra) {
             this.address = address;
             this.extra = extra;

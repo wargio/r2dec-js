@@ -279,12 +279,35 @@ module.exports = (function() {
         return true;
     };
 
+    var _set_custom_flow = function(instruction, index, context) {
+        var block = context.findBlock(instruction.location);
+
+        var first_external_instruction = Utils.search(instruction.jump, block.instructions, _compare_locations);
+        var if_block = block.split(block.instructions.indexOf(instruction));
+        if (!if_block) {
+            return false;
+        }
+        var first_external_instruction_index = if_block.instructions.indexOf(first_external_instruction);
+        if_block.addExtraHead(new Scope.custom(instruction.location, instruction.customflow));
+        if_block.addExtraTail(new Scope.brace(first_external_instruction.location));
+        context.addBlock(if_block);
+        context.addBlock(if_block.split(first_external_instruction_index));
+        return true;
+    };
+
     return function(session) {
         var j, i;
         var context = new ControlFlowContext(session.blocks, session.instructions);
 
         for (j = 0; j < session.instructions.length; j++) {
-            if (!session.instructions[j].jump) {
+            if (!session.instructions[j].jump || !session.instructions[j].customflow) {
+                continue;
+            }
+            _set_custom_flow(session.instructions[j], j, context);
+        }
+
+        for (j = 0; j < session.instructions.length; j++) {
+            if (!session.instructions[j].jump || session.instructions[j].customflow) {
                 continue;
             }
             if (!_set_outbounds_jump(session.instructions[j], j, context)) {
@@ -293,7 +316,7 @@ module.exports = (function() {
         }
 
         for (j = 0; j < session.instructions.length; j++) {
-            if (!session.instructions[j].jump) {
+            if (!session.instructions[j].jump || session.instructions[j].customflow) {
                 continue;
             }
             _set_if_else(session.instructions[j], j, context);
