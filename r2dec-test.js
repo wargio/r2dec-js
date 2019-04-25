@@ -40,6 +40,8 @@ var Global = {
 var libdec = require('libdec/libdec');
 var r2util = require('libdec/r2util');
 
+const r2cmd = null;
+
 /**
  * r2dec main function.
  * @param  {String} filename - Issue filename to analyze (relative/fullpath)
@@ -48,7 +50,7 @@ function r2dec_main(filename) {
     try {
         // imports
         var Printer = require('libdec/printer');
-        if (filename) {
+        if (filename && !r2cmd) {
             var jsonstr = read_file(filename).trim();
             var data = r2util.dataTestSuite(jsonstr);
             Global.evars = new r2util.evarsTestSuite(data);

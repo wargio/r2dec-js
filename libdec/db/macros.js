@@ -104,12 +104,12 @@ module.exports = (function() {
         'printf': {
             macro: ['#include <stdio.h>'],
             required: 1,
-            additional: true
+            varargs: true
         },
         'scanf': {
             macro: ['#include <stdio.h>'],
             required: 1,
-            additional: true
+            varargs: true
         },
         'getenv': {
             macro: ['#include <stdlib.h>'],

@@ -159,6 +159,15 @@ module.exports = (function() {
         }
     };
 
+    var _fill_empty_args = function(reg, index, registers) {
+        if (typeof reg == 'undefined') {
+            return Variable.local(registers[index], _register_size(registers[index]));
+        } else if (typeof reg == 'string') {
+            return Variable.local(reg, _register_size(reg));
+        }
+        return reg;
+    };
+
     var _fix_arg = function(instr) {
         //var t = instr.code.toString();
         //if (t.match(/^.+[+-|&^*/%]=\s/) || t.match(/^\s[+-|&^*/%]\s/)) {
@@ -200,15 +209,20 @@ module.exports = (function() {
      * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
      */
     var _populate_cdecl_call_args = function(instrs, nargs, context) {
+        var _regs64 = ['x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6'];
+        var _regs32 = ['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
         var args = [];
         var argidx = 0;
-        var arg;
+        var arg, i;
+        var arm64 = false;
 
-        for (var i = (instrs.length - 1);
-            (i >= 0) && (nargs > 0); i--) {
+        for (i = (instrs.length - 1); i >= 0 && nargs > 0; i--) {
             var mnem = instrs[i].parsed.mnem;
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
+            if (opd1.match(/[wx]\d+/)) {
+                arm64 = true;
+            }
 
             // passing argument by referring to stack pointer directly rather than pushing
             if (mnem === 'adrp') {
@@ -251,6 +265,9 @@ module.exports = (function() {
             }
         }
 
+        for (i = 0; i < args.length; i++) {
+            args[i] = _fill_empty_args(args[i], i, arm64 ? _regs64[i] : _regs32[i]);
+        }
         return args;
     };
 
@@ -283,23 +300,22 @@ module.exports = (function() {
      * @param {Object} context Context object (not used)
      * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
      */
-    var _populate_arm64_call_args = function(instrs, nargs, context) {
+    var _populate_arm64_call_args = function(instrs, nargs, context, varargs) {
         var _regs64 = ['x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6'];
         var _regs32 = ['w0', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6'];
 
         var armregs = Array.prototype.concat(_regs64, _regs32);
-
+        var i;
         var args = _regs64.slice(0, nargs);
 
         // scan the preceding instructions to find where args registers are used, to take their values
-        for (var i = (instrs.length - 1);
-            (i >= 0) && (nargs > 0); i--) {
+        for (i = (instrs.length - 1); i >= 0 && (nargs > 0 || varargs); i--) {
             var op = instrs[i].parsed.mnem;
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
             //var opd3 = instrs[i].parsed.opd[2];
 
-            if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0 || op.indexOf('tb') == 0) {
+            if (op == 'pop' || op.startsWith('cb') || op.startsWith('b') || op.startsWith('tb')) {
                 break;
             }
 
@@ -326,6 +342,9 @@ module.exports = (function() {
             }
         }
 
+        for (i = 0; i < args.length; i++) {
+            args[i] = _fill_empty_args(args[i], i, _regs64);
+        }
         return args;
     };
 
@@ -336,20 +355,19 @@ module.exports = (function() {
      * @param {Object} context Context object (not used)
      * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
      */
-    var _populate_arm_call_args = function(instrs, nargs, context) {
+    var _populate_arm_call_args = function(instrs, nargs, context, varargs) {
         var armregs = ['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
-
+        var i;
         var args = armregs.slice(0, nargs);
 
         // scan the preceding instructions to find where args registers are used, to take their values
-        for (var i = (instrs.length - 1);
-            (i >= 0) && (nargs > 0); i--) {
+        for (i = (instrs.length - 1); i >= 0 && (nargs > 0 || varargs); i--) {
             var op = instrs[i].parsed.mnem;
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
             //var opd3 = instrs[i].parsed.opd[2];
 
-            if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0 || op.indexOf('tb') == 0) {
+            if (op == 'pop' || op.startsWith('cb') || op.startsWith('b') || op.startsWith('tb')) {
                 break;
             }
 
@@ -376,6 +394,9 @@ module.exports = (function() {
             }
         }
 
+        for (i = 0; i < args.length; i++) {
+            args[i] = _fill_empty_args(args[i], i, armregs);
+        }
         return args;
     };
 
@@ -442,10 +463,10 @@ module.exports = (function() {
                 return 'x0';
             } else if (nextinstr.parsed.opd[2] == 'x0') {
                 return 'x0';
-            } else if (args.length > 0) {
+            } else if (nextinstr.parsed.mnem.startsWith('bl') && args.length > 0) {
                 return Global.evars.archbits > 32 ? 'x0' : 'r0';
             }
-        } else if (args.length > 0) {
+        } else if (nextinstr.parsed.mnem.startsWith('bl') && args.length > 0) {
             return Global.evars.archbits > 32 ? 'x0' : 'r0';
         }
     }
@@ -457,7 +478,7 @@ module.exports = (function() {
         var args = [];
         var current = instructions.indexOf(instr);
         var regnum = 3;
-
+        var varargs;
         var callee = instr.callee;
 
 
@@ -542,6 +563,7 @@ module.exports = (function() {
 
             // every non-import callee has a known number of arguments
             // for imported libc functions, get the number of arguments out of a predefined list
+            varargs = Extra.find.call_additional(callee.name);
             var nargs = callee.name.startsWith('sym.') ?
                 Extra.find.arguments_number(callee.name) :
                 callee.nargs;
@@ -553,12 +575,15 @@ module.exports = (function() {
             } else if (nargs == (-1)) {
                 nargs = 0;
             }
-            args = populate_call_args(instructions.slice(0, current), nargs, context);
-            if (nargs > 0) {
+
+            args = populate_call_args(instructions.slice(0, current), nargs, context, varargs);
+
+            if (nargs > 0 && !varargs) {
                 args = args.slice(0, nargs);
             }
         } else {
             var known_args_n = Extra.find.arguments_number(callname);
+            varargs = Extra.find.call_additional(callname);
             if (known_args_n == 0) {
                 return Base.call(callname, args);
             } else if (known_args_n > 0) {
@@ -566,7 +591,7 @@ module.exports = (function() {
             }
             var i, op, reg, reg32, reg64, start, arg0 = null;
             start = current;
-            for (i = start - 1; i >= 0 && regnum >= 0; i--) {
+            for (i = start - 1; i >= 0 && (regnum >= 0 || varargs); i--) {
                 op = instructions[i].parsed.mnem;
                 if (!op) {
                     break;
@@ -575,7 +600,7 @@ module.exports = (function() {
                 reg = 'r' + regnum;
                 reg32 = 'w' + regnum;
                 reg64 = 'x' + regnum;
-                if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0 || op.indexOf('tb') == 0) {
+                if (op == 'pop' || op.startsWith('cb') || op.startsWith('b') || op.startsWith('tb')) {
                     regnum--;
                     i = start;
                 } else if (arg0 == reg || arg0 == reg32 || arg0 == reg64) {
@@ -591,7 +616,7 @@ module.exports = (function() {
                     if (!op) {
                         break;
                     }
-                    if (op == 'pop' || op.indexOf('cb') == 0 || op.indexOf('b') == 0) {
+                    if (op == 'pop' || op.startsWith('cb') || op.startsWith('b')) {
                         break;
                     }
                     if (arg0 == reg || arg0 == reg32 || arg0 == reg64) {
@@ -909,7 +934,11 @@ module.exports = (function() {
                 }
                 return Base.special(dst + ' = (' + dst + ' & 0xFFFF0000) | (' + instr.parsed.opd[1] + ' & 0xFFFF)');
             },
-            movz: function(instr) {
+            movz: function(instr, context) {
+                var marker = _apply_marker_math(instr, context);
+                if (marker) {
+                    return marker;
+                }
                 var dst = instr.parsed.opd[0];
                 return Base.assign(dst, instr.parsed.opd[1]);
             },
@@ -978,6 +1007,17 @@ module.exports = (function() {
                 var returnval = null;
                 if (instructions[start - 1].parsed.opd[1] == 'x0') {
                     returnval = 'x0';
+                } else if (context.markers[instr.marker]) {
+                    if (context.markers[instr.marker]['r0'] && context.markers[instr.marker]['r0'].instr.valid) {
+                        context.markers[instr.marker]['r0'].instr.valid = false;
+                        returnval = '0x' + context.markers[instr.marker]['r0'].value.toString(16);
+                    } else if (context.markers[instr.marker]['w0'] && context.markers[instr.marker]['w0'].instr.valid) {
+                        context.markers[instr.marker]['w0'].instr.valid = false;
+                        returnval = '0x' + context.markers[instr.marker]['w0'].value.toString(16);
+                    } else if (context.markers[instr.marker]['x0'] && context.markers[instr.marker]['x0'].instr.valid) {
+                        context.markers[instr.marker]['x0'].instr.valid = false;
+                        returnval = '0x' + context.markers[instr.marker]['w0'].value.toString(16);
+                    }
                 }
                 return Base.return(returnval);
             },
@@ -1142,7 +1182,11 @@ module.exports = (function() {
                 val = val.shl(parseInt(opds[3]));
                 return Base.assign(opds[0], '0x' + val.toString(16));
             },
-            movk: function(instr) {
+            movk: function(instr, context) {
+                var marker = _apply_marker_math(instr, context);
+                if (marker) {
+                    return marker;
+                }
                 var opds = instr.parsed.opd;
                 var ops = [];
                 var val = Long.fromString(opds[1], true, opds[1].indexOf('0x') == 0 ? 16 : 10);
@@ -1254,7 +1298,11 @@ module.exports = (function() {
                 return Base.nop();
             }
         },
-        parse: function(asm) {
+        parse: function(asm, orig) {
+            /* do some magic here to get arm xrefs */
+            if (r2cmd && orig.match(/ldr \w\d+.*\[pc, 0x[\da-fA-F]+\]/) && !asm.match(/aav\.[\da-fA-F]+/)) {
+                asm = orig;
+            }
             var ret = asm.replace(/(\[|\])/g, ' $1 ').replace(/,/g, ' ');
             ret = ret.replace(/\{|\}/g, ' ').replace(/#/g, ' ');
             ret = ret.replace(/\s+/g, ' ');
@@ -1351,7 +1399,11 @@ module.exports = (function() {
             } else if (data.instr.parsed.mnem.startsWith('ld')) {
                 data.instr.code = Base.read_memory('0x' + data.value.toString(16), data.instr.parsed.opd[0], 32, false);
             } else {
-                data.instr.code = Base.assign(register, '0x' + data.value.toString(16));
+                var value = '0x' + data.value.toString(16);
+                if (Extra.magic_math(value)) {
+                    data.instr.comments.push(Extra.magic_math(value));
+                }
+                data.instr.code = Base.assign(register, value);
             }
         }
     }
@@ -1388,6 +1440,27 @@ module.exports = (function() {
                 instr: instr,
             };
         },
+        movz: function(marker, instr) {
+            _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);
+            marker[instr.parsed.opd[0]] = {
+                value: Long.fromString(instr.parsed.opd[1], true, 16),
+                instr: instr,
+            };
+        },
+        movk: function(marker, instr) {
+            if (!marker[instr.parsed.opd[0]]) {
+                return;
+            }
+            var s = Long.fromString(parseInt(instr.parsed.opd[1]).toString(16), true, 16);
+            var v = marker[instr.parsed.opd[0]].value;
+            var i = marker[instr.parsed.opd[0]].instr;
+            var sh = parseInt(instr.parsed.opd[3] || 0);
+            i.valid = false;
+            marker[instr.parsed.opd[0]].instr = instr;
+            marker[instr.parsed.opd[0]].value = v.or(s.shl(sh));
+            instr.string = Global.xrefs.find_string(marker[instr.parsed.opd[0]].value);
+            instr.symbol = Global.xrefs.find_symbol(marker[instr.parsed.opd[0]].value);
+        },
         movw: function(marker, instr) {
             var s = parseInt(instr.parsed.opd[1]);
             _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);
@@ -1406,35 +1479,54 @@ module.exports = (function() {
             i.valid = false;
             marker[instr.parsed.opd[0]].instr = instr;
             marker[instr.parsed.opd[0]].value = v.or(Long.fromString(s.toString(16) + '0000', true, 16));
+            instr.string = Global.xrefs.find_string(marker[instr.parsed.opd[0]].value);
+            instr.symbol = Global.xrefs.find_symbol(marker[instr.parsed.opd[0]].value);
         },
         add: function(marker, instr) {
-            if (!marker[instr.parsed.opd[0]] || instr.parsed.opd[1] != 'pc' || instr.parsed.opd.length != 2) {
+            if (instr.parsed.opd.length != 2 && instr.parsed.opd[0] != instr.parsed.opd[1]) {
+                return;
+            } else if (!marker[instr.parsed.opd[0]] || (instr.parsed.opd.length == 2 && instr.parsed.opd[1] != 'pc')) {
                 return;
             }
             var v = marker[instr.parsed.opd[0]].value;
             var i = marker[instr.parsed.opd[0]].instr;
-            i.valid = false;
             marker[instr.parsed.opd[0]].instr = instr;
-            marker[instr.parsed.opd[0]].value = v.add(instr.location).add(4);
+            if (instr.parsed.opd[1] == 'pc') {
+                marker[instr.parsed.opd[0]].value = v.add(instr.location).add(4);
+            } else {
+                i.valid = false;
+                var value = Long.fromString(parseInt(instr.parsed.opd[2]).toString(16), true, 16);
+                marker[instr.parsed.opd[0]].value = v.add(value);
+            }
+            instr.string = Global.xrefs.find_string(marker[instr.parsed.opd[0]].value);
+            instr.symbol = Global.xrefs.find_symbol(marker[instr.parsed.opd[0]].value);
         },
         ldr: function(marker, instr) {
-            if (Array.isArray(instr.parsed.opd[1]) && !marker[instr.parsed.opd[1][0]]) {
+            if (Array.isArray(instr.parsed.opd[1]) && instr.parsed.opd[1][0] != 'pc' && !marker[instr.parsed.opd[1][0]]) {
                 return;
             } else if (!Array.isArray(instr.parsed.opd[1]) && !marker[instr.parsed.opd[1]]) {
                 return;
             }
-            var data = marker[instr.parsed.opd[1]] || marker[instr.parsed.opd[1][0]];
-            if (instr.parsed.opd[0] == instr.parsed.opd[1] || instr.parsed.opd[0] == instr.parsed.opd[1][0]) {
-                data.instr.valid = false;
-            }
-            var number = data.value.add(Long.UZERO);
-            if (Array.isArray(instr.parsed.opd[1]) && instr.parsed.opd[1][1]) {
-                number = number.add(Long.fromString(instr.parsed.opd[1][1], true, 16));
-            }
+            var number, v;
+            if (instr.parsed.opd[1][0] == 'pc') {
+                number = instr.location.add(parseInt(instr.parsed.opd[1][1]) + 4);
+                v = _value_at(number);
+                instr.string = Global.xrefs.find_string(v) || Global.xrefs.find_string(number);
+                instr.symbol = Global.xrefs.find_symbol(v) || Global.xrefs.find_symbol(number);
+            } else {
+                var data = marker[instr.parsed.opd[1]] || marker[instr.parsed.opd[1][0]];
+                if (instr.parsed.opd[0] == instr.parsed.opd[1] || instr.parsed.opd[0] == instr.parsed.opd[1][0]) {
+                    data.instr.valid = false;
+                }
+                number = data.value.add(Long.UZERO);
+                if (Array.isArray(instr.parsed.opd[1]) && instr.parsed.opd[1][1]) {
+                    number = number.add(Long.fromString(instr.parsed.opd[1][1], true, 16));
+                }
 
-            var v = _value_at(number);
-            instr.string = Global.xrefs.find_string(v) || Global.xrefs.find_string(number);
-            instr.symbol = Global.xrefs.find_symbol(v) || Global.xrefs.find_symbol(number);
+                v = _value_at(number);
+                instr.string = Global.xrefs.find_string(v) || Global.xrefs.find_string(number);
+                instr.symbol = Global.xrefs.find_symbol(v) || Global.xrefs.find_symbol(number);
+            }
             if (instr.string) {
                 instr.code = Base.assign(instr.parsed.opd[0], Variable.string(instr.string));
             } else if (instr.symbol) {

@@ -43,6 +43,27 @@ module.exports = (function() {
         'double': 64,
     };
 
+    const _magic_math_values = {
+        "0x069c16bd": 'if there is a right shift of 0, then it\'s a division by 665/25756',
+        "0x10624dd3": 'if there is a right shift of 4, then it\'s a division by 1/250',
+        "0x2aaaaaab": 'if there is a right shift of 0, then it\'s a division by 1/6',
+        "0x30c30c31": 'if there is a right shift of 3, then it\'s a division by 1/42',
+        "0x38e38e39": 'if there is a right shift of 1, then it\'s a division by 1/9',
+        "0x4ec4ec4f": 'if there is a right shift of 3, then it\'s a division by 1/26',
+        "0x51eb851f": 'if there is a right shift of 5, then it\'s a division by 1/100',
+        "0x55555556": 'if there is a right shift of 0, then it\'s a division by 1/3',
+        "0x66666667": 'if there is a right shift of 1, then it\'s a division by 1/5',
+        "0x6bca1af3": 'if there is a right shift of 5, then it\'s a division by 1/76',
+        "0x88888889": 'if there is a right shift of 8, then it\'s a division by 1/480',
+        "0x92492493": 'if there is a right shift of 3, then it\'s a division by 1/14',
+        "0xa0a0a0a1": 'if there is a right shift of 7, then it\'s a division by 1/204',
+        "0xaaaaaaab": 'if there is a right shift of 1, then it\'s a division by 1/3',
+        "0xae147ae1": 'if there is a right shift of 5, then it\'s a division by 17/800',
+        "0xb21642c9": 'if there is a right shift of 5, then it\'s a division by 1/46',
+        "0xb60b60b7": 'if there is a right shift of 5, then it\'s a division by 1/45',
+        "0xba2e8ba3": 'if there is a right shift of 3, then it\'s a division by 1/11',
+        "0xea0ea0eb": 'if there is a right shift of 0, then it\'s a division by 32/35',
+    };
 
     var _align_address = function(x) {
         var zeros32 = '00000000';
@@ -133,7 +154,7 @@ module.exports = (function() {
         call_additional: function(name) {
             name = _replace.call(name);
             if (_call_common[name]) {
-                return !!_call_common[name].additional;
+                return !!_call_common[name].varargs;
             }
             return false;
         }
@@ -158,7 +179,7 @@ module.exports = (function() {
                 //    name = name.substring('fcn.'.length);
                 //} else if (name.startsWith('func.')) {
                 //    name = name.substring('func.'.length);
-            } 
+            }
             if (name.startsWith('reloc.')) {
                 name = name.substring('reloc.'.length).replace(/^_+/, '');
             }
@@ -216,5 +237,11 @@ module.exports = (function() {
         find: _find,
         replace: _replace,
         align_address: _align_address,
+        magic_math: function(address) {
+            if (typeof address != 'string') {
+                address = '0x' + address.toString(16);
+            }
+            return _magic_math_values[address];
+        }
     };
 })();
