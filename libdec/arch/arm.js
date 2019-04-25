@@ -406,7 +406,7 @@ module.exports = (function() {
         return nargs;
     };
 
-    function _get_return_value_register(instr, instructions) {
+    function _get_return_value_register(instr, instructions, args) {
         var start = instructions.indexOf(instr);
         var nextinstr = instructions[start + 1];
         if (nextinstr) {
@@ -437,7 +437,11 @@ module.exports = (function() {
                 return 'x0';
             } else if (nextinstr.parsed.opd[2] == 'x0') {
                 return 'x0';
+            } else if (args.length > 0) {
+                return Global.evars.archbits > 32 ? 'x0' : 'r0';
             }
+        } else if (args.length > 0) {
+            return Global.evars.archbits > 32 ? 'x0' : 'r0';
         }
     }
 
@@ -535,7 +539,7 @@ module.exports = (function() {
             }
         }
 
-        returnval = _get_return_value_register(instr, instructions);
+        returnval = _get_return_value_register(instr, instructions, args);
 
         if (callname.match(/^[rwx]\d+$/) || callname.match(/^0x[a-fA-F\d]+$/)) {
             callname = Variable.functionPointer(callname, _reg_bits[callname[0]] || 0, args);
@@ -766,6 +770,12 @@ module.exports = (function() {
             asrs: function(instr) {
                 return _common_math(instr.parsed, Base.shift_right);
             },
+            asl: function(instr) {
+                return _common_math(instr.parsed, Base.shift_left);
+            },
+            asr: function(instr) {
+                return _common_math(instr.parsed, Base.shift_right);
+            },
             msr: function(instr) {
                 return Base.assign(instr.parsed.opd[0], instr.parsed.opd[1]);
             },
@@ -821,6 +831,13 @@ module.exports = (function() {
                 return Base.not(dst, instr.parsed.opd[1]);
             },
             mul: function(instr) {
+                return _common_math(instr.parsed, Base.multiply);
+            },
+            smull: function(instr) {
+                if (instr.parsed.opd.length > 3) {
+                    var first = instr.parsed.opd.shift();
+                    instr.parsed.opd[0] = first + ":" + instr.parsed.opd[0];
+                }
                 return _common_math(instr.parsed, Base.multiply);
             },
             nop: function(instr) {
