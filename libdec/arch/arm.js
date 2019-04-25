@@ -410,7 +410,7 @@ module.exports = (function() {
     function _get_return_value_register(instr, instructions, args) {
         var start = instructions.indexOf(instr);
         var nextinstr = instructions[start + 1];
-        if (['mov r7, r7', 'mov x29, x29'].indexOf(nextinstr.assembly) >= 0) {
+        if (nextinstr && ['mov r7, r7', 'mov x29, x29'].indexOf(nextinstr.assembly) >= 0) {
             // ObjC marker. two instructions to skip
             nextinstr = instructions[start + 3];
         }
