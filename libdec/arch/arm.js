@@ -1300,7 +1300,9 @@ module.exports = (function() {
         },
         parse: function(asm, orig) {
             /* do some magic here to get arm xrefs */
-            if (r2cmd && orig.match(/ldr \w\d+.*\[pc, 0x[\da-fA-F]+\]/) && !asm.match(/aav\.[\da-fA-F]+/)) {
+            if (r2cmd && orig.match(/ldr \w\d+.*\[pc, 0x[\da-fA-F]+\]/)) {
+                asm = orig;
+            } else if(asm.match(/aav\.[\da-fA-F]+/)) {
                 asm = orig;
             }
             var ret = asm.replace(/(\[|\])/g, ' $1 ').replace(/,/g, ' ');
@@ -1463,6 +1465,9 @@ module.exports = (function() {
         },
         movw: function(marker, instr) {
             var s = parseInt(instr.parsed.opd[1]);
+            if (isNaN(s)) {
+                return;
+            }
             _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);
             marker[instr.parsed.opd[0]] = {
                 value: Long.fromString(s.toString(16), true, 16),
@@ -1491,10 +1496,10 @@ module.exports = (function() {
             var v = marker[instr.parsed.opd[0]].value;
             var i = marker[instr.parsed.opd[0]].instr;
             marker[instr.parsed.opd[0]].instr = instr;
+            i.valid = false;
             if (instr.parsed.opd[1] == 'pc') {
                 marker[instr.parsed.opd[0]].value = v.add(instr.location).add(4);
             } else {
-                i.valid = false;
                 var value = Long.fromString(parseInt(instr.parsed.opd[2]).toString(16), true, 16);
                 marker[instr.parsed.opd[0]].value = v.add(value);
             }
@@ -1502,9 +1507,10 @@ module.exports = (function() {
             instr.symbol = Global.xrefs.find_symbol(marker[instr.parsed.opd[0]].value);
         },
         ldr: function(marker, instr) {
-            if (Array.isArray(instr.parsed.opd[1]) && instr.parsed.opd[1][0] != 'pc' && !marker[instr.parsed.opd[1][0]]) {
+            var isarr = Extra.is.array(instr.parsed.opd[1]);
+            if (isarr && instr.parsed.opd[1][0] != 'pc' && !marker[instr.parsed.opd[1][0]]) {
                 return;
-            } else if (!Array.isArray(instr.parsed.opd[1]) && !marker[instr.parsed.opd[1]]) {
+            } else if (!isarr && !marker[instr.parsed.opd[1]]) {
                 return;
             }
             var number, v;
