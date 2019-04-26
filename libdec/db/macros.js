@@ -216,6 +216,11 @@ module.exports = (function() {
             macro: [],
             required: 1,
         },
+        'NSLog': {
+            macro: [],
+            required: 1,
+            varargs: true
+        },
     };
 
 })();

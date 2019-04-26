@@ -45,7 +45,12 @@ module.exports = (function() {
 			receiver: 'rdi',
 			selector: 'rsi',
 			returns: 'rax',
-			args: ['rdx', 'rcx', 'r8', 'r9']
+			args: [
+				['edx', 'rdx'],
+				['ecx', 'rcx'],
+				['r8d', 'r8'],
+				['r9d', 'r9']
+			]
 		}
 	};
 

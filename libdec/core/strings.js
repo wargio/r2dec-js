@@ -27,28 +27,24 @@ module.exports = (function() {
         return -1;
     };
 
-    var _virtual_compare = function(a, b) {
-        return a.vaddr.lt(b.vaddr) ? -1 : (a.vaddr.eq(b.vaddr) ? 0 : 1);
-    };
-
-    var _physical_compare = function(a, b) {
-        return a.paddr.lt(b.paddr) ? -1 : (a.paddr.eq(b.paddr) ? 0 : 1);
+    var _str_compare_location = function(a, b) {
+        return a.location.lt(b.location) ? -1 : (a.location.eq(b.location) ? 0 : 1);
     };
 
     var _sanitize = function(x) {
-        return x.paddr || x.vaddr;
+        return x.paddr || x.vaddr || x.offset;
     };
 
     /*
      * Expects the izj json as input.
      */
     return function(izj) {
-        this.data = izj.filter(_sanitize).sort(Global.evars.honor.paddr ? _physical_compare: _virtual_compare).map(function(x) {
+        this.data = izj.filter(_sanitize).map(function(x) {
             return {
-                location: Global.evars.honor.paddr ? x.paddr : x.vaddr,
-                value: (new TextDecoder().decode(Duktape.dec('base64', x.string))).replace(/\\\\/g, '\\')
+                location: Global.evars.honor.paddr ? x.paddr : x.vaddr || x.offset,
+                value: (new TextDecoder().decode(Duktape.dec('base64', x.string || x.name))).replace(/\\\\/g, '\\')
             };
-        });
+        }).sort(_str_compare_location);
         this.search = function(address) {
             if (address) {
                 var r = Utils.search(address, this.data, _compare);

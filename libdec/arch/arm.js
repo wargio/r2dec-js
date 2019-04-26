@@ -363,6 +363,9 @@ module.exports = (function() {
         // scan the preceding instructions to find where args registers are used, to take their values
         for (i = (instrs.length - 1); i >= 0 && (nargs > 0 || varargs); i--) {
             var op = instrs[i].parsed.mnem;
+            if (!instrs[i].parsed.opd) {
+                continue;
+            }
             var opd1 = instrs[i].parsed.opd[0];
             var opd2 = instrs[i].parsed.opd[1];
             //var opd3 = instrs[i].parsed.opd[2];
@@ -726,9 +729,12 @@ module.exports = (function() {
                 if (callname == 'lr') {
                     var start = instructions.indexOf(instr);
                     var returnval = null;
-                    if (instructions[start - 1].parsed.opd[1] == 'r0') {
-                        returnval = 'r0';
+                    if (instructions[start - 1].parsed.opd[0] == 'r0' ||
+                        instructions[start - 1].parsed.opd[0] == 'w0' ||
+                        instructions[start - 1].parsed.opd[0] == 'x0') {
+                        returnval = instructions[start - 1].parsed.opd[0];
                     }
+                    context.retreg = returnval;
                     return Base.return(returnval);
                 }
                 instr.setBadJump();
@@ -883,7 +889,11 @@ module.exports = (function() {
             mrs: function(instr) {
                 return Base.assign(instr.parsed.opd[0], instr.parsed.opd[1]);
             },
-            mov: function(instr) {
+            mov: function(instr, context) {
+                var marker = _apply_marker_math(instr, context);
+                if (marker) {
+                    return marker;
+                }
                 var dst = instr.parsed.opd[0];
                 var src = instr.parsed.opd[1];
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
@@ -1019,6 +1029,7 @@ module.exports = (function() {
                         returnval = '0x' + context.markers[instr.marker]['w0'].value.toString(16);
                     }
                 }
+                context.retreg = returnval;
                 return Base.return(returnval);
             },
             stp: function(instr) {
@@ -1302,7 +1313,7 @@ module.exports = (function() {
             /* do some magic here to get arm xrefs */
             if (r2cmd && orig.match(/ldr \w\d+.*\[pc, 0x[\da-fA-F]+\]/)) {
                 asm = orig;
-            } else if(asm.match(/aav\.[\da-fA-F]+/)) {
+            } else if (asm.match(/aav\.[\da-fA-F]+/)) {
                 asm = orig;
             }
             var ret = asm.replace(/(\[|\])/g, ' $1 ').replace(/,/g, ' ');
@@ -1355,6 +1366,7 @@ module.exports = (function() {
             });
             return {
                 markers: {},
+                retreg: null,
                 cond: {
                     a: '?',
                     b: '?'
@@ -1388,6 +1400,10 @@ module.exports = (function() {
             return [];
         },
         returns: function(context) {
+            if (context.retreg) {
+                var bits = context.retreg.match(/[rw]0/) ? 32 : 64;
+                return 'uint' + bits + '_t';
+            }
             return 'void';
         }
     };
@@ -1441,6 +1457,10 @@ module.exports = (function() {
                 value: Long.fromString(instr.parsed.opd[1], true, 16),
                 instr: instr,
             };
+        },
+        mov: function(marker, instr) {
+            _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);
+            delete marker[instr.parsed.opd[0]];
         },
         movz: function(marker, instr) {
             _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);

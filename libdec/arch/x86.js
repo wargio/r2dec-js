@@ -74,6 +74,19 @@ module.exports = (function() {
         return op.token && op.token.startsWith('xmm');
     };
 
+    var _value_at = function(address) {
+        if (r2cmd) {
+            //this is truly an hack
+            var bytes = Global.evars.archbits > 32 ? 8 : 4;
+            var p = JSON.parse(r2cmd('pxj ' + bytes + ' @ 0x' + address.toString(16)).trim()).reverse().map(function(x) {
+                x = x.toString(16);
+                return x.length > 1 ? x : '0' + x;
+            }).join('');
+            return Long.fromString(p, true, 16);
+        }
+        return null;
+    };
+
     var _REGEX_FRAME_REG = /^[re]?bp$/;
 
     /**
@@ -732,64 +745,71 @@ module.exports = (function() {
 
         if (ObjC.is(callname)) {
             var pargs, receiver, selector, pcounted = 0;
-            var newcall = ObjC.custom_calls(callname);
-            if (newcall) {
-                return newcall;
-            }
-            receiver = ObjC.receiver(callname);
-            selector = ObjC.selector(callname);
-            returnval = ObjC.returns(callname);
-            pargs = ObjC.arguments(callname);
-            var subslice = instrs.slice((start - 8) < 0 ? 0 : start - 8, start);
-            args = [receiver, selector].map(function(reg) {
-                for (var i = subslice.length - 1; i >= 0; i--) {
-                    if (subslice[i].parsed.mnem == "call" || subslice[i].jump) {
-                        break;
-                    }
-                    if (reg == subslice[i].parsed.opd[0].token && ["mov", "lea"].indexOf(subslice[i].parsed.mnem) >= 0) {
-                        subslice[i].valid = false;
-                        var opd2 = subslice[i].parsed.opd[1];
-                        if (opd2.token.startsWith('str.') && !subslice[i].string) {
-                            return opd2.token.substr(4);
+            if (!ObjC.is_class_method(callname)) {
+                return ObjC.handle_others(callname, instr, context, instrs);
+            } else {
+                receiver = ObjC.receiver(callname);
+                selector = ObjC.selector(callname);
+                returnval = ObjC.returns(callname);
+                pargs = ObjC.arguments(callname);
+                var subslice = instrs.slice((start - 8) < 0 ? 0 : start - 8, start);
+                args = [receiver, selector].map(function(reg) {
+                    for (var i = subslice.length - 1; i >= 0; i--) {
+                        if (subslice[i].parsed.mnem == "call" || subslice[i].jump) {
+                            break;
                         }
-                        return subslice[i].string ?
-                            Variable.string(subslice[i].string) :
-                            Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
-                    }
-                }
-                return reg;
-            });
-            for (j = 0; j < pargs.length; j++) {
-                //seen = [];
-                for (i = subslice.length - 1; i >= 0; i--) {
-                    if (subslice[i].parsed.mnem == "call" || subslice[i].jump) {
-                        break;
-                    }
-                    if (pargs[j] == subslice[i].parsed.opd[0].token) {
-                        if (["mov", "lea"].indexOf(subslice[i].parsed.mnem) >= 0) {
+                        if (reg == subslice[i].parsed.opd[0].token && ["mov", "lea"].indexOf(subslice[i].parsed.mnem) >= 0) {
+                            subslice[i].valid = false;
                             var opd2 = subslice[i].parsed.opd[1];
                             if (opd2.token.startsWith('str.') && !subslice[i].string) {
-                                pargs[j] = opd2.token.substr(4);
-                            } else {
-                                pargs[j] = subslice[i].string ?
-                                    Variable.string(subslice[i].string) :
-                                    Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                                return opd2.token.substr(4);
                             }
-                            subslice[i].valid = false;
+                            return subslice[i].string ?
+                                subslice[i].string :
+                                Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
                         }
-                        pcounted++;
-                        break;
+                    }
+                    return reg;
+                });
+                for (j = 0; j < pargs.length; j++) {
+                    //seen = [];
+                    for (i = subslice.length - 1; i >= 0; i--) {
+                        if (subslice[i].parsed.mnem == "call" || subslice[i].jump) {
+                            break;
+                        }
+                        if (pargs[j] == subslice[i].parsed.opd[0].token ||
+                            pargs[j][0] == subslice[i].parsed.opd[0].token ||
+                            pargs[j][1] == subslice[i].parsed.opd[0].token) {
+                            if (["mov", "lea"].indexOf(subslice[i].parsed.mnem) >= 0) {
+                                var opd2 = subslice[i].parsed.opd[1];
+                                if (opd2.token.startsWith('str.') && !subslice[i].string) {
+                                    pargs[j] = opd2.token.substr(4);
+                                } else {
+                                    pargs[j] = subslice[i].string ?
+                                        Variable.string(subslice[i].string) :
+                                        Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                                }
+                                subslice[i].valid = false;
+                            }
+                            pcounted++;
+                            break;
+                        }
                     }
                 }
-            }
-            call = Base.objc_call(args[0], args[1], pargs.slice(0, pcounted));
-            if (tailcall && _x86_x64_registers.indexOf(callsite.token) > (-1)) {
-                // ControlFlow does not interpret well the specific case of a tail jmp through
-                // a register. in this case, we will need to emit an explicit return statement
-                return Base.return(call);
-            } else if (returnval) {
-                // if return value is used, assign it. otherwise just emit the call
-                return Base.assign(returnval, call);
+                call = Base.objc_call(args[0], args[1], pargs.slice(0, pcounted).map(function(r) {
+                    if (Extra.is.array(r)) {
+                        return r[r.length - 1];
+                    }
+                    return r;
+                }));
+                if (tailcall && _x86_x64_registers.indexOf(callsite.token) > (-1)) {
+                    // ControlFlow does not interpret well the specific case of a tail jmp through
+                    // a register. in this case, we will need to emit an explicit return statement
+                    return Base.return(call);
+                } else if (returnval) {
+                    // if return value is used, assign it. otherwise just emit the call
+                    return Base.assign(returnval, call);
+                }
             }
         } else if (callee) {
             var guess_nargs = {
@@ -877,6 +897,19 @@ module.exports = (function() {
         if (dst.mem_access) {
             return Base.write_memory(dst.token, instr.string ? Variable.string(instr.string) : src.token, dst.mem_access, true);
         } else if (src.mem_access) {
+            if (src.token.startsWith('0x')) {
+                var v = _value_at(Long.fromString(src.token, true, 16));
+                instr.string = Global.xrefs.find_string(v);
+                instr.symbol = Global.xrefs.find_symbol(v);
+            } else if (src.token == dst.token && prev.parsed.mnem == 'lea' && prev.parsed.opd[0].token == src.token) {
+                prev.valid = false;
+                return prev.code;
+            }
+            if (instr.string) {
+                return Base.assign(dst.token, Variable.string(instr.string));
+            } else if (instr.symbol) {
+                return Base.assign(dst.token, instr.symbol);
+            }
             return Base.read_memory(src.token, dst.token, src.mem_access, true);
         } else if (_is_stack_reg(dst.token) || _is_frame_reg(dst.token)) {
             return null;
@@ -885,10 +918,13 @@ module.exports = (function() {
                 prev.parsed.opd[0].token == src.token &&
                 !prev.parsed.opd[0].mem_access && !src.mem_access) {
                 src = instr.parsed.opd[1] = prev.parsed.opd[1];
+                instr.symbol = prev.symbol;
+                instr.string = prev.string;
             }
             var arg = instr.string ?
-                Variable.string(instr.string) :
-                Variable[src.mem_access ? 'pointer' : 'local'](src.token, src.mem_access, false);
+                Variable.string(instr.string) : (
+                    instr.symbol ? instr.symbol :
+                    Variable[src.mem_access ? 'pointer' : 'local'](src.token, src.mem_access, false));
 
             return Base.assign(dst.token, arg);
         }
