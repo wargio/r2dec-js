@@ -178,11 +178,13 @@ module.exports = (function() {
         };
     };
 
-    var _generic_method_call = function(object_this, function_name, args, method_sep) {
+    var _generic_method_call = function(object_this, function_name, args, method_sep, prefix, postfix) {
         this.object_this = Extra.is.string(object_this) ? Cpp(object_this) : object_this;
         this.function_name = Extra.is.string(function_name) ? Cpp(function_name) : function_name;
         this.arguments = args || [];
         this.method_sep = method_sep;
+        this.prefix = prefix || "";
+        this.postfix = postfix || "";
 
         this.toString = function() {
             var fname = this.function_name;
@@ -191,7 +193,7 @@ module.exports = (function() {
                 fname = Global.printer.theme.callname(fname);
             }
 
-            return this.object_this + this.method_sep + [fname, parenthesize(this.arguments.join(', '))].join(' ');
+            return this.prefix + this.object_this + this.method_sep + [fname, parenthesize(this.arguments.join(', '))].join(' ') + this.postfix;
         };
     };
 
@@ -299,6 +301,21 @@ module.exports = (function() {
             }
 
             return Global.printer.theme.flow('throw') + value;
+        };
+    };
+
+    var _generic_objc_call = function(object_this, function_name, function_arguments) {
+        this.object_this = object_this;
+        this.function_name = function_name;
+        this.arguments = function_arguments || [];
+
+        this.toString = function() {
+            var fname = this.object_this;
+            if (Extra.is.string(object_this)) {
+                fname = Global.printer.theme.callname(object_this);
+            }
+
+            return "[" + [fname, this.function_name].concat(this.arguments).join(' ') + "]";
         };
     };
 
@@ -476,8 +493,11 @@ module.exports = (function() {
             }(data);
         },
         /* Object based langs */
-        method_call: function(object_this, method_separator, function_name, function_arguments) {
-            return new _generic_method_call(object_this, function_name, function_arguments, method_separator);
+        method_call: function(object_this, method_separator, function_name, function_arguments, prefix, postfix) {
+            return new _generic_method_call(object_this, function_name, function_arguments, method_separator, prefix, postfix);
+        },
+        objc_call: function(object_this, function_name, function_arguments) {
+            return new _generic_objc_call(object_this, function_name, function_arguments, null);
         },
         /* Object based langs */
         assign_to_object_field: function(destination, object, method_separator, field) {

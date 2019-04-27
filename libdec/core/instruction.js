@@ -101,8 +101,9 @@ module.exports = (function() {
         }
     };
 
-    var _instruction = function(data, arch) {
+    var _instruction = function(data, arch, marker) {
         this.code = null;
+        this.marker = marker;
         this.valid = true;
         this.jump = data.jump;
         this.type = data.type;
@@ -116,6 +117,7 @@ module.exports = (function() {
         this.callee = null;
         this.label = null;
         this.cond = null;
+        this.customflow = null;
         this.xrefs = data.xrefs ? data.xrefs.slice() : [];
         this.refs = data.refs ? data.refs.slice() : [];
         this.comments = data.comment ? [new TextDecoder().decode(Duktape.dec('base64', data.comment))] : [];

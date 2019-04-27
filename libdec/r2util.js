@@ -136,7 +136,7 @@ module.exports = (function() {
 
     function print_issue() {
         var xrefs = r2_sanitize(r2str('isj'), '[]');
-        var strings = r2_sanitize(r2str('izj'), '[]');
+        var strings = r2_sanitize(r2str('Csj'), '[]');
         var functions = r2_sanitize(r2str('aflj'), '[]');
         var data = r2_sanitize(r2str('agj'), '[]');
         var farguments = r2_sanitize(r2str('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
@@ -273,7 +273,7 @@ module.exports = (function() {
             this.bits = r2int('e asm.bits', 32);
             this.xrefs = {
                 symbols: r2json('isj', []),
-                strings: r2json('izj', []),
+                strings: r2json('Csj', []),
                 functions: r2json('aflj', []),
                 arguments: offset_long(r2json('afvj', {
                     "sp": [],

@@ -20,9 +20,15 @@ module.exports = (function() {
 		this.db_strings = strings;
 		this.db_symbols = symbols;
 		this.find_symbol = function(address) {
+			if (!address) {
+				return null;
+			}
 			return symbols.search(address);
 		};
 		this.find_string = function(address) {
+			if (!address) {
+				return null;
+			}
 			return strings.search(address);
 		};
 	};

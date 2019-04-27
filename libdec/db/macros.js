@@ -35,180 +35,192 @@ module.exports = (function() {
     return {
         'libc_start_main': {
             macro: [],
-            args: 7
+            required: 7
         },
         'exit': {
             macro: ['#include <stdlib.h>'],
-            args: 1
+            required: 1
         },
         'fgets': {
             macro: ['#include <stdio.h>'],
-            args: 3
+            required: 3
         },
         'fwrite': {
             macro: ['#include <stdio.h>'],
-            args: 4
+            required: 4
         },
         'fread': {
             macro: ['#include <stdio.h>'],
-            args: 4
+            required: 4
         },
         'textdomain': {
             macro: ['#include <libintl.h>'],
-            args: 2
+            required: 2
         },
         'bindtextdomain': {
             macro: ['#include <libintl.h>'],
-            args: 2
+            required: 2
         },
         'setlocale': {
             macro: ['#include <locale.h>'],
-            args: 2
+            required: 2
         },
         'wcscmp': {
             macro: ['#include <wchar.h>'],
-            args: 2
+            required: 2
         },
         'strcmp': {
             macro: ['#include <string.h>'],
-            args: 2
+            required: 2
         },
         'strncmp': {
             macro: ['#include <string.h>'],
-            args: 3
+            required: 3
         },
         'msvcrt_dll_memset': {
             macro: ['#include <string.h>'],
-            args: 3
+            required: 3
         },
         'xmalloc': {
             macro: ['#include <stdlib.h>'],
-            args: 1
+            required: 1
         },
         'memset': {
             macro: ['#include <string.h>'],
-            args: 3
+            required: 3
         },
         'memcpy': {
             macro: ['#include <string.h>'],
-            args: 3
+            required: 3
         },
         'strcpy': {
             macro: ['#include <string.h>'],
-            args: 2
+            required: 2
         },
         'puts': {
             macro: ['#include <stdio.h>'],
-            args: 1
+            required: 1
         },
         'printf': {
             macro: ['#include <stdio.h>'],
-            args: -1
+            required: 1,
+            varargs: true
         },
         'scanf': {
             macro: ['#include <stdio.h>'],
-            args: -1
-        },
-        'isoc99_scanf': {
-            macro: ['#include <stdio.h>'],
-            args: -1
+            required: 1,
+            varargs: true
         },
         'getenv': {
             macro: ['#include <stdlib.h>'],
-            args: 1
+            required: 1
         },
         'time': {
             macro: ['#include <time.h>'],
-            args: 1
+            required: 1
         },
         'localtime': {
             macro: ['#include <time.h>'],
-            args: 1
+            required: 1
         },
         'dcgettext': {
             macro: ['#include <libintl.h>'],
-            args: 2
+            required: 2
         },
         'pthread_create': {
             macro: ['#include <pthread.h>'],
-            args: 4,
+            required: 4,
         },
         'pthread_join': {
             macro: ['#include <pthread.h>'],
-            args: 2,
+            required: 2,
         },
         'pthread_exit': {
             macro: ['#include <pthread.h>'],
-            args: 1,
+            required: 1,
         },
         'pthread_cancel': {
             macro: ['#include <pthread.h>'],
-            args: 1,
+            required: 1,
         },
         'pthread_attr_init': {
             macro: ['#include <pthread.h>'],
-            args: 1,
+            required: 1,
         },
         'pthread_attr_destroy': {
             macro: ['#include <pthread.h>'],
-            args: 1,
+            required: 1,
         },
         'socket': {
             macro: ['#include <pthread.h>'],
-            args: 3,
+            required: 3,
         },
         'accept': {
             macro: ['#include <sys/socket.h>'],
-            args: 3,
+            required: 3,
         },
         'bind': {
             macro: ['#include <sys/socket.h>'],
-            args: 3,
+            required: 3,
         },
         'connect': {
             macro: ['#include <sys/socket.h>'],
-            args: 3,
+            required: 3,
         },
         'getsockname': {
             macro: ['#include <sys/socket.h>'],
-            args: 3,
+            required: 3,
         },
         'listen': {
             macro: ['#include <sys/socket.h>'],
-            args: 2,
+            required: 2,
         },
         'recv': {
             macro: ['#include <sys/socket.h>'],
-            args: 2,
+            required: 2,
         },
         'recvfrom': {
             macro: ['#include <sys/socket.h>'],
-            args: 6,
+            required: 6,
         },
         'recvmsg': {
             macro: ['#include <sys/socket.h>'],
-            args: 2,
+            required: 2,
         },
         'open': {
             macro: ['#include <unistd.h>'],
-            args: 3,
+            required: 3,
         },
         'creat': {
             macro: ['#include <unistd.h>'],
-            args: 2,
+            required: 2,
         },
         'close': {
             macro: ['#include <unistd.h>'],
-            args: 1,
+            required: 1,
         },
         'read': {
             macro: ['#include <unistd.h>'],
-            args: 3,
+            required: 3,
         },
         'write': {
             macro: ['#include <unistd.h>'],
-            args: 3,
-        }
+            required: 3,
+        },
+        /* iOS */
+        'UIApplicationMain': {
+            macro: [],
+            required: 4,
+        },
+        'NSStringFromClass': {
+            macro: [],
+            required: 1,
+        },
+        'NSLog': {
+            macro: [],
+            required: 1,
+            varargs: true
+        },
     };
 
 })();
