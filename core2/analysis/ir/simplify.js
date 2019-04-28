@@ -18,25 +18,117 @@
 module.exports = (function() {
     const Expr = require('core2/analysis/ir/expressions');
 
+    var _ctx_fold_assoc = function(expr) {
+        var assoc_ops = [
+            Expr.Add,
+            Expr.Mul,
+            Expr.And,
+            Expr.Or,
+            Expr.Xor
+        ];
+
+        // handle an expression of the form: ((x op c1) op c0)
+        // where op is an associative operation and c0, c1 are known values.
+
+        // outter expression
+        var oexpr = expr;
+        var oexpr_op = oexpr.constructor;
+
+        if (assoc_ops.indexOf(oexpr_op) > (-1)) {
+            // implied: (oexpr instanceof Expr.BExpr)
+            var olhand = expr.operands[0];
+            var orhand = expr.operands[1];
+
+            // inner expression (left hand of the outter one)
+            var iexpr = olhand;
+            var iexpr_op = iexpr.constructor;
+
+            if (assoc_ops.indexOf(iexpr_op) > (-1)) {
+                // implied: (iexpr instanceof Expr.BExpr)
+                var ilhand = iexpr.operands[0];
+                var irhand = iexpr.operands[1];
+
+                // ((ilhand op irhand) op orhand) --> (ilhand op (irhand op orhand))
+                if ((oexpr_op === iexpr_op) && (orhand instanceof Expr.Val) && (irhand instanceof Expr.Val)) {
+                    var new_lhand = ilhand;
+                    var new_rhand = new iexpr_op(irhand.value, orhand.value);
+
+                    return new oexpr_op(new_lhand, new_rhand);
+                }
+            }
+        }
+
+        return null;
+    };
+
+    var _ctx_fold_arith = function(expr) {
+        var arith_ops = [
+            Expr.Add,
+            Expr.Sub
+        ];
+
+        // handle an expression of the form: ((x op1 c1) op0 c0)
+        // where op1, op0 are arithmetic operations and c0, c1 are known values.
+
+        // outter expression
+        var oexpr = expr;
+        var oexpr_op = oexpr.constructor;
+
+        if (arith_ops.indexOf(oexpr_op) > (-1)) {
+            // implied: (oexpr instanceof Expr.BExpr)
+            var olhand = expr.operands[0];
+            var orhand = expr.operands[1];
+
+            // inner expression (left hand of the outter one)
+            var iexpr = olhand;
+            var iexpr_op = iexpr.constructor;
+
+            if (arith_ops.indexOf(iexpr_op) > (-1)) {
+                // implied: (iexpr instanceof Expr.BExpr)
+                var ilhand = iexpr.operands[0];
+                var irhand = iexpr.operands[1];
+
+                // ((x iexpr_op a) oexpr_op b)
+                if ((orhand instanceof Expr.Val) && (irhand instanceof Expr.Val)) {
+                    var sign = (oexpr_op === iexpr_op ? 1 : (-1));
+
+                    // ((x - a) - b) == (x - (a + b))
+                    // ((x + a) + b) == (x + (a + b))
+                    // ((x - a) + b) == (x + (-a + b))
+                    // ((x + a) - b) == (x - (-a + b))
+
+                    var new_lhand = ilhand;
+                    var new_rhand = new Expr.Val((irhand.value * sign + orhand.value), irhand.size);
+
+                    // (x oexpr_op (sign * a + b))
+                    return new oexpr_op(new_lhand, new_rhand);
+                }
+            }
+        }
+
+        return null;
+    };
+
     var _constant_folding = function(expr) {
-        if (expr instanceof Expr.BExpr) {
+        var operations = {
+            'Add': function(a, b) { return a + b; },
+            'Sub': function(a, b) { return a - b; },
+            'Mul': function(a, b) { return a * b; },
+            'Div': function(a, b) { return a / b; },
+            'Mod': function(a, b) { return a % b; },
+            'And': function(a, b) { return a & b; },
+            'Or' : function(a, b) { return a | b; },
+            'Xor': function(a, b) { return a ^ b; }
+        };
+
+        if ((expr instanceof Expr.BExpr) && (expr.constructor.name in operations)) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
+            var op = operations[expr.constructor.name];
 
             // TODO: what happens when either one of them is a Long object?
             if ((lhand instanceof Expr.Val) && (rhand instanceof Expr.Val)) {
-                var op = {
-                    'Add': function(a, b) { return a + b; },
-                    'Sub': function(a, b) { return a - b; },
-                    'Mul': function(a, b) { return a * b; },
-                    'Div': function(a, b) { return a / b; },
-                    'Mod': function(a, b) { return a % b; },
-                    'And': function(a, b) { return a & b; },
-                    'Or' : function(a, b) { return a | b; },
-                    'Xor': function(a, b) { return a ^ b; }
-                }[expr.constructor.name];
-
-                return new Expr.Val(op(lhand, rhand), lhand.size);
+                return new Expr.Val(op(lhand.value, rhand.value), lhand.size);
             }
         }
 
@@ -51,7 +143,7 @@ module.exports = (function() {
             // x + 0
             // x - 0
             if ((expr instanceof Expr.Add) || (expr instanceof Expr.Sub)) {
-                const ZERO = new Expr.Val(0, lhand.size);
+                const ZERO = new Expr.Val(0, rhand.size);
 
                 if (rhand.equals(ZERO)) {
                     return lhand;
@@ -61,7 +153,7 @@ module.exports = (function() {
             // x * 1
             // x / 1
             else if ((expr instanceof Expr.Mul) || (expr instanceof Expr.Div)) {
-                const ONE = new Expr.Val(1, lhand.size);
+                const ONE = new Expr.Val(1, rhand.size);
 
                 if (rhand.equals(ONE)) {
                     return lhand;
@@ -222,7 +314,7 @@ module.exports = (function() {
                 if ((lhand instanceof Expr.Shr) && (rhand instanceof Expr.Val)) {
                     var inner_lhand = lhand.operands[0];
                     var inner_rhand = lhand.operands[1];
-        
+
                     if (inner_rhand instanceof Expr.Val && inner_rhand.equals(rhand)) {
                         var mask = new Expr.Val(~((1 << rhand.value) - 1), rhand.size);
 
@@ -277,7 +369,7 @@ module.exports = (function() {
         return null;
     };
 
-    // TODO: 'or' conditions and 'eq', 'ne' comparisons are commotative
+    // TODO: 'or' conditions and 'eq', 'ne' comparisons are commutative
     var _converged_cond = function(expr) {
         if (expr instanceof Expr.BoolOr) {
             var lhand = expr.operands[0];
@@ -316,7 +408,7 @@ module.exports = (function() {
 
     // --------------------
 
-    var _rules = [
+    var rules = [
         _correct_arith,
         _correct_sign,
         _correct_ref,
@@ -324,31 +416,46 @@ module.exports = (function() {
         _equality,
         _negate,
         _converged_cond,
-        _constant_folding
+        _constant_folding,
+        _ctx_fold_assoc,
+        _ctx_fold_arith
     ];
 
-    return {
-        // [!] note that simplifications are done in-place
-        run: function(stmt) {
-            var modified;
+    // simplify an expression and break as soon as it is modified
+    var _reduce_expr_once = function(expr) {
+        var operands = expr.iter_operands(true);
 
-            do {
-                modified = false;
+        for (var o in operands) {
+            o = operands[o];
 
-                stmt.expressions.forEach(function(expr) {
-                    expr.iter_operands(true).forEach(function(op) {
-                        _rules.forEach(function(rule) {
-                            var alt = rule(op);
+            for (var r in rules) {
+                r = rules[r];
+                var alt = r(o);
 
-                            if (alt) {
-                                op.replace(alt);
+                if (alt) {
+                    o.replace(alt);
 
-                                modified = true;
-                            }
-                        });
-                    });
-                });
-            } while (modified);
+                    return alt;
+                }
+            }
         }
+
+        return null;
+    };
+
+    // keep simplifying `expr` until it cannot be simplified any further
+    var _reduce_expr = function(expr) {
+        while (_reduce_expr_once(expr)) { /* empty */ }
+    };
+
+    // simplify a statement along with the expressions it contains
+    var _reduce_stmt = function(stmt) {
+        stmt.expressions.forEach(_reduce_expr);
+    };
+
+    // note: simplifications are done in-place
+    return {
+        reduce_expr: _reduce_expr,
+        reduce_stmt: _reduce_stmt
     };
 })();

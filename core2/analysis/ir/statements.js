@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+ module.exports = (function() {
 
     /**
      * This module defines IR statements that are common to all architectures. Each
@@ -106,7 +106,7 @@ module.exports = (function() {
         old_expr.parent = undefined;
         new_expr.parent = this;
 
-        this.expressions[this.operands.indexOf(old_expr)] = new_expr;
+        this.expressions[this.expressions.indexOf(old_expr)] = new_expr;
 
         return old_expr;
     };
@@ -134,6 +134,27 @@ module.exports = (function() {
         return ['0x' + this.addr.toString(16), ':', exprs].join(' ');
     };
 
+    // each Statement.* class defines its own accessors to the expressions it
+    // contains: e.g. Statement.Return has a 'retval' accessor, that other do
+    // not.
+    // to be able to iterate over the included expressions regardless of the
+    // specific instance of Statement, we use the 'expressions' member. to keep
+    // the named accessors available, we map them to their corresponding elements
+    // in the 'expressions' array. note that the included expressions may be
+    // replaced (during simplification or propagations), so the accessors cannot
+    // just return the expressions that were assigned to the object instance on
+    // construction 
+    //
+    // this is a generic getter descriptor for the i-th expressions
+    var _desc_for_expr = function(i) {
+        return {
+            enumerable: true,
+            get: function() {
+                return this.expressions[i];
+            }
+        };
+    };
+
     // ------------------------------------------------------------
 
     /**
@@ -146,7 +167,7 @@ module.exports = (function() {
     function Goto(addr, dst) {
         Statement.call(this, addr, [dst]);
 
-        this.dest = dst;
+        Object.defineProperty(this, 'dest', _desc_for_expr(0));
     }
 
     Goto.prototype = Object.create(Statement.prototype);
@@ -177,9 +198,9 @@ module.exports = (function() {
     function Branch(addr, cond, taken, not_taken) {
         Statement.call(this, addr, [cond, taken, not_taken]);
 
-        this.cond = cond;
-        this.taken = taken;
-        this.not_taken = not_taken;
+        Object.defineProperty(this, 'cond', _desc_for_expr(0));
+        Object.defineProperty(this, 'taken', _desc_for_expr(1));
+        Object.defineProperty(this, 'not_taken', _desc_for_expr(2));
     }
 
     Branch.prototype = Object.create(Statement.prototype);
@@ -211,10 +232,12 @@ module.exports = (function() {
     function If(addr, cond, then_cntr, else_cntr) {
         Statement.call(this, addr, [cond]);
 
-        this.cond = cond;
+        Object.defineProperty(this, 'cond', _desc_for_expr(0));
+
         this.then_cntr = then_cntr;
         this.else_cntr = else_cntr;
 
+        // TODO: setting this here may prevent later statements replacement to be reflected
         this.statements = Array.prototype.concat(
                 this.then_cntr.statements,
                 this.else_cntr
@@ -256,7 +279,7 @@ module.exports = (function() {
     function While(addr, cond, body) {
         Statement.call(this, addr, [cond]);
 
-        this.cond = cond;
+        Object.defineProperty(this, 'cond', _desc_for_expr(0));
         this.body = body;
 
         this.statements = body.statements;
@@ -290,7 +313,7 @@ module.exports = (function() {
     function DoWhile(addr, cond, body) {
         Statement.call(this, addr, [cond]);
 
-        this.cond = cond;
+        Object.defineProperty(this, 'cond', _desc_for_expr(0));
         this.body = body;
 
         this.statements = body.statements;
@@ -363,7 +386,7 @@ module.exports = (function() {
     function Return(addr, expr) {
         Statement.call(this, addr, [expr]);
 
-        this.retval = expr;
+        Object.defineProperty(this, 'retval', _desc_for_expr(0));
     }
 
     Return.prototype = Object.create(Statement.prototype);

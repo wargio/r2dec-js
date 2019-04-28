@@ -17,7 +17,7 @@
 
 module.exports = (function() {
     const Stmt = require('core2/analysis/ir/statements');
-    var Simplify = require('core2/analysis/ir/simplify');
+    const Simplify = require('core2/analysis/ir/simplify');
 
     /** available architectures */
     var _archs = {
@@ -64,7 +64,7 @@ module.exports = (function() {
             handler(decoded).forEach(function(expr) {
                 var stmt = Stmt.make_statement(decoded.address, expr);
 
-                Simplify.run(stmt);
+                Simplify.reduce_stmt(stmt);
 
                 // DEBUG
                 // console.log('| ', stmt.toString());

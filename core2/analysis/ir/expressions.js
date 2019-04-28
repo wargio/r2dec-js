@@ -183,6 +183,11 @@
             }, this);
         }
 
+        // register clone as a new use for its def
+        if (clone.def) {
+            clone.def.uses.push(clone);
+        }
+
         return clone;
     };
 
@@ -271,15 +276,19 @@
     Value.prototype.toString = function() {
         // TODO: this implementation serves as a temporary workaround. value
         // should be emitted according to the context it appears in
-        var radix;
+        var radix, sign, val;
 
         if (typeof(this.value) === 'number') {
             radix = (this.value > (-32) && this.value < 32) ? 10 : 16;
+            sign = (this.value < 0 ? -1 : 1);
+            val = this.value * sign;
         } else {
             radix = (this.value.gt(-32) && this.value.lt(32)) ? 10 : 16;
+            sign = (this.value.lt(0) ? -1 : 1);
+            val = this.value.mul(sign);
         }
 
-        return (radix === 16? '0x' : '') + this.value.toString(radix);
+        return (sign === (-1)? '-' : '') + (radix === 16? '0x' : '') + val.toString(radix);
     };
 
     // ------------------------------------------------------------
@@ -419,6 +428,11 @@
             }, this);
         }
 
+        // register clone as a new use for its def (if any)
+        if (clone.def) {
+            clone.def.uses.push(clone);
+        }
+
         return clone;
     };
 
@@ -431,22 +445,40 @@
 
     /**
      * Function call.
-     * @param {Expr} name Callee name
+     * @param {Expr} fname Callee target address
      * @param {Array.<Expr>} args Array of function call arguments
      * @constructor
      */
-    function Call(name, args) {
-        Expr.call(this, name, args);
+    function Call(fname, args) {
+        // the `Expr.prototype.clone` method duplicates Expr objects by calling their constructor
+        // with clones of their their `operands`. that implementation implies that their `operator`
+        // is already known and there is no need to pass it on. Expr classes are defined in a way
+        // they do not require the `operator`, because each Expr.* class has its own consistent
+        // operator. e.g. when duplicating an Expr.Add instance, the operator '+' is not passed,
+        // because Expr.Add is known to have this operator.
+        //
+        // the case of Expr.Call is different, since it has no consistent operator: the function
+        // target or name could be used for that purpose, but they are not consistent over all
+        // Expr.Call instances -- rather they are unique to a specific call.
+        //
+        // for that reason, the Expr.Call constructor implies that the function (callee) target is
+        // stored as the first slot in `args` so we would be able to clone it even though it is not
+        // consistent. this is a bit hacky, since the clone method will flat the operands list so
+        // the first operand is passed as `fname` in this case. to regroup the rest of the arguments,
+        // we use the condition below:
 
-        // TODO: callee name stored in this.operator is in fact an expr, and not
-        // a plain string, like everywhere else. callee name should be resolved
+        if (!(args instanceof Array)) {
+            args = Array.prototype.slice.call(arguments, 1);
+        }
+
+        Expr.call(this, fname, [fname].concat(args));
     }
 
     Call.prototype = Object.create(Expr.prototype);
     Call.prototype.constructor = Call;
 
     Call.prototype.toString = function(opt) {
-        var args = this.operands.map(function(a) {
+        var args = this.operands.slice(1).map(function(a) {
             return a.toString(opt);
         });
 
@@ -457,9 +489,17 @@
 
     /**
      * Phi expression: used for SSA stage, and eliminated afterwards.
+     * Normally would appear as a right-hand of an assignment.
+     * @param {Array.<Expr>} exprs Array of possible rvalues
      * @constructor
      */
     function Phi(exprs) {
+        // in case a Phi instance is cloned, its operands list is passed flat.
+        // the following is to regroup the operands back into a list:
+        if (!(exprs instanceof Array)) {
+            exprs = Array.prototype.slice.call(arguments);
+        }
+
         Expr.call(this, '\u03a6', exprs);
     }
 
@@ -637,17 +677,19 @@
 
     /** @override */
     Deref.prototype.toString = function(opt) {
-        var str = Object.getPrototypeOf(Object.getPrototypeOf(this)).toString.call(this, opt);
+        var operand = this.operands[0].toString(opt);
 
         // a Deref object may use a Register as its operand; that operand will
         // most likely have its own subscript. here we surround the Deref object
         // with parenthesis in order to tell inner (Reg's) subscript from outer
         // (Deref's) subscript
-        if (this.idx !== undefined) {
-            str = parenthesize(str) + subscript(this.idx);
+        if (this.idx === undefined) {
+            operand = auto_paren(operand);
+        } else {
+            operand = parenthesize(operand) + subscript(this.idx);
         }
 
-        return str;
+        return this.operator + operand;
     };
 
     // ------------------------------------------------------------

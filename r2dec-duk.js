@@ -15,13 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-var Graph = require('core2/analysis/graph');
+const Graph = require('core2/analysis/graph');
 
-var JSON = require('libdec/json64');
-var Decoder = require('core2/frontend/decoder');
-var SSA = require('core2/analysis/ssa');
-var ControlFlow = require('core2/analysis/controlflow');
-var CodeGen = require('core2/backend/codegen');
+const JSON = require('libdec/json64');
+const Decoder = require('core2/frontend/decoder');
+const SSA = require('core2/analysis/ssa');
+const Simplify = require('core2/analysis/ir/simplify');
+const ControlFlow = require('core2/analysis/controlflow');
+const CodeGen = require('core2/backend/codegen');
 
 /**
  * Global data accessible from everywhere.
@@ -257,14 +258,21 @@ function r2dec_main(args) {
 
                     // TODO: this is a workaround until we work with Containers
                     // <WORKAROUND>
-                    bb.statements.forEach(function(s) {
-                        s.container = bb;
+                    bb.statements.forEach(function(stmt) {
+                        stmt.container = bb;
                     });
                     // </WORKAROUND>
                 });
 
                 var ssa = new SSA(func);
                 var defs = ssa.rename_variables();
+
+                // TODO: this is a workaround until we work with Containers
+                // <WORKAROUND>
+                func.basic_blocks.forEach(function(bb) {
+                    bb.statements.forEach(Simplify.reduce_stmt);
+                });
+                // </WORKAROUND>
 
                 // ControlFlow.run(func);
 
