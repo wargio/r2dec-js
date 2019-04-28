@@ -742,6 +742,13 @@ module.exports = (function() {
         var callname = instr.symbol || callsite.token;
         var nargs, args = [];
         var callee = instr.callee;
+        var marker = context.markers[instr.marker];
+        if (_x86_x64_registers.indexOf(callname) >= 0 &&
+            context.markers[instr.marker] &&
+            context.markers[instr.marker][callname]) {
+            marker[callname].instr.valid = false;
+            callname = marker[callname].instr.parsed.opd[1].token;
+        }
 
         if (ObjC.is(callname)) {
             var pargs, receiver, selector, pcounted = 0;
@@ -759,15 +766,37 @@ module.exports = (function() {
                             break;
                         }
                         if (reg == subslice[i].parsed.opd[0].token && ["mov", "lea"].indexOf(subslice[i].parsed.mnem) >= 0) {
-                            subslice[i].valid = false;
+                            //subslice[i].valid = false;
                             var opd2 = subslice[i].parsed.opd[1];
                             if (opd2.token.startsWith('str.') && !subslice[i].string) {
                                 return opd2.token.substr(4);
+                            } else if (opd2.token.startsWith('reloc.')) {
+                                return opd2.token.substr(6);
                             }
+                            if (marker && marker[opd2.token]) {
+                                //marker[opd2.token].instr.valid = false;
+                                if (marker[opd2.token].instr.parsed.opd[1].token.startsWith('str.')) {
+                                    return marker[opd2.token].instr.parsed.opd[1].token.substr(4);
+                                } else if (marker[opd2.token].instr.parsed.opd[1].token.startsWith('reloc.')) {
+                                    return marker[opd2.token].instr.parsed.opd[1].token.substr(6);
+                                }
+                                return marker[opd2.token].instr.parsed.opd[1].token;
+                            }
+
+
                             return subslice[i].string ?
                                 subslice[i].string :
                                 Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                        } else if (marker && marker[reg]) {
+                            marker[reg].instr.valid = false;
+                            if (marker[reg].instr.parsed.opd[1].token.startsWith('str.')) {
+                                return marker[reg].instr.parsed.opd[1].token.substr(4);
+                            } else if (marker[reg].instr.parsed.opd[1].token.startsWith('reloc.')) {
+                                return marker[reg].instr.parsed.opd[1].token.substr(6);
+                            }
+                            return marker[reg].instr.parsed.opd[1].token;
                         }
+
                     }
                     return reg;
                 });
@@ -785,11 +814,16 @@ module.exports = (function() {
                                 if (opd2.token.startsWith('str.') && !subslice[i].string) {
                                     pargs[j] = opd2.token.substr(4);
                                 } else {
+
                                     pargs[j] = subslice[i].string ?
                                         Variable.string(subslice[i].string) :
                                         Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
                                 }
                                 subslice[i].valid = false;
+                            } else if (subslice[i].parsed.mnem == "xor" &&
+                                subslice[i].parsed.opd[0].token == subslice[i].parsed.opd[1].token) {
+                                subslice[i].valid = false;
+                                pargs[j] = Variable.number(0);
                             }
                             pcounted++;
                             break;
@@ -888,6 +922,10 @@ module.exports = (function() {
     };
 
     var _standard_mov = function(instr, context, instructions) {
+        var marker = _apply_marker_math(instr, context);
+        if (marker) {
+            return marker;
+        }
         var dst = instr.parsed.opd[0];
         var src = instr.parsed.opd[1];
         var prev = instructions[instructions.indexOf(instr) - 1];
@@ -1146,7 +1184,7 @@ module.exports = (function() {
         };
     };
 
-    return {
+    const x86x64 = {
         instructions: {
             inc: function(instr, context) {
                 instr.parsed.opd[1].token = '1'; // dirty hack :(
@@ -1369,6 +1407,8 @@ module.exports = (function() {
                         // indirectly jumping through a local variable or to an explicit memory address
                         return _call_function(instr, context, instructions, true);
                     }
+                } else if (_is_last_instruction(instr, instructions) && dst.token.startsWith('sym.')) {
+                    return Base.call(dst.token);
                 }
 
                 var ref = dst.token.split(' ');
@@ -1707,6 +1747,7 @@ module.exports = (function() {
                     a: '?',
                     b: '?',
                 },
+                markers: {},
                 returns: {
                     bits: 0,
                     signed: true
@@ -1741,4 +1782,59 @@ module.exports = (function() {
             return 'void';
         }
     };
+
+/*
+    function _apply_new_assign(register, data) {
+        if (data && data.value) {
+            if (data.instr.mnem == "mov" && data.instr.parsed.opd[0].mem_access) {
+                return Base.write_memory(data.instr.parsed.opd[0].token, data.instr.parsed.opd[1].token, data.instr.parsed.opd[0].mem_access, true);
+            } else if (data.instr.mnem == "mov" && data.instr.parsed.opd[1].mem_access) {
+                return Base.read_memory(data.instr.parsed.opd[1].token, data.instr.parsed.opd[0].token, data.instr.parsed.opd[1].mem_access, true);
+            } else if (data.instr.string) {
+                data.instr.code = Base.assign(data.instr.parsed.opd[0], Variable.string(data.instr.string));
+            } else if (data.instr.symbol) {
+                data.instr.code = Base.assign(data.instr.parsed.opd[0], data.instr.symbol);
+            } else {
+                var value = '0x' + data.value.toString(16);
+                if (Extra.magic_math(value)) {
+                    data.instr.comments.push(Extra.magic_math(value));
+                }
+                data.instr.code = Base.assign(register, value);
+            }
+        }
+    }
+*/
+
+    function _apply_marker_math(instr, context) {
+        if (!context.markers[instr.marker]) {
+            context.markers[instr.marker] = {};
+        }
+        var m = context.markers[instr.marker];
+        if (_apply_math_x86[instr.parsed.mnem]) {
+            _apply_math_x86[instr.parsed.mnem](m, instr, context);
+        }
+        return instr.code;
+    }
+
+    var _apply_math_x86 = {
+        mov: function(marker, instr) {
+            if (_x86_x64_registers.indexOf(instr.parsed.opd[0].token) < 0 ||
+                _x86_x64_registers.indexOf(instr.parsed.opd[1].token) >= 0 ||
+                (!instr.parsed.opd[1].token.startsWith('0x') &&
+                    !instr.parsed.opd[1].token.startsWith('reloc.') &&
+                    !instr.parsed.opd[1].token.startsWith('sym.') &&
+                    !instr.parsed.opd[1].token.startsWith('str.'))) {
+                return;
+            }
+            //_apply_new_assign(instr.parsed.opd[0].token, marker[instr.parsed.opd[0].token]);
+            var value = instr.parsed.opd[1].token.startsWith('0x') ? Long.fromString(instr.parsed.opd[1].token) : null;
+            marker[instr.parsed.opd[0].token] = {
+                value: value,
+                instr: instr,
+            };
+        },
+    };
+
+    return x86x64;
+
 })();
