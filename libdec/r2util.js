@@ -242,7 +242,7 @@ module.exports = (function() {
                 offset: Long.fromString(r2str('s'), true, 16),
                 ascomment: has_option(args, '--as-comment'),
                 asopcode: has_option(args, '--as-opcode'),
-                debug: has_option(args, '--debug')
+                debug: r2bool('e r2dec.debug') || has_option(args, '--debug')
             };
             this.add_comment = function(comment, offset) {
                 if (!comment || comment.length < 1) {
