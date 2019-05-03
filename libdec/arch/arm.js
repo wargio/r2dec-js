@@ -28,6 +28,7 @@ module.exports = (function() {
     var _operands = {
         'lsl': '<<',
         'sxtw': '<<',
+        'sxtb': '<<',
         'uxtw': '<<',
         'lsr': '>>',
         'asl': '<<',
@@ -39,6 +40,7 @@ module.exports = (function() {
     var _operands_base = {
         'lsl': Base.shift_left,
         'sxtw': Base.shift_left,
+        'sxtb': Base.shift_left,
         'uxtw': Base.shift_left,
         'lsr': Base.shift_right,
         'asl': Base.shift_left,
@@ -105,7 +107,7 @@ module.exports = (function() {
             }
             arg = Variable.uniqueName('offset');
             return Base.composed([
-                _operands_base[mem[2]](arg, mem[1], mem[3], bits),
+                _operands_base[mem[2]](arg, mem[1], mem[3] || Variable.number(32), bits),
                 op([mem[0], arg].join(' + ').replace(/\+ -/, '- '), e[0], bits, false),
             ]);
         } else if (e.length == 3 && last == "!") {
@@ -115,7 +117,7 @@ module.exports = (function() {
             }
             arg = Variable.uniqueName('offset');
             return Base.composed([
-                _operands_base[mem[2]](arg, mem[1], mem[3], bits),
+                _operands_base[mem[2]](arg, mem[1], mem[3] || Variable.number(32), bits),
                 op([mem[0], arg].join(' += ').replace(/\+=\s-/, '-= '), e[0], bits, false),
             ]);
         }
@@ -128,7 +130,7 @@ module.exports = (function() {
         }
         arg = Variable.uniqueName('offset');
         return Base.composed([
-            _operands_base[mem[2]](arg, mem[1], mem[3], bits),
+            _operands_base[mem[2]](arg, mem[1], mem[3] || Variable.number(32), bits),
             op([mem[0], arg].join(' + ').replace(/\+ -/, '- '), e[0], bits, false),
             Base.add(mem[0], mem[0], last)
         ]);
@@ -959,6 +961,9 @@ module.exports = (function() {
                 }
                 return Base.not(dst, instr.parsed.opd[1]);
             },
+            fmov: function(instr, context) {
+                return Base.assign(instr.parsed.opd[0], instr.parsed.opd[1]);
+            },
             mul: function(instr) {
                 return _common_math(instr.parsed, Base.multiply);
             },
@@ -1067,6 +1072,26 @@ module.exports = (function() {
                     return Base.nop();
                 }
                 if (e.opd.length == 3) {
+                    if (e.opd[2] == "0" || e.opd[2] == "0x0") {
+                        return op(e.opd[0], e.opd[1]);
+                    }
+                    return op(e.opd[0], e.opd[2], e.opd[1]);
+                }
+                if (_operands[e.opd[3]]) {
+                    e.opd[3] = _operands[e.opd[3]];
+                }
+                return op(e.opd[0], '(' + e.slice(3).join(' ') + ')', e.opd[1]);
+            },
+            rsbs: function(instr) {
+                var op = Base.subtract;
+                var e = instr.parsed;
+                if (e.opd[0] == 'ip' || e.opd[0] == 'sp' || e.opd[0] == 'fp') {
+                    return Base.nop();
+                }
+                if (e.opd.length == 3) {
+                    if (e.opd[2] == "0" || e.opd[2] == "0x0") {
+                        return op(e.opd[0], e.opd[1]);
+                    }
                     return op(e.opd[0], e.opd[2], e.opd[1]);
                 }
                 if (_operands[e.opd[3]]) {

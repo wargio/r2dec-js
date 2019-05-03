@@ -43,6 +43,7 @@ module.exports = (function() {
     };
 
     var autoString = function(v) {
+        v = v || "";
         return Extra.is.string(v) ? Global.printer.auto(v) : v.toString();
     };
 
