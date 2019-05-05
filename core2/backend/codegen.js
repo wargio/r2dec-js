@@ -49,7 +49,7 @@ module.exports = (function() {
             //
             // TODO: temp
             func.basic_blocks.forEach(function(bb) {
-                this._emit_scope(bb, 0);
+                this._emit_scope(bb.container, 0);
             }, this);
 
             return this.text.join('');

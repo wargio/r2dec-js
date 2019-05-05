@@ -151,6 +151,20 @@
         return func.apply(p, args);
     };
 
+    /**
+     * Ascend the parents tree to locate `this` enclosing Statement.
+     * @returns {!Statement}
+     */
+    Register.prototype.parent_stmt = function() {
+        var o = this.parent;
+
+        while (o instanceof Expr) {
+            o = o.parent;
+        }
+
+        return o;
+    };
+
     /** @returns {boolean} */
     Register.prototype.equals = function(other) {
         return ((other instanceof Register) &&
@@ -222,6 +236,20 @@
     /** @returns {Array} */
     Value.prototype.iter_operands = function() {
         return [this];
+    };
+
+    /**
+     * Ascend the parents tree to locate `this` enclosing Statement.
+     * @returns {!Statement}
+     */
+    Value.prototype.parent_stmt = function() {
+        var o = this.parent;
+
+        while (o instanceof Expr) {
+            o = o.parent;
+        }
+
+        return o;
     };
 
     /** @returns {boolean} */
@@ -390,6 +418,20 @@
         var args = [this];
 
         return func.apply(p, args);
+    };
+
+    /**
+     * Ascend the parents tree to locate `this` enclosing Statement.
+     * @returns {!Statement}
+     */
+    Expr.prototype.parent_stmt = function() {
+        var o = this;
+
+        while (o instanceof Expr) {
+            o = o.parent;
+        }
+
+        return o;
     };
 
     /**

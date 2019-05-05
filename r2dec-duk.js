@@ -20,7 +20,6 @@ const Graph = require('core2/analysis/graph');
 const JSON = require('libdec/json64');
 const Decoder = require('core2/frontend/decoder');
 const SSA = require('core2/analysis/ssa');
-const Simplify = require('core2/analysis/ir/simplify');
 const ControlFlow = require('core2/analysis/controlflow');
 const CodeGen = require('core2/backend/codegen');
 
@@ -124,12 +123,12 @@ function BasicBlock(parent, bb) {
     this.fail = bb.fail;
 
     // get instructions list
-    this.statements = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
+    this.instructions = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
 
     // retrieve the block's last statement; normally this would be either a goto, branch or return statement
     Object.defineProperty(this, 'terminator', {
         get: function() {
-            return this.statements[this.statements.length - 1];
+            return this.instructions[this.instructions.length - 1];
         }
     });
 }
@@ -174,72 +173,6 @@ function r2dec_main(args) {
      */
 
     try {
-        // <TEST>
-        /*
-        // // dfs and dom test
-        // var ns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
-        // var es = [
-        //             ['A', 'B'], ['A', 'C'],
-        //             ['B', 'D'], ['B', 'G'],
-        //             ['C', 'E'], ['C', 'H'],
-        //             ['D', 'F'], ['D', 'G'],
-        //             ['E', 'C'], ['E', 'H'],
-        //             ['F', 'I'], ['F', 'K'],
-        //             ['G', 'J'],
-        //             ['H', 'M'],
-        //             ['I', 'L'],
-        //             ['J', 'I'],
-        //             ['K', 'L'],
-        //             ['L', 'M'], ['L', 'B']
-        //         ];
-
-        // // dominanceFrontier test 1
-        // var ns = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
-        // var es = [
-        //     ['1', '2'], ['1', '5'], ['1', '9'],
-        //     ['2', '3'],
-        //     ['3', '3'], ['3', '4'],
-        //     ['4', '13'],
-        //     ['5', '6'], ['5', '7'],
-        //     ['6', '4'], ['6', '8'],
-        //     ['7', '8'], ['7', '12'],
-        //     ['8', '5'], ['8', '13'],
-        //     ['9', '10'], ['9', '11'],
-        //     ['10', '12'],
-        //     ['11', '12'],
-        //     ['12', '13']
-        // ];
-
-        // we decorate to indices seen as strings; e.g. index "0" won't become index 0, and so on
-        var decorate = function(s) { return s + '.'; };
-        ns = ns.map(decorate);
-        es = es.map(function(e) { return e.map(decorate); });
-
-        var cfg = new Graph.Directed(ns, es, ns[0]);
-        console.log();
-        console.log('cfg:');
-        console.log(cfg.toString());
-
-        var dfs = new Graph.DFSpanningTree(cfg);
-        console.log();
-        console.log('depth-first spanning tree:');
-        console.log(dfs.toString());
-
-        var dom = new Graph.DominatorTree(cfg);
-        console.log();
-        console.log('dominance tree:');
-        console.log(dom.toString());
-
-        console.log();
-        console.log('dom frontiers:');
-        dom.iterNodes().forEach(function(n) {
-            console.log(n.key, '::', dom.dominanceFrontier(n).map(function(d) { return d.key; }));
-        });
-
-        return;
-        */
-        // </TEST>
-
         var iIj = r2cmdj('iIj');
 
         if (Decoder.has(iIj.arch))
@@ -254,25 +187,12 @@ function r2dec_main(args) {
                 // transform assembly instructions into internal representation
                 // this is a prerequisit to ssa-based analysis and optimizations
                 func.basic_blocks.forEach(function(bb) {
-                    bb.statements = decoder.transform_ir(bb.statements);
-
-                    // TODO: this is a workaround until we work with Containers
-                    // <WORKAROUND>
-                    bb.statements.forEach(function(stmt) {
-                        stmt.container = bb;
-                    });
-                    // </WORKAROUND>
+                    bb.container = decoder.transform_ir(bb.instructions);
                 });
 
                 var ssa = new SSA(func);
                 var defs = ssa.rename_variables();
-
-                // TODO: this is a workaround until we work with Containers
-                // <WORKAROUND>
-                func.basic_blocks.forEach(function(bb) {
-                    bb.statements.forEach(Simplify.reduce_stmt);
-                });
-                // </WORKAROUND>
+                console.log(defs);
 
                 // ControlFlow.run(func);
 

@@ -3,6 +3,86 @@ module.exports = (function() {
     const Graph = require('core2/analysis/graph');
     const Stmt = require('core2/analysis/ir/statements');
     const Expr = require('core2/analysis/ir/expressions');
+    const Simplify = require('core2/analysis/ir/simplify');
+
+    function DefUse() {
+        this.defs = {};
+        this.uninit = new Stmt.Statement(0, []);
+    }
+
+    DefUse.prototype.add_def = function(v) {
+        var key = v.toString();
+
+        if (key in this.defs) {
+            console.log('[!]', key, 'is already defined');
+        }
+
+        this.defs[key] = v;
+        v.uses = [];
+    };
+
+    DefUse.prototype.add_use = function(u) {
+        var key = u.toString();
+
+        // every used var is expected to be defined beforehand
+        // if it was not, this is probably an architectural register
+        // that is initialized implicitly, e.g. stack pointer, args regs, etc.
+        if (!(key in this.defs)) {
+            var uc = u.clone(['idx']);
+            uc.is_def = true;
+            this.uninit.push_expr(uc);
+
+            this.add_def(uc);
+        }
+
+        var def = this.defs[key];
+
+        if (u.def !== undefined) {
+            console.log('[!]', u, 'def should be assigned to "' + def + '", but expr already got "' + u.def + '"');
+        }
+
+        u.def = def;
+        def.uses.push(u);
+    };
+
+    DefUse.prototype.iterate = function(func) {
+        // apply `func` on all defs entries, and collect the keys to eliminate
+        var eliminate = Object.keys(this.defs).filter(function(d) {
+            return func(this.defs[d]);
+        }, this);
+
+        // eliminate collected keys from defs
+        eliminate.forEach(function(d) {
+            delete this.defs[d];
+        }, this);
+
+        return eliminate.length > 0;
+    };
+
+    var get_stmt_addr = function(expr) {
+        return expr.parent_stmt().addr.toString(16);
+    };
+
+    var padEnd = function(s, n) {
+        var padlen = n - s.length;
+
+        return s + (padlen > 0 ? ' '.repeat(padlen) : '');
+    };
+
+    DefUse.prototype.toString = function() {
+        var header = ['\u250f', '', 'def-use chains:'].join(' ');
+
+        var table = Object.keys(this.defs).map(function(d) {
+            var _def = get_stmt_addr(this.defs[d]);
+            var _use = this.defs[d].uses.map(get_stmt_addr);
+
+            return ['\u2503', '  ', padEnd(d, 32), '[' + _def + ']', ':', _use.join(', ')].join(' ');
+        }, this);
+
+        var footer = ['\u2517'];
+
+        return Array.prototype.concat(header, table, footer).join('\n');
+    };
 
     function SSA(func) {
         this.func = func;
@@ -14,9 +94,11 @@ module.exports = (function() {
     var get_defs = function(selector, block) {
         var defs = [];
 
-        var find_def = function(d) {
-            for (var i = 0; i < defs.length; i++) {
-                if (defs[i].equals_no_idx(d)) {
+        // TODO: Duktape Array prototype has no 'findIndex' method. this workaround should be
+        // removed when Duktape implements this method for Array prototype.
+        defs.findIndex = function(predicate) {
+            for (var i = 0; i < this.length; i++) {
+                if (predicate(this[i])) {
                     return i;
                 }
             }
@@ -24,11 +106,13 @@ module.exports = (function() {
             return (-1);
         };
 
-        block.statements.forEach(function(stmt) {
+        block.container.statements.forEach(function(stmt) {
             stmt.expressions.forEach(function(expr) {
                 expr.iter_operands().forEach(function(op) {
                     if (selector(op) && op.is_def) {
-                        var idx = find_def(op);
+                        var idx = defs.findIndex(function(d) {
+                            d.equals_no_idx(op);
+                        });
 
                         // if already defined, remove old def and use the new one instead
                         // not sure if this is actually needed... [could just drop later defs of the same var]
@@ -121,11 +205,8 @@ module.exports = (function() {
                         // phi-function has as many arguments as y has predecessors
                         var phi_stmt = Stmt.make_statement(_y.address, new Expr.Assign(a.clone(['idx', 'def']), new Expr.Phi(args)));
 
-                        // TODO: this is a workaround until we work with Containers
-                        // <WORKAROUND>
-                        _y.statements.unshift(phi_stmt);
-                        phi_stmt.container = _y;
-                        // </WORKAROUND>
+                        // insert phi at the beginning of the container
+                        _y.container.unshift_stmt(phi_stmt);
 
                         phis[y].push(a);
                         if (defs[_y].indexOf(a) === (-1)) {
@@ -142,7 +223,7 @@ module.exports = (function() {
         // initialize count and stack
         var initialize = function(selector, count, stack) {
             this.func.basic_blocks.forEach(function(blk) {
-                blk.statements.forEach(function(stmt) {
+                blk.container.statements.forEach(function(stmt) {
                     stmt.expressions.forEach(function(expr) {
                         expr.iter_operands().forEach(function(op) {
                             if (selector(op)) {
@@ -160,72 +241,7 @@ module.exports = (function() {
         var count = {};
         var stack = {};
 
-        var defs = {};
-        var uninit = new Stmt.Statement(0, []);
-
-        var add_def = function(v) {
-            var key = v.toString();
-
-            if (key in defs) {
-                console.log('[!]', key, 'is already defined');
-            }
-
-            defs[key] = v;
-            v.uses = [];
-        };
-
-        var add_use = function(u) {
-            var key = u.toString();
-
-            // every used var is expected to be defined beforehand
-            // if it was not, this is probably an architectural register
-            // that is initialized implicitly, e.g. stack pointer, args regs, etc.
-            if (!(key in defs)) {
-                var uc = u.clone(['idx']);
-                uc.is_def = true;
-                uninit.push_expr(uc);
-
-                add_def(uc);
-            }
-
-            var def = defs[key];
-
-            if (u.def !== undefined) {
-                console.log('[!]', u, 'def should be assigned to "' + def + '", but expr already got "' + u.def + '"');
-            }
-
-            u.def = def;
-            def.uses.push(u);
-        };
-
-        // <DEBUG>
-        var parent_stmt = function(expr) {
-            while (!(expr instanceof Stmt.Statement)) {
-                expr = expr.parent;
-            }
-
-            return expr.addr.toString(16);
-        };
-
-        var padEnd = function(s, n) {
-            var padlen = n - s.length;
-
-            return s + (padlen > 0 ? ' '.repeat(padlen) : '');
-        };
-
-        var print_defs = function() {
-            console.log('\u250f', '', 'def-use chains:');
-
-            for (var d in defs) {
-                var _def = parent_stmt(defs[d]);
-                var _use = defs[d].uses.map(parent_stmt);
-
-                console.log('\u2503', '  ', padEnd(d, 20), '[' + _def + ']', ':', _use.join(', '));
-            }
-
-            console.log('\u2517');
-        };
-        // </DEBUG>
+        var defs = new DefUse();
 
         // get the top element of an array
         var top = function(arr) {
@@ -235,7 +251,7 @@ module.exports = (function() {
         var rename = function(selector, n) {
             // console.log('n:', n.toString());
 
-            n.statements.forEach(function(stmt) {
+            n.container.statements.forEach(function(stmt) {
                 // console.log('\u250f', '', 'stmt:', stmt.toString());
 
                 // console.log('\u2503', '  ', 'USE:');
@@ -252,7 +268,7 @@ module.exports = (function() {
                                 op.idx = top(stack[repr]);
 
                                 // console.log('\u2503', '        ', 'idx:', op.idx);
-                                add_use(op);
+                                defs.add_use(op);
                             }
                         });
                     }
@@ -274,7 +290,7 @@ module.exports = (function() {
                             op.idx = top(stack[repr]);
 
                             // console.log('\u2503', '        ', 'idx:', op.idx);
-                            add_def(op);
+                            defs.add_def(op);
                         }
                     });
                 });
@@ -288,7 +304,7 @@ module.exports = (function() {
                 // console.log('node', n, 'is the', j, 'th successor of', Y.toString(16));
 
                 // iterate over all phi functions in Y
-                node_to_block(this.func, Y).statements.forEach(function(stmt) {
+                node_to_block(this.func, Y).container.statements.forEach(function(stmt) {
                     stmt.expressions.forEach(function(expr) {
                         if (is_phi_assignment(expr)) {
                             var v = expr.operands[0];
@@ -300,7 +316,7 @@ module.exports = (function() {
                                 // console.log('|  found a phi stmt', stmt, ', replacing its', j, 'arg');
 
                                 op.idx = top(stack[op.repr()]);
-                                add_use(op);
+                                defs.add_use(op);
                             }
                         }
                     });
@@ -313,7 +329,7 @@ module.exports = (function() {
                 rename.call(this, selector, node_to_block(this.func, X));
             }, this);
 
-            n.statements.forEach(function(stmt) {
+            n.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands(true).forEach(function(op) {
                         if (selector(op) && op.is_def) {
@@ -334,7 +350,7 @@ module.exports = (function() {
         //  o propagate self-referencing phis [i.e. x5 = Phi(x2, x5) --> x5 = x2]
         //  o propagate phi with single use that is another phi, combine them together
 
-        this.func.uninitialized = uninit;
+        this.func.uninitialized = defs.uninit;
 
         var entry_block = node_to_block(this.func, this.dom.getRoot());
 
@@ -365,8 +381,27 @@ module.exports = (function() {
         while (eliminate_def_zero_uses(defs)) { /* empty */ }
         while (propagate_def_single_use(defs)) { /* empty */ }
 
-        print_defs();
         return defs;
+    };
+
+    SSA.prototype.clear_ssa_data = function() {
+        var blocks = this.func.basic_blocks;
+
+        blocks.forEach(function(blk) {
+            blk.container.statements.forEach(function(stmt) {
+                stmt.expressions.forEach(function(expr) {
+                    expr.iter_operands().forEach(function(op) {
+                        var ssa_properties = ['idx', 'def'];
+
+                        ssa_properties.forEach(function(prop) {
+                            if (op[prop] !== undefined) {
+                                op[prop] = undefined;
+                            }
+                        });
+                    });
+                });
+            });
+        });
     };
 
     var detach_user = function(u) {
@@ -381,26 +416,12 @@ module.exports = (function() {
         }
     };
 
-    var iter_defs = function(defs, func) {
-        // apply `func` on all defs entries, and collect the keys to eliminate
-        var eliminate = Object.keys(defs).filter(function(d) {
-            return func(defs[d]);
-        });
-
-        // eliminate collected keys from defs
-        eliminate.forEach(function(d) {
-            delete defs[d];
-        });
-
-        return eliminate.length > 0;
-    };
-
     // if a phi expression has only one argument, propagate it into defined variable
     // x7 = Phi(x4)             // phi and x7 are eliniminated, x4 propagated to x7 uses
     // x8 = x7 + 1      -->     x8 = x4 +1
     // x9 = *(x7)               x9 = *(x4)
     var propagate_single_phi = function(defs) {
-        return iter_defs(defs, function(def) {
+        return defs.iterate(function(def) {
             var p = def.parent;
 
             if (is_phi_assignment(p)) {
@@ -434,7 +455,7 @@ module.exports = (function() {
 
     // TODO: this is arch-specific for x86 
     var propagate_stack_locations = function(defs) {
-        return iter_defs(defs, function(def) {
+        return defs.iterate(function(def) {
             if (def.idx !== 0) {
                 var p = def.parent;         // p is Expr.Assign
                 var lhand = p.operands[0];  // def
@@ -447,6 +468,7 @@ module.exports = (function() {
                         var c = rhand.clone(['idx', 'def']);
 
                         u.replace(c);
+                        Simplify.reduce_stmt(c.parent_stmt());
                     }
 
                     p.iter_operands().forEach(detach_user);
@@ -461,16 +483,24 @@ module.exports = (function() {
     };
 
     var eliminate_def_zero_uses = function(defs) {
-        return iter_defs(defs, function(def) {
+        return defs.iterate(function(def) {
             if ((def.idx !== 0) && (def.uses.length === 0)) {
                 var p = def.parent;         // p is Expr.Assign
                 var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
-                // if has no possible side effects, eliminate.
-                // memory derefs and function calls may have side effects, and are excluded from this pass.
-                // however, phi derefs are not 'real' program operations, so they may be discarded if they have no use
-                if ((!(lhand instanceof Expr.Deref) || (rhand instanceof Expr.Phi)) && !(rhand instanceof Expr.Call)) {
+                // function calls may have side effects, and cannot be eliminated. instead they are
+                // extracted from the assignment and kept aside
+                if (rhand instanceof Expr.Call) {
+                    p.replace(rhand);
+
+                    return true;
+                }
+
+                // memory derefs may have side effects as well, so they are excluded.
+                // phi derefs, however, are not 'real' program operations and have no side effects.
+                // unused phi derefs may be safely discarded.
+                else if (!(lhand instanceof Expr.Deref) || (rhand instanceof Expr.Phi)) {
                     p.iter_operands().forEach(detach_user);
                     p.pluck();
 
@@ -484,7 +514,7 @@ module.exports = (function() {
 
     // propagate definitions with only one use to their users
     var propagate_def_single_use = function(defs) {
-        return iter_defs(defs, function(def) {
+        return defs.iterate(function(def) {
             // TODO: exclude implicitly initialized exprs (idx 0) for the moment as there
             // is currently no assigned expression to propagate
             if ((def.idx !== 0) && (def.uses.length === 1)) {
@@ -497,6 +527,8 @@ module.exports = (function() {
 
                 u.iter_operands().forEach(detach_user);
                 u.replace(c);
+
+                Simplify.reduce_stmt(c.parent_stmt());
 
                 p.iter_operands().forEach(detach_user);
                 p.pluck();

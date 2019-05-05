@@ -427,6 +427,12 @@
         this.statements.push(stmt);
     };
 
+    Container.prototype.unshift_stmt = function(stmt) {
+        stmt.container = this;
+
+        this.statements.unshift(stmt);
+    };
+
     /**
      * Generate a deep copy of this.
      * @returns {!Container}

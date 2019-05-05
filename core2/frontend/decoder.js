@@ -49,10 +49,10 @@ module.exports = (function() {
      * Process instruction data in the form of 'aoj' r2 command output into a list of
      * generic statements.
      * @param {Object} aoj Parsed output of 'aoj' r2 command
-     * @returns {Array} Array of statement instances representing 
+     * @returns {Stmt.Container} Container object including all generated Statements
      */
     Decoder.prototype.transform_ir = function(aoj) {
-        var ir = [];
+        var stmts = [];
 
         aoj.forEach(function(item) {
             var decoded = this.arch.r2decode(item);
@@ -69,11 +69,11 @@ module.exports = (function() {
                 // DEBUG
                 // console.log('| ', stmt.toString());
 
-                ir.push(stmt);
+                stmts.push(stmt);
             });
         }, this);
 
-        return ir;
+        return new Stmt.Container(stmts[0].address, stmts);
     };
 
     return Decoder;
