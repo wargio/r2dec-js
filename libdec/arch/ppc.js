@@ -571,8 +571,17 @@ module.exports = (function() {
         } else {
             var value0 = _new_variable(context, 'uint32_t');
             var value1 = _new_variable(context, 'uint32_t');
-            ops.push(Base.rotate_left(value0, src, sh, 32));
-            ops.push(Base.and(value0, value0, '0x' + m.toString(16)));
+            if (sh > 0) {
+                ops.push(Base.rotate_left(value0, src, sh, 32));
+                ops.push(Base.and(value0, value0, '0x' + m.toString(16)));
+            } else if (sh == 0 && m == 0xffff) {
+                if (dst != src) {
+                    return Base.assign(dst, src);
+                }
+                return Base.nop();
+            } else {
+                ops.push(Base.and(value0, src, '0x' + m.toString(16)));
+            }
             ops.push(Base.and(value1, dst, '0x' + minv.toString(16)));
             ops.push(Base.or(dst, value1, value0));
         }
@@ -1125,6 +1134,28 @@ module.exports = (function() {
             },
             andi: function(instr) {
                 return op_bits4(instr.parsed, Base.and);
+            },
+            divwu: function(instr) {
+                return op_bits4(instr.parsed, Base.divide);
+            },
+            mullw: function(instr) {
+                return op_bits4(instr.parsed, Base.multiply);
+            },
+            mulhwu: function(instr) {
+                instr.comments.push("64bit multiplication");
+                return Base.composed([
+                    op_bits4(instr.parsed, Base.multiply),
+                    Base.shift_right(instr.parsed.opd[0], instr.parsed.opd[0], 32)
+                ]);
+            },
+            subfc: function(instr) {
+                return op_bits4(instr.parsed, Base.subtract);
+            },
+            subfic: function(instr) {
+                return op_bits4(instr.parsed, Base.subtract);
+            },
+            subfe: function(instr) {
+                return op_bits4(instr.parsed, Base.subtract);
             },
             sld: function(instr) {
                 return op_bits4(instr.parsed, Base.shift_left, 64);

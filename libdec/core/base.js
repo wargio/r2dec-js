@@ -202,7 +202,7 @@ module.exports = (function() {
         this.call = 'rotate_' + (is_left ? 'left' : 'right') + bits;
         this.destination = destination;
         this.source_a = source_a;
-        this.rotation = rotation;
+        this.rotation = Extra.is.number(rotation) ? ("0x" + rotation.toString(16)) : rotation;
 
         this.toString = function() {
             var args = [autoString(this.source_a), autoString(this.rotation)];
