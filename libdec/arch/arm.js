@@ -1411,7 +1411,9 @@ module.exports = (function() {
         localvars: function(context) {
             return context.vars.map(function(v) {
                 return v.type + ' ' + v.name;
-            });
+            }).concat(context.args.map(function(v) {
+                return v.ref + ' = ' + v.name;
+            }));
         },
         postanalisys: function(instructions, context) {
             for (var k in context.markers) {

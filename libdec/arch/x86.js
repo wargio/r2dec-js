@@ -1763,7 +1763,11 @@ module.exports = (function() {
         localvars: function(context) {
             return context.vars.map(function(v) {
                 return v.type + ' ' + v.name;
-            });
+            }).concat(context.args.filter(function(v) {
+                return typeof v.ref == 'string';
+            }).map(function(v) {
+                return v.ref + ' = ' + v.name;
+            }));
         },
         globalvars: function(context) {
             return [];
@@ -1783,27 +1787,27 @@ module.exports = (function() {
         }
     };
 
-/*
-    function _apply_new_assign(register, data) {
-        if (data && data.value) {
-            if (data.instr.mnem == "mov" && data.instr.parsed.opd[0].mem_access) {
-                return Base.write_memory(data.instr.parsed.opd[0].token, data.instr.parsed.opd[1].token, data.instr.parsed.opd[0].mem_access, true);
-            } else if (data.instr.mnem == "mov" && data.instr.parsed.opd[1].mem_access) {
-                return Base.read_memory(data.instr.parsed.opd[1].token, data.instr.parsed.opd[0].token, data.instr.parsed.opd[1].mem_access, true);
-            } else if (data.instr.string) {
-                data.instr.code = Base.assign(data.instr.parsed.opd[0], Variable.string(data.instr.string));
-            } else if (data.instr.symbol) {
-                data.instr.code = Base.assign(data.instr.parsed.opd[0], data.instr.symbol);
-            } else {
-                var value = '0x' + data.value.toString(16);
-                if (Extra.magic_math(value)) {
-                    data.instr.comments.push(Extra.magic_math(value));
+    /*
+        function _apply_new_assign(register, data) {
+            if (data && data.value) {
+                if (data.instr.mnem == "mov" && data.instr.parsed.opd[0].mem_access) {
+                    return Base.write_memory(data.instr.parsed.opd[0].token, data.instr.parsed.opd[1].token, data.instr.parsed.opd[0].mem_access, true);
+                } else if (data.instr.mnem == "mov" && data.instr.parsed.opd[1].mem_access) {
+                    return Base.read_memory(data.instr.parsed.opd[1].token, data.instr.parsed.opd[0].token, data.instr.parsed.opd[1].mem_access, true);
+                } else if (data.instr.string) {
+                    data.instr.code = Base.assign(data.instr.parsed.opd[0], Variable.string(data.instr.string));
+                } else if (data.instr.symbol) {
+                    data.instr.code = Base.assign(data.instr.parsed.opd[0], data.instr.symbol);
+                } else {
+                    var value = '0x' + data.value.toString(16);
+                    if (Extra.magic_math(value)) {
+                        data.instr.comments.push(Extra.magic_math(value));
+                    }
+                    data.instr.code = Base.assign(register, value);
                 }
-                data.instr.code = Base.assign(register, value);
             }
         }
-    }
-*/
+    */
 
     function _apply_marker_math(instr, context) {
         if (!context.markers[instr.marker]) {
