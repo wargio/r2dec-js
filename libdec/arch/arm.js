@@ -1422,7 +1422,9 @@ module.exports = (function() {
             }
         },
         arguments: function(context) {
-            return [];
+            return context.args.map(function(v) {
+                return v.type + ' ' + v.name;
+            });
         },
         returns: function(context) {
             if (context.retreg) {
