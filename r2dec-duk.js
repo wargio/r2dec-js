@@ -192,11 +192,15 @@ function r2dec_main(args) {
 
                 var ssa = new SSA(func);
                 var defs = ssa.rename_variables();
+
+                // emit def-use chains
                 console.log(defs);
 
                 // ControlFlow.run(func);
 
-                console.log(new CodeGen(func).emit());
+                var ecj = r2cmdj('ecj');
+
+                console.log(new CodeGen(ecj).emit_func(func));
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }

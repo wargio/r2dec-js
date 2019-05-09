@@ -167,10 +167,7 @@
 
     /** @returns {boolean} */
     Register.prototype.equals = function(other) {
-        return ((other instanceof Register) &&
-            (this.name === other.name) &&
-            (this.size === other.size) &&
-            (this.idx === other.idx));
+        return (this.equals_no_idx(other) && (this.idx === other.idx));
     };
 
     /** @returns {boolean} */
@@ -686,7 +683,7 @@
 
             // "x op= y"
             return [
-                this.operands[0].toString(opt),
+                lhand.toString(opt),
                 rhand.operator + this.operator,
                 rhand.operands[1].toString(opt)
             ].join(' ');
@@ -705,6 +702,11 @@
 
     Deref.prototype = Object.create(UExpr.prototype);
     Deref.prototype.constructor = Deref;
+
+    /** @returns {boolean} */
+    Deref.prototype.equals = function(other) {
+        return (this.equals_no_idx(other) && (this.idx === other.idx));
+    };
 
     /** @returns {boolean} */
     Deref.prototype.equals_no_idx = function(other) {

@@ -144,7 +144,7 @@ module.exports = (function() {
         return (expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Phi);
     };
 
-    SSA.prototype.insert_phi_exprs = function(selector) {
+    var insert_phi_exprs = function(selector) {
         var defs = {};
         var blocks = this.func.basic_blocks;
 
@@ -238,17 +238,12 @@ module.exports = (function() {
             });
         };
 
-        var count = {};
-        var stack = {};
-
-        var defs = new DefUse();
-
         // get the top element of an array
         var top = function(arr) {
             return arr[arr.length - 1];
         };
 
-        var rename = function(selector, n) {
+        var rename_rec = function(selector, count, stack, n) {
             // console.log('n:', n.toString());
 
             n.container.statements.forEach(function(stmt) {
@@ -326,7 +321,7 @@ module.exports = (function() {
             // console.log('-'.repeat(15));
 
             this.dom.successors(block_to_node(this.dom, n)).forEach(function(X) {
-                rename.call(this, selector, node_to_block(this.func, X));
+                rename_rec.call(this, selector, count, stack, node_to_block(this.func, X));
             }, this);
 
             n.container.statements.forEach(function(stmt) {
@@ -340,46 +335,38 @@ module.exports = (function() {
             });
         };
 
-        // TODO: steps should be:
-        //  o ssa from regs: add phis, relax phis
-        //  o propagate stack pointer
-        //  o ssa from derefs: add phis, replax phis
-        //
-        // relax phis:
-        //  o propagate phi groups that have only one item in them
-        //  o propagate self-referencing phis [i.e. x5 = Phi(x2, x5) --> x5 = x2]
-        //  o propagate phi with single use that is another phi, combine them together
+        var rename = function(selector) {
+            var entry_block = node_to_block(this.func, this.dom.getRoot());
+
+            var count = {};
+            var stack = {};
+
+            insert_phi_exprs.call(this, selector);
+            initialize.call(this, selector, count, stack);
+            rename_rec.call(this, selector, count, stack, entry_block);
+        };
+
+        var defs = new DefUse();
 
         this.func.uninitialized = defs.uninit;
 
-        var entry_block = node_to_block(this.func, this.dom.getRoot());
-
         // ssa from regs
         // console.log('\u2501'.repeat(15), 'REGS', '\u2501'.repeat(15));
-        var select_regs = function(x) { return (x instanceof Expr.Reg); };
-        this.insert_phi_exprs(select_regs);
-        initialize.call(this, select_regs, count, stack);
-        rename.call(this, select_regs, entry_block);
+        rename.call(this, function(x) { return (x instanceof Expr.Reg); });
         relax_phi(defs);
 
         while (propagate_stack_locations(defs)) { /* empty */ }
-        while (eliminate_def_zero_uses(defs)) { /* empty */ }
-        while (propagate_def_single_use(defs)) { /* empty */ }
-
-        count = {};
-        stack = {};
+        while (eliminate_def_zero_uses(defs))   { /* empty */ }
+        while (propagate_def_single_use(defs))  { /* empty */ }
 
         // ssa from derefs
         // console.log('\u2501'.repeat(15), 'DEREFS', '\u2501'.repeat(15));
-        var select_derefs = function(x) { return (x instanceof Expr.Deref); };
-        this.insert_phi_exprs(select_derefs);
-        initialize.call(this, select_derefs, count, stack);
-        rename.call(this, select_derefs, entry_block);
+        rename.call(this, function(x) { return (x instanceof Expr.Deref); });
         relax_phi(defs);
 
         while (propagate_stack_locations(defs)) { /* empty */ }
-        while (eliminate_def_zero_uses(defs)) { /* empty */ }
-        while (propagate_def_single_use(defs)) { /* empty */ }
+        while (eliminate_def_zero_uses(defs))   { /* empty */ }
+        while (propagate_def_single_use(defs))  { /* empty */ }
 
         return defs;
     };
@@ -391,7 +378,7 @@ module.exports = (function() {
             blk.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands().forEach(function(op) {
-                        var ssa_properties = ['idx', 'def'];
+                        var ssa_properties = ['idx', 'def', 'uses'];
 
                         ssa_properties.forEach(function(prop) {
                             if (op[prop] !== undefined) {
@@ -416,10 +403,12 @@ module.exports = (function() {
         }
     };
 
+    // propagate phi groups that have only one item in them.
     // if a phi expression has only one argument, propagate it into defined variable
-    // x7 = Phi(x4)             // phi and x7 are eliniminated, x4 propagated to x7 uses
-    // x8 = x7 + 1      -->     x8 = x4 +1
-    // x9 = *(x7)               x9 = *(x4)
+    //
+    //   x7 = Phi(x4)       // phi and x7 are eliniminated, x4 propagated to x7 uses
+    //   x8 = x7 + 1   -->  x8 = x4 +1
+    //   x9 = *(x7)         x9 = *(x4)
     var propagate_single_phi = function(defs) {
         return defs.iterate(function(def) {
             var p = def.parent;
@@ -449,8 +438,46 @@ module.exports = (function() {
         });
     };
 
+    // propagate self-referencing phis.
+    //
+    //   x5 = Phi(x2, x5)  -->  x5 = x2
+    var propagate_self_ref_phi = function(defs) {
+        return defs.iterate(function(def) {
+            var p = def.parent;
+
+            if (is_phi_assignment(p)) {
+                var v = p.operands[0];
+                var phi = p.operands[1];
+
+                if (phi.operands.length === 2) {
+                    var other = null;
+
+                    if (phi.operands[0].equals(v)) {
+                        other = phi.operands[1].pluck();
+                    } else if (phi.operands[1].equals(v)) {
+                        other = phi.operands[0].pluck();
+                    }
+
+                    if (other) {
+                        phi.iter_operands().forEach(detach_user);
+                        phi.replace(other);
+                    }
+
+                    // note: return false anyway since we do not eliminating the definition
+                    // rather we just update it with another assigned expr. 
+                }
+            }
+
+            return false;
+        });
+    };
+
     var relax_phi = function(defs) {
+        // relax phis:
+        //  o propagate phi with single use that is another phi, combine them together
+
         propagate_single_phi(defs);
+        propagate_self_ref_phi(defs);
     };
 
     // TODO: this is arch-specific for x86 
@@ -539,9 +566,6 @@ module.exports = (function() {
             return false;
         });
     };
-
-    // TODO: tag function calls arguments
-    // TODO: eliminate duplicate phi arguments
 
     return SSA;
 }());

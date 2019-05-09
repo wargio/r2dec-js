@@ -157,6 +157,18 @@ function x86(nbits, btype, endianess) {
     this.invalid = _invalid;
 }
 
+// x86.prototype.post_processing = function(exprs) {
+//     var processed = [];
+//
+//     exprs.forEach(function(e) {
+//         if (e instanceof Expr.Assign) {
+//             Array.prototype.concat.apply(processed, duplicate_overlaps(e));
+//         }
+//     });
+//
+//     return processed;
+// };
+
 /**
  * Get a copy of the system frame pointer.
  * @returns {Expr.Reg}
@@ -664,11 +676,12 @@ var _leave = function(p) {
 };
 
 var _call = function(p) {
+    var args = [];  // TODO: determine calling convension and arguments
     var callee = get_operand_expr(p.operands[0]);
     var rreg = this.get_result_reg();
 
     // the function call arguments list will be populated later on, according to calling convention
-    return [new Expr.Assign(rreg, new Expr.Call(callee, []))];
+    return [new Expr.Assign(rreg, new Expr.Call(callee, args))];
 };
 
 var _ret = function(p) {
