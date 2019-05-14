@@ -157,17 +157,63 @@ function x86(nbits, btype, endianess) {
     this.invalid = _invalid;
 }
 
-// x86.prototype.post_processing = function(exprs) {
-//     var processed = [];
-//
-//     exprs.forEach(function(e) {
-//         if (e instanceof Expr.Assign) {
-//             Array.prototype.concat.apply(processed, duplicate_overlaps(e));
-//         }
-//     });
-//
-//     return processed;
-// };
+x86.prototype.assign_fcall_args = function(stmts) {
+    var sreg = this.get_stack_reg();
+    var i = 0;
+
+    // TODO: this is a poc for x86-cdecl. need to determine calling convention and
+    // track arguments setup accordingly.
+
+    // walk through all statements generated for the current basic block to identify
+    // call sites. a call site is a subset of a basic block which includes arguments
+    // setup and ends with a function call. there may be any number of call sites in
+    // a single basic block: none, one or more
+
+   while (i < stmts.length) {
+        var fcall = null;
+        var nargs = 0;
+
+        while (i < stmts.length) {
+            var curr = stmts[i++].expressions[0];
+
+            if (curr instanceof Expr.Assign) {
+                var lhand = curr.operands[0];
+                var rhand = curr.operands[1];
+
+                // reached a function call
+                if (rhand instanceof Expr.Call) {
+                    fcall = rhand;
+                    break;
+                }
+
+                // reached an assignment to a stack location; that is probably an argument for the upcoming function call
+                else if ((lhand instanceof Expr.Deref) && lhand.operands[0].equals(sreg)) {
+                    nargs++;
+                }
+
+                // reached a stack pointer adjustment, which most likely to end a call site. restart.
+                else if (lhand.equals(sreg) && (rhand instanceof Expr.Add) && rhand.operands[0].equals(sreg)) {
+                    nargs = 0;
+                }
+            }
+        }
+
+        if (fcall) {
+            for (var j = 0; j < nargs; j++) {
+                var stack_loc = new Expr.Add(this.get_stack_reg(), this.get_asize_val(j + 1));
+
+                fcall.push_operand(new Expr.Deref(stack_loc, this.nbits));
+            }
+        }
+   }
+};
+
+x86.prototype.post_transform = function(stmts) {
+    // TODO: make StackVar objects?
+    // TODO: analyze function calls arguments
+
+    this.assign_fcall_args(stmts);
+};
 
 /**
  * Get a copy of the system frame pointer.
@@ -203,11 +249,17 @@ x86.prototype.get_flags_reg = function() {
 
 /**
  * Get a copy of the system native address size value.
+ * @param {number} scalar A numeric scalar to multiple (default: 1)
  * @returns {Expr.Val}
  */
-x86.prototype.get_asize_val = function() {
-    return new Expr.Val(this.bits / 8, this.bits);
+x86.prototype.get_asize_val = function(scalar) {
+    return new Expr.Val(this.bits / 8 * (scalar || 1), this.bits);
 };
+
+// function StackVar(expr) { Expr.UExpr.call(this, '<sp>', expr); }
+// 
+// StackVar.prototype = Object.create(Expr.UExpr.prototype);
+// StackVar.prototype.constructor = StackVar;
 
 /**
  * Lists system flags.
@@ -447,11 +499,11 @@ var _common_bitwise = function(p, op) {
     var op_expr = new op(lexpr, rexpr);
 
     // lexpr = lexpr op rexpr
-    return this.eval_flags(op_expr, ['PF', 'ZF', 'SF']).concat([
+    return [new Expr.Assign(lexpr.clone(), op_expr)].concat(
+        this.eval_flags(lexpr, ['PF', 'ZF', 'SF']).concat([
         set_flag('CF', 0),
-        set_flag('OF', 0),
-        new Expr.Assign(lexpr.clone(), op_expr)
-    ]);
+        set_flag('OF', 0)
+    ]));
 };
 
 /** common handler for conditional jumps */
@@ -501,9 +553,9 @@ var _add = function(p) {
     var op = new Expr.Add(lexpr, rexpr);
 
     // lexpr = lexpr + rexpr
-    return this.eval_flags(op, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']).concat([
-        new Expr.Assign(lexpr.clone(), op)
-    ]);
+    return [new Expr.Assign(lexpr.clone(), op)].concat(
+        this.eval_flags(lexpr, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF'])
+    );
 };
 
 var _adc = function(p) {
@@ -513,9 +565,9 @@ var _adc = function(p) {
     var op = new Expr.Add(new Expr.Add(lexpr, rexpr), Flag('CF'));
 
     // lexpr = lexpr + rexpr + eflags.cf
-    return this.eval_flags(op, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']).concat([
-        new Expr.Assign(lexpr.clone(), op)
-    ]);
+    return [new Expr.Assign(lexpr.clone(), op)].concat(
+        this.eval_flags(lexpr, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF'])
+    );
 };
 
 var _sub = function(p) {
@@ -525,9 +577,9 @@ var _sub = function(p) {
     var op = new Expr.Sub(lexpr, rexpr);
 
     // lexpr = lexpr - rexpr
-    return this.eval_flags(op, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']).concat([
-        new Expr.Assign(lexpr.clone(), op)
-    ]);
+    return [new Expr.Assign(lexpr.clone(), op)].concat(
+        this.eval_flags(lexpr, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF'])
+    );
 };
 
 var _div = function(p) {
@@ -605,9 +657,9 @@ var _inc = function(p) {
     var op = new Expr.Add(lexpr, one);
 
     // lexpr = lexpr + 1
-    return this.eval_flags(op, ['PF', 'AF', 'ZF', 'SF', 'OF']).concat([
-        new Expr.Assign(lexpr.clone(), op)
-    ]);
+    return [new Expr.Assign(lexpr.clone(), op)].concat(
+        this.eval_flags(lexpr, ['PF', 'AF', 'ZF', 'SF', 'OF'])
+    );
 };
 
 var _dec = function(p) {
@@ -617,9 +669,9 @@ var _dec = function(p) {
     var op = new Expr.Sub(lexpr, one);
 
     // lexpr = lexpr - 1
-    return this.eval_flags(op, ['PF', 'AF', 'ZF', 'SF', 'OF']).concat([
-        new Expr.Assign(lexpr.clone(), op)
-    ]);
+    return [new Expr.Assign(lexpr.clone(), op)].concat(
+        this.eval_flags(lexpr, ['PF', 'AF', 'ZF', 'SF', 'OF'])
+    );
 };
 
 var _push = function(p) {
@@ -904,14 +956,13 @@ var _popcnt = function(p) {
         64: '__builtin_popcountll'
     }[rhand.size];
 
-    return this.eval_flags(rhand, ['ZF']).concat([
+    return [new Expr.Assign(lhand, new Expr.Call(bifunc, [rhand]))].concat(this.eval_flags(rhand, ['ZF']).concat([
         set_flag('PF', 0),
         set_flag('CF', 0),
         set_flag('AF', 0),
         set_flag('SF', 0),
-        set_flag('OF', 0),
-        new Expr.Assign(lhand, new Expr.Call(bifunc, [rhand]))
-    ]);
+        set_flag('OF', 0)
+    ]));
 };
 
 var _hlt = function(p) {
