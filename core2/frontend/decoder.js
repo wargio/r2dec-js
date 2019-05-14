@@ -58,21 +58,22 @@ module.exports = (function() {
             var decoded = this.arch.r2decode(item);
             var handler = this.arch.instructions[decoded.mnemonic] || this.arch.invalid;
 
-            // DEBUG
-            // console.log(item.opcode);
+            // turn r2 decoded instruction into a list of ir expressions and statements
+            var exprs = handler(decoded);
 
-            handler(decoded).forEach(function(expr) {
-                var stmt = Stmt.make_statement(decoded.address, expr);
-
-                Simplify.reduce_stmt(stmt);
-
-                // DEBUG
-                // console.log('| ', stmt.toString());
-
-                stmts.push(stmt);
-            });
+            // to simplify further handling, wrap expressions in statements
+            Array.prototype.push.apply(stmts, exprs.map(function(expr) {
+                return Stmt.make_statement(decoded.address, expr);
+            }));
         }, this);
 
+        // simplify statements in-place
+        stmts.forEach(Simplify.reduce_stmt);
+
+        // run architecture-specific post processing
+        this.arch.post_transform(stmts);
+
+        // TODO: crashes on empty basic blocks [contain only nops]
         return new Stmt.Container(stmts[0].address, stmts);
     };
 

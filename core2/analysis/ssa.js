@@ -96,6 +96,7 @@ module.exports = (function() {
 
         // TODO: Duktape Array prototype has no 'findIndex' method. this workaround should be
         // removed when Duktape implements this method for Array prototype.
+        // <WORKAROUND>
         defs.findIndex = function(predicate) {
             for (var i = 0; i < this.length; i++) {
                 if (predicate(this[i])) {
@@ -105,6 +106,7 @@ module.exports = (function() {
 
             return (-1);
         };
+        // </WORKAROUND>
 
         block.container.statements.forEach(function(stmt) {
             stmt.expressions.forEach(function(expr) {
@@ -348,7 +350,7 @@ module.exports = (function() {
 
         var defs = new DefUse();
 
-        this.func.uninitialized = defs.uninit;
+        // this.func.uninitialized = defs.uninit;
 
         // ssa from regs
         // console.log('\u2501'.repeat(15), 'REGS', '\u2501'.repeat(15));
@@ -371,7 +373,7 @@ module.exports = (function() {
         return defs;
     };
 
-    SSA.prototype.clear_ssa_data = function() {
+    SSA.prototype.clear = function() {
         var blocks = this.func.basic_blocks;
 
         blocks.forEach(function(blk) {

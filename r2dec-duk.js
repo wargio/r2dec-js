@@ -64,27 +64,35 @@ function Function(afij, afbj) {
         return new BasicBlock(this, bb);
     }, this);
 
+    // TODO: Duktape Array prototype has no 'find' method. this workaround should be
+    // removed when Duktape implements this method for Array prototype.
+    // <WORKAROUND>
+    this.basic_blocks.find = function(predicate) {
+        for (var i = 0; i < this.length; i++) {
+            if (predicate(this[i])) {
+                return this[i];
+            }
+        }
+
+        return undefined;
+    };
+    // </WORKAROUND>
+
     // the first block provided by r2 is the function's entry block
     this.entry_block = this.basic_blocks[0];
 
     // a dummy statement that holds all variables referenced in function
     // that were not explicitly initialized beforehand. normally it would
     // consist of the stack and frame pointers, and function parameters
-    this.uninitialized = null;
+    // this.uninitialized = null;
 
     // TODO: return_type
 }
 
 Function.prototype.getBlock = function(address) {
-    for (var i = 0; i < this.basic_blocks.length; i++) {
-        var block = this.basic_blocks[i];
-
-        if (block.address.eq(address)) {
-            return block;
-        }
-    }
-
-    return undefined;
+    return this.basic_blocks.find(function(block) {
+        return block.address.eq(address);
+    });
 };
 
 Function.prototype.cfg = function() {

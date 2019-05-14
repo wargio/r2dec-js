@@ -16,28 +16,15 @@ module.exports = (function() {
             return ['38', '2', r, g, b].join(';');
         };
 
-        // color keys we want to extract from 'ecj' output
-        var keys = [
-            'comment',
-            'call',
-            'ret',
-            'reg',
-            'num',
-            'math',
-            'mov',
-            'fname',
-            'cmp',
-            'btext',
-            'func_var_type',
-            'offset',
-            'invalid'
-        ];
-
         var palette = { '': escape(0) };
 
-        keys.forEach(function(k) {
-            palette[k] = escape(rgb_to_esccode(ecj[k]));
-        });
+        for (var t in TOK) {
+            var k = TOK[t];
+
+            if (!(k in palette)) {
+                palette[k] = escape(rgb_to_esccode(ecj[k]));
+            }
+        }
 
         return palette;
     };
@@ -63,6 +50,8 @@ module.exports = (function() {
 
     function CodeGen(ecj) {
         this.palette = load_palette(ecj);
+
+        // TODO: these could be set through r2 variables
         this.tabstop = 4;
         this.scope_newline = true;
     }
@@ -112,6 +101,7 @@ module.exports = (function() {
 
     CodeGen.prototype.emit_expression = function(expr) {
 
+        // emit a generic unary expression
         var _emit_uexpr = function(uexpr, op) {
             return Array.prototype.concat(
                 [op],
@@ -119,6 +109,7 @@ module.exports = (function() {
             );
         };
 
+        // emit a generic binary expression
         var _emit_bexpr = function(bexpr, op) {
             return Array.prototype.concat(
                 this.emit_expression(bexpr.operands[0]),
@@ -131,6 +122,7 @@ module.exports = (function() {
             );
         };
 
+        // emit a generic ternary expression
         var _emit_texpr = function(texpr, op1, op2) {
             return Array.prototype.concat(
                 this.emit_expression(texpr.operands[0]),
@@ -150,6 +142,7 @@ module.exports = (function() {
         };
 
         if (expr instanceof Expr.Val) {
+            // TODO: emit value in the appropriate format: dec, hex, signed, unsigned, ...
             return [[TOK.NUMBER, expr.toString()]];
         }
 
@@ -281,9 +274,9 @@ module.exports = (function() {
             var rest = [];
 
             if (expr.operands.length > 1) {
-                first = [this.emit_expression(expr.operands[1])];
+                first = this.emit_expression(expr.operands[1]);
 
-                rest = expr.operands.slice(2).map(function(a) {
+                rest = Array.prototype.concat.apply([], expr.operands.slice(2).map(function(a) {
                     return Array.prototype.concat(
                         [
                             [TOK.PUNCT, ','],
@@ -291,7 +284,7 @@ module.exports = (function() {
                         ],
                         this.emit_expression(a)
                     );
-                }, this);
+                }, this));
             }
 
             return Array.prototype.concat(
@@ -480,9 +473,10 @@ module.exports = (function() {
         }
         tokens.push([TOK.PAREN, ')']);
 
-        // TODO: this should work after ControlFlow is implemented
+        // TODO: this should work after ControlFlow is implemented:
         // Array.prototype.push.apply(tokens, this.emit_scope(func.entry_block.container, 0));
 
+        // in the meantime, just emit all scopes in a consequtive order
         // <WORKAROUND>
         func.basic_blocks.forEach(function(bb) {
             Array.prototype.push.apply(tokens, this.emit_scope(bb.container, 0));

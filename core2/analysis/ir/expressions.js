@@ -24,7 +24,7 @@
      * dedicated expressions as well.
      *
      * Class hierarchy:
-     *      Number              : a number literal
+     *      Value               : a number literal
      *      Register            : a register literal
      *      Expr                : generic expression base class
      *          Asm
