@@ -88,20 +88,26 @@ module.exports = (function() {
 	function _invoke_direct(instr, context, instructions) {
 		var p = instr.parsed;
 		var object, dst, method;
-		if (!context.objects[p.args[0]]) {
+		if (!context.objects[p.args[0]] && !context.arguments[p.args[0]]) {
 			arg_usage(p.args[0], Extra.replace.object(p.opd[0]), context);
 			instr.setBadJump();
 			return Base.nop();
+		}
+		var args = p.args.slice(1).map(function(x) {
+			arg_usage(x, JavaObject, context);
+			return _handle_type(context.objects[x], Variable.local(x, instr.bits, true));
+		});
+		if (context.arguments[p.args[0]]) {
+			object = context.arguments[p.args[0]];
+			dst = object.name;
+			method = Extra.replace.object(instr.parsed.opd[0]).replace(object.type + '.', '');
+			return Base.method_call(dst, '.', method, args);
 		}
 		object = context.objects[p.args[0]].instr;
 		object.valid = false;
 		dst = Variable.local(object.parsed.opd[0], instr.bits, true);
 		method = Variable.newobject(object.parsed.opd[1]);
 
-		var args = p.args.slice(1).map(function(x) {
-			arg_usage(x, JavaObject, context);
-			return _handle_type(context.objects[x], Variable.local(x, instr.bits, true));
-		});
 		return Base.assign(dst, Base.call(method, args));
 	}
 
