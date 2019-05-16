@@ -86,7 +86,17 @@ module.exports = (function() {
         return op(e.opd[0], e.opd[1], '(' + p.join(' ') + ')');
     };
 
-    var _memory = function(op, instr, bits, signed) {
+    var _memory = function(op, instr, context, bits, signed) {
+        var assign_stack = null;
+        if (op == Base.read_memory) {
+            assign_stack = _stack_load(instr, context);
+        } else {
+            assign_stack = _stack_store(instr, context);
+        }
+        if (assign_stack) {
+            return assign_stack;
+        }
+
         signed = signed || false;
         var e = instr.parsed.opd;
         var mem, arg;
@@ -282,12 +292,13 @@ module.exports = (function() {
      * @param {string} name A string literal
      * @param {Object} context
      * @returns {boolean}
+     */
+
     var _is_local_var = function(name, context) {
         return context.vars.some(function(v) {
             return (v.name === name);
         });
     };
-    */
 
     var _is_stack_based_local_var = function(name, context) {
         return context.vars.some(function(v) {
@@ -682,6 +693,27 @@ module.exports = (function() {
         return value == 't' ? true : false;
     };
 
+    var _stack_store = function(instr, context) {
+        console.log(instr.parsed.opd);
+        var src = instr.parsed.opd[0];
+        var dst = instr.parsed.opd[1];
+        if (dst[0] == 'sp' && _is_local_var(dst[1], context)) {
+            return Base.assign(dst[1], src);
+        } else if (_is_local_var(dst[0], context)) {
+            return Base.assign(dst[0], src);
+        }
+    };
+
+    var _stack_load = function(instr, context) {
+        var dst = instr.parsed.opd[0];
+        var src = instr.parsed.opd[1];
+        if (src[0] == 'sp' && _is_local_var(src[1], context)) {
+            return Base.assign(dst, src[1]);
+        } else if (_is_local_var(src[0], context)) {
+            return Base.assign(dst, src[0]);
+        }
+    };
+
     var _conditional_instruction_list = [
         'add', 'and', 'eor', 'ldr', 'ldrb', 'ldm', 'lsl', 'lsr',
         'mov', 'mvn', 'mul', 'orr', 'pop', 'str', 'strb', 'sub', 'bx'
@@ -838,25 +870,25 @@ module.exports = (function() {
                 if (marker) {
                     return marker;
                 }
-                return _memory(Base.read_memory, instr, '32');
+                return _memory(Base.read_memory, instr, context, '32');
             },
-            ldur: function(instr) {
-                return _memory(Base.read_memory, instr, '32');
+            ldur: function(instr, context) {
+                return _memory(Base.read_memory, instr, context, '32');
             },
-            ldrh: function(instr) {
-                return _memory(Base.read_memory, instr, '16');
+            ldrh: function(instr, context) {
+                return _memory(Base.read_memory, instr, context, '16');
             },
-            ldrb: function(instr) {
-                return _memory(Base.read_memory, instr, '8');
+            ldrb: function(instr, context) {
+                return _memory(Base.read_memory, instr, context, '8');
             },
-            ldrsr: function(instr) {
-                return _memory(Base.read_memory, instr, '32', true);
+            ldrsr: function(instr, context) {
+                return _memory(Base.read_memory, instr, context, '32', true);
             },
-            ldrsh: function(instr) {
-                return _memory(Base.read_memory, instr, '16', true);
+            ldrsh: function(instr, context) {
+                return _memory(Base.read_memory, instr, context, '16', true);
             },
-            ldrsb: function(instr) {
-                return _memory(Base.read_memory, instr, '8', true);
+            ldrsb: function(instr, context) {
+                return _memory(Base.read_memory, instr, context, '8', true);
             },
             ldm: function(instr) {
                 for (var i = 1; i < instr.parsed.length; i++) {
@@ -901,7 +933,7 @@ module.exports = (function() {
                 if (dst == 'ip' || dst == 'sp' || dst == 'fp') {
                     return Base.nop();
                 }
-                if (_zero_regs.indexOf(src) >= 0) {
+                if (src == '0') {
                     src = Variable.number('0');
                 }
                 return Base.assign(dst, src);
@@ -978,7 +1010,7 @@ module.exports = (function() {
                 return Base.nop();
             },
             orr: function(instr) {
-                if (_zero_regs.indexOf(instr.parsed.opd[1]) >= 0) {
+                if (instr.parsed.opd[1] == '0') {
                     return Base.assign(instr.parsed.opd[0], instr.parsed.opd[2] || '0');
                 }
                 return _common_math(instr.parsed, Base.or);
@@ -1053,14 +1085,14 @@ module.exports = (function() {
                     Base.read_memory(e[2].concat([(bits / 8)]).join(' + '), e[1], bits, false)
                 ]);
             },
-            str: function(instr) {
-                return _memory(Base.write_memory, instr, 32);
+            str: function(instr, context) {
+                return _memory(Base.write_memory, instr, context, 32);
             },
-            strb: function(instr) {
-                return _memory(Base.write_memory, instr, 8);
+            strb: function(instr, context) {
+                return _memory(Base.write_memory, instr, context, 8);
             },
-            strh: function(instr) {
-                return _memory(Base.write_memory, instr, 8);
+            strh: function(instr, context) {
+                return _memory(Base.write_memory, instr, context, 8);
             },
             sub: function(instr) {
                 return _common_math(instr.parsed, Base.subtract);
@@ -1247,11 +1279,11 @@ module.exports = (function() {
                 ops.push(Base.or(opds[0], opds[0], '0x' + val.toString(16)));
                 return Base.composed(ops);
             },
-            ldrw: function(instr) {
-                return _memory(Base.read_memory, instr, '64', true);
+            ldrw: function(instr, context) {
+                return _memory(Base.read_memory, instr, context, '64', true);
             },
-            ldrsw: function(instr) {
-                return _memory(Base.read_memory, instr, '64', true);
+            ldrsw: function(instr, context) {
+                return _memory(Base.read_memory, instr, context, '64', true);
             },
             rev: function(instr) {
                 return Base.swap_endian(instr.parsed.opd[0], instr.parsed.opd[1], _reg_bits[instr.parsed.opd[0][0]]);
@@ -1324,11 +1356,11 @@ module.exports = (function() {
                 return Base.nop();
             },
             /* SIMD/FP */
-            stur: function(instr) {
-                return _memory(Base.write_memory, instr, _reg_bits[instr.parsed.opd[0][0]]);
+            stur: function(instr, context) {
+                return _memory(Base.write_memory, instr, context, _reg_bits[instr.parsed.opd[0][0]]);
             },
-            sturh: function(instr) {
-                return _memory(Base.write_memory, instr, _reg_bits[instr.parsed.opd[0][0]]);
+            sturh: function(instr, context) {
+                return _memory(Base.write_memory, instr, context, _reg_bits[instr.parsed.opd[0][0]]);
             },
             invalid: function() {
                 return Base.nop();
@@ -1375,7 +1407,9 @@ module.exports = (function() {
             }
             return {
                 mnem: ops.shift().replace(/\.w$/, ''),
-                opd: ops
+                opd: ops.map(function(x) {
+                    return _zero_regs.indexOf(x) < 0 ? x : '0';
+                })
             };
         },
         context: function(data) {
@@ -1536,10 +1570,23 @@ module.exports = (function() {
             instr.string = Global.xrefs.find_string(marker[instr.parsed.opd[0]].value);
             instr.symbol = Global.xrefs.find_symbol(marker[instr.parsed.opd[0]].value);
         },
+        orr: function(marker, instr) {
+            if (instr.parsed.opd[1] != '0') {
+                return;
+            }
+            var s = parseInt(instr.parsed.opd[2]);
+            marker[instr.parsed.opd[0]].instr = instr;
+            marker[instr.parsed.opd[0]].value = Long.fromString(s.toString(16), true, 16);
+        },
         add: function(marker, instr) {
             if (instr.parsed.opd.length != 2 && instr.parsed.opd[0] != instr.parsed.opd[1]) {
                 return;
             } else if (!marker[instr.parsed.opd[0]] || (instr.parsed.opd.length == 2 && instr.parsed.opd[1] != 'pc')) {
+                return;
+            }
+            if (instr.parsed.opd.length != 2 && !marker[instr.parsed.opd[2]] && !instr.parsed.opd[2].startsWith('0x')) {
+                _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);
+                delete marker[instr.parsed.opd[0]];
                 return;
             }
             var v = marker[instr.parsed.opd[0]].value;
