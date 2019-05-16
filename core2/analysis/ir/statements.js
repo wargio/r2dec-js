@@ -135,7 +135,7 @@
     };
 
     // each Statement.* class defines its own accessors to the expressions it
-    // contains: e.g. Statement.Return has a 'retval' accessor, that other do
+    // contains: e.g. Statement.Return has a 'retval' accessor, that others do
     // not.
     // to be able to iterate over the included expressions regardless of the
     // specific instance of Statement, we use the 'expressions' member. to keep
@@ -143,16 +143,22 @@
     // in the 'expressions' array. note that the included expressions may be
     // replaced (during simplification or propagations), so the accessors cannot
     // just return the expressions that were assigned to the object instance on
-    // construction 
+    // construction - they have to fetch them every time.
     //
     // this is a generic getter descriptor for the i-th expressions
-    var _desc_for_expr = function(i) {
-        return {
+    /**
+     * 
+     * @param {Object} obj Object to assign the accessor
+     * @param {string} accname Accessor name
+     * @param {number} i Corresponding index of the expression
+     */
+    var defineAccessor = function(obj, accname, i) {
+        Object.defineProperty(obj, accname, {
             enumerable: true,
             get: function() {
                 return this.expressions[i];
             }
-        };
+        });
     };
 
     // ------------------------------------------------------------
@@ -167,7 +173,7 @@
     function Goto(addr, dst) {
         Statement.call(this, addr, [dst]);
 
-        Object.defineProperty(this, 'dest', _desc_for_expr(0));
+        defineAccessor(this, 'dest', 0);
     }
 
     Goto.prototype = Object.create(Statement.prototype);
@@ -198,9 +204,9 @@
     function Branch(addr, cond, taken, not_taken) {
         Statement.call(this, addr, [cond, taken, not_taken]);
 
-        Object.defineProperty(this, 'cond', _desc_for_expr(0));
-        Object.defineProperty(this, 'taken', _desc_for_expr(1));
-        Object.defineProperty(this, 'not_taken', _desc_for_expr(2));
+        defineAccessor(this, 'cond', 0);
+        defineAccessor(this, 'taken', 1);
+        defineAccessor(this, 'not_taken', 2);
     }
 
     Branch.prototype = Object.create(Statement.prototype);
@@ -232,7 +238,7 @@
     function If(addr, cond, then_cntr, else_cntr) {
         Statement.call(this, addr, [cond]);
 
-        Object.defineProperty(this, 'cond', _desc_for_expr(0));
+        defineAccessor(this, 'cond', 0);
 
         this.then_cntr = then_cntr;
         this.else_cntr = else_cntr;
@@ -279,7 +285,7 @@
     function While(addr, cond, body) {
         Statement.call(this, addr, [cond]);
 
-        Object.defineProperty(this, 'cond', _desc_for_expr(0));
+        defineAccessor(this, 'cond', 0);
         this.body = body;
 
         this.statements = body.statements;
@@ -313,7 +319,7 @@
     function DoWhile(addr, cond, body) {
         Statement.call(this, addr, [cond]);
 
-        Object.defineProperty(this, 'cond', _desc_for_expr(0));
+        defineAccessor(this, 'cond', 0);
         this.body = body;
 
         this.statements = body.statements;
@@ -386,7 +392,7 @@
     function Return(addr, expr) {
         Statement.call(this, addr, [expr]);
 
-        Object.defineProperty(this, 'retval', _desc_for_expr(0));
+        defineAccessor(this, 'retval', 0);
     }
 
     Return.prototype = Object.create(Statement.prototype);
@@ -457,9 +463,9 @@
 
     return {
         /**
-         * Turn an expression into a statement.
+         * Wrap an expression with a statement.
          * @param {!Long} addr Address of original assembly instruction
-         * @param {Expr.Expr} expr Expression to turn into a statement
+         * @param {Expr.Expr} expr Expression to wrap
          * @returns {Statement}
          */
         make_statement: function(addr, expr) {

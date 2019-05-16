@@ -17,8 +17,9 @@
 
 module.exports = x86;
 
-var Expr = require('core2/analysis/ir/expressions');
-var Stmt = require('core2/analysis/ir/statements');
+const Expr = require('core2/analysis/ir/expressions');
+const Stmt = require('core2/analysis/ir/statements');
+const ArchRegs = require('core2/frontend/arch/archregs');
 
 /** @constructor */
 function x86(nbits, btype, endianess) {
@@ -208,11 +209,39 @@ x86.prototype.assign_fcall_args = function(stmts) {
    }
 };
 
+x86.prototype.gen_overlaps = function(stmts) {
+    var copy = [];
+
+    stmts.forEach(function(s) {
+        copy.push(s);
+
+        s.expressions.forEach(function(e) {
+            if (e instanceof Expr.Assign) {
+                var lhand = e.operands[0];
+
+                if (lhand instanceof Expr.Reg) {
+                    // TODO: what about side effects? fcalls zero uses will not be eliminated..
+                    Array.prototype.push.apply(copy, ArchRegs.gen_overlaps(lhand));
+                }
+            }
+        });
+    });
+
+    // replace stmts with copy array that includes generated overlaps
+    Array.prototype.splice.apply(stmts, [0, stmts.length].concat(copy));
+};
+
 x86.prototype.post_transform = function(stmts) {
     // TODO: make StackVar objects?
-    // TODO: analyze function calls arguments
 
+    // analyze and assign function calls arguments.
+    // note: stmts array is not modified by this function
     this.assign_fcall_args(stmts);
+
+    // duplicate assignments for overlapping registers to maintain def-use correctness. this
+    // generates a lot of redundant statements that eventually eliminated if they are not used.
+    // note: stmts array is modified by this function
+    this.gen_overlaps(stmts);
 };
 
 /**

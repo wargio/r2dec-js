@@ -51,7 +51,7 @@ module.exports = (function() {
                 // ((ilhand op irhand) op orhand) --> (ilhand op (irhand op orhand))
                 if ((oexpr_op === iexpr_op) && (orhand instanceof Expr.Val) && (irhand instanceof Expr.Val)) {
                     var new_lhand = ilhand;
-                    var new_rhand = new iexpr_op(irhand.value, orhand.value);
+                    var new_rhand = new iexpr_op(irhand, orhand);
 
                     return new oexpr_op(new_lhand, new_rhand);
                 }

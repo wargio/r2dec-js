@@ -52,7 +52,8 @@ module.exports = (function() {
      * @returns {Stmt.Container} Container object including all generated Statements
      */
     Decoder.prototype.transform_ir = function(aoj) {
-        var stmts = [];
+        var start = undefined;  // block starting address
+        var stmts = [];         // generated ir statements
 
         aoj.forEach(function(item) {
             var decoded = this.arch.r2decode(item);
@@ -65,6 +66,8 @@ module.exports = (function() {
             Array.prototype.push.apply(stmts, exprs.map(function(expr) {
                 return Stmt.make_statement(decoded.address, expr);
             }));
+
+            start = start || decoded.address;
         }, this);
 
         // simplify statements in-place
@@ -73,8 +76,8 @@ module.exports = (function() {
         // run architecture-specific post processing
         this.arch.post_transform(stmts);
 
-        // TODO: crashes on empty basic blocks [contain only nops]
-        return new Stmt.Container(stmts[0].address, stmts);
+        // put all statements in a container and return it
+        return new Stmt.Container(start, stmts);
     };
 
     return Decoder;

@@ -261,6 +261,24 @@ module.exports = (function() {
 
                             if (selector(op) && !op.is_def) {
                                 var repr = op.repr();
+ 
+                                // nesting derefs are picked up in stack initialization without inner
+                                // subscripts, since they are not assigned yet. here they are referred
+                                // after inner subscripts are assigned, so they do not appear in vars
+                                // stack. for example:
+                                //
+                                // nesting derefs:
+                                //      *(*(ebp₁ + 8)₀ + *(ebp₁ - 4)₁)
+                                //
+                                // do not appear in the stack, because they were picked up as:
+                                //      *(*(ebp₁ + 8) + *(ebp₁ - 4))
+                                //
+                                // <WORKAROUND>
+                                if (!(repr in stack)) {
+                                    console.log('USE: could not find stack for "', repr, '"');
+                                    stack[repr] = [0];
+                                }
+                                // </WORKAROUND>
 
                                 op.idx = top(stack[repr]);
 
@@ -281,7 +299,15 @@ module.exports = (function() {
                         if (selector(op) && op.is_def) {
                             var repr = op.repr();
 
-                            count[repr]++;
+                            // <WORKAROUND>
+                            if (!(repr in stack)) {
+                                console.log('DEF: could not find stack for "', repr, '"');
+                                stack[repr] = [0];
+                                count[repr] = 0;
+                            }
+                            // </WORKAROUND>
+
+                           count[repr]++;
                             stack[repr].push(count[repr]);
 
                             op.idx = top(stack[repr]);

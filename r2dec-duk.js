@@ -198,6 +198,8 @@ function r2dec_main(args) {
                     bb.container = decoder.transform_ir(bb.instructions);
                 });
 
+                // TODO: eliminate empty basic blocks [contain only nops]
+
                 var ssa = new SSA(func);
                 var defs = ssa.rename_variables();
 
