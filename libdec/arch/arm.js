@@ -694,7 +694,6 @@ module.exports = (function() {
     };
 
     var _stack_store = function(instr, context) {
-        console.log(instr.parsed.opd);
         var src = instr.parsed.opd[0];
         var dst = instr.parsed.opd[1];
         if (dst[0] == 'sp' && _is_local_var(dst[1], context)) {
@@ -1403,7 +1402,6 @@ module.exports = (function() {
             if (ops[0].startsWith('it')) {
                 ops.splice(1, 0, 't' + ops[0].substr(2));
                 ops[0] = ops[0].substr(0, 2);
-                console.log(ops[0], ops[1]);
             }
             return {
                 mnem: ops.shift().replace(/\.w$/, ''),
