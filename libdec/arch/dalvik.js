@@ -557,9 +557,13 @@ module.exports = (function() {
 					if (instructions[i].location.eq(instr.jump)) {
 						/* Sometimes happens that the jump just points to a return*
 						 * so it's easier to just set this instr to return */
-						if (instructions[i].parsed.mnem.startsWith('return')) {
+						if (instructions[i].assembly.startsWith('return')) {
 							instr.jump = null;
-							return instructions[i].code;
+							if (instructions[i].code) {
+								return instructions[i].code;
+							} else {
+								context.missing.push([instr, i]);
+							}
 						}
 						break;
 					}
@@ -798,11 +802,18 @@ module.exports = (function() {
 			return {
 				objects: {},
 				arguments: {},
+				missing: [],
 				returntype: 'void'
 			};
 		},
 		preanalisys: function(instructions, context) {},
-		postanalisys: function(instructions, context) {},
+		postanalisys: function(instructions, context) {
+			// this is only for those jumps that ends in return like
+			while(context.missing.length > 0) {
+				var r = context.missing.pop();
+				r[0].code = instructions[r[1]].code;
+			}
+		},
 		localvars: function(context) {
 			return [];
 		},
