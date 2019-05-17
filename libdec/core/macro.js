@@ -15,12 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = function(data) {
-    this.data = data;
-    this.print = function() {
-        var t = Global.printer.theme;
-        for (var i = 0; i < this.data.length; i++) {
-            console.log(Global.context.identfy() + t.macro(this.data[i]));
-        }
-    };
-};
+(function() {
+	return function(data) {
+		this.data = data;
+		this.print = function() {
+			var t = Global.printer.theme;
+			for (var i = 0; i < this.data.length; i++) {
+				console.log(Global.context.identfy() + t.macro(this.data[i]));
+			}
+		};
+	};
+});

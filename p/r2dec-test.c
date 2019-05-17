@@ -1,6 +1,7 @@
 #include <string.h>
 #include <duktape.h>
 #include <duk_console.h>
+#include <duk_missing.h>
 #include <stdio.h>
 
 static const char* r2dec_home = 0;
@@ -54,10 +55,11 @@ static duk_ret_t duk_internal_require(duk_context *ctx) {
 		snprintf (fullname, sizeof(fullname), "%s.js", duk_safe_to_string (ctx, 0));
 		char* text = r2dec_read_file (fullname);
 		if (text) {
-			duk_push_string (ctx, text);
+			duk_push_lstring (ctx, fullname, strlen (fullname));
+			duk_eval_file (ctx, text);
 			free (text);
 		} else {
-			printf ("error: '%s' not found.\n", fullname);
+			printf("Error: '%s' not found.\n", fullname);
 			return DUK_RET_TYPE_ERROR;
 		}
 		return 1;
@@ -89,10 +91,11 @@ static void duk_r2_init(duk_context* ctx) {
 	duk_put_global_string (ctx, "read_file");
 }
 
-static int duk_eval_file(duk_context* ctx, const char* file) {
+static int eval_file(duk_context* ctx, const char* file) {
 	char* text = r2dec_read_file (file);
 	if (text) {
-		duk_eval_string_noresult (ctx, text);
+		duk_push_lstring (ctx, file, strlen (file));
+		duk_eval_file_noresult (ctx, text);
 		free (text);
 		return 1;
 	}
@@ -111,7 +114,7 @@ static void duk_r2dec(const char *input) {
 	duk_console_init (ctx, 0);
 //	Long_init (ctx);
 	duk_r2_init (ctx);
-	if (duk_eval_file (ctx, "require.js") && duk_eval_file (ctx, "r2dec-test.js")) {		
+	if (eval_file (ctx, "require.js") && eval_file (ctx, "r2dec-test.js")) {		
 		if (*input) {
 			snprintf (args, sizeof(args), "r2dec_main(\"%s\")", input);
 		} else {

@@ -14,6 +14,7 @@ mv core_test.so ~/.config/radare2/plugins
 #include <r_anal.h>
 #include <duktape.h>
 #include <duk_console.h>
+#include <duk_missing.h>
 
 #undef R_API
 #define R_API static
@@ -70,7 +71,10 @@ static char* r2dec_read_file(const char* file) {
 
 static duk_ret_t duk_r2cmd(duk_context *ctx) {
 	if (duk_is_string (ctx, 0)) {
-		char* output = r_core_cmd_str (core_link, duk_safe_to_string (ctx, 0));
+		const char* command = duk_safe_to_string (ctx, 0);
+	    //fprintf (stderr, "R2CMD: %s\n", command);
+	    //fflush (stderr);
+		char* output = r_core_cmd_str (core_link, command);
 		duk_push_string (ctx, output);
 		free (output);
 		return 1;
@@ -100,7 +104,8 @@ static duk_ret_t duk_internal_require(duk_context *ctx) {
 		snprintf (fullname, sizeof(fullname), "%s.js", duk_safe_to_string (ctx, 0));
 		char* text = r2dec_read_file (fullname);
 		if (text) {
-			duk_push_string (ctx, text);
+			duk_push_lstring (ctx, fullname, strlen (fullname));
+			duk_eval_file (ctx, text);
 			free (text);
 		} else {
 			printf("Error: '%s' not found.\n", fullname);
@@ -120,10 +125,19 @@ static void duk_r2_init(duk_context* ctx) {
 	duk_put_global_string (ctx, "r2cmd");
 }
 
-static void duk_eval_file(duk_context* ctx, const char* file) {
+//static void duk_r2_debug_stack(duk_context* ctx) {
+//	duk_push_context_dump(ctx);
+//	printf("%s\n", duk_to_string(ctx, -1));
+//	duk_pop(ctx);
+//}
+
+static void eval_file(duk_context* ctx, const char* file) {
+    //fprintf (stderr, "REQUIRE: %s\n", file);
+    //fflush (stderr);
 	char* text = r2dec_read_file (file);
 	if (text) {
-		duk_eval_string_noresult (ctx, text);
+		duk_push_lstring (ctx, file, strlen (file));
+		duk_eval_file_noresult (ctx, text);
 		free (text);
 	}
 }
@@ -141,14 +155,15 @@ static void duk_r2dec(RCore *core, const char *input) {
 	duk_console_init (ctx, 0);
 //	Long_init (ctx);
 	duk_r2_init (ctx);
-	duk_eval_file (ctx, "require.js");
-	duk_eval_file (ctx, "r2dec-duk.js");
+	eval_file (ctx, "require.js");
+	eval_file (ctx, "r2dec-duk.js");
 	if (*input) {
-		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main(\"%s\".split(/\\s+/));}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}", input);
+		snprintf (args, sizeof(args), "try{if(typeof r2dec_main == 'function'){r2dec_main(\"%s\".split(/\\s+/));}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}}catch(_____e){console.log(_____e.stack||_____e);}", input);
 	} else {
-		snprintf (args, sizeof(args), "if(typeof r2dec_main == 'function'){r2dec_main([]);}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}");
+		snprintf (args, sizeof(args), "try{if(typeof r2dec_main == 'function'){r2dec_main([]);}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}}catch(_____e){console.log(_____e.stack||_____e);}");
 	}
 	duk_eval_string_noresult (ctx, args);
+	//duk_r2_debug_stack(ctx);
 	duk_destroy_heap (ctx);
 	core_link = 0;
 }

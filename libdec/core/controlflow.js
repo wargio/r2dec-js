@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     var Base = require('libdec/core/base');
     var Utils = require('libdec/core/utils');
     var Scope = require('libdec/core/scope');
@@ -329,4 +329,4 @@ module.exports = (function() {
 
         session.blocks = context.blocks.sort(_compare_blocks);
     };
-})();
+});

@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
 	var Extra = require('libdec/core/extra');
 
 	const _java = {
@@ -61,4 +61,4 @@ module.exports = (function() {
 			return new _all_langs[lang].object(type, args, create);
 		}
 	};
-})();
+});

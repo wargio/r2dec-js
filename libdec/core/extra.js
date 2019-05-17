@@ -25,7 +25,7 @@
  */
 
 
-module.exports = (function() {
+(function() {
     const _call_common = require('libdec/db/macros');
     const Long = require('libdec/long');
 
@@ -244,4 +244,4 @@ module.exports = (function() {
             return _magic_math_values[address];
         }
     };
-})();
+});

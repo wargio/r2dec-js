@@ -15,12 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = {
-    core: require('libdec/core'),
-    archs: require('libdec/archs'),
-    context: require('libdec/context'),
-    supported: function() {
-        console.log('Supported architectures:');
-        console.log('    ' + Object.keys(this.archs).join(', '));
-    }
-};
+(function() {
+	return {
+		core: require('libdec/core'),
+		archs: require('libdec/archs'),
+		context: require('libdec/context'),
+		supported: function() {
+			console.log('Supported architectures:');
+			console.log('    ' + Object.keys(this.archs).join(', '));
+		}
+	};
+});

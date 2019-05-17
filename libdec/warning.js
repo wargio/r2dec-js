@@ -15,12 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = function(message) {
-    if (typeof message == 'string') {
-        message = "[!] " + message;
-        if (this.printer.theme.comment) {
-            message = this.printer.theme.comment(message);
-        }
-        console.log(message);
-    }
-};
+(function() {
+	return function(message) {
+		if (typeof message == 'string') {
+			message = "[!] " + message;
+			if (this.printer.theme.comment) {
+				message = this.printer.theme.comment(message);
+			}
+			console.log(message);
+		}
+	};
+});

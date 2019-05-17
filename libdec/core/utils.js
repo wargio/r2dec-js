@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     var _default_cmp = function(a, b) {
         return a - b;
     };
@@ -56,4 +56,4 @@ module.exports = (function() {
             return pos >= 0 ? array[pos] : null;
         }
     };
-})();
+});

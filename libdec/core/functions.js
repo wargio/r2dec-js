@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     var r2pipe = require('libdec/r2pipe');
     var Utils = require('libdec/core/utils');
 
@@ -52,11 +52,11 @@ module.exports = (function() {
 
         this.search = function(offset) {
             if (!Global.evars.extra.slow && offset) {
-                var x = r2pipe.json64('afij @  0x' + offset.toString(16), [])[0];
+                var x = r2pipe.json64('afij @ 0x' + offset.toString(16), [])[0];
                 return create_fcn_data(x);
             }
             return offset ? Utils.search(offset, this.data, _compare) : null;
         };
     };
     return Functions;
-})();
+});

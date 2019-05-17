@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
 
     const Variable = require('libdec/core/variable');
     const Base = require('libdec/core/base');
@@ -1717,4 +1717,4 @@ module.exports = (function() {
         }
     }
     return _arm;
-})();
+});

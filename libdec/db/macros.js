@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     /**
      * On r2 this can be done via afcfj <function name>
      * [
@@ -223,4 +223,4 @@ module.exports = (function() {
         },
     };
 
-})();
+});

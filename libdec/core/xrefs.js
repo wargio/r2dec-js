@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
 	var XReference = function(strings, symbols) {
 		this.db_strings = strings;
 		this.db_symbols = symbols;
@@ -33,4 +33,4 @@ module.exports = (function() {
 		};
 	};
 	return XReference;
-})();
+});

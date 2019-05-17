@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     const Cpp = require('libdec/db/cpp');
     const CCalls = require('libdec/db/c_calls');
 
@@ -521,4 +521,4 @@ module.exports = (function() {
             return new _generic_asm(asm);
         }
     };
-})();
+});
