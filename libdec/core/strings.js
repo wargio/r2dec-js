@@ -16,6 +16,7 @@
  */
 
 module.exports = (function() {
+    var r2pipe = require('libdec/r2pipe');
     var Utils = require('libdec/core/utils');
 
     var _compare = function(a, b) {
@@ -47,6 +48,13 @@ module.exports = (function() {
         }).sort(_str_compare_location);
         this.search = function(address) {
             if (address) {
+                if (!Global.evars.extra.slow) {
+                    var x = r2pipe.string('Cs. @ 0x' + address.toString(16));
+                    if (x) {
+                        x = x.substr(1);
+                        return x.substr(0, x.length - 1);
+                    }
+                }
                 var r = Utils.search(address, this.data, _compare);
                 return r ? r.value : null;
             }

@@ -16,44 +16,9 @@
  */
 
 module.exports = (function() {
+    var r2pipe = require('libdec/r2pipe');
     var _JSON = require('libdec/json64');
     var Long = require('libdec/long');
-
-    function r2custom(value, regex, function_fix) {
-        var x = r2cmd(value);
-        if (regex) {
-            x = x.replace(regex, '');
-        }
-        return function_fix ? function_fix(x.trim()) : x.trim();
-    }
-
-    function r2str(value, multiline) {
-        var x = r2cmd(value);
-        if (multiline) {
-            x = x.replace(/\n/g, '');
-        }
-        return x.trim();
-    }
-
-    function r2json(m, def) {
-        var x = r2str(m, true);
-        return x.length > 0 ? _JSON.parse(x) : def;
-    }
-
-    function r2int(value, def) {
-        var x = r2str(value);
-        if (x != '') {
-            try {
-                return parseInt(x);
-            } catch (e) {}
-        }
-        return def;
-    }
-
-    function r2bool(value) {
-        var x = r2str(value);
-        return x == 'true' || x == '1';
-    }
 
     function r2_sanitize(value, expected) {
         return value.length == 0 ? expected : value;
@@ -135,14 +100,14 @@ module.exports = (function() {
     }
 
     function print_issue() {
-        var xrefs = r2_sanitize(r2str('isj'), '[]');
-        var strings = r2_sanitize(r2str('Csj'), '[]');
-        var functions = r2_sanitize(r2str('aflj'), '[]');
-        var data = r2_sanitize(r2str('agj'), '[]');
-        var farguments = r2_sanitize(r2str('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
-        var arch = r2_sanitize(r2str('e asm.arch'), '');
-        var archbits = r2_sanitize(r2str('e asm.bits'), '32');
-        var database = r2_sanitize(r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays), '[]');
+        var xrefs = r2_sanitize(r2pipe.string('isj'), '[]');
+        var strings = r2_sanitize(r2pipe.string('Csj'), '[]');
+        var functions = r2_sanitize(r2pipe.string('aflj'), '[]');
+        var data = r2_sanitize(r2pipe.string('agj'), '[]');
+        var farguments = r2_sanitize(r2pipe.string('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
+        var arch = r2_sanitize(r2pipe.string('e asm.arch'), '');
+        var archbits = r2_sanitize(r2pipe.string('e asm.bits'), '32');
+        var database = r2_sanitize(r2pipe.custom('afcfj @@@i', /^\[\]\n/g, merge_arrays), '[]');
         console.log('{"name":"issue_' + (new Date()).getTime() +
             '","arch":"' + arch +
             '","archbits":' + archbits +
@@ -187,7 +152,8 @@ module.exports = (function() {
                 offset: Long.ZERO,
                 ascomment: false,
                 asopcode: false,
-                debug: true
+                debug: true,
+                slow: true
             };
         },
         dataTestSuite: function(x) {
@@ -219,30 +185,31 @@ module.exports = (function() {
             };
         },
         evars: function(args) {
-            this.arch = r2str('e asm.arch');
-            this.archbits = r2int('e asm.bits', 32);
+            this.arch = r2pipe.string('e asm.arch');
+            this.archbits = r2pipe.int('e asm.bits', 32);
             this.honor = {
-                casts: r2bool('e r2dec.casts') || has_option(args, '--casts'),
-                assembly: r2bool('e r2dec.asm') || has_option(args, '--assembly'),
-                blocks: r2bool('e r2dec.blocks') || has_option(args, '--blocks'),
-                xrefs: r2bool('e r2dec.xrefs') || has_option(args, '--xrefs'),
-                paddr: r2bool('e r2dec.paddr') || has_option(args, '--paddr'),
+                casts: r2pipe.bool('e r2dec.casts') || has_option(args, '--casts'),
+                assembly: r2pipe.bool('e r2dec.asm') || has_option(args, '--assembly'),
+                blocks: r2pipe.bool('e r2dec.blocks') || has_option(args, '--blocks'),
+                xrefs: r2pipe.bool('e r2dec.xrefs') || has_option(args, '--xrefs'),
+                paddr: r2pipe.bool('e r2dec.paddr') || has_option(args, '--paddr'),
                 offsets: has_option(args, '--offsets'),
-                html: r2bool('e scr.html') || has_option(args, '--html'),
-                color: r2int('e scr.color', 0) > 0 || has_option(args, '--colors')
+                html: r2pipe.bool('e scr.html') || has_option(args, '--html'),
+                color: r2pipe.int('e scr.color', 0) > 0 || has_option(args, '--colors')
             };
             this.sanitize = {
-                ucase: r2bool('e asm.ucase'),
-                pseudo: r2bool('e asm.pseudo'),
-                capitalize: r2bool('e asm.capitalize'),
+                ucase: r2pipe.bool('e asm.ucase'),
+                pseudo: r2pipe.bool('e asm.pseudo'),
+                capitalize: r2pipe.bool('e asm.capitalize'),
             };
             this.extra = {
-                theme: r2str('e r2dec.theme'),
-                file: r2str('i~^file[1:0]'),
-                offset: Long.fromString(r2str('s'), true, 16),
+                theme: r2pipe.string('e r2dec.theme'),
+                file: r2pipe.string('i~^file[1:0]'),
+                offset: Long.fromString(r2pipe.string('s'), true, 16),
                 ascomment: has_option(args, '--as-comment'),
                 asopcode: has_option(args, '--as-opcode'),
-                debug: r2bool('e r2dec.debug') || has_option(args, '--debug')
+                debug: r2pipe.bool('e r2dec.debug') || has_option(args, '--debug'),
+                slow: r2pipe.bool('e r2dec.slow')
             };
             this.add_comment = function(comment, offset) {
                 if (!comment || comment.length < 1) {
@@ -252,7 +219,7 @@ module.exports = (function() {
                 r2cmd('CCu base64:' + Duktape.enc('base64', comment) + ' @ 0x' + offset.toString(16));
             };
             this.add_opcode = function(comment, offset) {
-                var off = r2str('s');
+                var off = r2pipe.string('s');
                 if (!comment || comment.length < 1) {
                     comment = '-';
                 }
@@ -269,20 +236,21 @@ module.exports = (function() {
             }
         },
         data: function() {
-            this.arch = r2str('e asm.arch');
-            this.bits = r2int('e asm.bits', 32);
+            var isfast = !r2pipe.bool('e r2dec.slow');
+            this.arch = r2pipe.string('e asm.arch');
+            this.bits = r2pipe.int('e asm.bits', 32);
             this.xrefs = {
-                symbols: r2json('isj', []),
-                strings: r2json('Csj', []),
-                functions: r2json('aflj', []),
-                arguments: offset_long(r2json('afvj', {
+                symbols: (isfast ? [] : r2pipe.json64('isj', [])),
+                strings: (isfast ? [] : r2pipe.json64('Csj', [])),
+                functions: (isfast ? [] : r2pipe.json64('aflj', [])),
+                arguments: offset_long(r2pipe.json64('afvj', {
                     "sp": [],
                     "bp": [],
                     "reg": []
                 }))
             };
-            this.graph = r2json('agj', []);
-            this.argdb = r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays_json);
+            this.graph = r2pipe.json64('agj', []);
+            this.argdb = r2pipe.custom('afcfj @@@i', /^\[\]\n/g, merge_arrays_json);
         },
         sanitize: function(enable, evars) {
             var s = evars.sanitize;
@@ -296,7 +264,7 @@ module.exports = (function() {
                 console.log('Exception:', exception.stack);
             } else {
                 console.log(
-                    '\n\nr2dec has crashed (info: ' + r2str('i~^file[1:0]') + ' @ ' + r2str('s') + ').\n' +
+                    '\n\nr2dec has crashed (info: ' + r2pipe.string('i~^file[1:0]') + ' @ ' + r2pipe.string('s') + ').\n' +
                     'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
                     'Use the option \'--issue\' or the command \'pddi\' to generate \n' +
                     'the needed data for the issue.'

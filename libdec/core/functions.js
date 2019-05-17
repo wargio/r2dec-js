@@ -16,6 +16,7 @@
  */
 
 module.exports = (function() {
+    var r2pipe = require('libdec/r2pipe');
     var Utils = require('libdec/core/utils');
 
     var _compare = function(a, b) {
@@ -25,6 +26,18 @@ module.exports = (function() {
             return 1;
         }
         return -1;
+    };
+
+    var create_fcn_data = function(x) {
+        if (!x) {
+            return null;
+        }
+        return {
+            offset: x.offset,
+            name: x.name,
+            calltype: x.calltype,
+            nargs: x.nargs
+        };
     };
 
     /*
@@ -43,6 +56,10 @@ module.exports = (function() {
         });
 
         this.search = function(offset) {
+            if (!Global.evars.extra.slow && offset) {
+                var x = r2pipe.json64('afij @  0x' + offset.toString(16), [])[0];
+                return create_fcn_data(x);
+            }
             return offset ? Utils.search(offset, this.data, _compare) : null;
         };
     };
