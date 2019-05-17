@@ -310,7 +310,7 @@ module.exports = (function() {
 				var p = instr.parsed;
 				context.objects[p.opd[0]] = {
 					instr: instr,
-					type: p.opd[1].startsWith('0x') ? DalvikType.Number : DalvikType.String,
+					type: !instr.string && p.opd[1].startsWith('0x') ? DalvikType.Number : DalvikType.String,
 				};
 				var dst = Variable.local(p.opd[0], instr.bits, true);
 				var src = !instr.string && p.opd[1].startsWith("0x") ?
