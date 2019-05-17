@@ -47,12 +47,7 @@ module.exports = (function() {
         this.data = aflj.sort(function(a, b) {
             return a.offset.lt(b.offset) ? -1 : (a.offset.eq(b.offset) ? 0 : 1);
         }).map(function(x) {
-            return {
-                offset: x.offset,
-                name: x.name,
-                calltype: x.calltype,
-                nargs: x.nargs
-            };
+            return create_fcn_data(x);
         });
 
         this.search = function(offset) {
