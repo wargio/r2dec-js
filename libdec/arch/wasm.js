@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
 
     var Base = require('libdec/core/base');
     var Variable = require('libdec/core/variable');
@@ -557,4 +557,4 @@ module.exports = (function() {
         }
     };
     return _wasm_arch;
-})();
+});

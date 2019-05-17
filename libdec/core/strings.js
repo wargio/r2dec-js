@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     var r2pipe = require('libdec/r2pipe');
     var Utils = require('libdec/core/utils');
 
@@ -61,4 +61,4 @@ module.exports = (function() {
             return null;
         };
     };
-})();
+});

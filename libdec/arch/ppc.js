@@ -16,7 +16,7 @@
  */
 
 /* https://www.ibm.com/developerworks/systems/library/es-archguide-v2.html */
-module.exports = (function() {
+(function() {
     var Base = require('libdec/core/base');
     var Variable = require('libdec/core/variable');
     var Long = require('libdec/long');
@@ -1875,4 +1875,4 @@ module.exports = (function() {
             return context.returns;
         }
     };
-})();
+});

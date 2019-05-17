@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
 	const Extra = require('libdec/core/extra');
 	const Base = require('libdec/core/base');
 
@@ -303,4 +303,4 @@ module.exports = (function() {
 			);
 		}
 	};
-})();
+});

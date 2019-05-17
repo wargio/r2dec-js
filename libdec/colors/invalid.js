@@ -36,12 +36,12 @@
         };
         return fn;
     };
-    module.exports = Color;
-    module.exports.make = function(theme) {
+    Color.make = function(theme) {
         var g = {};
         for (var key in theme) {
             g[key] = Color(theme[key]);
         }
         return g;
     };
-})();
+    return Color;
+});

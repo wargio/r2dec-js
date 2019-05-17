@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     var Extra = require('libdec/core/extra');
 
     const _cmps = {
@@ -56,4 +56,4 @@ module.exports = (function() {
             };
         },
     };
-})();
+});
