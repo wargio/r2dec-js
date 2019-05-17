@@ -71,7 +71,10 @@ static char* r2dec_read_file(const char* file) {
 
 static duk_ret_t duk_r2cmd(duk_context *ctx) {
 	if (duk_is_string (ctx, 0)) {
-		char* output = r_core_cmd_str (core_link, duk_safe_to_string (ctx, 0));
+		const char* command = duk_safe_to_string (ctx, 0);
+	    //fprintf (stderr, "R2CMD: %s\n", command);
+	    //fflush (stderr);
+		char* output = r_core_cmd_str (core_link, command);
 		duk_push_string (ctx, output);
 		free (output);
 		return 1;
@@ -129,6 +132,8 @@ static void duk_r2_init(duk_context* ctx) {
 //}
 
 static void eval_file(duk_context* ctx, const char* file) {
+    //fprintf (stderr, "REQUIRE: %s\n", file);
+    //fflush (stderr);
 	char* text = r2dec_read_file (file);
 	if (text) {
 		duk_push_lstring (ctx, file, strlen (file));

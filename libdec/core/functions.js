@@ -52,7 +52,7 @@
 
         this.search = function(offset) {
             if (!Global.evars.extra.slow && offset) {
-                var x = r2pipe.json64('afij @  0x' + offset.toString(16), [])[0];
+                var x = r2pipe.json64('afij @ 0x' + offset.toString(16), [])[0];
                 return create_fcn_data(x);
             }
             return offset ? Utils.search(offset, this.data, _compare) : null;
