@@ -435,7 +435,7 @@ module.exports = (function() {
     // if a phi expression has only one argument, propagate it into defined variable
     //
     //   x7 = Phi(x4)       // phi and x7 are eliniminated, x4 propagated to x7 uses
-    //   x8 = x7 + 1   -->  x8 = x4 +1
+    //   x8 = x7 + 1   -->  x8 = x4 + 1
     //   x9 = *(x7)         x9 = *(x4)
     var propagate_single_phi = function(defs) {
         return defs.iterate(function(def) {
@@ -500,12 +500,47 @@ module.exports = (function() {
         });
     };
 
-    var relax_phi = function(defs) {
-        // relax phis:
-        //  o propagate phi with single use that is another phi, combine them together
+    // propagate a phi with only one use that happens to be a phi
+    var propagate_chained_phi = function(defs) {
+        return defs.iterate(function(def) {
+            var p = def.parent;
 
+            if (is_phi_assignment(p)) {
+                var v = p.operands[0];
+                var phi = p.operands[1];
+
+                if (v.uses.length === 1) {
+                    var u = v.uses.pop();
+
+                    if (u.parent instanceof Expr.Phi) {
+                        for (var i = 0; i < phi.operands.length; i++)
+                        {
+                            var o = phi.operands[i];
+
+                            // propagate phi operands into its phi user, avoiding duplications
+                            if (!u.parent.has(o)) {
+                                u.parent.push_operand(o.clone(['idx', 'def']));
+                            }
+                        }
+                    }
+
+                    // detach propagated phi along of its operands
+                    p.iter_operands().forEach(detach_user);
+                    p.pluck();
+
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+    };
+
+    var relax_phi = function(defs) {
         propagate_single_phi(defs);
         propagate_self_ref_phi(defs);
+        propagate_chained_phi(defs);
     };
 
     // TODO: this is arch-specific for x86 
@@ -544,18 +579,18 @@ module.exports = (function() {
                 var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
-                // function calls may have side effects, and cannot be eliminated. instead they are
-                // extracted from the assignment and kept aside
+                // function calls may have side effects, and cannot be eliminated altogether.
+                // instead, they are extracted from the assignment and kept aside.
                 if (rhand instanceof Expr.Call) {
                     p.replace(rhand);
 
                     return true;
                 }
 
-                // memory derefs may have side effects as well, so they are excluded.
-                // phi derefs, however, are not 'real' program operations and have no side effects.
-                // unused phi derefs may be safely discarded.
-                else if (!(lhand instanceof Expr.Deref) || (rhand instanceof Expr.Phi)) {
+                // memory dereferences may have side effects as well, so they cannot be eliminated. an exception
+                // to that are memory dereferences that are assigned to phi expressions. phi are not real program
+                // operations and have no side effects.
+                else if ((!(lhand instanceof Expr.Deref) || (rhand instanceof Expr.Phi))) {
                     p.iter_operands().forEach(detach_user);
                     p.pluck();
 

@@ -545,6 +545,18 @@
     Phi.prototype = Object.create(Expr.prototype);
     Phi.prototype.constructor = Phi;
 
+    // TODO: consider extending 'operands' array of Expr instead of implementing
+    // Expr methods to handle its operations.
+    Phi.prototype.has = function(op) {
+        var found = false;
+
+        for (var i = 0; (i < this.operands.length) && !found; i++) {
+            found = this.operands[i].equals(op);
+        }
+
+        return found;
+    };
+
     Phi.prototype.toString = function(opt) {
         var args = this.operands.map(function(a) {
             return a.toString(opt);

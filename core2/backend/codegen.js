@@ -419,7 +419,7 @@ module.exports = (function() {
      */
     CodeGen.prototype.emit_scope = function(cntr, depth) {
         const p = this.pad(depth);
-        var newline = this.scope_newline ? [] : [[TOK_WHTSPCE, '\n']];
+        var newline = [[TOK_WHTSPCE, this.scope_newline ? '\n' : ' ']];
 
         var opening = [
             [TOK_WHTSPCE, p],
@@ -434,7 +434,7 @@ module.exports = (function() {
         var closing = [
             [TOK_WHTSPCE, p],
             [TOK_PAREN, '}'],
-            [TOK_WHTSPCE, '\n']
+            [TOK_WHTSPCE, '\n'] // TODO: this may break the inline 'else' keyword
         ];
 
         return Array.prototype.concat(newline, opening, content, closing);

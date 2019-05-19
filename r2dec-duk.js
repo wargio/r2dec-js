@@ -204,7 +204,7 @@ function r2dec_main(args) {
                 var defs = ssa.rename_variables();
 
                 // emit def-use chains
-                console.log(defs);
+                // console.log(defs);
 
                 // ControlFlow.run(func);
 
