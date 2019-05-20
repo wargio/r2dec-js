@@ -31,7 +31,7 @@
             "types": config['func_var_type'] || 'green',
             "macro": config['cjmp'] || 'yellow',
             "flow": config['flow'] || 'magenta',
-            "text": config['usrcmt'] || 'yellow,
+            "text": config['usrcmt'] || 'yellow',
         };
         return config;
     }
