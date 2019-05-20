@@ -17,7 +17,8 @@
 
 (function() {
     function initializeColors() {
-        const colors = r2cmd("ec*");
+        const config = {};
+        const colors = r2cmd? r2cmd("ec*"): '';
         colors.split('\n').forEach(function(line) {
             const tok = line.split(' ');
             config[tok[1]] = tok[2];
