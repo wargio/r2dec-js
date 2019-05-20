@@ -1202,6 +1202,9 @@
             add: function(instr, context) {
                 return _math_common(instr.parsed, Base.add, true, context);
             },
+            adc: function(instr, context) {
+                return _math_common(instr.parsed, Base.add, true, context);
+            },
             sub: function(instr, context) {
                 return _math_common(instr.parsed, Base.subtract, true, context);
             },
@@ -1394,6 +1397,12 @@
             ror: function(instr, context) {
                 return _bitwise_rotate(instr.parsed, Base.rotate_right, context);
             },
+            rcl: function(instr, context) {
+                return _bitwise_rotate(instr.parsed, Base.rotate_left, context);
+            },
+            rcr: function(instr, context) {
+                return _bitwise_rotate(instr.parsed, Base.rotate_right, context);
+            },
             jmp: function(instr, context, instructions) {
                 var dst = instr.parsed.opd[0];
 
@@ -1536,6 +1545,12 @@
             // scasd: _string_common,
             // scasq: _string_common,
 
+            jo: function(i, c) {
+                return _jcc_common(i, c, 'LO');
+            },
+            jno: function(i, c) {
+                return _jcc_common(i, c, 'NO');
+            },
             jne: function(i, c) {
                 return _jcc_common(i, c, 'NE');
             },
