@@ -17,34 +17,21 @@
 
 (function() {
     function initializeColors() {
-        const useR2Colors = true; // hardcoded. TODO. add a config var
-        const config = {
-            "callname": "gray",
-            "integers": "cyan",
-            "comment": "red",
-            "labels": "green",
-            "types": "green",
-            "macro": "yellow",
-            "flow": "magenta",
-            "text": "yellow"
+        const colors = r2cmd("ec*");
+        colors.split('\n').forEach(function(line) {
+            const tok = line.split(' ');
+            config[tok[1]] = tok[2];
+        });
+        return {
+            "callname": config['call'] || 'gray',
+            "integers": config['num'] || 'cyan',
+            "comment": config['comment'] || 'red',
+            "labels": config['flag'] || ' green',
+            "types": config['func_var_type'] || green',
+            "macro": config['cjmp'] || 'yellow',
+            "flow": config['flow'] || 'magenta',
+            "text": config['usrcmt'] || 'yellow,
         };
-        if (useR2Colors) {
-            const colors = r2cmd("ec*");
-            colors.split('\n').forEach(function(line) {
-                const tok = line.split(' ');
-                config[tok[1]] = tok[2];
-            });
-            return {
-            "callname": config['call'],
-            "integers": config['num'],
-            "comment": config['comment'],
-            "labels": config['flag'],
-            "types": config['func_var_type'],
-            "macro": config['cjmp'],
-            "flow": config['flow'],
-            "text": config['usrcmt'],
-            };
-        }
         return config;
     }
     //const _autoregex = /(\bif\b|\belse\b|\bwhile\b|\bfor\b|\bdo\b|\breturn\b|[ui]+nt[123468]+\_t|\bvoid\b|\bconst\b|\bsizeof\b|\bfloat\b|\bdouble\b|0x[0-9A-Fa-f]+|\b\d+\b)/g
