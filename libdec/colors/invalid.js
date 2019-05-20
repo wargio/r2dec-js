@@ -16,17 +16,6 @@
  */
 
 (function() {
-    var __colors = [
-        'black',
-        'red',
-        'green',
-        'yellow',
-        'blue',
-        'magenta',
-        'cyan',
-        'white',
-        'gray',
-    ];
     var Color = function(name) {
         var fn = function(x) {
             return x;
