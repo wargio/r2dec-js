@@ -207,7 +207,7 @@
             }
             if (name.startsWith('L') || name.startsWith('[L')) {
                 // java object
-                name = name.replace(/(\._init_)?_.+V$|(\.<init>)?\(.+$/, '');
+                name = name.replace(/\.<init>\(.+$|\(.+$|\._init_.+V$|_L.+$/, '');
                 name = name.substr(name.startsWith('L') ? 1 : 2).replace(/\/|;->/g, '.').replace(/\s.+$|;$/, '');
                 if (name.indexOf('_L') > 0) {
                     name = name.substring(0, name.indexOf('_L'));

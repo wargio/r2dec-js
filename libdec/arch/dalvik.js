@@ -318,6 +318,16 @@
 					Variable.string(instr.string ? instr.string : p.opd[1]);
 				return Base.assign(dst, src);
 			},
+			'const-class': function(instr, context, instructions) {
+				var p = instr.parsed;
+				context.objects[p.opd[0]] = {
+					instr: instr,
+					type: DalvikType.StaticObject,
+				};
+				var dst = Variable.local(p.opd[0], instr.bits, true);
+				var src = Variable.object(p.opd[1]);
+				return Base.assign(dst, src);
+			},
 			'new-array': function(instr, context, instructions) {
 				var size = _handle_type(context.objects[instr.parsed.opd[1]], Variable.local(instr.parsed.opd[1], instr.bits, true));
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
@@ -490,6 +500,20 @@
 				return Base.nop();
 			},
 			'move': function(instr, context, instructions) {
+				var p = instr.parsed;
+				context.objects[p.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
+				context.objects[p.opd[1]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
+				var dst = Variable.local(p.opd[0], instr.bits, true);
+				var src = Variable.local(p.opd[1], instr.bits, true);
+				return Base.assign(dst, src);
+			},
+			'move-object': function(instr, context, instructions) {
 				var p = instr.parsed;
 				context.objects[p.opd[0]] = {
 					instr: instr,
@@ -815,7 +839,7 @@
 		preanalisys: function(instructions, context) {},
 		postanalisys: function(instructions, context) {
 			// this is only for those jumps that ends in return like
-			while(context.missing.length > 0) {
+			while (context.missing.length > 0) {
 				var r = context.missing.pop();
 				r[0].code = instructions[r[1]].code;
 			}
@@ -835,7 +859,7 @@
 			return context.returntype;
 		},
 		routine_name: function(name) {
-			return Extra.replace.object(name);
+			return Extra.replace.object(name).replace(/_/g, ".");
 		}
 	};
 });
