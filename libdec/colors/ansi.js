@@ -27,16 +27,30 @@
         white: [37, 39],
         gray: [90, 39],
     };
-    var Color = function(name) {
-        if (!__colors[name]) {
-            throw new Error('Invalid name: ' + name);
+    function pair(name, n) {
+        if (name.length === 6) {
+            n *= 2;
+            return parseInt(name.substring (n, n + 2), 16);
         }
+        return parseInt(name.substring (n, n + 1), 16) << 4;
+    }
+    var Color = function(name) {
         var fn = function(x) {
             var o = arguments.callee;
             return o.open + x + o.close;
         };
-        fn.open = '\u001b[' + __colors[name][0] + 'm';
-        fn.close = '\u001b[' + __colors[name][1] + 'm';
+        if (name.startsWith('rgb:')) {
+            name = name.substring (4);
+            const str = '\u001b[38;2;'+ pair(name, 0) + ';' + pair(name, 1) + ';' + pair(name, 2);
+            fn.open = '\u001b[' + str + 'm';
+            fn.close = '\u001b[0m';
+        } else {
+            if (!__colors[name]) {
+                throw new Error('Invalid name: ' + name);
+            }
+            fn.open = '\u001b[' + __colors[name][0] + 'm';
+            fn.close = '\u001b[' + __colors[name][1] + 'm';
+        }
         return fn;
     };
     Color.make = function(theme) {

@@ -16,21 +16,7 @@
  */
 
 (function() {
-    var __colors = [
-        'black',
-        'red',
-        'green',
-        'yellow',
-        'blue',
-        'magenta',
-        'cyan',
-        'white',
-        'gray',
-    ];
     var Color = function(name) {
-        if (__colors.indexOf(name) < 0) {
-            throw new Error('Invalid name: ' + name);
-        }
         var fn = function(x) {
             return x;
         };
