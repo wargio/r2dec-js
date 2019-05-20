@@ -7,7 +7,7 @@ Converts asm to pseudo-C code.
 
 # Software Requirements
 
-Requires radare2 version 3.5.0 or newer.
+Requires radare2 version 3.6.0 or newer.
 
 # Install
 
@@ -32,29 +32,36 @@ Follow the following steps to install r2dec via r2pm
 # Arguments
 
 ```
-[0x00000000]> pdd?
-Usage: pdd [args] - core plugin for r2dec
- pdd   - decompile current function
- pdd?  - show this help
- pdda  - decompile current function with side assembly
- pddb  - decompile current function but shows only scopes
- pddu  - install/upgrade r2dec via r2pm
- pddi  - generates the issue data
+[0x00000000]> pdd?Usage: pdd [args] - core plugin for r2dec
+ pdd           - decompile current function
+ pdd?          - show this help
+ pdd*          - the decompiled code is returned to r2 as comment (via CCu)
+ pdda          - decompile current function side by side with assembly
+ pddb          - decompile current function but shows only scopes
+ pddo          - decompile current function side by side with offsets
+ pddu          - install/upgrade r2dec via r2pm
+ pdds <branch> - switches r2dec branch
+ pddi          - generates the issue data
+
 Environment
  R2DEC_HOME  defaults to the root directory of the r2dec repo
+
 [0x00000000]> pdd --help
 
 r2dec [options]
        --help       | this help message
        --assembly   | shows pseudo next to the assembly
        --blocks     | shows only scopes blocks
-       --colors     | enables syntax colors
        --casts      | shows all casts in the pseudo code
+       --colors     | enables syntax colors
        --debug      | do not catch exceptions
        --html       | outputs html data instead of text
        --issue      | generates the json used for the test suite
+       --offsets    | shows pseudo next to the assembly offset
        --paddr      | all xrefs uses physical addresses instead of virtual addresses
        --xrefs      | shows also instruction xrefs in the pseudo code
+       --as-comment | the decompiled code is returned to r2 as comment (via CCu)
+       --as-opcode  | the decompiled code is returned to r2 as opcode (via aho)
 ```
 
 # Radare2 Evaluable vars
@@ -62,12 +69,14 @@ r2dec [options]
 You can use these in your `.radare2rc` file.
 
 ```
-r2dec.casts         | if false, hides all casts in the pseudo code.
 r2dec.asm           | if true, shows pseudo next to the assembly.
 r2dec.blocks        | if true, shows only scopes blocks.
+r2dec.casts         | if false, hides all casts in the pseudo code.
+r2dec.debug         | do not catch exceptions in r2dec.
 r2dec.paddr         | if true, all xrefs uses physical addresses compare.
-r2dec.xrefs         | if true, shows all xrefs in the pseudo code.
+r2dec.slow          | if true load all the data before to avoid multirequests to r2.
 r2dec.theme         | defines the color theme to be used on r2dec.
+r2dec.xrefs         | if true, shows all xrefs in the pseudo code.
 e scr.html          | outputs html data instead of text.
 e scr.color         | enables syntax colors.
 ```
@@ -81,15 +90,16 @@ e scr.color         | enables syntax colors.
 
 # Supported Arch
 
-    arm
+    arm 16/32/64 bit
     avr
+    dalvik
     m68k (experimental)
     mips
-    ppc
+    ppc 32/64 bit (VLE included)
     sparc
     v850
-    wasm (partial)
-    x86-64 (intel syntax)
+    wasm (experimental)
+    x86/x64
 
 # Developing on r2dec
 

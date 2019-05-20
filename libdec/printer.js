@@ -44,7 +44,7 @@
         controlflow: /\bif\b|\belse\b|\bwhile\b|\bfor\b|\bdo\b|\breturn\b|\bthrow\b/g,
         definebits: /[ui]+nt[123468]+_t|\bvoid\b|\bconst\b|\bsizeof\b|\bfloat\b|\bdouble\b|\bchar\b|\bwchar_t\b|\bextern\b|\bstruct\b|\bsize_t\b|\btime_t\b/g,
         numbers: /0x[0-9a-fA-F]+|\b\d+\b/g,
-        string: /("[^"]+")/
+        string: /("[^"]+")/,
     };
 
     // const defaulttheme = JSON.parse(include('themes/default.json'));
@@ -134,6 +134,9 @@
         }
         if (!Global.evars.honor.color && !Global.evars.honor.html) {
             return input;
+        }
+        if (input.indexOf("\u001b[") >= 0) {
+            input = input.replace(/\u001b\[[\d;]+m/, '');
         }
         /* control flow (if, else, while, do, etc..) */
         var x = input.split(_autotheme.controlflow);

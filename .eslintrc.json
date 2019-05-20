@@ -22,7 +22,8 @@
         "no-cond-assign": ["error", "except-parens"],
         "no-constant-condition": ["error", {
             "checkLoops": false
-        }]
+        }],
+	"no-control-regex": "warn"
     },
     "globals": {
         "Global": true,
