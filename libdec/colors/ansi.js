@@ -27,16 +27,28 @@
         white: [37, 39],
         gray: [90, 39],
     };
+    function pair(name, n) {
+       const a = name.charCodeAt(n);
+       const b = name.charCodeAt(n + 1);
+       return (a << 4) | b;
+    }
     var Color = function(name) {
-        if (!__colors[name]) {
-            throw new Error('Invalid name: ' + name);
-        }
         var fn = function(x) {
             var o = arguments.callee;
             return o.open + x + o.close;
         };
-        fn.open = '\u001b[' + __colors[name][0] + 'm';
-        fn.close = '\u001b[' + __colors[name][1] + 'm';
+        if (name.startsWith('rgb:')) {
+            name = name.substring (4);
+            const str = '\u001b[48;2;'+ pair(name, 0) + ';' + pair(name, 2) + ';' + pair(name, 4) + ';m'
+            fn.open = '\u001b[' + str + 'm';
+            fn.close = '\u001b[0m';
+        } else {
+            if (!__colors[name]) {
+                throw new Error('Invalid name: ' + name);
+            }
+            fn.open = '\u001b[' + __colors[name][0] + 'm';
+            fn.close = '\u001b[' + __colors[name][1] + 'm';
+        }
         return fn;
     };
     Color.make = function(theme) {
