@@ -28,9 +28,11 @@
         gray: [90, 39],
     };
     function pair(name, n) {
-       const a = name.charCodeAt(n);
-       const b = name.charCodeAt(n + 1);
-       return (a << 4) | b;
+        if (name.length === 6) {
+            n *= 2;
+            return parseInt(name.substring (n, n + 2), 16);
+        }
+        return parseInt(name.substring (n, n + 1), 16) << 4;
     }
     var Color = function(name) {
         var fn = function(x) {
@@ -39,7 +41,7 @@
         };
         if (name.startsWith('rgb:')) {
             name = name.substring (4);
-            const str = '\u001b[48;2;'+ pair(name, 0) + ';' + pair(name, 2) + ';' + pair(name, 4) + ';m'
+            const str = '\u001b[38;2;'+ pair(name, 0) + ';' + pair(name, 1) + ';' + pair(name, 2);
             fn.open = '\u001b[' + str + 'm';
             fn.close = '\u001b[0m';
         } else {
