@@ -16,6 +16,7 @@
  */
 
  module.exports = (function() {
+    const Long = require('libdec/long');
 
     /**
      * This module defines IR expressions that are common to all architectures. Each
@@ -79,7 +80,7 @@
      * does not have parenthesis already; otherwise returns `s`
      */
     var auto_paren = function(s) {
-        var complex = s.indexOf(' ') > (-1);
+        var complex = s.indexOf(' ') !== (-1);
         var has_paren = s.startsWith('(') && s.endsWith(')');
 
         return (complex && !has_paren) ? parenthesize(s) : s;
@@ -105,9 +106,6 @@
 
     // ------------------------------------------------------------
 
-    // TODO: change regs to work with enum rather than names, so we could identify overlapping
-    //       registers, for exmaple: al~ah~ax~eax~rax
-
     /**
      * System register.
      * @param {!string} name Register name
@@ -115,9 +113,6 @@
      * @constructor
      */
     function Register(name, size) {
-        // TODO: registers should be denoted by an enumeration rather than a name, since some
-        // registers contain other, e.g. ax == eax == rax
-
         /** @type {!string} */
         this.name = name;
 
@@ -223,8 +218,10 @@
      * @constructor
      */
     function Value(value, size) {
-        /** @type {!number} */
-        this.value = value;
+        /** @type {!Long} */
+        this.value = Long.isLong(value)
+            ? value
+            : Long.fromInt(value, false/*true*/);
 
         /** @type {!number} */
         this.size = size || 0;
@@ -252,13 +249,13 @@
     /** @returns {boolean} */
     Value.prototype.equals = function(other) {
         return ((other instanceof Value) &&
-            (this.value == other.value) &&
+            (this.value.eq(other.value)) &&
             (this.size === other.size));    // TODO: should we be bothered about matching sizes?
     };
 
     /** @returns {!Value} */
     Value.prototype.clone = function() {
-        return new Value(this.value, this.size);
+        return new Value(this.value, this.size);    // TODO: should we clone the Long object?
     };
 
     // /**
@@ -268,8 +265,6 @@
     // Value.prototype.toReadableString = function() {
     //     var n = this.value;
     //     var size = this.size;
-    // 
-    //     // TODO: adjust comparisons to Long's?
     // 
     //     // an index or small offset?
     //     if (n < 32)
@@ -281,15 +276,15 @@
     //     // tranfroming it into a character - which is not always desirable
     // 
     //     // an ascii character?
-    //     if ((size == 8) && (n >= 32) && (n <= 126)) {
+    //     if ((size === 8) && (n.ge(32)) && (n.le(126))) {
     //         return "'" + String.fromCharCode(n) + "'";
     //     }
     // 
     //     // -1 ?
-    //     if (((size ==  8) && (n == 0xff)) ||
-    //         ((size == 16) && (n == 0xffff)) ||
-    //         ((size == 32) && (n == 0xffffffff)) ||
-    //         ((size == 64) && (n == Long.MAX_UNSIGNED_VALUE))) {
+    //     if (((size ===  8) && (n.eq(0xff))) ||
+    //         ((size === 16) && (n.eq(0xffff))) ||
+    //         ((size === 32) && (n.eq(0xffffffff))) ||
+    //         ((size === 64) && (n.eq(Long.MAX_UNSIGNED_VALUE)))) {
     //             return '-1';
     //     }
     // 
@@ -301,19 +296,12 @@
     Value.prototype.toString = function() {
         // TODO: this implementation serves as a temporary workaround. value
         // should be emitted according to the context it appears in
-        var radix, sign, val;
 
-        if (typeof(this.value) === 'number') {
-            radix = (this.value > (-32) && this.value < 32) ? 10 : 16;
-            sign = (this.value < 0 ? -1 : 1);
-            val = this.value * sign;
-        } else {
-            radix = (this.value.gt(-32) && this.value.lt(32)) ? 10 : 16;
-            sign = (this.value.lt(0) ? -1 : 1);
-            val = this.value.mul(sign);
-        }
+        var radix = (this.value.gt(-32) && this.value.lt(32)) ? 10 : 16;
+        var is_neg = this.value.isNegative();
+        var val = is_neg ? this.value.neg() : this.value;
 
-        return (sign === (-1)? '-' : '') + (radix === 16? '0x' : '') + val.toString(radix);
+        return (is_neg ? '-' : '') + (radix === 16 ? '0x' : '') + val.toString(radix);
     };
 
     // ------------------------------------------------------------
@@ -334,8 +322,6 @@
 
         this.is_def = false;    // ssa: is a definition?
         this.idx = undefined;   // ssa: subscript index
-        // this.def = undefined
-        // this.uses = undefined;
 
         this.parent = undefined;
     }
@@ -375,9 +361,9 @@
         this.operands.splice(this.operands.indexOf(op), 1);
         op.parent = undefined;
 
-        if (this.operands.length === 0) {
-            this.pluck();
-        }
+        // if (this.operands.length === 0) {
+        //     this.pluck();
+        // }
 
         return op;
     };
@@ -391,6 +377,18 @@
         return old_op;
     };
 
+    var detach_user = function(u) {
+        if (u.def !== undefined) {
+            var ulist = u.def.uses;
+
+            // remove user from definition's users list
+            ulist.splice(ulist.indexOf(u), 1);
+
+            // detach user from definition
+            u.def = undefined;
+        }
+    };
+
     /**
      * Have parent replace `this` expression with `other`.
      * @param {!Expr} other Replacement expression
@@ -401,18 +399,25 @@
         var func = p.replace_operand || p.replace_expr;
         var args = [this, other];
 
+        this.iter_operands(true).forEach(detach_user);
+
         return func.apply(p, args);
     };
 
     /**
      * Have parent pluck `this` expression. The plucked expression could be
      * then inserted to another parent, or simply discarded.
+     * @param {boolean} detach Whether to detach `this` from users list
      * @returns {!Expr} `this`
      */
-    Expr.prototype.pluck = function() {
+    Expr.prototype.pluck = function(detach) {
         var p = this.parent;
         var func = p.remove_operand || p.remove_expr;
         var args = [this];
+
+        if (detach) {
+            this.iter_operands(true).forEach(detach_user);
+        }
 
         return func.apply(p, args);
     };

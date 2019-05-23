@@ -1,5 +1,22 @@
+/* 
+ * Copyright (C) 2019 elicn
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 module.exports = (function() {
+    const Long = require('libdec/long');
     const Expr = require('core2/analysis/ir/expressions');
     const Stmt = require('core2/analysis/ir/statements');
 
@@ -38,17 +55,26 @@ module.exports = (function() {
     };
     // </WORKAROUND>
 
+    var find_overlaps = function(reg) {
+        return regs.find(function(ovl_list) {
+            return (ovl_list.indexOf(reg.name) !== (-1));
+        });
+    };
+
     const IDX_REG64 = 0;
     const IDX_REG32 = 1;
     const IDX_REG16 = 2;
     const IDX_REG8L = 3;
     const IDX_REG8H = 4;
 
-    var find_overlaps = function(reg) {
-        return regs.find(function(ovl_list) {
-            return (ovl_list.indexOf(reg.name) !== (-1));
-        });
-    };
+    const MASK32 = Long.fromInt(0x00000000ffffffff, true);
+    const MASK16 = Long.fromInt(0x000000000000ffff, true);
+    const MASK8L = Long.fromInt(0x00000000000000ff, true);
+    const MASK8H = Long.fromInt(0x000000000000ff00, true);
+
+    const MASK_INV16 = Long.fromInt(0xffffffffffff0000, true);
+    const MASK_INV8L = Long.fromInt(0xffffffffffffff00, true);
+    const MASK_INV8H = Long.fromInt(0xffffffffffff00ff, true);
 
     // TODO: omit REG64 if arch.bits is not 64
 
@@ -58,16 +84,16 @@ module.exports = (function() {
         var reg8l = new Expr.Reg(ovl[IDX_REG8L],  8);
 
         var gen = [
-            new Expr.Assign(reg32, new Expr.And(reg64.clone(), new Expr.Val(0xffffffff, 64))),
-            new Expr.Assign(reg16, new Expr.And(reg64.clone(), new Expr.Val(0x0000ffff, 64))),
-            new Expr.Assign(reg8l, new Expr.And(reg64.clone(), new Expr.Val(0x000000ff, 64))),
+            new Expr.Assign(reg32, new Expr.And(reg64.clone(), new Expr.Val(MASK32, 64))),
+            new Expr.Assign(reg16, new Expr.And(reg64.clone(), new Expr.Val(MASK16, 64))),
+            new Expr.Assign(reg8l, new Expr.And(reg64.clone(), new Expr.Val(MASK8L, 64))),
         ];
 
         // TODO: may be redundant as 8h is not accessible on x64
         if (IDX_REG8H in ovl) {
             var reg8h = new Expr.Reg(ovl[IDX_REG8H], 8);
 
-            gen.push(new Expr.Assign(reg8h, new Expr.Shr(new Expr.And(reg64.clone(), new Expr.Val(0x0000ff00, 64)), new Expr.Val(8, 64))));
+            gen.push(new Expr.Assign(reg8h, new Expr.Shr(new Expr.And(reg64.clone(), new Expr.Val(MASK8H, 64)), new Expr.Val(8, 64))));
         }
 
         return gen;
@@ -79,15 +105,15 @@ module.exports = (function() {
         var reg8l = new Expr.Reg(ovl[IDX_REG8L],  8);
 
         var gen = [
-            new Expr.Assign(reg64, new Expr.And(reg32.clone(), new Expr.Val(0xffffffff, 32))),
-            new Expr.Assign(reg16, new Expr.And(reg32.clone(), new Expr.Val(0x0000ffff, 32))),
-            new Expr.Assign(reg8l, new Expr.And(reg32.clone(), new Expr.Val(0x000000ff, 32))),
+            new Expr.Assign(reg64, new Expr.And(reg32.clone(), new Expr.Val(MASK32, 32))),
+            new Expr.Assign(reg16, new Expr.And(reg32.clone(), new Expr.Val(MASK16, 32))),
+            new Expr.Assign(reg8l, new Expr.And(reg32.clone(), new Expr.Val(MASK8L, 32))),
         ];
 
         if (IDX_REG8H in ovl) {
             var reg8h = new Expr.Reg(ovl[IDX_REG8H], 8);
 
-            gen.push(new Expr.Assign(reg8h, new Expr.Shr(new Expr.And(reg32.clone(), new Expr.Val(0x0000ff00, 32)), new Expr.Val(8, 32))));
+            gen.push(new Expr.Assign(reg8h, new Expr.Shr(new Expr.And(reg32.clone(), new Expr.Val(MASK8H, 32)), new Expr.Val(8, 32))));
         }
 
         return gen;
@@ -99,15 +125,15 @@ module.exports = (function() {
         var reg8l = new Expr.Reg(ovl[IDX_REG8L],  8);
 
         var gen = [
-            new Expr.Assign(reg64, new Expr.Or(new Expr.And(reg64.clone(), new Expr.Val(0xffffffffffff0000, 64)), reg16.clone())),
-            new Expr.Assign(reg32, new Expr.Or(new Expr.And(reg32.clone(), new Expr.Val(0xffff0000, 32)), reg16.clone())),
-            new Expr.Assign(reg8l, new Expr.And(reg16.clone(), new Expr.Val(0x00ff, 16))),
+            new Expr.Assign(reg64, new Expr.Or(new Expr.And(reg64.clone(), new Expr.Val(MASK_INV16, 64)), reg16.clone())),
+            new Expr.Assign(reg32, new Expr.Or(new Expr.And(reg32.clone(), new Expr.Val(MASK_INV16, 32)), reg16.clone())),
+            new Expr.Assign(reg8l, new Expr.And(reg16.clone(), new Expr.Val(MASK8L, 16))),
         ];
 
         if (IDX_REG8H in ovl) {
             var reg8h = new Expr.Reg(ovl[IDX_REG8H], 8);
 
-            gen.push(new Expr.Assign(reg8h, new Expr.Shr(new Expr.And(reg16.clone(), new Expr.Val(0xff00, 16)), new Expr.Val(8, 16))));
+            gen.push(new Expr.Assign(reg8h, new Expr.Shr(new Expr.And(reg16.clone(), new Expr.Val(MASK8H, 16)), new Expr.Val(8, 16))));
         }
 
         return gen;
@@ -119,9 +145,9 @@ module.exports = (function() {
         var reg16 = new Expr.Reg(ovl[IDX_REG16], 16);
 
         return [
-            new Expr.Assign(reg64, new Expr.Or(new Expr.And(reg64.clone(), new Expr.Val(0xffffffffffffff00, 64)), reg8l.clone())),
-            new Expr.Assign(reg32, new Expr.Or(new Expr.And(reg32.clone(), new Expr.Val(0xffffff00, 32)), reg8l.clone())),
-            new Expr.Assign(reg16, new Expr.Or(new Expr.And(reg16.clone(), new Expr.Val(0xff00, 16)), reg8l.clone()))
+            new Expr.Assign(reg64, new Expr.Or(new Expr.And(reg64.clone(), new Expr.Val(MASK_INV8L, 64)), reg8l.clone())),
+            new Expr.Assign(reg32, new Expr.Or(new Expr.And(reg32.clone(), new Expr.Val(MASK_INV8L, 32)), reg8l.clone())),
+            new Expr.Assign(reg16, new Expr.Or(new Expr.And(reg16.clone(), new Expr.Val(MASK_INV8L, 16)), reg8l.clone()))
         ];
     };
 
@@ -131,9 +157,9 @@ module.exports = (function() {
         var reg16 = new Expr.Reg(ovl[IDX_REG16], 16);
 
         return [
-            new Expr.Assign(reg64, new Expr.Or(new Expr.And(reg64.clone(), new Expr.Val(0xffffffffffff00ff, 64))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 64))),
-            new Expr.Assign(reg32, new Expr.Or(new Expr.And(reg32.clone(), new Expr.Val(0xffff00ff, 32))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 32))),
-            new Expr.Assign(reg16, new Expr.Or(new Expr.And(reg16.clone(), new Expr.Val(0x00ff, 16))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 16)))
+            new Expr.Assign(reg64, new Expr.Or(new Expr.And(reg64.clone(), new Expr.Val(MASK_INV8H, 64))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 64))),
+            new Expr.Assign(reg32, new Expr.Or(new Expr.And(reg32.clone(), new Expr.Val(MASK_INV8H, 32))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 32))),
+            new Expr.Assign(reg16, new Expr.Or(new Expr.And(reg16.clone(), new Expr.Val(MASK_INV8H, 16))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 16)))
         ];
     };
 
@@ -146,10 +172,10 @@ module.exports = (function() {
 
                 var addr = reg.parent_stmt().addr;
                 var idx = ovl.indexOf(reg.name);
-                var stmts = handler[idx](reg, ovl);
+                var exprs = handler[idx](reg, ovl);
 
-                return stmts.map(function(s) {
-                    return Stmt.make_statement(addr, s);
+                return exprs.map(function(e) {
+                    return Stmt.make_statement(addr, e);
                 });
             }
 

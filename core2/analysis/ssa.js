@@ -60,7 +60,9 @@ module.exports = (function() {
     };
 
     var get_stmt_addr = function(expr) {
-        return expr.parent_stmt().addr.toString(16);
+        var p = expr.parent_stmt();
+        
+        return p ? p.addr.toString(16) : '?';
     };
 
     var padEnd = function(s, n) {
@@ -263,11 +265,11 @@ module.exports = (function() {
                                 var repr = op.repr();
  
                                 // nesting derefs are picked up in stack initialization without inner
-                                // subscripts, since they are not assigned yet. here they are referred
-                                // after inner subscripts are assigned, so they do not appear in vars
-                                // stack. for example:
+                                // subscripts, since subscripts are not assigned yet. here they are
+                                // referred after inner subscripts are assigned, so they do not appear
+                                // in vars stack. for example:
                                 //
-                                // nesting derefs:
+                                // nesting derefs such as:
                                 //      *(*(ebp₁ + 8)₀ + *(ebp₁ - 4)₁)
                                 //
                                 // do not appear in the stack, because they were picked up as:
@@ -277,6 +279,7 @@ module.exports = (function() {
                                 if (!(repr in stack)) {
                                     console.log('USE: could not find stack for "', repr, '"');
                                     stack[repr] = [0];
+                                    count[repr] = 0;
                                 }
                                 // </WORKAROUND>
 
@@ -299,15 +302,7 @@ module.exports = (function() {
                         if (selector(op) && op.is_def) {
                             var repr = op.repr();
 
-                            // <WORKAROUND>
-                            if (!(repr in stack)) {
-                                console.log('DEF: could not find stack for "', repr, '"');
-                                stack[repr] = [0];
-                                count[repr] = 0;
-                            }
-                            // </WORKAROUND>
-
-                           count[repr]++;
+                            count[repr]++;
                             stack[repr].push(count[repr]);
 
                             op.idx = top(stack[repr]);
@@ -376,58 +371,92 @@ module.exports = (function() {
 
         var defs = new DefUse();
 
+        var s0 = function(op) { return (op instanceof Expr.Reg); };
+        var s1 = function(op) { return (op instanceof Expr.Deref); };
+        var s2 = function(op) { return (op instanceof Expr.Reg) || (op instanceof Expr.Deref); };
+
         // this.func.uninitialized = defs.uninit;
+
+        // DONE:
+        //  - get the whole program to work with Long objects rather than numbers
+
+        // TODO:
+        //  - add sp0 def
+        //  - make stack var objects for stack location before propagating sp0
 
         // ssa from regs
         // console.log('\u2501'.repeat(15), 'REGS', '\u2501'.repeat(15));
         rename.call(this, function(x) { return (x instanceof Expr.Reg); });
         relax_phi(defs);
 
+        console.log('validate REGS before opt'); this.validate(defs, s0);
         while (propagate_stack_locations(defs)) { /* empty */ }
         while (eliminate_def_zero_uses(defs))   { /* empty */ }
         while (propagate_def_single_use(defs))  { /* empty */ }
+        console.log('validate REGS after opt'); this.validate(defs, s0);
 
         // ssa from derefs
         // console.log('\u2501'.repeat(15), 'DEREFS', '\u2501'.repeat(15));
         rename.call(this, function(x) { return (x instanceof Expr.Deref); });
         relax_phi(defs);
 
+        console.log('validate DEREFS before opt'); this.validate(defs, s1);
         while (propagate_stack_locations(defs)) { /* empty */ }
         while (eliminate_def_zero_uses(defs))   { /* empty */ }
         while (propagate_def_single_use(defs))  { /* empty */ }
+        console.log('validate DEREFS after opt'); this.validate(defs, s1);
+
+        // note: this has to take place before propagating sp0
+        cleanup_fcall_args(defs);
+
+        console.log('validate ALL'); this.validate(defs, s2);
 
         return defs;
     };
 
-    SSA.prototype.clear = function() {
-        var blocks = this.func.basic_blocks;
+    SSA.prototype.validate = function(defs, selector) {
 
-        blocks.forEach(function(blk) {
+        this.func.basic_blocks.forEach(function(blk) {
             blk.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands().forEach(function(op) {
-                        var ssa_properties = ['idx', 'def', 'uses'];
 
-                        ssa_properties.forEach(function(prop) {
-                            if (op[prop] !== undefined) {
-                                op[prop] = undefined;
+                        if (selector(op)) {
+                            if (op.is_def) {
+                                if (!(op in defs.defs)) {
+                                    console.log('[!] missing def for:', op);
+                                    console.log('    parent_stmt:', op.parent_stmt());
+                                }
+                            } else {
+                                if (op.def === undefined) {
+                                    console.log('[!] use without an assigned def:', op);
+                                    console.log('    parent_stmt:', op.parent_stmt());
+                                } else {
+                                    if (op.def.uses.indexOf(op) === (-1)) {
+                                        console.log('[!] unregistered use:', op);
+                                        console.log('    parent_stmt:', op.parent_stmt());
+                                    }
+                                }
                             }
-                        });
+                        }
+
                     });
                 });
             });
         });
-    };
 
-    var detach_user = function(u) {
-        if (u.def !== undefined) {
-            var list = u.def.uses;
+        for (var d in defs.defs) {
+            var v = defs.defs[d];
 
-            // remove `u` from definition's users list
-            list.splice(list.indexOf(u), 1);
+            if (v.parent_stmt() === undefined) {
+                console.log('[!] stale def:', v);
+            }
 
-            // detach `u` from definition
-            u.def = undefined;
+            v.uses.forEach(function(u, i) {
+                if (!(u.def.equals(v))) {
+                    console.log('[!] stale use:', v, '[' + i + ']');
+                }
+            });
         }
     };
 
@@ -455,8 +484,7 @@ module.exports = (function() {
                         u.replace(c);
                     }
 
-                    p.iter_operands().forEach(detach_user);
-                    p.pluck();
+                    p.pluck(true);
 
                     return true;
                 }
@@ -487,7 +515,6 @@ module.exports = (function() {
                     }
 
                     if (other) {
-                        phi.iter_operands().forEach(detach_user);
                         phi.replace(other);
                     }
 
@@ -510,25 +537,28 @@ module.exports = (function() {
                 var phi = p.operands[1];
 
                 if (v.uses.length === 1) {
-                    var u = v.uses.pop();
+                    if (v.uses[0].parent instanceof Expr.Phi) {
+                        var u = v.uses.pop();
 
-                    if (u.parent instanceof Expr.Phi) {
+                        // remove propagted phi as it is going to be replaced with its operands
+                        v.pluck();
+
                         for (var i = 0; i < phi.operands.length; i++)
                         {
                             var o = phi.operands[i];
 
                             // propagate phi operands into its phi user, avoiding duplications
+                            // TODO: not sure if we can safely discard duplicates or not
                             if (!u.parent.has(o)) {
                                 u.parent.push_operand(o.clone(['idx', 'def']));
                             }
                         }
+
+                        // detach propagated phi along of its operands
+                        p.pluck(true);
+
+                        return true;
                     }
-
-                    // detach propagated phi along of its operands
-                    p.iter_operands().forEach(detach_user);
-                    p.pluck();
-
-                    return true;
                 }
             }
 
@@ -543,16 +573,52 @@ module.exports = (function() {
         propagate_chained_phi(defs);
     };
 
-    // TODO: this is arch-specific for x86 
+    // TODO: need to extract this; it is arch-specific
+    var cleanup_fcall_args = function(defs) {
+        var is_stack_var = function(e) {
+            return (e instanceof Expr.Reg) && (['sp', 'esp', 'rsp'].indexOf(e.name) !== (-1));
+        };
+
+        var is_stack_deref = function(e) {
+            return (e instanceof Expr.Deref) && is_stack_var(e.operands[0].iter_operands(true)[0]);
+        };
+
+        return defs.iterate(function(def) {
+            if (def.idx === 0) {
+                if (is_stack_deref(def)) {
+                    var cleanup = def.uses.filter(function(u) {
+                        return (u.parent instanceof Expr.Call);
+                    });
+
+                    cleanup.forEach(function(u) {
+                        u.pluck(true);
+                    });
+
+                    if (def.uses.length === 0) {
+                        def.pluck(true);
+
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        });
+    };
+
+    // TODO: need to extract this; it is arch-specific
     var propagate_stack_locations = function(defs) {
+        var is_stack_reg = function(e) {
+            return (e instanceof Expr.Reg) && (['sp', 'esp', 'rsp'].indexOf(e.name) !== (-1));
+        };
+
         return defs.iterate(function(def) {
             if (def.idx !== 0) {
                 var p = def.parent;         // p is Expr.Assign
                 var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
-                // TODO: use x86 arch file to determine whether this is a stack pointer reg
-                if ((lhand instanceof Expr.Reg) && (['sp', 'esp', 'rsp'].indexOf(lhand.name) > (-1))) {
+                if (is_stack_reg(lhand)) {
                     while (def.uses.length > 0) {
                         var u = def.uses.pop();
                         var c = rhand.clone(['idx', 'def']);
@@ -561,8 +627,7 @@ module.exports = (function() {
                         Simplify.reduce_stmt(c.parent_stmt());
                     }
 
-                    p.iter_operands().forEach(detach_user);
-                    p.pluck();
+                    p.pluck(true);
 
                     return true;
                 }
@@ -574,27 +639,31 @@ module.exports = (function() {
 
     var eliminate_def_zero_uses = function(defs) {
         return defs.iterate(function(def) {
-            if ((def.idx !== 0) && (def.uses.length === 0)) {
-                var p = def.parent;         // p is Expr.Assign
-                var lhand = p.operands[0];  // def
-                var rhand = p.operands[1];  // assigned expression
-
-                // function calls may have side effects, and cannot be eliminated altogether.
-                // instead, they are extracted from the assignment and kept aside.
-                if (rhand instanceof Expr.Call) {
-                    p.replace(rhand);
-
+            if (def.uses.length === 0) {
+                if (def.idx === 0) {
+                    // uninitialized defs are not really Expr.Assign instances
                     return true;
-                }
+                } else {
+                    var p = def.parent;         // p is Expr.Assign
+                    var lhand = p.operands[0];  // def
+                    var rhand = p.operands[1];  // assigned expression
 
-                // memory dereferences may have side effects as well, so they cannot be eliminated. an exception
-                // to that are memory dereferences that are assigned to phi expressions. phi are not real program
-                // operations and have no side effects.
-                else if ((!(lhand instanceof Expr.Deref) || (rhand instanceof Expr.Phi))) {
-                    p.iter_operands().forEach(detach_user);
-                    p.pluck();
+                    // function calls may have side effects, and cannot be eliminated altogether.
+                    // instead, they are extracted from the assignment and kept aside.
+                    if (rhand instanceof Expr.Call) {
+                        p.replace(rhand.clone(['idx', 'def']));
 
-                    return true;
+                        return true;
+                    }
+
+                    // memory dereferences may have side effects as well, so they cannot be eliminated. an exception
+                    // to that are memory dereferences that are assigned to phi expressions. phi are not real program
+                    // operations and have no side effects.
+                    else if ((!(lhand instanceof Expr.Deref) || (rhand instanceof Expr.Phi))) {
+                        p.pluck(true);
+
+                        return true;
+                    }
                 }
             }
 
@@ -613,15 +682,13 @@ module.exports = (function() {
                 var rhand = p.operands[1];  // assigned expression
 
                 var u = def.uses.pop();
-                var c = rhand.clone(['def', 'idx']);
+                var c = rhand.clone(['idx', 'def']);
 
-                u.iter_operands().forEach(detach_user);
                 u.replace(c);
 
                 Simplify.reduce_stmt(c.parent_stmt());
 
-                p.iter_operands().forEach(detach_user);
-                p.pluck();
+                p.pluck(true);
 
                 return true;
             }

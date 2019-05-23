@@ -1,5 +1,5 @@
 /** 
- * Copyright (C) 2018 elicn
+ * Copyright (C) 2018-2019 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -209,7 +209,7 @@ x86.prototype.assign_fcall_args = function(stmts) {
    }
 };
 
-x86.prototype.gen_overlaps = function(stmts) {
+var gen_overlaps = function(stmts) {
     var copy = [];
 
     stmts.forEach(function(s) {
@@ -220,7 +220,6 @@ x86.prototype.gen_overlaps = function(stmts) {
                 var lhand = e.operands[0];
 
                 if (lhand instanceof Expr.Reg) {
-                    // TODO: what about side effects? fcalls zero uses will not be eliminated..
                     Array.prototype.push.apply(copy, ArchRegs.gen_overlaps(lhand));
                 }
             }
@@ -241,7 +240,7 @@ x86.prototype.post_transform = function(stmts) {
     // duplicate assignments for overlapping registers to maintain def-use correctness. this
     // generates a lot of redundant statements that eventually eliminated if they are not used.
     // note: stmts array is modified by this function
-    this.gen_overlaps(stmts);
+    gen_overlaps(stmts);
 };
 
 /**
@@ -285,9 +284,9 @@ x86.prototype.get_asize_val = function(scalar) {
     return new Expr.Val(this.bits / 8 * (scalar || 1), this.bits);
 };
 
-// function StackVar(expr) { Expr.UExpr.call(this, '<sp>', expr); }
-// 
-// StackVar.prototype = Object.create(Expr.UExpr.prototype);
+// function StackVar(expr) { Expr.Deref.call(this, expr); }
+//
+// StackVar.prototype = Object.create(Expr.Deref.prototype);
 // StackVar.prototype.constructor = StackVar;
 
 /**
@@ -430,7 +429,7 @@ x86.prototype.r2decode = function(aoj) {
              * Operand value: either register name or a numeric literal
              * @type {string|number}
              */
-            value: toInt(op.value),
+            value: op.value,
 
             mem: {
                 base:  op.base,

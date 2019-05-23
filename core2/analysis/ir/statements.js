@@ -250,6 +250,7 @@
                     ? this.else_cntr.statements
                     : []);
 
+        // TODO: setting this here may prevent later continaers replacement to be reflected
         this.containers = Array.prototype.concat(
             [this.then_cntr],
             this.else_cntr

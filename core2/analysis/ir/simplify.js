@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018 elicn
+ * Copyright (C) 2018-2019 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,10 @@
  */
 
 module.exports = (function() {
+    const Long = require('libdec/long');
     const Expr = require('core2/analysis/ir/expressions');
+
+    const wssa = ['idx', 'def'];
 
     var _ctx_fold_assoc = function(expr) {
         var assoc_ops = [
@@ -34,7 +37,7 @@ module.exports = (function() {
         var oexpr = expr;
         var oexpr_op = oexpr.constructor;
 
-        if (assoc_ops.indexOf(oexpr_op) > (-1)) {
+        if (assoc_ops.indexOf(oexpr_op) !== (-1)) {
             // implied: (oexpr instanceof Expr.BExpr)
             var olhand = expr.operands[0];
             var orhand = expr.operands[1];
@@ -43,14 +46,14 @@ module.exports = (function() {
             var iexpr = olhand;
             var iexpr_op = iexpr.constructor;
 
-            if (assoc_ops.indexOf(iexpr_op) > (-1)) {
+            if (assoc_ops.indexOf(iexpr_op) !== (-1)) {
                 // implied: (iexpr instanceof Expr.BExpr)
                 var ilhand = iexpr.operands[0];
                 var irhand = iexpr.operands[1];
 
                 // ((ilhand op irhand) op orhand) --> (ilhand op (irhand op orhand))
                 if ((oexpr_op === iexpr_op) && (orhand instanceof Expr.Val) && (irhand instanceof Expr.Val)) {
-                    var new_lhand = ilhand;
+                    var new_lhand = ilhand.clone(wssa);
                     var new_rhand = new iexpr_op(irhand, orhand);
 
                     return new oexpr_op(new_lhand, new_rhand);
@@ -74,7 +77,7 @@ module.exports = (function() {
         var oexpr = expr;
         var oexpr_op = oexpr.constructor;
 
-        if (arith_ops.indexOf(oexpr_op) > (-1)) {
+        if (arith_ops.indexOf(oexpr_op) !== (-1)) {
             // implied: (oexpr instanceof Expr.BExpr)
             var olhand = expr.operands[0];
             var orhand = expr.operands[1];
@@ -83,22 +86,22 @@ module.exports = (function() {
             var iexpr = olhand;
             var iexpr_op = iexpr.constructor;
 
-            if (arith_ops.indexOf(iexpr_op) > (-1)) {
+            if (arith_ops.indexOf(iexpr_op) !== (-1)) {
                 // implied: (iexpr instanceof Expr.BExpr)
                 var ilhand = iexpr.operands[0];
                 var irhand = iexpr.operands[1];
 
                 // ((x iexpr_op a) oexpr_op b)
                 if ((orhand instanceof Expr.Val) && (irhand instanceof Expr.Val)) {
-                    var sign = (oexpr_op === iexpr_op ? 1 : (-1));
+                    var sign = (oexpr_op === iexpr_op ? Long.UONE : Long.NEG_ONE);
 
                     // ((x - a) - b) == (x - (a + b))
                     // ((x + a) + b) == (x + (a + b))
                     // ((x - a) + b) == (x + (-a + b))
                     // ((x + a) - b) == (x - (-a + b))
 
-                    var new_lhand = ilhand;
-                    var new_rhand = new Expr.Val((irhand.value * sign + orhand.value), irhand.size);
+                    var new_lhand = ilhand.clone(wssa);
+                    var new_rhand = new Expr.Val(irhand.value.mul(sign).add(orhand.value), irhand.size);
 
                     // (x oexpr_op (sign * a + b))
                     return new oexpr_op(new_lhand, new_rhand);
@@ -111,14 +114,14 @@ module.exports = (function() {
 
     var _constant_folding = function(expr) {
         var operations = {
-            'Add': function(a, b) { return a + b; },
-            'Sub': function(a, b) { return a - b; },
-            'Mul': function(a, b) { return a * b; },
-            'Div': function(a, b) { return a / b; },
-            'Mod': function(a, b) { return a % b; },
-            'And': function(a, b) { return a & b; },
-            'Or' : function(a, b) { return a | b; },
-            'Xor': function(a, b) { return a ^ b; }
+            'Add': Long.prototype.add,
+            'Sub': Long.prototype.sub,
+            'Mul': Long.prototype.mul,
+            'Div': Long.prototype.div,
+            'Mod': Long.prototype.mod,
+            'And': Long.prototype.and,
+            'Or' : Long.prototype.or,
+            'Xor': Long.prototype.xor
         };
 
         if ((expr instanceof Expr.BExpr) && (expr.constructor.name in operations)) {
@@ -126,9 +129,8 @@ module.exports = (function() {
             var rhand = expr.operands[1];
             var op = operations[expr.constructor.name];
 
-            // TODO: what happens when either one of them is a Long object?
             if ((lhand instanceof Expr.Val) && (rhand instanceof Expr.Val)) {
-                return new Expr.Val(op(lhand.value, rhand.value), lhand.size);
+                return new Expr.Val(op.call(lhand.value, rhand.value), lhand.size);
             }
         }
 
@@ -140,23 +142,23 @@ module.exports = (function() {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
-            // x + 0
-            // x - 0
             if ((expr instanceof Expr.Add) || (expr instanceof Expr.Sub)) {
-                const ZERO = new Expr.Val(0, rhand.size);
+                const ZERO = new Expr.Val(Long.UZERO, rhand.size);
 
+                // x + 0
+                // x - 0
                 if (rhand.equals(ZERO)) {
-                    return lhand;
+                    return lhand.clone(wssa);
                 }
             }
 
-            // x * 1
-            // x / 1
             else if ((expr instanceof Expr.Mul) || (expr instanceof Expr.Div)) {
-                const ONE = new Expr.Val(1, rhand.size);
+                const ONE = new Expr.Val(Long.UONE, rhand.size);
 
+                // x * 1
+                // x / 1
                 if (rhand.equals(ONE)) {
-                    return lhand;
+                    return lhand.clone(wssa);
                 }
             }
         }
@@ -174,29 +176,29 @@ module.exports = (function() {
 
                 // deMorgan rules
                 if (op instanceof Expr.BoolAnd) {
-                    return new Expr.BoolOr(new Expr.BoolNot(inner_lhand), new Expr.BoolNot(inner_rhand));
+                    return new Expr.BoolOr(new Expr.BoolNot(inner_lhand.clone(wssa)), new Expr.BoolNot(inner_rhand.clone(wssa)));
                 } else if (op instanceof Expr.BoolOr) {
-                    return new Expr.BoolAnd(new Expr.BoolNot(inner_lhand), new Expr.BoolNot(inner_rhand));
+                    return new Expr.BoolAnd(new Expr.BoolNot(inner_lhand.clone(wssa)), new Expr.BoolNot(inner_rhand.clone(wssa)));
                 } else if (op instanceof Expr.EQ) {
-                    return new Expr.NEQ(inner_lhand, inner_rhand);
+                    return new Expr.NEQ(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
                 } else if (op instanceof Expr.NEQ) {
-                    return new Expr.EQ(inner_lhand, inner_rhand);
+                    return new Expr.EQ(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
                 } else if (op instanceof Expr.GT) {
-                    return new Expr.LTE(inner_lhand, inner_rhand);
+                    return new Expr.LTE(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
                 } else if (op instanceof Expr.GTE) {
-                    return new Expr.LT(inner_lhand, inner_rhand);
+                    return new Expr.LT(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
                 } else if (op instanceof Expr.LT) {
-                    return new Expr.GTE(inner_lhand, inner_rhand);
+                    return new Expr.GTE(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
                 } else if (op instanceof Expr.LTE) {
-                    return new Expr.GT(inner_lhand, inner_rhand);
+                    return new Expr.GT(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
                 }
 
                 // !(x + y)
                 // !(x - y)
                 else if (op instanceof Expr.Add) {
-                    return new Expr.EQ(inner_lhand, new Expr.Neg(inner_rhand));
+                    return new Expr.EQ(inner_lhand.clone(wssa), new Expr.Neg(inner_rhand.clone(wssa)));
                 } else if (op instanceof Expr.Sub) {
-                    return new Expr.EQ(inner_lhand, inner_rhand);
+                    return new Expr.EQ(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
                 }
             }
 
@@ -205,7 +207,7 @@ module.exports = (function() {
 
                 // !(!x)
                 if (op instanceof Expr.BoolNot) {
-                    return inner_op;
+                    return inner_op.clone(wssa);
                 }
             }
         }
@@ -219,21 +221,21 @@ module.exports = (function() {
             var rhand = expr.operands[1];
 
             var isNegativeValue = function(e) {
-                return (e instanceof Expr.Val) && (e.value < 0);
+                return (e instanceof Expr.Val) && (e.value.isNegative());
             };
 
             // x + -y
-            if ((expr instanceof Expr.Add) && isNegativeValue(expr.operands[1])) {
-                rhand.value = Math.abs(rhand.value);
+            if ((expr instanceof Expr.Add) && isNegativeValue(rhand)) {
+                rhand.value = rhand.value.negate();
 
-                return new Expr.Sub(lhand, rhand);
+                return new Expr.Sub(lhand.clone(wssa), rhand.clone(wssa));
             }
 
             // x - -y
-            else if ((expr instanceof Expr.Sub) && isNegativeValue(expr.operands[1])) {
-                rhand.value = Math.abs(rhand.value);
+            else if ((expr instanceof Expr.Sub) && isNegativeValue(rhand)) {
+                rhand.value = rhand.value.negate();
 
-                return new Expr.Add(lhand, rhand);
+                return new Expr.Add(lhand.clone(wssa), rhand.clone(wssa));
             }
         }
 
@@ -246,12 +248,12 @@ module.exports = (function() {
 
             // &*x
             if ((expr instanceof Expr.AddrOf) && (op instanceof Expr.Deref)) {
-                return op.operands[0];
+                return op.operands[0].clone(wssa);
             }
 
             // *&x
             else if ((expr instanceof Expr.Deref) && (op instanceof Expr.AddrOf)) {
-                return op.operands[0];
+                return op.operands[0].clone(wssa);
             }
         }
 
@@ -263,49 +265,52 @@ module.exports = (function() {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
-            const ZERO = new Expr.Val(0, lhand.size);
-            const FF = new Expr.Val((1 << lhand.size) - 1, lhand.size); // TODO: does it work in 64 bits..?
+            // create an FF's mask that matches lhand size
+            const ffmask = Long.UONE.shl(lhand.size).sub(Long.UONE);
 
-            // x ^ 0
-            // x ^ x
-            // x ^ 0xff...
+            const ZERO = new Expr.Val(Long.UZERO, lhand.size);
+            const FF = new Expr.Val(ffmask, lhand.size);
+
             if (expr instanceof Expr.Xor) {
+                // x ^ 0
                 if (rhand.equals(ZERO)) {
-                    return lhand;
+                    return lhand.clone(wssa);
                 }
 
+                // x ^ x
                 if (rhand.equals(lhand)) {
                     return ZERO;
                 }
 
+                // x ^ 0xff...
                 if (rhand.equals(FF)) {
-                    return new Expr.Not(lhand);
+                    return new Expr.Not(lhand.clone(wssa));
                 }
             }
 
-            // x | 0
-            // x | x
-            // x | 0xff...
             else if (expr instanceof Expr.Or) {
+                // x | 0
+                // x | x
                 if (rhand.equals(ZERO) || rhand.equals(lhand)) {
-                    return lhand;
+                    return lhand.clone(wssa);
                 }
 
+                // x | 0xff...
                 if (rhand.equals(FF)) {
                     return FF;
                 }
             }
 
-            // x & 0
-            // x & x
-            // x & 0xff...
             else if (expr instanceof Expr.And) {
+                // x & 0
+                // x & x
                 if (rhand.equals(ZERO) || rhand.equals(lhand)) {
-                    return rhand;
+                    return rhand.clone(wssa);
                 }
 
+                // x & 0xff...
                 if (rhand.equals(FF)) {
-                    return lhand;
+                    return lhand.clone(wssa);
                 }
             }
 
@@ -316,9 +321,9 @@ module.exports = (function() {
                     var inner_rhand = lhand.operands[1];
 
                     if (inner_rhand instanceof Expr.Val && inner_rhand.equals(rhand)) {
-                        var mask = new Expr.Val(~((1 << rhand.value) - 1), rhand.size);
+                        var mask = new Expr.Val(Long.UONE.shl(rhand.value).sub(Long.UONE).not(), rhand.size);
 
-                        return new Expr.And(inner_lhand, mask);
+                        return new Expr.And(inner_lhand.clone(wssa), mask);
                     }
                 }
             }
@@ -344,12 +349,12 @@ module.exports = (function() {
 
                         // ((x + c1) == c2) yields (x == c3) where c3 = c2 - c1
                         if (lhand instanceof Expr.Add) {
-                            return new Expr.EQ(x, new Expr.Val(c2.value - c1.value));
+                            return new Expr.EQ(x.clone(wssa), new Expr.Val(c2.value.sub(c1.value), c2.size));
                         }
 
                         // ((x - c1) == c2) yields (x == c3) where c3 = c2 + c1
                         if (lhand instanceof Expr.Sub) {
-                            return new Expr.EQ(x, new Expr.Val(c2.value + c1.value));
+                            return new Expr.EQ(x.clone(wssa), new Expr.Val(c2.value.add(c1.value), c2.size));
                         }
                     }
                 }
@@ -358,9 +363,9 @@ module.exports = (function() {
 
                     // ((x - y) == 0) yields (x == y)
                     if (lhand instanceof Expr.Sub) {
-                        return new Expr.EQ(x, y);
+                        return new Expr.EQ(x.clone(wssa), y.clone(wssa));
                     } else if (lhand instanceof Expr.Add) {
-                        return new Expr.EQ(x, new Expr.Neg(y));
+                        return new Expr.EQ(x.clone(wssa), new Expr.Neg(y.clone(wssa)));
                     }
                 }
             }
@@ -387,17 +392,17 @@ module.exports = (function() {
                 if (x0.equals(x1) && y0.equals(y1)) {
                     // ((x > y) || (x == y)) yields (x >= y)
                     if ((lhand instanceof Expr.GT) && (rhand instanceof Expr.EQ)) {
-                        return new Expr.GE(x0, y0);
+                        return new Expr.GE(x0.clone(wssa), y0.clone(wssa));
                     }
 
                     // ((x < y) || (x == y)) yields (x <= y)
                     if ((lhand instanceof Expr.LT) && (rhand instanceof Expr.EQ)) {
-                        return new Expr.LE(x0, y0);
+                        return new Expr.LE(x0.clone(wssa), y0.clone(wssa));
                     }
 
                     // ((x < y) || (x > y))  yields (x != y)
                     if ((lhand instanceof Expr.LT) && (rhand instanceof Expr.GT)) {
-                        return new Expr.NE(x0, y0);
+                        return new Expr.NE(x0.clone(wssa), y0.clone(wssa));
                     }
                 }
             }
