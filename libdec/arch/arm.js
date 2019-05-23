@@ -146,6 +146,13 @@
         ]);
     };
 
+    var _fix_missing_jump = function(instr) {
+        var address = instr.parsed.opd[instr.parsed.opd.length - 1];
+        if (!instr.jump) {
+            instr.jump = Long.fromString(address, true, address.startsWith('0x') ? 16 : 10);
+        }
+    };
+
     var _compare = function(instr, context) {
         if (instr.mnem == 'cmn') {
             context.cond.a = instr.parsed.opd[1];
@@ -871,6 +878,9 @@
                 }
                 return _memory(Base.read_memory, instr, context, '32');
             },
+            ldurb: function(instr, context) {
+                return _memory(Base.read_memory, instr, context, '8');
+            },
             ldur: function(instr, context) {
                 return _memory(Base.read_memory, instr, context, '32');
             },
@@ -998,7 +1008,26 @@
             mul: function(instr) {
                 return _common_math(instr.parsed, Base.multiply);
             },
+            umulh: function(instr) {
+                return Base.composed([
+                    _common_math(instr.parsed, Base.multiply),
+                ]);
+            },
+            msub: function(instr) {
+                var vararg = Variable.uniqueName();
+                return Base.composed([
+                    Base.multiply(vararg, instr.parsed.opd[1], instr.parsed.opd[2]),
+                    Base.subtract(instr.parsed.opd[0], vararg, instr.parsed.opd[3])
+                ]);
+            },
             smull: function(instr) {
+                if (instr.parsed.opd.length > 3) {
+                    var first = instr.parsed.opd.shift();
+                    instr.parsed.opd[0] = first + ":" + instr.parsed.opd[0];
+                }
+                return _common_math(instr.parsed, Base.multiply);
+            },
+            umull: function(instr) {
                 if (instr.parsed.opd.length > 3) {
                     var first = instr.parsed.opd.shift();
                     instr.parsed.opd[0] = first + ":" + instr.parsed.opd[0];
@@ -1208,7 +1237,7 @@
                         break;
                     }
                 }
-                return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, 1, 0);
+                return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, '1', '0');
             },
             csinc: function(instr, context) {
                 var opds = instr.parsed.opd;
@@ -1292,6 +1321,14 @@
                 var b = instr.parsed.opd[1];
                 context.cond.a = (a === b) ? a : '(' + a + ' & ' + b + ')';
                 context.cond.b = '0';
+            },
+            tbz: function(instr, context) {
+                _fix_missing_jump(instr);
+                var a = instr.parsed.opd[0];
+                var b = instr.parsed.opd[1];
+                context.cond.a = (a === b) ? a : '(' + a + ' & ' + b + ')';
+                context.cond.b = '0';
+                return _conditional(instr, context, 'EQ');
             },
             tbnz: function(instr, context) {
                 var a = instr.parsed.opd[0];
