@@ -1337,6 +1337,11 @@
                 context.cond.b = '0';
                 return _conditional(instr, context, 'NE');
             },
+            sxtb: function(instr) {
+                var a = instr.parsed.opd[0];
+                var b = instr.parsed.opd[1];
+                return Base.cast(a, b, Extra.to.type(_reg_bits[a[0]], true));
+            },
             sxtw: function(instr) {
                 var a = instr.parsed.opd[0];
                 var b = instr.parsed.opd[1];
