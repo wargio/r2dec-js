@@ -1062,7 +1062,7 @@
                         returnval = '0x' + context.markers[instr.marker]['w0'].value.toString(16);
                     } else if (context.markers[instr.marker]['x0'] && context.markers[instr.marker]['x0'].instr.valid) {
                         context.markers[instr.marker]['x0'].instr.valid = false;
-                        returnval = '0x' + context.markers[instr.marker]['w0'].value.toString(16);
+                        returnval = '0x' + context.markers[instr.marker]['x0'].value.toString(16);
                     }
                 }
                 context.retreg = returnval;
