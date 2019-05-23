@@ -1535,6 +1535,9 @@
             },
             movsq: _string_common,
 
+            // XMM related
+            movaps: _standard_mov,
+
             // TODO: these ones are not supported since they require an additional condition to break the loop
             // cmpsb: _string_common,
             // cmpsw: _string_common,
