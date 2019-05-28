@@ -5,16 +5,17 @@ mkdir -p ~/.config/radare2/plugins
 mv core_test.so ~/.config/radare2/plugins
 #endif
 
+#include <stdlib.h>
+#include <string.h>
 #include <r_types.h>
 #include <r_lib.h>
 #include <r_cmd.h>
 #include <r_core.h>
 #include <r_cons.h>
-#include <string.h>
 #include <r_anal.h>
-#include <duktape.h>
-#include <duk_console.h>
-#include <duk_missing.h>
+#include "duktape.h"
+#include "duk_console.h"
+#include "duk_missing.h"
 
 #undef R_API
 #define R_API static
@@ -27,16 +28,8 @@ mv core_test.so ~/.config/radare2/plugins
 #ifndef R2_HOME_DATADIR
 #define R2_HOME_DATADIR R2_HOMEDIR
 #endif
-//#include "long_js.c"
-
-typedef struct {
-	bool hidecasts;
-	bool assembly;
-	bool offset;
-} e_r2dec_t;
 
 static RCore *core_link = 0;
-static e_r2dec_t config = {0};
 
 static char* r2dec_read_file(const char* file) {
 	if (!file) {
@@ -168,27 +161,33 @@ static void duk_r2dec(RCore *core, const char *input) {
 	core_link = 0;
 }
 
-static void usage(void) {
-	r_cons_printf ("Usage: pdd [args] - core plugin for r2dec\n");
-	r_cons_printf (" pdd           - decompile current function\n");
-	r_cons_printf (" pdd?          - show this help\n");
-	r_cons_printf (" pdd*          - the decompiled code is returned to r2 as comment (via CCu)\n");
-	r_cons_printf (" pdda          - decompile current function side by side with assembly\n");
-	r_cons_printf (" pddb          - decompile current function but shows only scopes\n");
-	r_cons_printf (" pddo          - decompile current function side by side with offsets\n");
-	r_cons_printf (" pddu          - install/upgrade r2dec via r2pm\n");
-	r_cons_printf (" pdds <branch> - switches r2dec branch\n");
-	r_cons_printf (" pddi          - generates the issue data\n");
-	r_cons_printf ("Evaluable Variables:\n");
-	r_cons_printf (" r2dec.casts   - if false, hides all casts in the pseudo code.\n");
-	r_cons_printf (" r2dec.asm     - if true, shows pseudo next to the assembly.\n");
-	r_cons_printf (" r2dec.blocks  - if true, shows only scopes blocks.\n");
-	r_cons_printf (" r2dec.xrefs   - if true, shows all xrefs in the pseudo code.\n");
-	r_cons_printf (" r2dec.paddr   - if true, all xrefs uses physical addresses compare.\n");
-	r_cons_printf (" r2dec.theme   - defines the color theme to be used on r2dec.\n");
-	r_cons_printf ("Environment\n");
-	r_cons_printf (" R2DEC_HOME  defaults to the root directory of the r2dec repo\n");
+static void usage(const RCore* const core) {
+	const char* help[] = {
+		"Usage: pdd[*abousi]", "",	"# Core plugin for r2dec",
+		"pdd",	"",        "decompile current function",
+		"pdd*",	"",        "decompiled code is returned to r2 as comment (via CCu)",
+		"pdda",	"",        "decompile current function with side assembly",
+		"pddb",	"",        "decompile current function but show only scopes",
+		"pddo",	"",        "decompile current function side by side with offsets",
+		"pddu",	"",        "upgrade r2dec via r2pm",
+		"pdds", " branch", "switch r2dec branch",
+		"pddi",	"",        "generate issue data",
 
+		// "Evaluable Variables:", "", "",
+		// "r2dec.casts",	"",	"if false, hides all casts in the pseudo code",
+		// "r2dec.asm",	"",	"if true, shows pseudo next to the assembly",
+		// "r2dec.blocks",	"",	"if true, shows only scopes blocks",
+		// "r2dec.xrefs",	"",	"if true, shows all xrefs in the pseudo code",
+		// "r2dec.paddr",	"",	"if true, all xrefs uses physical addresses compare",
+		// "r2dec.theme",	"",	"defines the color theme to be used on r2dec",
+
+		// "Environment:", "", "",
+		// "R2DEC_HOME",	"",	"defaults to the root directory of the r2dec repo",
+
+		NULL
+	};
+
+	r_cons_cmd_help(help, core->print->flags & R_PRINT_FLAGS_COLOR);
 }
 
 static void switch_git_branch(RCore *core, const char* branch) {
@@ -248,27 +247,16 @@ static void _cmd_pdd(RCore *core, const char *input) {
 		break;
 	case '?':
 	default:
-		usage();
+		usage(core);
 		break;
-	}
-}
-
-static void custom_config(bool *p, const char* input) {
-	if (strchr (input, '=')) {
-		if(strchr (input, 't')) {
-			*p = true;
-		} else if(strchr (input, 'f')) {
-			*p = false;
-		}
-	} else {
-		r_cons_printf ("%s\n", ((*p) ? "true" : "false"));
 	}
 }
 
 static int r_cmd_pdd(void *user, const char *input) {
 	RCore *core = (RCore *) user;
 	if (!strncmp (input, "e cmd.pdc", 9)) {
-		if (strchr (input, '=') && strchr (input, '?')) {
+		const char* assign = strchr (input + 9, '=');
+		if (assign && strchr (assign + 1, '?')) {
 			r_cons_printf ("r2dec\n");
 			return false;
 		}
