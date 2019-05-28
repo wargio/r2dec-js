@@ -260,6 +260,14 @@
 		}
 	}
 
+	function _get_type(value) {
+		var pos = ['[Z', '[B', '[S', '[C', '[I', '[J', '[F', '[D', '[V'].indexOf(value.toUpperCase());
+		if (pos >= 0) {
+			return ['boolean', 'int8_t', 'int16_t', 'char', 'int32_t', 'int64_t', 'float', 'double', 'void'][pos];
+		}
+		return value;
+	}
+
 	return {
 		instructions: {
 			const: function(instr, context, instructions) {
@@ -331,7 +339,7 @@
 			'new-array': function(instr, context, instructions) {
 				var size = _handle_type(context.objects[instr.parsed.opd[1]], Variable.local(instr.parsed.opd[1], instr.bits, true));
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
-				var src = Variable.newarray(instr.parsed.opd[2], size);
+				var src = Variable.newarray(_get_type(instr.parsed.opd[2]), size);
 				context.objects[instr.parsed.opd[0]] = {
 					instr: instr,
 					type: DalvikType.NewArray,
@@ -495,6 +503,26 @@
 				var src = Variable.local(p.opd[0], instr.bits, true);
 				var dst = Variable.object(p.opd[1]);
 				return Base.assign(dst, src);
+			},
+			'sput-object': function(instr, context, instructions) {
+				var p = instr.parsed;
+				context.objects[p.opd[0]] = {
+					instr: instr,
+					type: DalvikType.StaticObject,
+				};
+				var src = Variable.local(p.opd[0], instr.bits, true);
+				var dst = Variable.object(p.opd[1]);
+				return Base.assign(dst, src);
+			},
+			'fill-array-data': function(instr, context, instructions) {
+				var type = 0;
+				var src = instr.parsed.opd[0];
+				var ref = context.objects[instr.parsed.opd[0]];
+				if (ref && ref.type == DalvikType.NewArray) {
+					type = Extra.replace.object(_get_type(ref.instr.parsed.opd[2]));
+				}
+				var dst = Variable.pointer(instr.parsed.opd[1], type, true);
+				return Base.special('for (int32_t i = 0; ' + src + '.length; i++) ' + src + ' = ' + dst + '[i]');
 			},
 			nop: function() {
 				return Base.nop();
