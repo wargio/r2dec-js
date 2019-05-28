@@ -32,7 +32,7 @@
             n *= 2;
             return parseInt(name.substring (n, n + 2), 16);
         }
-        return parseInt(name.substring (n, n + 1), 16) << 4;
+        return (parseInt(name.substring (n, n + 1), 16) << 4) >>> 0;
     }
     var Color = function(name) {
         var fn = function(x) {
@@ -41,9 +41,9 @@
         };
         if (name.startsWith('rgb:')) {
             name = name.substring (4);
-            const str = '\u001b[38;2;'+ pair(name, 0) + ';' + pair(name, 1) + ';' + pair(name, 2);
+            const str = '38;2;'+ pair(name, 0) + ';' + pair(name, 1) + ';' + pair(name, 2);
             fn.open = '\u001b[' + str + 'm';
-            fn.close = '\u001b[0m';
+            fn.close = '\u001b[39m';
         } else {
             if (!__colors[name]) {
                 throw new Error('Invalid name: ' + name);
