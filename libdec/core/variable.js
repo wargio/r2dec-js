@@ -60,9 +60,10 @@
         };
     };
 
-    var _ptr = function(name, type) {
+    var _ptr = function(name, type, pointer) {
         this.name = name;
         this.type = type;
+        this.pointer = pointer;
 
         this.toType = function() {
             return Global.printer.theme.types(this.type) + '*';
@@ -70,7 +71,11 @@
 
         this.toString = function(define) {
             if (define) {
-                return Global.printer.theme.types(this.type) + '* ' + this.name;
+                var suffix = '';
+                if (this.pointer) {
+                    suffix = ' = ' + Global.printer.auto(this.pointer);
+                }
+                return Global.printer.theme.types(this.type) + '* ' + this.name + suffix;
             }
 
             var c = '*(';
@@ -157,6 +162,11 @@
         },
         functionPointer: function(variable_name, bits, arguments_type) {
             return new _func_ptr(variable_name, Extra.to.type(bits || 0), arguments_type || []);
+        },
+        globalPointer: function(variable_name, ctype_or_bits, is_signed, pointer) {
+            var ctype = Extra.is.number(ctype_or_bits) ? Extra.to.type(ctype_or_bits, is_signed) : ctype_or_bits;
+
+            return new _ptr(variable_name, ctype, pointer);
         },
         pointer: function(variable_name, ctype_or_bits, is_signed) {
             var ctype = Extra.is.number(ctype_or_bits) ? Extra.to.type(ctype_or_bits, is_signed) : ctype_or_bits;

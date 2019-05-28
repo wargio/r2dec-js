@@ -515,13 +515,24 @@
 				return Base.assign(dst, src);
 			},
 			'fill-array-data': function(instr, context, instructions) {
-				var type = 0;
 				var src = instr.parsed.opd[0];
-				var ref = context.objects[instr.parsed.opd[0]];
-				if (ref && ref.type == DalvikType.NewArray) {
-					type = Extra.replace.object(_get_type(ref.instr.parsed.opd[2]));
+				var dst = context.data[instr.parsed.opd[1]];
+				if (!dst) {
+					var addr = Long.fromString(instr.parsed.opd[1], true, instr.parsed.opd[1].startsWith('0x') ? 16 : 10);
+					var reference = Global.xrefs.find_string(addr) || Global.xrefs.find_symbol(addr);
+					if (!reference) {
+						var varname = Variable.uniqueName("data");
+						var type = 0,
+							ref = context.objects[instr.parsed.opd[0]];
+						if (ref && ref.type == DalvikType.NewArray) {
+							type = Extra.replace.object(_get_type(ref.instr.parsed.opd[2]));
+						}
+						dst = Variable.globalPointer(varname, type, true, reference || instr.parsed.opd[1]);
+					} else {
+						dst = Variable.local(reference);
+					}
+					context.data[instr.parsed.opd[1]] = dst;
 				}
-				var dst = Variable.pointer(instr.parsed.opd[1], type, true);
 				return Base.special('for (int32_t i = 0; ' + src + '.length; i++) ' + src + ' = ' + dst + '[i]');
 			},
 			nop: function() {
@@ -858,6 +869,7 @@
 		},
 		context: function() {
 			return {
+				data: {},
 				objects: {},
 				arguments: {},
 				missing: [],
@@ -876,7 +888,7 @@
 			return [];
 		},
 		globalvars: function(context) {
-			return [];
+			return Object.keys(context.data).map(function(key) { return context.data[key]; });
 		},
 		arguments: function(context) {
 			return Object.keys(context.arguments).map(function(x) {
