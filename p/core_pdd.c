@@ -164,14 +164,14 @@ static void duk_r2dec(RCore *core, const char *input) {
 static void usage(const RCore* const core) {
 	const char* help[] = {
 		"Usage: pdd[*abousi]", "",	"# Core plugin for r2dec",
-		"pdd",	"",			"decompile current function",
-		"pdd*",	"",			"decompiled code is returned to r2 as comment (via CCu)",
-		"pdda",	"",			"decompile current function with side assembly",
-		"pddb",	"",			"decompile current function but show only scopes",
-		"pddo",	"",			"decompile current function side by side with offsets",
-		"pddu",	"",			"upgrade r2dec via r2pm",
-		"pdds", "branch",	"switch r2dec branch",
-		"pddi",	"",			"generate issue data",
+		"pdd",	"",        "decompile current function",
+		"pdd*",	"",        "decompiled code is returned to r2 as comment (via CCu)",
+		"pdda",	"",        "decompile current function with side assembly",
+		"pddb",	"",        "decompile current function but show only scopes",
+		"pddo",	"",        "decompile current function side by side with offsets",
+		"pddu",	"",        "upgrade r2dec via r2pm",
+		"pdds", " branch", "switch r2dec branch",
+		"pddi",	"",        "generate issue data",
 
 		// "Evaluable Variables:", "", "",
 		// "r2dec.casts",	"",	"if false, hides all casts in the pseudo code",
@@ -256,7 +256,7 @@ static int r_cmd_pdd(void *user, const char *input) {
 	RCore *core = (RCore *) user;
 	if (!strncmp (input, "e cmd.pdc", 9)) {
 		const char* assign = strchr (input + 9, '=');
-		if (assign && strchr (assign + 1, '?'))
+		if (assign && strchr (assign + 1, '?')) {
 			r_cons_printf ("r2dec\n");
 			return false;
 		}
