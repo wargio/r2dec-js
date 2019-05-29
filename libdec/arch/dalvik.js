@@ -35,7 +35,7 @@
 	};
 
 	function arg_usage(value, type, context) {
-		if (!context.objects[value] && !context.arguments[value]) {
+		if (!value.startsWith('0x') && !context.objects[value] && !context.arguments[value]) {
 			context.arguments[value] = Variable.local(value, type, true);
 		}
 	}
@@ -371,36 +371,42 @@
 				return Base.assign_to_object_field(dst, src, '.', 'length');
 			},
 			'if-eqz': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], '0', 'EQ');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[1], true, 16) : instr.jump;
 				return Base.nop();
 			},
 			'if-nez': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], '0', 'NE');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[1], true, 16) : instr.jump;
 				return Base.nop();
 			},
 			'if-ltz': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], '0', 'LT');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[1], true, 16) : instr.jump;
 				return Base.nop();
 			},
 			'if-gez': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], '0', 'GE');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[1], true, 16) : instr.jump;
 				return Base.nop();
 			},
 			'if-gtz': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], '0', 'GT');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[1], true, 16) : instr.jump;
 				return Base.nop();
 			},
 			'if-lez': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], '0', 'LE');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[1], true, 16) : instr.jump;
@@ -413,30 +419,40 @@
 				return Base.nop();
 			},
 			'if-ne': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
+				arg_usage(instr.parsed.opd[1], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], instr.parsed.opd[1], 'NE');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[2], true, 16) : instr.jump;
 				return Base.nop();
 			},
 			'if-lt': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
+				arg_usage(instr.parsed.opd[1], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], instr.parsed.opd[1], 'LT');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[2], true, 16) : instr.jump;
 				return Base.nop();
 			},
 			'if-ge': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
+				arg_usage(instr.parsed.opd[1], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], instr.parsed.opd[1], 'GE');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[2], true, 16) : instr.jump;
 				return Base.nop();
 			},
 			'if-gt': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
+				arg_usage(instr.parsed.opd[1], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], instr.parsed.opd[1], 'GT');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[2], true, 16) : instr.jump;
 				return Base.nop();
 			},
 			'if-le': function(instr, context, instructions) {
+				arg_usage(instr.parsed.opd[0], JavaObject, context);
+				arg_usage(instr.parsed.opd[1], JavaObject, context);
 				_set_block_changed(context);
 				instr.conditional(instr.parsed.opd[0], instr.parsed.opd[1], 'LE');
 				instr.jump = !instr.jump ? Long.fromString(instr.parsed.opd[2], true, 16) : instr.jump;
@@ -844,6 +860,9 @@
 			'xor-long': function(instr, context, instructions) {
 				return _generic64_math3(instr, context, 'int64_t', Base.or);
 			},
+			'throw': function(instr, context, instructions) {
+				return Base.throw(instr.parsed.opd[0]);
+			},
 			invalid: function(instr, context, instructions) {
 				return Base.nop();
 			}
@@ -892,7 +911,9 @@
 			return [];
 		},
 		globalvars: function(context) {
-			return Object.keys(context.data).map(function(key) { return context.data[key]; });
+			return Object.keys(context.data).map(function(key) {
+				return context.data[key];
+			});
 		},
 		arguments: function(context) {
 			return Object.keys(context.arguments).map(function(x) {
