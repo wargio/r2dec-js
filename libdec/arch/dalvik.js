@@ -903,7 +903,7 @@
 			return context.returntype;
 		},
 		routine_name: function(name) {
-			return Extra.replace.object(name.replace(/(_[BCDFIJSVZ]+)?_[BCDFIJSVZ]$/, '')).replace(/_/g, ".");
+			return Extra.replace.object(name.replace(/_([BCDFIJSVZ]+)?_[BCDFIJSVZ]$/, '')).replace(/_/g, ".");
 		}
 	};
 });
