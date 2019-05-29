@@ -114,6 +114,7 @@
         this.parsed = arch.parse(this.assembly, this.simplified);
         this.string = null;
         this.symbol = null;
+        this.klass  = null;
         this.callee = null;
         this.label = null;
         this.cond = null;

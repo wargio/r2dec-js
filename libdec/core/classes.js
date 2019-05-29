@@ -16,19 +16,20 @@
  */
 
 (function() {
-	var XReference = function(strings, symbols, classes) {
-		this.db_strings = strings;
-		this.db_symbols = symbols;
-		this.db_classes = classes;
-		this.find_symbol = function(address) {
-			return this.db_symbols.search(address);
-		};
-		this.find_string = function(address) {
-			return this.db_strings.search(address);
-		};
-		this.find_class = function(address) {
-			return this.db_classes.search(address);
-		};
-	};
-	return XReference;
+    /*
+     * Expects the icj json as input.
+     */
+    return function(icj) {
+        var data = {};
+        icj.forEach(function(x) {
+            data[x.addr.toString()] = x.classname;
+        });
+        this.data = data;
+        this.search = function(address) {
+            if (address) {
+                return this.data[address.toString()];
+            }
+            return null;
+        };
+    };
 });

@@ -31,6 +31,7 @@
 		StaticObject: 20,
 		FieldObject: 21,
 		RegisterMoved: 42,
+		RegisterCondAssign: 43,
 		BlockChanged: 80,
 	};
 
@@ -582,6 +583,20 @@
 				var src = Variable.local(p.opd[1], instr.bits, true);
 				return Base.assign(dst, src);
 			},
+			'move-object': function(instr, context, instructions) {
+				var p = instr.parsed;
+				context.objects[p.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
+				context.objects[p.opd[1]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
+				var dst = Variable.local(p.opd[0], instr.bits, true);
+				var src = Variable.local(p.opd[1], instr.bits, true);
+				return Base.assign(dst, src);
+			},
 			'move-wide': function(instr, context, instructions) {
 				var p = instr.parsed;
 				context.objects[p.opd[0]] = {
@@ -622,6 +637,10 @@
 				return Base.nop();
 			},
 			'check-cast': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterCondAssign,
+				};
 				instr.setBadJump();
 				var a = Variable.local(instr.parsed.opd[0], instr.bits, true);
 				var b = Variable.object(instr.parsed.opd[1]);
@@ -629,6 +648,10 @@
 				return Base.throw(Variable.object(JavaClassCastException, _throw_exception(instr.parsed.opd[1])));
 			},
 			'instance-of': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterCondAssign,
+				};
 				var a = Variable.local(instr.parsed.opd[1], instr.bits, true);
 				var b = Variable.object(instr.parsed.opd[2]);
 				return Base.conditional_assign(instr.parsed.opd[0], a, b, 'INSTANCEOF', '1', '0');
@@ -700,76 +723,136 @@
 				return _generic64_math3(instr, context, 'int64_t', Base.divide);
 			},
 			'double-to-float': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
 				var src = Variable.local(next_reg_join(instr.parsed.opd[1], ":"), instr.bits, true);
 				return Base.cast(dst, src, "float");
 			},
 			'double-to-int': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
 				var src = Variable.local(next_reg_join(instr.parsed.opd[1], ":"), instr.bits, true);
 				return Base.cast(dst, src, "int32_t");
 			},
 			'double-to-long': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(next_reg_join(instr.parsed.opd[0], ":"), instr.bits, true);
 				var src = Variable.local(next_reg_join(instr.parsed.opd[1], ":"), instr.bits, true);
 				return Base.cast(dst, src, "int64_t");
 			},
 			'float-to-double': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(next_reg_join(instr.parsed.opd[0], ":"), instr.bits, true);
 				var src = Variable.local(instr.parsed.opd[1], instr.bits, true);
 				return Base.cast(dst, src, "double");
 			},
 			'float-to-int': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
 				var src = Variable.local(instr.parsed.opd[1], instr.bits, true);
 				return Base.cast(dst, src, "int32_t");
 			},
 			'float-to-long': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(next_reg_join(instr.parsed.opd[0], ":"), instr.bits, true);
 				var src = Variable.local(instr.parsed.opd[1], instr.bits, true);
 				return Base.cast(dst, src, "int64_t");
 			},
 			'int-to-byte': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
 				var src = Variable.local(instr.parsed.opd[1], instr.bits, true);
 				return Base.cast(dst, src, "int8_t");
 			},
 			'int-to-char': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
 				var src = Variable.local(instr.parsed.opd[1], instr.bits, true);
 				return Base.cast(dst, src, "char");
 			},
 			'int-to-double': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(next_reg_join(instr.parsed.opd[0], ":"), instr.bits, true);
 				var src = Variable.local(instr.parsed.opd[1], instr.bits, true);
 				return Base.cast(dst, src, "double");
 			},
 			'int-to-float': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
 				var src = Variable.local(instr.parsed.opd[1], instr.bits, true);
 				return Base.cast(dst, src, "float");
 			},
 			'int-to-long': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(next_reg_join(instr.parsed.opd[0], ":"), instr.bits, true);
 				var src = Variable.local(instr.parsed.opd[1], instr.bits, true);
 				return Base.cast(dst, src, "int64_t");
 			},
 			'int-to-short': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
 				var src = Variable.local(instr.parsed.opd[1], instr.bits, true);
 				return Base.cast(dst, src, "int16_t");
 			},
 			'long-to-double': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(next_reg_join(instr.parsed.opd[0], ":"), instr.bits, true);
 				var src = Variable.local(next_reg_join(instr.parsed.opd[1], ":"), instr.bits, true);
 				return Base.cast(dst, src, "double");
 			},
 			'long-to-float': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
 				var src = Variable.local(next_reg_join(instr.parsed.opd[1], ":"), instr.bits, true);
 				return Base.cast(dst, src, "float");
 			},
 			'long-to-int': function(instr, context, instructions) {
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.RegisterMoved,
+				};
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
 				var src = Variable.local(next_reg_join(instr.parsed.opd[1], ":"), instr.bits, true);
 				return Base.cast(dst, src, "int32_t");

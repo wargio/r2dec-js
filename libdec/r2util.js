@@ -103,6 +103,7 @@
         var xrefs = r2_sanitize(r2pipe.string('isj'), '[]');
         var strings = r2_sanitize(r2pipe.string('Csj'), '[]');
         var functions = r2_sanitize(r2pipe.string('aflj'), '[]');
+        var classes = r2_sanitize(r2pipe.string('icj'), '[]');
         var data = r2_sanitize(r2pipe.string('agj'), '[]');
         var farguments = r2_sanitize(r2pipe.string('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
         var arch = r2_sanitize(r2pipe.string('e asm.arch'), '');
@@ -114,6 +115,7 @@
             ',"agj":' + data +
             ',"isj":' + xrefs +
             ',"izj":' + strings +
+            ',"icj":' + classes +
             ',"afvj":' + farguments +
             ',"afcfj":' + database +
             ',"aflj":' + functions + '}');
@@ -175,6 +177,7 @@
                     symbols: o.isj || [],
                     strings: o.izj || [],
                     functions: o.aflj || [],
+                    classes: o.icj || [],
                     arguments: offset_long(o.afvj) || {
                         "sp": [],
                         "bp": [],
@@ -243,6 +246,7 @@
                 symbols: (isfast ? [] : r2pipe.json64('isj', [])),
                 strings: (isfast ? [] : r2pipe.json64('Csj', [])),
                 functions: (isfast ? [] : r2pipe.json64('aflj', [])),
+                classes: r2pipe.json64('icj', []),
                 arguments: offset_long(r2pipe.json64('afvj', {
                     "sp": [],
                     "bp": [],

@@ -514,16 +514,17 @@
                 selector = ObjC.selector(callname);
                 returnval = ObjC.returns(callname);
                 pargs = ObjC.arguments(callname);
-                var subslice = instructions.slice((start - 8) < 0 ? 0 : start - 8, start);
+                var subslice = instructions.slice((current - 8) < 0 ? 0 : current - 8, current);
                 args = [receiver, selector].map(function(reg) {
                     var marker = context.markers[instr.marker];
                     if (marker && marker[reg]) {
                         marker[reg].instr.valid = false;
                         var bits = Global.evars.archbits > 32 ? 64 : 32;
                         var vtype = marker[reg].instr.parsed.mnem.startsWith('ld') ? 'pointer' : 'local';
-                        var ret = marker[reg].instr.string ?
-                            marker[reg].instr.string :
-                            Variable[vtype]('0x' + marker[reg].value.toString(16), Extra.to.type(bits, false));
+                        var ret = marker[reg].instr.string || marker[reg].instr.klass;
+                        if (!ret) {
+                            ret = Variable[vtype]('0x' + marker[reg].value.toString(16), Extra.to.type(bits, false));
+                        }
                         delete marker[reg];
                         return ret;
                     }
@@ -537,9 +538,14 @@
                             if (opd2.startsWith('str.') && !subslice[i].string) {
                                 return opd2.substr(4);
                             }
-                            return subslice[i].string ?
-                                Variable.string(subslice[i].string) :
-                                Variable.local(opd2, Extra.to.type(null, false));
+                            if (subslice[i].symbol) {
+                                return subslice[i].symbol;
+                            } else if (subslice[i].string) {
+                                return subslice[i].string;
+                            } else if (subslice[i].klass) {
+                                return subslice[i].klass;
+                            }
+                            return Variable.local(opd2, Extra.to.type(null, false));
                         }
                     }
                     return reg;
@@ -547,7 +553,7 @@
                 for (j = 0; j < pargs.length; j++) {
                     //seen = [];
                     for (i = subslice.length - 1; i >= 0; i--) {
-                        if (subslice[i].parsed.mnem.startsWith('b') || subslice[i].jump) {
+                        if (!subslice[i].parsed.mnem || subslice[i].parsed.mnem.startsWith('b') || subslice[i].jump) {
                             break;
                         }
                         if (pargs[j] == subslice[i].parsed.opd[0]) {
@@ -556,9 +562,15 @@
                                 if (opd2.startsWith('str.') && !subslice[i].string) {
                                     pargs[j] = opd2.substr(4);
                                 } else {
-                                    pargs[j] = subslice[i].string ?
-                                        Variable.string(subslice[i].string) :
-                                        Variable.local(opd2, Extra.to.type(null, false));
+                                    if (subslice[i].symbol) {
+                                        pargs[j] = subslice[i].symbol;
+                                    } else if (subslice[i].string) {
+                                        pargs[j] = Variable.string(subslice[i].string);
+                                    } else if (subslice[i].klass) {
+                                        pargs[j] = subslice[i].klass;
+                                    } else {
+                                        pargs[j] = Variable.local(opd2, Extra.to.type(null, false));
+                                    }
                                 }
                                 subslice[i].valid = false;
                             }
@@ -1668,6 +1680,7 @@
                 v = _value_at(number);
                 instr.string = Global.xrefs.find_string(v) || Global.xrefs.find_string(number);
                 instr.symbol = Global.xrefs.find_symbol(v) || Global.xrefs.find_symbol(number);
+                instr.klass  = Global.xrefs.find_class(_value_at(v)) || Global.xrefs.find_class(v) || Global.xrefs.find_class(number);
             }
             if (instr.string) {
                 instr.code = Base.assign(instr.parsed.opd[0], Variable.string(instr.string));

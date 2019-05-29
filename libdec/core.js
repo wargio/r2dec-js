@@ -22,6 +22,7 @@
     const Extra = require('libdec/core/extra');
     const Strings = require('libdec/core/strings');
     const Symbols = require('libdec/core/symbols');
+    const Classes = require('libdec/core/classes');
     const Functions = require('libdec/core/functions');
     const Instruction = require('libdec/core/instruction');
     const ControlFlow = require('libdec/core/controlflow');
@@ -148,10 +149,11 @@
         var instructions = [];
         var symbols = new Symbols(data.xrefs.symbols);
         var strings = new Strings(data.xrefs.strings);
+        var classes = new Classes(data.xrefs.classes);
         var functions = new Functions(data.xrefs.functions);
         var max_length = 0;
         var max_address = 8;
-        Global.xrefs = new XRefs(strings, symbols);
+        Global.xrefs = new XRefs(strings, symbols, classes);
         for (var i = 0; i < data.graph[0].blocks.length; i++) {
             var block = data.graph[0].blocks[i];
             // This is hacky but it is required by wasm..
@@ -173,6 +175,7 @@
                 }
                 ins.symbol = symbols.search(ins.pointer || ins.jump);
                 ins.string = strings.search(ins.pointer);
+                ins.klass  = classes.search(ins.pointer);
                 ins.callee = functions.search(ins.jump);
                 return ins;
             }));

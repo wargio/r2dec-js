@@ -75,7 +75,7 @@
     };
 
     var _value_at = function(address) {
-        if (r2cmd) {
+        if (r2cmd && address) {
             //this is truly an hack
             var bytes = Global.evars.archbits > 32 ? 8 : 4;
             var p = JSON.parse(r2cmd('pxj ' + bytes + ' @ 0x' + address.toString(16)).trim()).reverse().map(function(x) {
@@ -773,6 +773,14 @@
                             } else if (opd2.token.startsWith('reloc.')) {
                                 return opd2.token.substr(6);
                             }
+
+                            if (subslice[i].symbol) {
+                                return subslice[i].symbol;
+                            } else if (subslice[i].string) {
+                                return subslice[i].string;
+                            } else if (subslice[i].klass) {
+                                return subslice[i].klass;
+                            }
                             if (marker && marker[opd2.token]) {
                                 //marker[opd2.token].instr.valid = false;
                                 if (marker[opd2.token].instr.parsed.opd[1].token.startsWith('str.')) {
@@ -780,19 +788,29 @@
                                 } else if (marker[opd2.token].instr.parsed.opd[1].token.startsWith('reloc.')) {
                                     return marker[opd2.token].instr.parsed.opd[1].token.substr(6);
                                 }
+                                if (marker[opd2.token].instr.klass) {
+                                    return marker[opd2.token].instr.klass;
+                                } else if (marker[opd2.token].instr.string) {
+                                    return marker[opd2.token].instr.string;
+                                } else if (marker[opd2.token].instr.symbol) {
+                                    return marker[opd2.token].instr.symbol;
+                                }
                                 return marker[opd2.token].instr.parsed.opd[1].token;
                             }
-
-
-                            return subslice[i].string ?
-                                subslice[i].string :
-                                Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                            return Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
                         } else if (marker && marker[reg]) {
                             marker[reg].instr.valid = false;
                             if (marker[reg].instr.parsed.opd[1].token.startsWith('str.')) {
                                 return marker[reg].instr.parsed.opd[1].token.substr(4);
                             } else if (marker[reg].instr.parsed.opd[1].token.startsWith('reloc.')) {
                                 return marker[reg].instr.parsed.opd[1].token.substr(6);
+                            }
+                            if (marker[reg].instr.klass) {
+                                return marker[reg].instr.klass;
+                            } else if (marker[reg].instr.string) {
+                                return marker[reg].instr.string;
+                            } else if (marker[reg].instr.symbol) {
+                                return marker[reg].instr.symbol;
                             }
                             return marker[reg].instr.parsed.opd[1].token;
                         }
@@ -939,6 +957,7 @@
                 var v = _value_at(Long.fromString(src.token, true, 16));
                 instr.string = Global.xrefs.find_string(v);
                 instr.symbol = Global.xrefs.find_symbol(v);
+                instr.klass = Global.xrefs.find_class(_value_at(v)) || Global.xrefs.find_class(v);
             } else if (src.token == dst.token && prev.parsed.mnem == 'lea' && prev.parsed.opd[0].token == src.token) {
                 prev.valid = false;
                 return prev.code;

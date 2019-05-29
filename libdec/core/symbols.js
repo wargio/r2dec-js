@@ -16,9 +16,9 @@
  */
 
 (function() {
-    var Long = require('libdec/long');
-    var r2pipe = require('libdec/r2pipe');
-    var Utils = require('libdec/core/utils');
+    const Long = require('libdec/long');
+    const r2pipe = require('libdec/r2pipe');
+    const Utils = require('libdec/core/utils');
 
     var _compare = function(a, b) {
         if (a.eq(b.location)) {
