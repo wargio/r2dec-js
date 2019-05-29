@@ -132,8 +132,14 @@
 	}
 
 	function _invoke_virtual(instr, context, instructions) {
-		var p = instr.parsed;
+		var n, p = instr.parsed;
 		var self, dst;
+		if (p.args[0].indexOf('..v') > 0) {
+			n = p.args[0].match(/\d+/g).map(function(x) {
+				return parseInt(x);
+			});
+			p.args = ['v' + n[0], 'v' + (n[0] + 1), '...', 'v' + n[1]];
+		}
 		var object = context.objects[p.args[0]];
 		if (!object) {
 			arg_usage(p.args[0], Extra.replace.object(p.opd[0]).replace(/(\.?.+)\..+$/, '$1'), context);
@@ -148,6 +154,9 @@
 		var method = Extra.replace.object(p.opd[0].replace(/^L.+\./, 'L'));
 
 		var args = p.args.slice(1).map(function(x) {
+			if (x == '...') {
+				return x;
+			}
 			arg_usage(x, JavaObject, context);
 			return _handle_type(context.objects[x], Variable.local(x, instr.bits, true));
 		});
@@ -462,6 +471,7 @@
 			'invoke-direct': _invoke_direct,
 			'invoke-static': _invoke_static,
 			'invoke-virtual': _invoke_virtual,
+			'invoke-virtual-quick': _invoke_virtual,
 			'invoke-interface': _invoke_virtual,
 			'invoke-custom': _invoke_static,
 			/* array */
@@ -572,7 +582,7 @@
 				var src = Variable.local(p.opd[1], instr.bits, true);
 				return Base.assign(dst, src);
 			},
-			'move-object': function(instr, context, instructions) {
+			'move-wide': function(instr, context, instructions) {
 				var p = instr.parsed;
 				context.objects[p.opd[0]] = {
 					instr: instr,
@@ -869,9 +879,7 @@
 		},
 		parse: function(assembly) {
 			const regex = /^([\w-]+)(\/?(from|high|range|jumbo|2addr|lit\d+)?(\d+)?(\s.+$)$)?(\s.+$)?$/;
-			var token = assembly.trim().match(regex);
-			//console.log(assembly);
-			//console.log(token);
+			var token = assembly.trim().replace(/^\+/, '').match(regex);
 			var operands;
 			var bits = 32;
 			var cast = false;
