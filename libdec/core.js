@@ -177,8 +177,11 @@
                 return ins;
             }));
         }
-        Global.context.identAsmSet(max_length + max_address);
         this.routine_name = data.graph[0].name;
+        if (max_length < this.routine_name.length) {
+            max_length = this.routine_name.length;
+        }
+        Global.context.identAsmSet(max_address + (max_length < this.routine_name.length ? this.routine_name.length : max_length));
         this.instructions = instructions.filter(function(op, p, ops) {
             for (var i = p - 1; i >= 0; i--) {
                 if (ops[i].location.eq(op.location)) {

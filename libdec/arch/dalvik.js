@@ -226,29 +226,33 @@
 		return Base.assign_from_object_field(dst, src, '.', field);
 	}
 
-	function _generic_math3(instr, operation) {
+	function _generic_math3(instr, context, type, operation) {
 		var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
 		var src1 = Variable.local(instr.parsed.opd[1], instr.bits, true);
+		arg_usage(instr.parsed.opd[1], type, context);
 		var src2;
 		if (!instr.parsed.opd[2]) {
 			return operation(dst, dst, src1);
 		} else if (instr.parsed.opd[2].startsWith('0x')) {
 			src2 = Variable.number(instr.parsed.opd[2]);
 		} else {
+			arg_usage(instr.parsed.opd[2], type, context);
 			src2 = Variable.local(instr.parsed.opd[2], instr.bits, true);
 		}
 		return operation(dst, src1, src2);
 	}
 
-	function _generic64_math3(instr, operation) {
+	function _generic64_math3(instr, context, type, operation) {
 		var dst = Variable.local(next_reg_join(instr.parsed.opd[0], ":"), instr.bits, true);
 		var src1 = Variable.local(next_reg_join(instr.parsed.opd[1], ":"), instr.bits, true);
+		arg_usage(instr.parsed.opd[1], type, context);
 		var src2;
 		if (!instr.parsed.opd[2]) {
 			return operation(dst, dst, src1);
 		} else if (instr.parsed.opd[2].startsWith('0x')) {
 			src2 = Variable.number(instr.parsed.opd[2]);
 		} else {
+			arg_usage(instr.parsed.opd[2], type, context);
 			src2 = instr.parsed.opd[2] ? Variable.local(next_reg_join(instr.parsed.opd[2], ":"), instr.bits, true) : src1;
 		}
 		return operation(dst, src1, src2);
@@ -617,7 +621,7 @@
 			return: function(instr, context) {
 				var p = instr.parsed;
 				instr.setBadJump();
-				context.returntype = 'int';
+				context.returntype = 'int32_t';
 				return Base.return(Variable.local(p.opd[0], instr.bits, true));
 			},
 			'goto': function(instr, context, instructions) {
@@ -640,34 +644,34 @@
 				return Base.nop();
 			},
 			'add-double': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.add);
+				return _generic64_math3(instr, context, 'double', Base.add);
 			},
 			'add-float': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.add);
+				return _generic_math3(instr, context, 'float', Base.add);
 			},
 			'add-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.add);
+				return _generic_math3(instr, context, 'int32_t', Base.add);
 			},
 			'add-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.add);
+				return _generic64_math3(instr, context, 'int64_t', Base.add);
 			},
 			'and-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.and);
+				return _generic_math3(instr, context, 'int32_t', Base.and);
 			},
 			'and-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.and);
+				return _generic64_math3(instr, context, 'int64_t', Base.and);
 			},
 			'div-double': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.divide);
+				return _generic64_math3(instr, context, 'double', Base.divide);
 			},
 			'div-float': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.divide);
+				return _generic_math3(instr, context, 'float', Base.divide);
 			},
 			'div-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.divide);
+				return _generic_math3(instr, context, 'int32_t', Base.divide);
 			},
 			'div-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.divide);
+				return _generic64_math3(instr, context, 'int64_t', Base.divide);
 			},
 			'double-to-float': function(instr, context, instructions) {
 				var dst = Variable.local(instr.parsed.opd[0], instr.bits, true);
@@ -745,16 +749,16 @@
 				return Base.cast(dst, src, "int32_t");
 			},
 			'mul-double': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.multiply);
+				return _generic64_math3(instr, context, 'double', Base.multiply);
 			},
 			'mul-float': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.multiply);
+				return _generic_math3(instr, context, 'float', Base.multiply);
 			},
 			'mul-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.multiply);
+				return _generic_math3(instr, context, 'int32_t', Base.multiply);
 			},
 			'mul-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.multiply);
+				return _generic64_math3(instr, context, 'int64_t', Base.multiply);
 			},
 			'neg-double': function(instr, context, instructions) {
 				var dst = Variable.local(next_reg_join(instr.parsed.opd[0], ":"), instr.bits, true);
@@ -787,58 +791,58 @@
 				return Base.not(dst, src1);
 			},
 			'or-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.or);
+				return _generic_math3(instr, context, 'int32_t', Base.or);
 			},
 			'or-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.or);
+				return _generic64_math3(instr, context, 'int64_t', Base.or);
 			},
 			'rem-double': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.module);
+				return _generic64_math3(instr, context, 'double', Base.module);
 			},
 			'rem-float': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.module);
+				return _generic_math3(instr, context, 'float', Base.module);
 			},
 			'rem-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.module);
+				return _generic_math3(instr, context, 'int32_t', Base.module);
 			},
 			'rem-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.module);
+				return _generic64_math3(instr, context, 'int64_t', Base.module);
 			},
 			'shl-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.shift_left);
+				return _generic_math3(instr, context, 'int32_t', Base.shift_left);
 			},
 			'shl-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.shift_left);
+				return _generic64_math3(instr, context, 'int64_t', Base.shift_left);
 			},
 			'shr-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.shift_right);
+				return _generic_math3(instr, context, 'int32_t', Base.shift_right);
 			},
 			'shr-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.shift_right);
+				return _generic64_math3(instr, context, 'int64_t', Base.shift_right);
 			},
 			'sub-double': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.subtract);
+				return _generic_math3(instr, context, 'double', Base.subtract);
 			},
 			'sub-float': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.subtract);
+				return _generic_math3(instr, context, 'float', Base.subtract);
 			},
 			'sub-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.subtract);
+				return _generic_math3(instr, context, 'int32_t', Base.subtract);
 			},
 			'sub-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.subtract);
+				return _generic64_math3(instr, context, 'int64_t', Base.subtract);
 			},
 			'ushr-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.shift_right);
+				return _generic_math3(instr, context, 'int32_t', Base.shift_right);
 			},
 			'ushr-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.shift_right);
+				return _generic64_math3(instr, context, 'int64_t', Base.shift_right);
 			},
 			'xor-int': function(instr, context, instructions) {
-				return _generic_math3(instr, Base.or);
+				return _generic_math3(instr, context, 'int32_t', Base.or);
 			},
 			'xor-long': function(instr, context, instructions) {
-				return _generic64_math3(instr, Base.or);
+				return _generic64_math3(instr, context, 'int64_t', Base.or);
 			},
 			invalid: function(instr, context, instructions) {
 				return Base.nop();
@@ -899,7 +903,7 @@
 			return context.returntype;
 		},
 		routine_name: function(name) {
-			return Extra.replace.object(name).replace(/_/g, ".");
+			return Extra.replace.object(name.replace(/(_[BCDFIJSVZ]+)?_[BCDFIJSVZ]$/, '')).replace(/_/g, ".");
 		}
 	};
 });
