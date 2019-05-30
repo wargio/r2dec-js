@@ -781,9 +781,9 @@
                 if (callname == 'lr') {
                     var start = instructions.indexOf(instr);
                     var returnval = null;
-                    if (instructions[start - 1].parsed.opd[0] == 'r0' ||
+                    if (instructions[start - 1] && (instructions[start - 1].parsed.opd[0] == 'r0' ||
                         instructions[start - 1].parsed.opd[0] == 'w0' ||
-                        instructions[start - 1].parsed.opd[0] == 'x0') {
+                        instructions[start - 1].parsed.opd[0] == 'x0')) {
                         returnval = instructions[start - 1].parsed.opd[0];
                     }
                     context.retreg = returnval;
