@@ -507,6 +507,7 @@
 
         if (ObjC.is(callname)) {
             var pargs, receiver, selector, pcounted = 0;
+            var usedregs = [];
             if (!ObjC.is_class_method(callname)) {
                 return ObjC.handle_others(callname, instr, context, instructions);
             } else {
@@ -516,15 +517,18 @@
                 pargs = ObjC.arguments(callname);
                 var subslice = instructions.slice((current - 8) < 0 ? 0 : current - 8, current);
                 args = [receiver, selector].map(function(reg) {
+                    var bits, vtype, ret, opd2;
                     var marker = context.markers[instr.marker];
                     if (marker && marker[reg]) {
                         marker[reg].instr.valid = false;
-                        var bits = Global.evars.archbits > 32 ? 64 : 32;
-                        var vtype = marker[reg].instr.parsed.mnem.startsWith('ld') ? 'pointer' : 'local';
-                        var ret = marker[reg].instr.string || marker[reg].instr.klass;
+                        bits = Global.evars.archbits > 32 ? 64 : 32;
+                        vtype = marker[reg].instr.parsed.mnem.startsWith('ld') ? 'pointer' : 'local';
+                        ret = marker[reg].instr.string || marker[reg].instr.klass;
                         if (!ret) {
                             ret = Variable[vtype]('0x' + marker[reg].value.toString(16), Extra.to.type(bits, false));
                         }
+                        opd2 = marker[reg].instr.parsed.opd[1];
+                        usedregs.push(Array.isArray(opd2) ? opd2[0] : opd2);
                         delete marker[reg];
                         return ret;
                     }
@@ -534,7 +538,7 @@
                         }
                         if (reg == subslice[i].parsed.opd[0] && "mov" == subslice[i].parsed.mnem) {
                             subslice[i].valid = false;
-                            var opd2 = subslice[i].parsed.opd[1];
+                            opd2 = subslice[i].parsed.opd[1];
                             if (opd2.startsWith('str.') && !subslice[i].string) {
                                 return opd2.substr(4);
                             }
@@ -545,6 +549,16 @@
                             } else if (subslice[i].klass) {
                                 return subslice[i].klass;
                             }
+                            if (marker && marker[opd2]) {
+                                marker[opd2].instr.valid = false;
+                                bits = Global.evars.archbits > 32 ? 64 : 32;
+                                vtype = marker[opd2].instr.parsed.mnem.startsWith('ld') ? 'pointer' : 'local';
+                                ret = marker[opd2].instr.string || marker[opd2].instr.klass;
+                                if (ret) {
+                                    return ret;
+                                }
+                            }
+
                             return Variable.local(opd2, Extra.to.type(null, false));
                         }
                     }
@@ -554,6 +568,9 @@
                     //seen = [];
                     for (i = subslice.length - 1; i >= 0; i--) {
                         if (!subslice[i].parsed.mnem || subslice[i].parsed.mnem.startsWith('b') || subslice[i].jump) {
+                            break;
+                        }
+                        if (usedregs.indexOf(pargs[j]) >= 0) {
                             break;
                         }
                         if (pargs[j] == subslice[i].parsed.opd[0]) {
@@ -782,8 +799,8 @@
                     var start = instructions.indexOf(instr);
                     var returnval = null;
                     if (instructions[start - 1] && (instructions[start - 1].parsed.opd[0] == 'r0' ||
-                        instructions[start - 1].parsed.opd[0] == 'w0' ||
-                        instructions[start - 1].parsed.opd[0] == 'x0')) {
+                            instructions[start - 1].parsed.opd[0] == 'w0' ||
+                            instructions[start - 1].parsed.opd[0] == 'x0')) {
                         returnval = instructions[start - 1].parsed.opd[0];
                     }
                     context.retreg = returnval;
@@ -1680,7 +1697,7 @@
                 v = _value_at(number);
                 instr.string = Global.xrefs.find_string(v) || Global.xrefs.find_string(number);
                 instr.symbol = Global.xrefs.find_symbol(v) || Global.xrefs.find_symbol(number);
-                instr.klass  = Global.xrefs.find_class(_value_at(v)) || Global.xrefs.find_class(v) || Global.xrefs.find_class(number);
+                instr.klass = Global.xrefs.find_class(_value_at(v)) || Global.xrefs.find_class(_value_at(_value_at(number.add(4)))) || Global.xrefs.find_class(v) || Global.xrefs.find_class(number);
             }
             if (instr.string) {
                 instr.code = Base.assign(instr.parsed.opd[0], Variable.string(instr.string));
