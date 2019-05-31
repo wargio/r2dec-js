@@ -763,6 +763,13 @@
                 }
                 return _common_math(instr.parsed, Base.add);
             },
+            fadd: function(instr, context, instructions) {
+                var marker = _apply_marker_math(instr, context);
+                if (marker) {
+                    return marker;
+                }
+                return _common_math(instr.parsed, Base.add);
+            },
             adr: function(instr) {
                 var dst = instr.parsed.opd[0];
                 return Base.assign(dst, instr.parsed.opd[1]);
@@ -1037,6 +1044,9 @@
             mul: function(instr) {
                 return _common_math(instr.parsed, Base.multiply);
             },
+            fmul: function(instr) {
+                return _common_math(instr.parsed, Base.multiply);
+            },
             umulh: function(instr) {
                 return Base.composed([
                     _common_math(instr.parsed, Base.multiply),
@@ -1154,6 +1164,9 @@
             sub: function(instr) {
                 return _common_math(instr.parsed, Base.subtract);
             },
+            fsub: function(instr) {
+                return _common_math(instr.parsed, Base.subtract);
+            },
             rsb: function(instr) {
                 var op = Base.subtract;
                 var e = instr.parsed;
@@ -1257,7 +1270,29 @@
                 }
                 return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, opds[1], opds[2]);
             },
+            fcsel: function(instr, context) {
+                var opds = instr.parsed.opd;
+                var cond = 'EQ';
+                for (var i = 0; i < _conditional_list.length; i++) {
+                    if (_conditional_list[i].ext == opds[3]) {
+                        cond = _conditional_list[i].type;
+                        break;
+                    }
+                }
+                return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, opds[1], opds[2]);
+            },
             cset: function(instr, context) {
+                var opds = instr.parsed.opd;
+                var cond = 'EQ';
+                for (var i = 0; i < _conditional_list.length; i++) {
+                    if (_conditional_list[i].ext == opds[1]) {
+                        cond = _conditional_list[i].type;
+                        break;
+                    }
+                }
+                return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, '1', '0');
+            },
+            fcset: function(instr, context) {
                 var opds = instr.parsed.opd;
                 var cond = 'EQ';
                 for (var i = 0; i < _conditional_list.length; i++) {
@@ -1382,6 +1417,9 @@
             sdiv: function(instr) {
                 return _common_math(instr.parsed, Base.divide);
             },
+            fdiv: function(instr) {
+                return _common_math(instr.parsed, Base.divide);
+            },
             ubfiz: function(instr) {
                 var opds = instr.parsed.opd;
                 var arg = Variable.uniqueName();
@@ -1431,6 +1469,9 @@
             },
             sturh: function(instr, context) {
                 return _memory(Base.write_memory, instr, context, _reg_bits[instr.parsed.opd[0][0]]);
+            },
+            fcvt: function(instr) {
+                return Base.cast(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[0][0] == 's' ? 'float' : 'double');
             },
             invalid: function() {
                 return Base.nop();
@@ -1514,7 +1555,9 @@
         localvars: function(context) {
             return context.vars.map(function(v) {
                 return v.type + ' ' + v.name;
-            }).concat(context.args.map(function(v) {
+            }).concat(context.args.filter(function(v) {
+                return typeof v.ref == 'string';
+            }).map(function(v) {
                 return v.ref + ' = ' + v.name;
             }));
         },
