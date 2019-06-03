@@ -536,10 +536,10 @@
                         if (subslice[i].parsed.mnem.startsWith('b') || subslice[i].jump) {
                             break;
                         }
-                        if (reg == subslice[i].parsed.opd[0] && "mov" == subslice[i].parsed.mnem) {
+                        if (reg == subslice[i].parsed.opd[0] && ("mov" == subslice[i].parsed.mnem || ("ldr" == subslice[i].parsed.mnem && subslice[i].parsed.opd[1].startsWith && subslice[i].parsed.opd[1].startsWith('str_')))) {
                             subslice[i].valid = false;
                             opd2 = subslice[i].parsed.opd[1];
-                            if (opd2.startsWith('str.') && !subslice[i].string) {
+                            if ((opd2.startsWith('str.') || opd2.startsWith('str_')) && !subslice[i].string) {
                                 return opd2.substr(4);
                             }
                             if (subslice[i].symbol) {
@@ -908,6 +908,10 @@
                 return _conditional(instr, context, 'NE');
             },
             ldr: function(instr, context) {
+                if (typeof instr.parsed.opd[1] == 'string' && instr.parsed.opd[1].startsWith('str_')) {
+                    instr.string = instr.parsed.opd[1].replace('str_', '');
+                    return Base.assign(instr.parsed.opd[0], Variable.string(instr.string));
+                }
                 var marker = _apply_marker_math(instr, context);
                 if (marker) {
                     return marker;
@@ -1721,7 +1725,7 @@
             var isarr = Extra.is.array(instr.parsed.opd[1]);
             if (isarr && instr.parsed.opd[1][0] != 'pc' && !marker[instr.parsed.opd[1][0]]) {
                 return;
-            } else if (!isarr && !marker[instr.parsed.opd[1]]) {
+            } else if (!isarr && !marker[instr.parsed.opd[1]] && !instr.parsed.opd[1].startsWith('0x')) {
                 return;
             }
             var number, v;
@@ -1730,6 +1734,12 @@
                 v = _value_at(number);
                 instr.string = Global.xrefs.find_string(v) || Global.xrefs.find_string(number);
                 instr.symbol = Global.xrefs.find_symbol(v) || Global.xrefs.find_symbol(number);
+            } else if(!isarr && instr.parsed.opd[1].startsWith('0x')) {
+                number = Long.fromString(parseInt(instr.parsed.opd[1]).toString(16), true, 16);
+                v = _value_at(number);
+                instr.string = Global.xrefs.find_string(v) || Global.xrefs.find_string(number);
+                instr.symbol = Global.xrefs.find_symbol(v) || Global.xrefs.find_symbol(number);
+                instr.klass = Global.xrefs.find_class(v) || Global.xrefs.find_class(number);
             } else {
                 var data = marker[instr.parsed.opd[1]] || marker[instr.parsed.opd[1][0]];
                 if (instr.parsed.opd[0] == instr.parsed.opd[1] || instr.parsed.opd[0] == instr.parsed.opd[1][0]) {
