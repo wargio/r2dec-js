@@ -1588,7 +1588,7 @@
     };
 
     function _apply_new_assign(register, data) {
-        if (data) {
+        if (data && data.instr.parsed.mnem) {
             if (data.instr.string) {
                 data.instr.code = Base.assign(data.instr.parsed.opd[0], Variable.string(data.instr.string));
             } else if (data.instr.symbol) {
