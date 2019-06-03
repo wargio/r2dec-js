@@ -1627,6 +1627,9 @@
 
     var _apply_math = {
         adrp: function(marker, instr) {
+            if (!instr.parsed.opd[1].startsWith('0x')) {
+                return;
+            }
             _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);
             marker[instr.parsed.opd[0]] = {
                 value: Long.fromString(instr.parsed.opd[1], true, 16),
