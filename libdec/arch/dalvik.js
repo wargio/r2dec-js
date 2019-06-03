@@ -525,6 +525,16 @@
 				var src = Variable.object(p.opd[1]);
 				return Base.assign(dst, src);
 			},
+			'sput': function(instr, context, instructions) {
+				var p = instr.parsed;
+				context.objects[p.opd[0]] = {
+					instr: instr,
+					type: DalvikType.StaticObject,
+				};
+				var src = Variable.local(p.opd[0], instr.bits, true);
+				var dst = Variable.object(p.opd[1]);
+				return Base.assign(dst, src);
+			},
 			'sput-boolean': function(instr, context, instructions) {
 				var p = instr.parsed;
 				context.objects[p.opd[0]] = {
