@@ -46,15 +46,15 @@ module.exports = (function() {
         }
     }
 
-    Directed.prototype.toString = function() {
+    Directed.prototype.toString = function(opt) {
         return Object.keys(this.nodes).map(function(k) {
             var n = this.nodes[k];
 
             var outs = this.successors(n).map(function(succ) {
-                return succ.toString();
+                return succ.toString(opt);
             });
 
-            return [n.toString(), '->', '[' + outs.join(', ') + ']'].join(' ');
+            return [n.toString(opt), '->', '[' + outs.join(', ') + ']'].join(' ');
         }, this).join('\n');
     };
 

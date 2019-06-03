@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018-2019 pncake, deroad, elicn
+ * Copyright (C) 2018-2019 pancake, deroad, elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,8 +17,10 @@
 
 const Graph = require('core2/analysis/graph');
 
-const JSON = require('libdec/json64');
+const JSONr2 = require('libdec/json64');
 const Decoder = require('core2/frontend/decoder');
+const Analyzer = require('core2/frontend/arch/x86/analyzer'); // TODO: does not belong here
+const Resolver = require('core2/frontend/resolver');
 const SSA = require('core2/analysis/ssa');
 const ControlFlow = require('core2/analysis/controlflow');
 const CodeGen = require('core2/backend/codegen');
@@ -27,19 +29,19 @@ const CodeGen = require('core2/backend/codegen');
  * Global data accessible from everywhere.
  * @type {Object}
  */
-// var Global = {
+var Global = {
 //     context: null,
 //     evars: null,
 //     printer: null,
 //     warning: require('libdec/warning')
-// };
+};
 
 // ES6 version:
 //
 // var r2cmdj = function(...args) {
 //     var output = r2cmd(args.join(' ')).trim();
 //
-//     return output ? JSON.parse(output) : undefined;
+//     return output ? JSONr2.parse(output) : undefined;
 // };
 
 /**
@@ -48,8 +50,10 @@ const CodeGen = require('core2/backend/codegen');
 var r2cmdj = function() {
     var output = r2cmd(Array.prototype.slice.call(arguments).join(' ')).trim();
 
-    return output ? JSON.parse(output) : undefined;
+    return output ? JSONr2.parse(output) : undefined;
 };
+
+Global['r2cmdj'] = r2cmdj;
 
 function Function(afij, afbj) {
     this.name = afij.name;
@@ -132,13 +136,6 @@ function BasicBlock(parent, bb) {
 
     // get instructions list
     this.instructions = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
-
-    // retrieve the block's last statement; normally this would be either a goto, branch or return statement
-    Object.defineProperty(this, 'terminator', {
-        get: function() {
-            return this.instructions[this.instructions.length - 1];
-        }
-    });
 }
 
 // this is used to hash basic blocks in arrays and enumerable objects
@@ -157,34 +154,56 @@ function r2dec_main(args) {
     try {
         var iIj = r2cmdj('iIj');
 
-        if (Decoder.has(iIj.arch))
-        {
-            var afij = r2cmdj('afij');
+        if (Decoder.has(iIj.arch)) {
+            var afij = r2cmdj('afij').pop();
             var afbj = r2cmdj('afbj');
 
             if (afij && afbj) {
+                // TODO: separate decoding, ssa, controlflow and codegen stages
+
                 var decoder = new Decoder(iIj);
-                var func = new Function(afij.pop(), afbj);
+                var analyzer = new Analyzer(decoder.arch);  // TODO: this is a design workaround!
+                var resolver = new Resolver(afij);
+                var func = new Function(afij, afbj);
 
                 // transform assembly instructions into internal representation
                 // this is a prerequisit to ssa-based analysis and optimizations
                 func.basic_blocks.forEach(function(bb) {
                     bb.container = decoder.transform_ir(bb.instructions);
+
+                    // perform arch-specific modifications (container)
+                    analyzer.transform_step(bb.container);
                 });
 
-                // TODO: eliminate empty basic blocks [contain only nops]
+                // perform arch-specific modifications (whole function)
+                analyzer.transform_done(func);
 
                 var ssa = new SSA(func);
-                var defs = ssa.rename_variables();
+                var ssa_ctx;
 
-                // emit def-use chains
-                // console.log(defs);
+                // ssa tagging for registers
+                ssa_ctx = ssa.rename_regs();
+                analyzer.ssa_step(ssa_ctx);
 
-                // ControlFlow.run(func);
+                // ssa tagging for memory dereferences
+                ssa_ctx = ssa.rename_derefs();
+                analyzer.ssa_step(ssa_ctx);
+
+                analyzer.ssa_done(ssa_ctx);
+
+                // TODO:
+                //  - x86: add uninit stack locations for function arguments [cdecl]
+                //  - x86: add uninit registers for function arguments [amd64]
+                //  - x86: add sp0 def
+                //  - make stack var objects before propagating sp0 to tell stack locations from plain pointers
+
+                var cflow = new ControlFlow(func);
+                cflow.fallthroughs();
+                cflow.conditions();
 
                 var ecj = r2cmdj('ecj');
 
-                console.log(new CodeGen(ecj).emit_func(func));
+                console.log(new CodeGen(ecj, resolver).emit_func(func));
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }

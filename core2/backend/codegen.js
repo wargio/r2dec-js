@@ -23,7 +23,8 @@ module.exports = (function() {
     const TOK_INVALID = 16; // unknown
 
     /**
-     * Coloring tokens to r2 theme colors mapping
+     * Mapping of coloring tokens to r2 theme color keys.
+     * See 'ec' r2 command.
      * @readonly
      */
     var COLORMAP = [
@@ -47,7 +48,7 @@ module.exports = (function() {
     ];
 
     var load_palette = function(ecj) {
-        var escape = function(tok) {
+        var esc = function(tok) {
             return '\033[' + tok + 'm';
         };
 
@@ -60,11 +61,12 @@ module.exports = (function() {
         };
 
         // init palette with reset formatting code
-        var palette = { '': escape(0) };
+        var palette = { '': esc(0) };
 
+        // populate palette with escape codes
         COLORMAP.forEach(function(key) {
             if (!(key in palette)) {
-                palette[key] = escape(rgb_to_esccode(ecj[key]));
+                palette[key] = esc(rgb_to_esccode(ecj[key]));
             }
         });
 
@@ -90,17 +92,22 @@ module.exports = (function() {
         return (complex && !has_paren) ? parenthesize(s) : s;
     };
 
-    function CodeGen(ecj) {
+    function CodeGen(ecj, resolver) {
         this.palette = load_palette(ecj);
+        this.xrefs = resolver;
 
         // TODO: these could be set through r2 variables
         this.tabstop = 4;
         this.scope_newline = true;
+
+        // TODO: scope guidelines
+        //  o regular: '\u2506', '\u250a', '\u254e'
+        //  o bold:    '\u2507', '\u250b', '\u254f'
     }
 
     CodeGen.prototype.emit = function(tokens) {
         var colorized = tokens.map(function(pair) {
-            var tok = pair[0]; // coloring token
+            var tok = pair[0];  // coloring token
             var txt = pair[1];  // text to color
 
             return this.palette[COLORMAP[tok]] + txt + this.palette[''];
@@ -156,6 +163,12 @@ module.exports = (function() {
         };
 
         if (expr instanceof Expr.Val) {
+            var str = this.xrefs.resolve_data(expr);
+            
+            if (str) {
+                return [[TOK_STRING, str]];
+            }
+
             // TODO: emit value in the appropriate format: dec, hex, signed, unsigned, ...
             return [[TOK_NUMBER, expr.toString()]];
         }
@@ -281,8 +294,8 @@ module.exports = (function() {
         }
 
         else if (expr instanceof Expr.Call) {
-            var args = expr.operands.slice(0);
-            var fname = args.shift(); // was: expr.operator
+            var args = expr.operands.slice(1);
+            var fname = this.xrefs.resolve_fname(expr.operator) || expr.operator;
 
             return Array.prototype.concat(
                 [[TOK_FNCALL, fname.toString()], [TOK_PAREN, '(']],
@@ -311,6 +324,16 @@ module.exports = (function() {
             return _emit_uexpr.call(this, expr, [TOK_COMPARE, '!']);
         }
 
+        // generic invalid uexpr
+        else if (expr instanceof Expr.UExpr) {
+            return _emit_uexpr.call(this, expr, [TOK_INVALID, expr.operator]);
+        }
+
+        // generic invalid bexpr
+        else if (expr instanceof Expr.BExpr) {
+            return _emit_bexpr.call(this, expr, [TOK_INVALID, expr.operator]);
+        }
+
         return [[TOK_INVALID, expr.toString()]];
     };
 
@@ -323,12 +346,11 @@ module.exports = (function() {
         const p = this.pad(depth);
         var tokens = [];
 
-        tokens.push([TOK_WHTSPCE, p]);
-
         // <DEBUG>
         tokens.push([TOK_OFFSET, '0x' + stmt.addr.toString(16)]);
-        tokens.push([TOK_WHTSPCE, ' '.repeat(this.tabstop)]);
         // </DEBUG>
+
+        tokens.push([TOK_WHTSPCE, p]);
 
         if (stmt instanceof Stmt.Branch) {
             // TODO: a Branch is meant to be replaced by an 'If'; it is here only for dev purpose
@@ -374,9 +396,14 @@ module.exports = (function() {
             if (stmt.else_cntr) {
                 if (this.scope_newline) {
                     tokens.push([TOK_WHTSPCE, '\n']);
+                    // <DEBUG>
+                    tokens.push([TOK_OFFSET, ' '.repeat(stmt.addr.toString(16).length + 2)]);
+                    // </DEBUG>
+                    tokens.push([TOK_WHTSPCE, p]);
+                } else {
+                    tokens.push([TOK_WHTSPCE, ' ']);
                 }
 
-                tokens.push([TOK_WHTSPCE, p]);
                 tokens.push([TOK_KEYWORD, 'else']);
                 Array.prototype.push.apply(tokens, this.emit_scope(stmt.else_cntr, depth));
             }
@@ -416,28 +443,52 @@ module.exports = (function() {
      * Emit a lexical scope with the appropriate indentation.
      * @param {!Stmt.Container} cntr  Container object to emit
      * @param {number} depth Nesting level
+     * @param {boolean} stripped Strip off curly braces
      */
-    CodeGen.prototype.emit_scope = function(cntr, depth) {
+    CodeGen.prototype.emit_scope = function(cntr, depth, stripped) {
         const p = this.pad(depth);
-        var newline = [[TOK_WHTSPCE, this.scope_newline ? '\n' : ' ']];
 
-        var opening = [
-            [TOK_WHTSPCE, p],
-            [TOK_PAREN, '{'],
-            [TOK_WHTSPCE, '\n']
-        ];
+        var tokens = [];
 
-        var content = Array.prototype.concat.apply([], cntr.statements.map(function(s) {
+        if (!stripped) {
+            if (this.scope_newline) {
+                tokens.push([TOK_WHTSPCE, '\n']);
+
+                // <DEBUG>
+                tokens.push([TOK_OFFSET, '0x' + cntr.address.toString(16)]);
+                // </DEBUG>
+
+                tokens.push([TOK_WHTSPCE, p]);
+            } else {
+                tokens.push([TOK_WHTSPCE, ' ']);
+            }
+
+            tokens.push([TOK_PAREN, '{']);
+        }
+
+        tokens.push([TOK_WHTSPCE, '\n']);
+
+        var content = [];
+        content = Array.prototype.concat.apply(content, cntr.statements.map(function(s) {
             return this.emit_statement(s, depth + 1);
         }, this));
 
-        var closing = [
-            [TOK_WHTSPCE, p],
-            [TOK_PAREN, '}'],
-            [TOK_WHTSPCE, '\n'] // TODO: this may break the inline 'else' keyword
-        ];
+        if (cntr.next) {
+            Array.prototype.push.apply(content, this.emit_scope(cntr.next, depth, true));
+        }
 
-        return Array.prototype.concat(newline, opening, content, closing);
+        var closing = [];
+
+        if (!stripped) {
+            // <DEBUG>
+            closing.push([TOK_OFFSET, ' '.repeat(cntr.address.toString(16).length + 2)]);
+            // </DEBUG>
+
+            closing.push([TOK_WHTSPCE, p]);
+            closing.push([TOK_PAREN, '}']);
+        }
+
+        return Array.prototype.concat(tokens, content, closing);
     };
 
     CodeGen.prototype.emit_func = function(func) {
@@ -470,14 +521,14 @@ module.exports = (function() {
         }
         tokens.push([TOK_PAREN, ')']);
 
-        // TODO: this should work after ControlFlow is implemented:
-        // Array.prototype.push.apply(tokens, this.emit_scope(func.entry_block.container, 0));
+        // TODO: emit containers following entry block!
+        Array.prototype.push.apply(tokens, this.emit_scope(func.entry_block.container, 0));
 
         // in the meantime, just emit all scopes in a consequtive order
         // <WORKAROUND>
-        func.basic_blocks.forEach(function(bb) {
-            Array.prototype.push.apply(tokens, this.emit_scope(bb.container, 0));
-        }, this);
+        // func.basic_blocks.forEach(function(bb) {
+        //     Array.prototype.push.apply(tokens, this.emit_scope(bb.container, 0));
+        // }, this);
         // </WORKAROUND>
 
         return this.emit(tokens);

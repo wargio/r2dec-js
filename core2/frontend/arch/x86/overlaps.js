@@ -20,6 +20,7 @@ module.exports = (function() {
     const Expr = require('core2/analysis/ir/expressions');
     const Stmt = require('core2/analysis/ir/statements');
 
+    // all architectural x86 / amd64 registers, except program counter
     const regs = [
         ['rax', 'eax', 'ax', 'al', 'ah'],
         ['rbx', 'ebx', 'bx', 'bl', 'bh'],
@@ -41,43 +42,24 @@ module.exports = (function() {
         ['r15', 'r15d', 'r15w', 'r15b']
     ];
 
-    // TODO: Duktape Array prototype has no 'find' method. this workaround should be
-    // removed when Duktape implements this method for Array prototype.
-    // <WORKAROUND>
-    regs.find = function(predicate) {
-        for (var i = 0; i < this.length; i++) {
-            if (predicate(this[i])) {
-                return this[i];
-            }
-        }
-
-        return undefined;
-    };
-    // </WORKAROUND>
-
-    var find_overlaps = function(reg) {
-        return regs.find(function(ovl_list) {
-            return (ovl_list.indexOf(reg.name) !== (-1));
-        });
-    };
-
     const IDX_REG64 = 0;
     const IDX_REG32 = 1;
     const IDX_REG16 = 2;
     const IDX_REG8L = 3;
     const IDX_REG8H = 4;
 
+    // 64-bit masks
     const MASK32 = Long.fromInt(0x00000000ffffffff, true);
     const MASK16 = Long.fromInt(0x000000000000ffff, true);
     const MASK8L = Long.fromInt(0x00000000000000ff, true);
     const MASK8H = Long.fromInt(0x000000000000ff00, true);
 
+    // 32-bit masks
     const MASK_INV16 = Long.fromInt(0xffffffffffff0000, true);
     const MASK_INV8L = Long.fromInt(0xffffffffffffff00, true);
     const MASK_INV8H = Long.fromInt(0xffffffffffff00ff, true);
 
-    // TODO: omit REG64 if arch.bits is not 64
-
+    // generate assignments for the overlapping counterparts of a 64-bit register
     var set64 = function(reg64, ovl) {
         var reg32 = new Expr.Reg(ovl[IDX_REG32], 32);
         var reg16 = new Expr.Reg(ovl[IDX_REG16], 16);
@@ -89,16 +71,10 @@ module.exports = (function() {
             new Expr.Assign(reg8l, new Expr.And(reg64.clone(), new Expr.Val(MASK8L, 64))),
         ];
 
-        // TODO: may be redundant as 8h is not accessible on x64
-        if (IDX_REG8H in ovl) {
-            var reg8h = new Expr.Reg(ovl[IDX_REG8H], 8);
-
-            gen.push(new Expr.Assign(reg8h, new Expr.Shr(new Expr.And(reg64.clone(), new Expr.Val(MASK8H, 64)), new Expr.Val(8, 64))));
-        }
-
         return gen;
     };
 
+    // generate assignments for the overlapping counterparts of a 32-bit register
     var set32 = function(reg32, ovl) {
         var reg64 = new Expr.Reg(ovl[IDX_REG64], 64);
         var reg16 = new Expr.Reg(ovl[IDX_REG16], 16);
@@ -119,6 +95,7 @@ module.exports = (function() {
         return gen;
     };
 
+    // generate assignments for the overlapping counterparts of a 16-bit register
     var set16 = function(reg16, ovl) {
         var reg64 = new Expr.Reg(ovl[IDX_REG64], 64);
         var reg32 = new Expr.Reg(ovl[IDX_REG32], 32);
@@ -139,6 +116,7 @@ module.exports = (function() {
         return gen;
     };
 
+    // generate assignments for the overlapping counterparts of a low 8-bit register
     var set8l = function(reg8l, ovl) {
         var reg64 = new Expr.Reg(ovl[IDX_REG64], 64);
         var reg32 = new Expr.Reg(ovl[IDX_REG32], 32);
@@ -151,35 +129,81 @@ module.exports = (function() {
         ];
     };
 
+    // generate assignments for the overlapping counterparts of a high 8-bit register [n/a in 64 bits]
     var set8h = function(reg8h, ovl) {
-        var reg64 = new Expr.Reg(ovl[IDX_REG64], 64);
         var reg32 = new Expr.Reg(ovl[IDX_REG32], 32);
         var reg16 = new Expr.Reg(ovl[IDX_REG16], 16);
 
         return [
-            new Expr.Assign(reg64, new Expr.Or(new Expr.And(reg64.clone(), new Expr.Val(MASK_INV8H, 64))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 64))),
             new Expr.Assign(reg32, new Expr.Or(new Expr.And(reg32.clone(), new Expr.Val(MASK_INV8H, 32))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 32))),
             new Expr.Assign(reg16, new Expr.Or(new Expr.And(reg16.clone(), new Expr.Val(MASK_INV8H, 16))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 16)))
         ];
     };
 
-    return {
-        gen_overlaps: function(reg) {
-            var ovl = find_overlaps(reg);
+    /**
+     * Some architectural registers in the x86 architecture overlap each other,
+     * which means that assigning a value to a register directly affects its
+     * overlapping counterparts; e.g. assigning value to al affects the value in
+     * eax, and vice versa.
+     * 
+     * This helper object is used to identify and implement the assignments side
+     * effects on overlapping registers by generating the appropriate assignments
+     * 
+     * For additional information see: http://sandpile.org/x86/gpr.htm
+     * @param {number} bits 
+     * @constructor
+     */
+    function Overlaps(bits) {
+        // a lookup table for overlapping registers: each register name
+        // is mapped to its corresponding index on the regs list
+        this.lookup = {};
 
-            if (ovl) {
-                const handler = [set64, set32, set16, set8l, set8h];
+        // note that the regs list includes all registers regardless of the number of
+        // bits the binary operates in. a different subset is needed for different number
+        // of bits and the lookup table should include only the relevant registers.
+        //
+        // however, to speed things up the code heavily relies on array indices. exact
+        // filtering for all three possible options will be messy and introduce code clutter.
+        // to keep it simple, some filtering was made and some was not.
 
-                var addr = reg.parent_stmt().addr;
-                var idx = ovl.indexOf(reg.name);
-                var exprs = handler[idx](reg, ovl);
+        // if not in 64 bits, take only the first 8 table items
+        var rows = bits === 64 ? regs.length : 8;
 
-                return exprs.map(function(e) {
-                    return Stmt.make_statement(addr, e);
-                });
+        for (var i = 0; i < rows; i++) {
+            // higher bytes are inaccessible in 64 bits
+            var cols = bits === 64 ?
+                regs[i].length - 1 :
+                regs[i].length;
+
+            for (var j = 0; j < cols; j++) {
+                this.lookup[regs[i][j]] = i;
             }
-
-            return [];
         }
+
+        this.handlers = [
+            set64,  // IDX_REG64
+            set32,  // IDX_REG32
+            set16,  // IDX_REG16
+            set8l,  // IDX_REG8L
+            set8h   // IDX_REG8H
+        ];
+    }
+
+    Overlaps.prototype.generate = function(reg) {
+        var ovl = regs[this.lookup[reg]];
+
+        if (ovl) {
+            var i = ovl.indexOf(reg.name);
+            var exprs = this.handlers[i](reg, ovl);
+            var addr = reg.parent_stmt().addr;
+
+            return exprs.map(function(e) {
+                return Stmt.make_statement(addr, e);
+            });
+        }
+
+        return [];
     };
+
+    return Overlaps;
 })();

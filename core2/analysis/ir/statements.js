@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018 elicn
+ * Copyright (C) 2018-2019 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -438,6 +438,26 @@
         stmt.container = this;
 
         this.statements.unshift(stmt);
+    };
+
+    Container.prototype.terminator = function() {
+        var terminators = [
+            Branch.prototype.constructor.name,
+            Goto.prototype.constructor.name,
+            Return.prototype.constructor.name
+        ];
+
+        // usually this is on the last statement of the block, but
+        // we cannot count on it.
+        for (var i = this.statements.length - 1; i >= 0; i--) {
+            var s = this.statements[i];
+
+            if (terminators.indexOf(Object.getPrototypeOf(s).constructor.name) !== (-1)) {
+                return s;
+            }
+        }
+
+        return null;
     };
 
     /**

@@ -21,7 +21,7 @@ module.exports = (function() {
 
     /** available architectures */
     var _archs = {
-        'x86': require('core2/frontend/arch/x86')
+        'x86': require('core2/frontend/arch/x86/x86')
     };
 
     /**
@@ -72,9 +72,6 @@ module.exports = (function() {
 
         // simplify statements in-place
         stmts.forEach(Simplify.reduce_stmt);
-
-        // run architecture-specific post processing
-        this.arch.post_transform(stmts);
 
         // put all statements in a container and return it
         return new Stmt.Container(start, stmts);

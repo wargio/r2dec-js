@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018 elicn
+ * Copyright (C) 2018-2019 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -142,6 +142,24 @@
         var p = this.parent;
         var func = p.replace_operand || p.replace_expr;
         var args = [this, other];
+
+        return func.apply(p, args);
+    };
+
+    /**
+     * Have parent pluck `this` expression. The plucked expression could be
+     * then inserted to another parent, or simply discarded.
+     * @param {boolean} detach Whether to detach `this` from users list
+     * @returns {!Expr} `this`
+     */
+    Register.prototype.pluck = function(detach) {
+        var p = this.parent;
+        var func = p.remove_operand || p.remove_expr;
+        var args = [this];
+
+        if (detach) {
+            this.iter_operands(true).forEach(detach_user);
+        }
 
         return func.apply(p, args);
     };
