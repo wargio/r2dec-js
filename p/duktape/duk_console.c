@@ -28,8 +28,6 @@
 /* XXX: Init console object using duk_def_prop() when that call is available. */
 
 static duk_ret_t duk__console_log_helper(duk_context *ctx, const char *error_name) {
-	duk_uint_t flags = (duk_uint_t) duk_get_current_magic(ctx);
-	FILE *output = (flags & DUK_CONSOLE_STDOUT_ONLY) ? stdout : stderr;
 	duk_idx_t n = duk_get_top(ctx);
 	duk_idx_t i;
 
@@ -64,9 +62,12 @@ static duk_ret_t duk__console_log_helper(duk_context *ctx, const char *error_nam
 	r_cons_strcat (duk_to_string (ctx, -1));
 	r_cons_newline ();
 #else
-	fprintf(stdout, "%s\n", duk_to_string(ctx, -1));
+	duk_uint_t flags = (duk_uint_t) duk_get_current_magic(ctx);
+	FILE *output = (flags & DUK_CONSOLE_STDOUT_ONLY) ? stdout : stderr;
+
+	fprintf(output, "%s\n", duk_to_string(ctx, -1));
 	if (flags & DUK_CONSOLE_FLUSH) {
-		fflush(stdout);
+		fflush(output);
 	}
 #endif
 	return 0;
