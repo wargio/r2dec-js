@@ -489,7 +489,7 @@
             } else if (nextinstr.parsed.mnem.startsWith('bl') && args.length > 0) {
                 return Global.evars.archbits > 32 ? 'x0' : 'r0';
             }
-        } else if (nextinstr.parsed.mnem.startsWith('bl') && args.length > 0) {
+        } else if (nextinstr && nextinstr.parsed.mnem.startsWith('bl') && args.length > 0) {
             return Global.evars.archbits > 32 ? 'x0' : 'r0';
         }
     }
@@ -540,7 +540,7 @@
                             subslice[i].valid = false;
                             opd2 = subslice[i].parsed.opd[1];
                             if ((opd2.startsWith('str.') || opd2.startsWith('str_')) && !subslice[i].string) {
-                                return opd2.substr(4);
+                                return Global.xrefs.find_string(opd2.replace(/^str_/, 'str.')) || opd2.substr(4);
                             }
                             if (subslice[i].symbol) {
                                 return subslice[i].symbol;
@@ -908,8 +908,9 @@
                 return _conditional(instr, context, 'NE');
             },
             ldr: function(instr, context) {
-                if (typeof instr.parsed.opd[1] == 'string' && instr.parsed.opd[1].startsWith('str_')) {
-                    instr.string = instr.parsed.opd[1].replace('str_', '');
+                var opd2 = instr.parsed.opd[1];
+                if (typeof opd2 == 'string' && opd2.startsWith('str_')) {
+                    instr.string = Global.xrefs.find_string(opd2.replace(/^str_/, 'str.')) || opd2.replace('str_', '');
                     return Base.assign(instr.parsed.opd[0], Variable.string(instr.string));
                 }
                 var marker = _apply_marker_math(instr, context);

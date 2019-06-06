@@ -41,9 +41,26 @@
             macro: ['#include <stdlib.h>'],
             required: 1
         },
+        'access': {
+            macro: ['#include <stdio.h>'],
+            required: 2
+        },
+        'fscanf': {
+            macro: ['#include <stdio.h>'],
+            required: 2,
+            varargs: true
+        },
         'fgets': {
             macro: ['#include <stdio.h>'],
             required: 3
+        },
+        'fclose': {
+            macro: ['#include <stdio.h>'],
+            required: 1
+        },
+        'fopen': {
+            macro: ['#include <stdio.h>'],
+            required: 2
         },
         'fwrite': {
             macro: ['#include <stdio.h>'],
@@ -100,6 +117,11 @@
         'puts': {
             macro: ['#include <stdio.h>'],
             required: 1
+        },
+        'fprintf': {
+            macro: ['#include <stdio.h>'],
+            required: 2,
+            varargs: true
         },
         'printf': {
             macro: ['#include <stdio.h>'],
@@ -207,6 +229,26 @@
             macro: ['#include <unistd.h>'],
             required: 3,
         },
+        'daemon': {
+            macro: ['#include <unistd.h>'],
+            required: 2,
+        },
+        'perror': {
+            macro: ['#include <stdio.h>'],
+            required: 1,
+        },
+        'shmget': {
+            macro: ['#include <sys/shm.h>'],
+            required: 3,
+        },
+        'shmat': {
+            macro: ['#include <sys/shm.h>'],
+            required: 3,
+        },
+        'signal': {
+            macro: ['#include <signal.h>'],
+            required: 1,
+        },
         /* iOS */
         'UIApplicationMain': {
             macro: [],
@@ -220,7 +262,7 @@
             macro: [],
             required: 1,
             varargs: true
-        },
+        }
     };
 
 });
