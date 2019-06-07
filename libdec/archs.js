@@ -26,6 +26,7 @@
 		sparc: require('libdec/arch/sparc'),
 		v850: require('libdec/arch/v850'),
 		wasm: require('libdec/arch/wasm'),
+		gb: require('libdec/arch/gb'),
 		x86: require('libdec/arch/x86')
 	};
 });
