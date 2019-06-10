@@ -296,6 +296,40 @@
                 compare(context, instr.parsed.opd[0], '0');
                 return Base.increase(instr.parsed.opd[0], '1');
             },
+            ccf: function(instr, context, instructions) {
+                compare(context, 'a', '0');
+                return Base.not('carry', 'carry');
+            },
+            scf: function(instr, context, instructions) {
+                compare(context, 'a', '0');
+                return Base.assign('carry', '1');
+            },
+            cpl: function(instr, context, instructions) {
+                compare(context, 'a', '0');
+                return Base.not('a', 'a');
+            },
+            add: function(instr, context, instructions) {
+                compare(context, 'a', '0');
+                return Base.add('a', 'a', instr.parsed.opd[0]);
+            },
+            adc: function(instr, context, instructions) {
+                compare(context, 'a', '0');
+                return Base.composed([
+                    Base.add('a', 'a', instr.parsed.opd[0]),
+                    Base.add('a', 'a', 'carry')
+                ]);
+            },
+            sub: function(instr, context, instructions) {
+                compare(context, 'a', '0');
+                return Base.subtract('a', 'a', instr.parsed.opd[0]);
+            },
+            sbc: function(instr, context, instructions) {
+                compare(context, 'a', '0');
+                return Base.composed([
+                    Base.subtract('a', 'a', instr.parsed.opd[0]),
+                    Base.subtract('a', 'a', 'carry')
+                ]);
+            },
             and: function(instr, context, instructions) {
                 compare(context, 'a', '0');
                 return Base.and('a', 'a', instr.parsed.opd[0]);
@@ -310,6 +344,33 @@
                 }
                 compare(context, 'a', '0');
                 return Base.xor('a', 'a', instr.parsed.opd[0]);
+            },
+            swap: function(instr, context, instructions) {
+                return Base.rotate_left(instr.parsed.opd[0], instr.parsed.opd[0], 4, 8);
+            },
+            rl: function(instr, context, instructions) {
+                return Base.rotate_left(instr.parsed.opd[0], instr.parsed.opd[0], 1, 8);
+            },
+            rlc: function(instr, context, instructions) {
+                return Base.rotate_left(instr.parsed.opd[0], instr.parsed.opd[0], 1, 8);
+            },
+            rr: function(instr, context, instructions) {
+                return Base.rotate_right(instr.parsed.opd[0], instr.parsed.opd[0], 1, 8);
+            },
+            rrc: function(instr, context, instructions) {
+                return Base.rotate_right(instr.parsed.opd[0], instr.parsed.opd[0], 1, 8);
+            },
+            rla: function(instr, context, instructions) {
+                return Base.shift_left(instr.parsed.opd[0], instr.parsed.opd[0], 1, 8);
+            },
+            rlca: function(instr, context, instructions) {
+                return Base.shift_left(instr.parsed.opd[0], instr.parsed.opd[0], 1, 8);
+            },
+            sra: function(instr, context, instructions) {
+                return Base.shift_right(instr.parsed.opd[0], instr.parsed.opd[0], 1, 8);
+            },
+            srl: function(instr, context, instructions) {
+                return Base.shift_right(instr.parsed.opd[0], instr.parsed.opd[0], 1, 8);
             },
             ld: function(instr, context, instructions) {
                 instr.setBadJump();
@@ -390,6 +451,10 @@
             halt: function(instr) {
                 return Base.macro('HALT_SYSTEM', '#define HALT_SYSTEM __asm(halt)');
             },
+            stop: function(instr) {
+                return Base.macro('STOP_SYSTEM', '#define STOP_SYSTEM __asm(stop)');
+            },
+            /*
             push: function(instr, context, instructions) {
                 instr.setBadJump();
                 return Base.nop();
@@ -398,7 +463,15 @@
                 instr.setBadJump();
                 return Base.nop();
             },
+            */
             ret: function(instr, context, instructions) {
+                instr.setBadJump();
+                if (instr.parsed.opd.length > 0) {
+                    _create_conditional(instr, context, '-' + instr.parsed.opd[0], instructions);
+                }
+                return Base.return();
+            },
+            reti: function(instr, context, instructions) {
                 instr.setBadJump();
                 if (instr.parsed.opd.length > 0) {
                     _create_conditional(instr, context, '-' + instr.parsed.opd[0], instructions);
@@ -418,7 +491,7 @@
             var ret = asm.trim();
             ret = ret.replace(/^([\w]+)\s/, '$1,').replace(/\s/g, '');
             ret = ret.split(',').map(function(x) {
-                return x.charAt(0) == '[' ? x.replace(/\[|\]/g, '').replace(/\+/g, ' + ').split(' ') : x;
+                return x.charAt(0) == '[' ? x.replace(/\[|\]/g, '').replace(/\+/g, ' + ').split(' ') : x.replace(/\+/g, ' + ');
             });
             return {
                 mnem: ret.shift(),
