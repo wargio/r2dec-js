@@ -47,9 +47,7 @@ module.exports = (function() {
     }
 
     Directed.prototype.toString = function(opt) {
-        return Object.keys(this.nodes).map(function(k) {
-            var n = this.nodes[k];
-
+        return this.iterNodes().map(function(n) {
             var outs = this.successors(n).map(function(succ) {
                 return succ.toString(opt);
             });
@@ -103,13 +101,30 @@ module.exports = (function() {
     };
 
     Directed.prototype.predecessors = function(node) {
-        return this.getNode(node.key).inbound;
+        return this.getNode(node.key).inbound.slice();
     };
 
     Directed.prototype.successors = function(node) {
-        return this.getNode(node.key).outbound;
+        return this.getNode(node.key).outbound.slice();
     };
 
+    Directed.prototype.reversed = function(rev_root) {
+        var nodes = [];
+        var edges = [];
+
+        this.iterNodes().forEach(function(n) {
+            nodes.push(n.key);
+
+            var rev = this.successors(n).map(function(succ) {
+                return [succ.key, n.key];
+            });
+
+            Array.prototype.push.apply(edges, rev);
+        }, this);
+
+        return new Directed(nodes, edges, rev_root);
+    };
+    
     // --------------------------------------------------
 
     // construct a depth-first spanning tree of graph g
