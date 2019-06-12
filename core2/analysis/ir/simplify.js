@@ -21,6 +21,25 @@ module.exports = (function() {
 
     const wssa = ['idx', 'def'];
 
+    /**
+     * Checks whether an expression is an instance of a comparison expression
+     * @param {Expr.Expr} expr An expression instance to check
+     * @returns `true` if `expr` is an instance of a comparison expression; `false` otherwise
+     * @private
+     */
+    var __is_compare_expr = function(expr) {
+        const equalities = [
+            Expr.EQ.prototype.constructor.name,
+            Expr.NE.prototype.constructor.name,
+            Expr.LT.prototype.constructor.name,
+            Expr.LE.prototype.constructor.name,
+            Expr.GT.prototype.constructor.name,
+            Expr.GE.prototype.constructor.name,
+        ];
+
+        return expr && (equalities.indexOf(expr.constructor.name) !== (-1));
+    };
+
     var _ctx_fold_assoc = function(expr) {
         var assoc_ops = [
             Expr.Add,
@@ -180,16 +199,16 @@ module.exports = (function() {
                 } else if (op instanceof Expr.BoolOr) {
                     return new Expr.BoolAnd(new Expr.BoolNot(inner_lhand.clone(wssa)), new Expr.BoolNot(inner_rhand.clone(wssa)));
                 } else if (op instanceof Expr.EQ) {
-                    return new Expr.NEQ(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
-                } else if (op instanceof Expr.NEQ) {
+                    return new Expr.NE(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
+                } else if (op instanceof Expr.NE) {
                     return new Expr.EQ(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
                 } else if (op instanceof Expr.GT) {
-                    return new Expr.LTE(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
-                } else if (op instanceof Expr.GTE) {
+                    return new Expr.LE(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
+                } else if (op instanceof Expr.GT) {
                     return new Expr.LT(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
                 } else if (op instanceof Expr.LT) {
-                    return new Expr.GTE(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
-                } else if (op instanceof Expr.LTE) {
+                    return new Expr.GE(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
+                } else if (op instanceof Expr.LT) {
                     return new Expr.GT(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
                 }
 
@@ -272,6 +291,11 @@ module.exports = (function() {
             const FF = new Expr.Val(ffmask, lhand.size);
 
             if (expr instanceof Expr.Xor) {
+                // 0 ^ x
+                if (lhand.equals(ZERO)) {
+                    return rhand.clone(wssa);
+                }
+
                 // x ^ 0
                 if (rhand.equals(ZERO)) {
                     return lhand.clone(wssa);
@@ -289,9 +313,18 @@ module.exports = (function() {
             }
 
             else if (expr instanceof Expr.Or) {
+                // 0 | x
+                if (lhand.equals(ZERO)) {
+                    return rhand.clone(wssa);
+                }
+
                 // x | 0
+                if (rhand.equals(ZERO)) {
+                    return lhand.clone(wssa);
+                }
+
                 // x | x
-                if (rhand.equals(ZERO) || rhand.equals(lhand)) {
+                if (rhand.equals(lhand)) {
                     return lhand.clone(wssa);
                 }
 
@@ -302,9 +335,18 @@ module.exports = (function() {
             }
 
             else if (expr instanceof Expr.And) {
+                // 0 & x
+                if (lhand.equals(ZERO)) {
+                    return ZERO;
+                }
+
                 // x & 0
+                if (rhand.equals(ZERO)) {
+                    return ZERO;
+                }
+
                 // x & x
-                if (rhand.equals(ZERO) || rhand.equals(lhand)) {
+                if (rhand.equals(lhand)) {
                     return rhand.clone(wssa);
                 }
 
@@ -333,7 +375,11 @@ module.exports = (function() {
     };
 
     var _equality = function(expr) {
-        if (expr instanceof Expr.EQ) {
+        // the following comments demonstrate equality as '==', but this
+        // simplification is not limited to that only. rather it applies to 
+        // all kind of comparisons.
+
+        if (__is_compare_expr(expr)) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
@@ -349,12 +395,12 @@ module.exports = (function() {
 
                         // ((x + c1) == c2) yields (x == c3) where c3 = c2 - c1
                         if (lhand instanceof Expr.Add) {
-                            return new Expr.EQ(x.clone(wssa), new Expr.Val(c2.value.sub(c1.value), c2.size));
+                            return new expr.constructor(x.clone(wssa), new Expr.Val(c2.value.sub(c1.value), c2.size));
                         }
 
                         // ((x - c1) == c2) yields (x == c3) where c3 = c2 + c1
-                        if (lhand instanceof Expr.Sub) {
-                            return new Expr.EQ(x.clone(wssa), new Expr.Val(c2.value.add(c1.value), c2.size));
+                        else if (lhand instanceof Expr.Sub) {
+                            return new expr.constructor(x.clone(wssa), new Expr.Val(c2.value.add(c1.value), c2.size));
                         }
                     }
                 }
@@ -363,9 +409,12 @@ module.exports = (function() {
 
                     // ((x - y) == 0) yields (x == y)
                     if (lhand instanceof Expr.Sub) {
-                        return new Expr.EQ(x.clone(wssa), y.clone(wssa));
-                    } else if (lhand instanceof Expr.Add) {
-                        return new Expr.EQ(x.clone(wssa), new Expr.Neg(y.clone(wssa)));
+                        return new expr.constructor(x.clone(wssa), y.clone(wssa));
+                    }
+
+                    // ((x + y) == 0) yields (x == -y)
+                    else if (lhand instanceof Expr.Add) {
+                        return new expr.constructor(x.clone(wssa), new Expr.Neg(y.clone(wssa)));
                     }
                 }
             }
@@ -374,13 +423,9 @@ module.exports = (function() {
         return null;
     };
 
-    // TODO: 'or' conditions and 'eq', 'ne' comparisons are commutative
     var _converged_cond = function(expr) {
-        if (expr instanceof Expr.BoolOr) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
-
-            if ((lhand instanceof Expr.BExpr) && (rhand instanceof Expr.BExpr)) {
+        var inner_or = function(lhand, rhand) {
+            if (__is_compare_expr(lhand) && __is_compare_expr(rhand)) {
                 // lhand inner operands
                 var x0 = lhand.operands[0];
                 var y0 = lhand.operands[1];
@@ -389,6 +434,7 @@ module.exports = (function() {
                 var x1 = rhand.operands[0];
                 var y1 = rhand.operands[1];
 
+                // TODO: 'eq', 'ne' comparisons are commutative
                 if (x0.equals(x1) && y0.equals(y1)) {
                     // ((x > y) || (x == y)) yields (x >= y)
                     if ((lhand instanceof Expr.GT) && (rhand instanceof Expr.EQ)) {
@@ -406,6 +452,73 @@ module.exports = (function() {
                     }
                 }
             }
+
+            return null;
+        };
+
+        var inner_and = function(lhand, rhand) {
+            if (__is_compare_expr(lhand) && __is_compare_expr(rhand)) {
+                // lhand inner operands
+                var x0 = lhand.operands[0];
+                var y0 = lhand.operands[1];
+
+                // rhand inner operands
+                var x1 = rhand.operands[0];
+                var y1 = rhand.operands[1];
+
+                // TODO: 'eq', 'ne' comparisons are commutative
+
+                // (x CMP0 y) && (x CMP1 y)
+                if (x0.equals(x1) && y0.equals(y1)) {
+                    if (lhand instanceof Expr.NE) {
+                        // ((x != y) && (x >= y)) yields (x > y)
+                        if (rhand instanceof Expr.GE) {
+                            return new Expr.GT(x0.clone(wssa), y0.clone(wssa));
+                        }
+
+                        // ((x != y) && (x <= y)) yields (x < y)
+                        else if (rhand instanceof Expr.LE) {
+                            return new Expr.LT(x0.clone(wssa), y0.clone(wssa));
+                        }
+                    }
+
+                    else if (lhand instanceof Expr.EQ) {
+                        // ((x == y) && (x >= y)) yields (x == y)
+                        if (rhand instanceof Expr.GE) {
+                            return lhand.clone(wssa);
+                        }
+
+                        // ((x == y) && (x <= y)) yields (x == y)
+                        else if (rhand instanceof Expr.LE) {
+                            return lhand.clone(wssa);
+                        }
+                    }
+
+                    // ((x <= y) && (x >= y))  yields (x == y)
+                    else if ((lhand instanceof Expr.LE) && (rhand instanceof Expr.GE)) {
+                        return new Expr.EQ(x0.clone(wssa), y0.clone(wssa));
+                    }
+                }
+            }
+
+            return null;
+        };
+
+        if (expr instanceof Expr.BoolOr) {
+            var lhand = expr.operands[0];
+            var rhand = expr.operands[1];
+
+            // Boolean OR is a commutative operation; try both original and swapped positions
+            return inner_or(lhand, rhand) || inner_or(rhand, lhand);
+        }
+
+        // (rflags != 0 && rflags >= 0)
+        if (expr instanceof Expr.BoolAnd) {
+            var lhand = expr.operands[0];
+            var rhand = expr.operands[1];
+
+            // Boolean AND is a commutative operation; try both original and swapped positions
+            return inner_and(lhand, rhand) || inner_and(rhand, lhand);
         }
 
         return null;
@@ -434,13 +547,12 @@ module.exports = (function() {
             o = operands[o];
 
             for (var r in rules) {
-                r = rules[r];
-                var alt = r(o);
+                var alt = rules[r](o);
 
                 if (alt) {
                     o.replace(alt);
 
-                    return alt;
+                    return o === expr ? null : alt;
                 }
             }
         }
