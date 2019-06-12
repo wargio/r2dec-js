@@ -187,9 +187,7 @@ module.exports = (function() {
     var get_defs = function(selector, block) {
         var defs = [];
 
-        // TODO: Duktape Array prototype has no 'findIndex' method. this workaround should be
-        // removed when Duktape implements this method for Array prototype.
-        // <WORKAROUND>
+        // <POLYFILL>
         defs.findIndex = function(predicate) {
             for (var i = 0; i < this.length; i++) {
                 if (predicate(this[i])) {
@@ -199,7 +197,7 @@ module.exports = (function() {
 
             return (-1);
         };
-        // </WORKAROUND>
+        // </POLYFILL>
 
         block.container.statements.forEach(function(stmt) {
             stmt.expressions.forEach(function(expr) {
@@ -313,7 +311,8 @@ module.exports = (function() {
         }
     };
 
-    SSA.prototype.rename = function(selector) {
+    /** @private */
+    SSA.prototype._rename = function(selector) {
 
         // get the top element of an array
         var top = function(arr) {
@@ -415,15 +414,20 @@ module.exports = (function() {
         return context;
     };
 
-    SSA.prototype.rename_regs = function(validate) {
-        var context = this.rename(function(x) {
-            return (x instanceof Expr.Reg);
-        });
+    /** @private */
+    SSA.prototype._rename_wrapper = function(selector, validate) {
+        var context = this._rename(selector);
 
         relax_phi(context);
 
-        while (eliminate_def_zero_uses(context))   { /* empty */ }
-        while (propagate_def_single_use(context))  { /* empty */ }
+        var optimizations = [
+            eliminate_def_zero_uses,
+            propagate_def_single_use,
+            elliminate_self_ref_phi
+        ];
+
+        // keep optimizing as long as modifications are made
+        while (optimizations.some(function(opt) { return opt(context); })) { /* empty */ }
 
         if (validate) {
             context.validate(this.func);
@@ -432,21 +436,16 @@ module.exports = (function() {
         return context;
     };
 
+    SSA.prototype.rename_regs = function(validate) {
+        return this._rename_wrapper(function(expr) {
+            return (expr instanceof Expr.Reg);
+        }, validate);
+    };
+
     SSA.prototype.rename_derefs = function(validate) {
-        var context = this.rename(function(x) {
-            return (x instanceof Expr.Deref);
-        });
-
-        relax_phi(context);
-
-        while (eliminate_def_zero_uses(context))   { /* empty */ }
-        while (propagate_def_single_use(context))  { /* empty */ }
-
-        if (validate) {
-            context.validate(this.func);
-        }
-
-        return context;
+        return this._rename_wrapper(function(expr) {
+            return (expr instanceof Expr.Deref);
+        }, validate);
     };
 
     // propagate phi groups that have only one item in them.
@@ -598,21 +597,47 @@ module.exports = (function() {
         });
     };
 
+    // eliminate a variable that has only one use, which is a phi assignment to self
+    // e.g. x2 has only one use, and: x2 = Phi(..., x2, ...)
+    var elliminate_self_ref_phi = function(ctx) {
+        return ctx.iterate(function(def) {
+            // TODO: exclude implicitly initialized exprs (idx 0) for the moment as there
+            // is currently no assigned expression to propagate
+            if ((def.idx !== 0) && (def.uses.length === 1)) {
+                var p = def.parent;         // assignment expr
+                var u = def.uses[0];
+
+                var lhand = p.operands[0];  // def
+                var rhand = p.operands[1];  // assigned expression
+
+                // the only use is as a phi arg, which assigned to self
+                if ((u.parent instanceof Expr.Phi) && (u.parent == rhand)) {
+                    p.pluck(true);
+
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    };
+
     // propagate definitions with only one use to their users
     var propagate_def_single_use = function(ctx) {
         return ctx.iterate(function(def) {
             // TODO: exclude implicitly initialized exprs (idx 0) for the moment as there
             // is currently no assigned expression to propagate
             if ((def.idx !== 0) && (def.uses.length === 1)) {
-                var p = def.parent;         // p is Expr.Assign
+                var p = def.parent;         // assignment expr
+                var u = def.uses[0];
+
                 var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
-                // do not propagate if that single use is a phi arg
-                if (!(def.uses[0].parent instanceof Expr.Phi) &&
-                    !(def.uses[0].parent instanceof Expr.Deref)) {
+                // do not propagate if that single use is a phi arg or deref address
+                if (!(u.parent instanceof Expr.Phi) &&
+                    !(u.parent instanceof Expr.Deref)) {
 
-                    var u = def.uses.pop();
                     var c = rhand.clone(['idx', 'def']);
 
                     u.replace(c);
