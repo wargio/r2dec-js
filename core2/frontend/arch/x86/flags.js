@@ -76,13 +76,13 @@ module.exports = (function() {
 
     return {
         Flag    : Flag,
-        FlagOp  : FlagOp
+        FlagOp  : FlagOp,
 
-        // Carry    : Carry,
-        // Parity   : Parity,
-        // Adjust   : Adjust,
-        // Zero     : Zero,
-        // Sign     : Sign,
-        // Overflow : Overflow
+        Carry    : Carry,
+        Parity   : Parity,
+        Adjust   : Adjust,
+        Zero     : Zero,
+        Sign     : Sign,
+        Overflow : Overflow
     };
 })();

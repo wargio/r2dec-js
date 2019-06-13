@@ -334,7 +334,7 @@ module.exports = (function() {
             return _emit_bexpr.call(this, expr, [TOK_INVALID, expr.operator]);
         }
 
-        return [[TOK_INVALID, expr.toString()]];
+        return [[TOK_INVALID, expr ? expr.toString() : expr]];
     };
 
     /**
@@ -446,6 +446,8 @@ module.exports = (function() {
      * @param {boolean} stripped Strip off curly braces
      */
     CodeGen.prototype.emit_scope = function(cntr, depth, stripped) {
+        console.assert(cntr);
+
         const p = this.pad(depth);
 
         var tokens = [];
@@ -521,15 +523,8 @@ module.exports = (function() {
         }
         tokens.push([TOK_PAREN, ')']);
 
-        // TODO: emit containers following entry block!
+        // emit containers recursively
         Array.prototype.push.apply(tokens, this.emit_scope(func.entry_block.container, 0));
-
-        // in the meantime, just emit all scopes in a consequtive order
-        // <WORKAROUND>
-        // func.basic_blocks.forEach(function(bb) {
-        //     Array.prototype.push.apply(tokens, this.emit_scope(bb.container, 0));
-        // }, this);
-        // </WORKAROUND>
 
         return this.emit(tokens);
     };

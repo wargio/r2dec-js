@@ -55,6 +55,9 @@
 
         /** @type {Array} */
         this.statements = [];
+
+        /** @type {Array} */
+        this.containers = [];
     }
 
     /**
@@ -69,9 +72,15 @@
         p.statements[i] = other;
     };
 
-    Statement.prototype.pluck = function() {
+    Statement.prototype.pluck = function(detach) {
         var p = this.container;
         var i = p.statements.indexOf(this);
+
+        if (detach) {
+            this.containers.forEach(function(cntr) {
+                cntr.pluck(detach);
+            });
+        }
 
         return p.statements.splice(i, 1);
     };
@@ -152,7 +161,7 @@
      * @param {string} accname Accessor name
      * @param {number} i Corresponding index of the expression
      */
-    var defineAccessor = function(obj, accname, i) {
+    var define_expr_property = function(obj, accname, i) {
         Object.defineProperty(obj, accname, {
             enumerable: true,
             get: function() {
@@ -173,7 +182,7 @@
     function Goto(addr, dst) {
         Statement.call(this, addr, [dst]);
 
-        defineAccessor(this, 'dest', 0);
+        define_expr_property(this, 'dest', 0);
     }
 
     Goto.prototype = Object.create(Statement.prototype);
@@ -184,9 +193,9 @@
         var repr = [
             this.constructor.name,
             this.dest.toString()
-        ].join(' ');
+        ];
 
-        return '[' + repr + ']';
+        return '[' + repr.join(' ') + ']';
     };
 
     // ------------------------------------------------------------
@@ -204,9 +213,9 @@
     function Branch(addr, cond, taken, not_taken) {
         Statement.call(this, addr, [cond, taken, not_taken]);
 
-        defineAccessor(this, 'cond', 0);
-        defineAccessor(this, 'taken', 1);
-        defineAccessor(this, 'not_taken', 2);
+        define_expr_property(this, 'cond', 0);
+        define_expr_property(this, 'taken', 1);
+        define_expr_property(this, 'not_taken', 2);
     }
 
     Branch.prototype = Object.create(Statement.prototype);
@@ -219,9 +228,9 @@
             this.cond.toString(),
             this.taken.toString(),
             this.not_taken.toString()
-        ].join(' ');
+        ];
 
-        return '[' + repr + ']';
+        return '[' + repr.join(' ') + ']';
     };
 
     // ------------------------------------------------------------
@@ -238,24 +247,24 @@
     function If(addr, cond, then_cntr, else_cntr) {
         Statement.call(this, addr, [cond]);
 
-        defineAccessor(this, 'cond', 0);
+        define_expr_property(this, 'cond', 0);
 
         this.then_cntr = then_cntr;
         this.else_cntr = else_cntr;
 
         // TODO: setting this here may prevent later statements replacement to be reflected
-        this.statements = Array.prototype.concat(
-                this.then_cntr.statements,
-                this.else_cntr
-                    ? this.else_cntr.statements
-                    : []);
-
-        // TODO: setting this here may prevent later continaers replacement to be reflected
-        this.containers = Array.prototype.concat(
-            [this.then_cntr],
-            this.else_cntr
-                ? [this.else_cntr]
-                : []);
+        // this.statements = Array.prototype.concat(
+        //         this.then_cntr.statements,
+        //         this.else_cntr
+        //             ? this.else_cntr.statements
+        //             : []);
+        //
+        // TODO: setting this here may prevent later containers replacement to be reflected
+        // this.containers = Array.prototype.concat(
+        //     [this.then_cntr],
+        //     this.else_cntr
+        //         ? [this.else_cntr]
+        //         : []);
     }
 
     If.prototype = Object.create(Statement.prototype);
@@ -266,11 +275,14 @@
         var repr = [
             this.constructor.name,
             this.cond.toString(),
-            this.then_cntr.toString(),
-            this.else_cntr.toString()
-        ].join(' ');
+            this.then_cntr.toString()
+        ];
 
-        return '[' + repr + ']';
+        if (this.else_cntr) {
+            repr.push(this.else_cntr.toString());
+        }
+
+        return '[' + repr.join(' ') + ']';
     };
 
     // ------------------------------------------------------------
@@ -286,7 +298,7 @@
     function While(addr, cond, body) {
         Statement.call(this, addr, [cond]);
 
-        defineAccessor(this, 'cond', 0);
+        define_expr_property(this, 'cond', 0);
         this.body = body;
 
         this.statements = body.statements;
@@ -302,9 +314,9 @@
             this.constructor.name,
             this.cond.toString(),
             this.body.toString()
-        ].join(' ');
+        ];
 
-        return '[' + repr + ']';
+        return '[' + repr.join(' ') + ']';
     };
 
     // ------------------------------------------------------------
@@ -320,7 +332,7 @@
     function DoWhile(addr, cond, body) {
         Statement.call(this, addr, [cond]);
 
-        defineAccessor(this, 'cond', 0);
+        define_expr_property(this, 'cond', 0);
         this.body = body;
 
         this.statements = body.statements;
@@ -336,9 +348,9 @@
             this.constructor.name,
             this.cond.toString(),
             this.body.toString()
-        ].join(' ');
+        ];
 
-        return '[' + repr + ']';
+        return '[' + repr.join(' ') + ']';
     };
 
     // ------------------------------------------------------------
@@ -393,7 +405,7 @@
     function Return(addr, expr) {
         Statement.call(this, addr, [expr]);
 
-        defineAccessor(this, 'retval', 0);
+        define_expr_property(this, 'retval', 0);
     }
 
     Return.prototype = Object.create(Statement.prototype);
@@ -402,11 +414,14 @@
     /** @override */
     Return.prototype.toString = function() {
         var repr = [
-            this.constructor.name,
-            this.retval ? this.retval.toString(): ''
-        ].join(' ');
+            this.constructor.name
+        ];
 
-        return '[' + repr + ']';
+        if (this.retval) {
+            repr.push(this.retval.toString());
+        }
+
+        return '[' + repr.join(' ') + ']';
     };
 
     // ------------------------------------------------------------
@@ -441,7 +456,7 @@
     };
 
     Container.prototype.terminator = function() {
-        var terminators = [
+        var termtypes = [
             Branch.prototype.constructor.name,
             Goto.prototype.constructor.name,
             Return.prototype.constructor.name
@@ -452,12 +467,26 @@
         for (var i = this.statements.length - 1; i >= 0; i--) {
             var s = this.statements[i];
 
-            if (terminators.indexOf(Object.getPrototypeOf(s).constructor.name) !== (-1)) {
+            if (termtypes.indexOf(Object.getPrototypeOf(s).constructor.name) !== (-1)) {
                 return s;
             }
         }
 
         return null;
+    };
+
+    // TODO: should figure out how to pluck a container exactly
+    Container.prototype.pluck = function(detach) {
+        // var p = this.parent;
+        // var i = p.containers.indexOf(this);
+
+        if (detach) {
+            this.statements.forEach(function(stmt) {
+                stmt.pluck(detach);
+            });
+        }
+
+        // return p.containers.splice(i, 1);
     };
 
     /**
@@ -475,9 +504,9 @@
         var repr = [
             this.constructor.name,
             this.address.toString(16)
-        ].join(' ');
+        ];
 
-        return '[' + repr + ']';
+        return '[' + repr.join(' ') + ']';
     };
 
     // ------------------------------------------------------------
