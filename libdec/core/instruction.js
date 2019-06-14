@@ -28,7 +28,7 @@
         return (new Condition.convert(cond.a, cond.b, cond.type, false)).toString();
     };
 
-    var _asm_r2_view = function(instr, opcode) {
+    var _asm_r2_view = function(instr, ascodeline) {
         var s = '';
         if (instr.label) {
             s = instr.label.name + ":\n";
@@ -53,8 +53,8 @@
             s += "if (" + _conditional(instr.cond) + ") goto 0x" + instr.jump.toString(16);
         }
 
-        if (opcode) {
-            Global.evars.add_opcode(s.trim(), instr.location);
+        if (ascodeline) {
+            Global.evars.add_code_line(s.trim(), instr.location);
         } else {
             Global.evars.add_comment(s.trim(), instr.location);
         }
@@ -162,7 +162,7 @@
         this.ascomment = function() {
             _asm_r2_view(this, false);
         };
-        this.asopcode = function() {
+        this.ascodeline = function() {
             _asm_r2_view(this, true);
         };
     };

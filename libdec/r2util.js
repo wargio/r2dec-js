@@ -16,9 +16,10 @@
  */
 
 (function() {
-    var r2pipe = require('libdec/r2pipe');
-    var _JSON = require('libdec/json64');
-    var Long = require('libdec/long');
+    const r2pipe = require('libdec/r2pipe');
+    const _JSON = require('libdec/json64');
+    const Long = require('libdec/long');
+    var __line_cnt = 0;
 
     function r2_sanitize(value, expected) {
         return value.length == 0 ? expected : value;
@@ -74,7 +75,7 @@
         "--paddr": "all xrefs uses physical addresses instead of virtual addresses",
         "--xrefs": "shows also instruction xrefs in the pseudo code",
         "--as-comment": "the decompiled code is returned to r2 as comment (via CCu)",
-        "--as-opcode": "the decompiled code is returned to r2 as opcode (via aho)",
+        "--as-code-line": "the decompiled code is returned to r2 as 'file:line code' (via CL)",
     };
 
     function has_option(args, name) {
@@ -153,7 +154,7 @@
                 file: 'testsuite',
                 offset: Long.ZERO,
                 ascomment: false,
-                asopcode: false,
+                ascodeline: false,
                 debug: true,
                 slow: true
             };
@@ -208,9 +209,9 @@
             this.extra = {
                 theme: r2pipe.string('e r2dec.theme'),
                 file: r2pipe.string('i~^file[1:0]'),
-                offset: Long.fromString(r2pipe.string('s'), true, 16),
+                offset: r2pipe.long('s'),
                 ascomment: has_option(args, '--as-comment'),
-                asopcode: has_option(args, '--as-opcode'),
+                ascodeline: has_option(args, '--as-code-line'),
                 debug: r2pipe.bool('e r2dec.debug') || has_option(args, '--debug'),
                 slow: r2pipe.bool('e r2dec.slow')
             };
@@ -221,17 +222,15 @@
                 r2cmd('CC- @ 0x' + offset.toString(16));
                 r2cmd('CCu base64:' + Duktape.enc('base64', comment) + ' @ 0x' + offset.toString(16));
             };
-            this.add_opcode = function(comment, offset) {
-                var off = r2pipe.string('s');
-                if (!comment || comment.length < 1) {
-                    comment = '-';
+            this.add_code_line = function(comment, offset) {
+                if (comment.trim().length < 1) {
+                    return;
                 }
-                r2cmd('s 0x' + offset.toString(16));
-                r2cmd('aho ' + comment.replace(/\n/g, '\\; '));
-                r2cmd('s ' + off);
+                var line = __line_cnt++;
+                r2cmd('"CL 0x' + offset.toString(16) + ' r2dec.c:' + line + ' ' + comment.replace(/"/g, '\\"') + ';"');
             };
 
-            if (this.extra.ascomment || this.extra.asopcode) {
+            if (this.extra.ascomment || this.extra.ascodeline) {
                 this.honor.assembly = false;
                 this.honor.color = false;
                 this.honor.html = false;

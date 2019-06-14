@@ -166,6 +166,7 @@ static void usage(const RCore* const core) {
 		"Usage: pdd[*abousi]", "",	"# Core plugin for r2dec",
 		"pdd",	"",        "decompile current function",
 		"pdd*",	"",        "decompiled code is returned to r2 as comment (via CCu)",
+		"pddc",	"",        "decompiled code is returned to r2 as 'file:line code' (via CL)",
 		"pdda",	"",        "decompile current function with side assembly",
 		"pddb",	"",        "decompile current function but show only scopes",
 		"pddo",	"",        "decompile current function side by side with offsets",
@@ -241,6 +242,10 @@ static void _cmd_pdd(RCore *core, const char *input) {
 		// --blocks
 		duk_r2dec (core, "--blocks");
 		break;
+	case 'c':
+		// --blocks
+		duk_r2dec (core, "--as-code-line");
+		break;
 	case '*':
 		// --as-comment
 		duk_r2dec (core, "--as-comment");
@@ -289,11 +294,12 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_core_autocomplete_add (core->autocomplete, "pdd*", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pdda", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddb", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pddc", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pdds", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (pdd, "--as-comment", R_CORE_AUTOCMPLT_OPTN, true);
-	r_core_autocomplete_add (pdd, "--as-opcode", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--as-code-line", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--assembly", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--blocks", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--casts", R_CORE_AUTOCMPLT_OPTN, true);
@@ -309,8 +315,8 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 
 RCorePlugin r_core_plugin_test = {
 	.name = "r2dec",
-	.desc = "experimental pseudo-C decompiler for radare2",
-	.license = "Apache",
+	.desc = "Pseudo-code decompiler for radare2",
+	.license = "GPL3",
 	.call = r_cmd_pdd,
 	.init = r_cmd_pdd_init
 };

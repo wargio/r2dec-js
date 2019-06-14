@@ -118,9 +118,9 @@
             session.ascomment();
             console.log('[r2dec] comments applied for "' + session.routine_name + '".');
             return;
-        } else if (Global.evars.extra.asopcode) {
-            session.asopcode();
-            console.log('[r2dec] new opcodes applied for "' + session.routine_name + '".');
+        } else if (Global.evars.extra.ascodeline) {
+            session.ascodeline();
+            console.log('[r2dec] new code lines applied for "' + session.routine_name + '".');
             return;
         }
         var t = Global.printer.theme;
@@ -198,9 +198,9 @@
                 this.blocks[i].ascomment();
             }
         };
-        this.asopcode = function() {
+        this.ascodeline = function() {
             for (var i = 0; i < this.blocks.length; i++) {
-                this.blocks[i].asopcode();
+                this.blocks[i].ascodeline();
             }
         };
         this.print = function() {

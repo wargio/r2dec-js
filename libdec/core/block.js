@@ -105,9 +105,9 @@
                 this.instructions[i].ascomment();
             }
         };
-        this.asopcode = function() {
+        this.ascodeline = function() {
             for (var i = 0; i < this.instructions.length; i++) {
-                this.instructions[i].asopcode();
+                this.instructions[i].ascodeline();
             }
         };
         this.hasPrintables = function() {
