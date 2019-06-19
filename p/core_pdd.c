@@ -262,7 +262,7 @@ static int r_cmd_pdd(void *user, const char *input) {
 	if (!strncmp (input, "e cmd.pdc", 9)) {
 		const char* assign = strchr (input + 9, '=');
 		if (assign && strchr (assign + 1, '?')) {
-			r_cons_printf ("r2dec\n");
+			r_cons_printf ("pdd\n");
 			return false;
 		}
 	}
