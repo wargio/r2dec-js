@@ -259,13 +259,6 @@ static void _cmd_pdd(RCore *core, const char *input) {
 
 static int r_cmd_pdd(void *user, const char *input) {
 	RCore *core = (RCore *) user;
-	if (!strncmp (input, "e cmd.pdc", 9)) {
-		const char* assign = strchr (input + 9, '=');
-		if (assign && strchr (assign + 1, '?')) {
-			r_cons_printf ("pdd\n");
-			return false;
-		}
-	}
 	if (!strncmp (input, "pdd", 3)) {
 		_cmd_pdd (core, input + 3);
 		return true;
