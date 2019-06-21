@@ -4,74 +4,84 @@ module.exports = (function() {
     var Stmt = require('core2/analysis/ir/statements');
 
     // coloring tokens enumeration
-    const TOK_WHTSPCE =  0; // whitespace
-    const TOK_KEYWORD =  1; // language keyword
-    const TOK_PAREN   =  2; // parenthesis
-    const TOK_PUNCT   =  3; // punctuation
-    const TOK_ARITH   =  4; // arithmetic operator
-    const TOK_BITWISE =  5; // bitwise operator
-    const TOK_COMPARE =  6; // comparison operator
-    const TOK_NUMBER  =  7; // number
-    const TOK_STRING  =  8; // string
-    const TOK_FNCALL  =  9; // function name [func call]
-    const TOK_ASSIGN  = 10; // assignment operator
-    const TOK_FNNAME  = 11; // function name [func prototype]
-    const TOK_VARTYPE = 12; // data types
-    const TOK_VARNAME = 13; // variable name
-    const TOK_COMMENT = 14; // comment
-    const TOK_OFFSET  = 15; // offset
-    const TOK_INVALID = 16; // unknown
+    const TOK_RESET   =  0; // color reset
+    const TOK_WHTSPCE =  1; // whitespace
+    const TOK_KEYWORD =  2; // language keyword
+    const TOK_PAREN   =  3; // parenthesis
+    const TOK_PUNCT   =  4; // punctuation
+    const TOK_ARITH   =  5; // arithmetic operator
+    const TOK_BITWISE =  6; // bitwise operator
+    const TOK_COMPARE =  7; // comparison operator
+    const TOK_NUMBER  =  8; // number literal
+    const TOK_STRING  =  9; // string literal
+    const TOK_FNCALL  = 10; // function name [func call]
+    const TOK_ASSIGN  = 11; // assignment operator
+    const TOK_FNNAME  = 12; // function name [func prototype]
+    const TOK_VARTYPE = 13; // data type
+    const TOK_VARNAME = 14; // variable name
+    const TOK_COMMENT = 15; // comment
+    const TOK_OFFSET  = 16; // offset
+    const TOK_INVALID = 17; // unknown
 
-    /**
-     * Mapping of coloring tokens to r2 theme color keys.
-     * See 'ec' r2 command.
-     * @readonly
-     */
-    var COLORMAP = [
-        '',                 // TOK_WHTSPCE
-        'ret',              // TOK_KEYWORD
-        '',                 // TOK_PAREN
-        '',                 // TOK_PUNCT
-        'math',             // TOK_ARITH
-        'math',             // TOK_BITWISE
-        'cmp',              // TOK_COMPARE
-        'num',              // TOK_NUMBER
-        'btext',            // TOK_STRING
-        'call',             // TOK_FNCALL
-        'mov',              // TOK_ASSIGN
-        'fname',            // TOK_FNNAME
-        'func_var_type',    // TOK_VARTYPE
-        'reg',              // TOK_VARNAME
-        'comment',          // TOK_COMMENT
-        'offset',           // TOK_OFFSET
-        'invalid'           // TOK_INVALID
-    ];
-
-    var load_palette = function(ecj) {
-        var esc = function(tok) {
-            return '\033[' + tok + 'm';
-        };
-
-        var rgb_to_esccode = function(rgb) {
-            var r = rgb[0];
-            var g = rgb[1];
-            var b = rgb[2];
-
-            return ['38', '2', r, g, b].join(';');
-        };
-
-        // init palette with reset formatting code
-        var palette = { '': esc(0) };
-
-        // populate palette with escape codes
-        COLORMAP.forEach(function(key) {
-            if (!(key in palette)) {
-                palette[key] = esc(rgb_to_esccode(ecj[key]));
-            }
-        });
-
-        return palette;
+    var _wrap = function(esccode) {
+        return '\033[' + esccode + 'm';
     };
+
+    var _rgb_to_esccode = function(rgb) {
+        if (!rgb) {
+            return '';
+        }
+
+        var r = rgb[0];
+        var g = rgb[1];
+        var b = rgb[2];
+
+        return ['38', '2', r, g, b].join(';');
+    };
+
+    function Palette(colormap) {
+        colormap[TOK_RESET] = _wrap('0');
+
+        this.colormap = colormap;
+    }
+
+    Palette.prototype.colorize = function(token) {
+        var tag = token[0];  // coloring tag
+        var txt = token[1];  // text to color
+
+        return this.colormap[tag] + txt + this.colormap[TOK_RESET];
+    };
+
+    function ThemePalette(ecj) {
+        // map TOK indices to r2 theme color keys and then turn them
+        // into their corresponding rgb entries
+
+        var colormap = [
+            null,               // TOK_RESET -- placeholder
+            '',                 // TOK_WHTSPCE
+            'ret',              // TOK_KEYWORD
+            '',                 // TOK_PAREN
+            '',                 // TOK_PUNCT
+            'math',             // TOK_ARITH
+            'math',             // TOK_BITWISE
+            'cmp',              // TOK_COMPARE
+            'num',              // TOK_NUMBER
+            'btext',            // TOK_STRING
+            'call',             // TOK_FNCALL
+            'mov',              // TOK_ASSIGN
+            'fname',            // TOK_FNNAME
+            'func_var_type',    // TOK_VARTYPE
+            'reg',              // TOK_VARNAME
+            'comment',          // TOK_COMMENT
+            'offset',           // TOK_OFFSET
+            'invalid'           // TOK_INVALID
+        ].map(function(key) { return _wrap(_rgb_to_esccode(ecj[key])); });
+
+        Palette.call(this, colormap);
+    }
+
+    ThemePalette.prototype = Object.create(Palette.prototype);
+    ThemePalette.prototype.constructor = ThemePalette;
 
     var parenthesize = function(s) {
         return Array.prototype.concat(
@@ -93,7 +103,7 @@ module.exports = (function() {
     };
 
     function CodeGen(ecj, resolver) {
-        this.palette = load_palette(ecj);
+        this.palette = new ThemePalette(ecj);
         this.xrefs = resolver;
 
         // TODO: these could be set through r2 variables
@@ -106,12 +116,7 @@ module.exports = (function() {
     }
 
     CodeGen.prototype.emit = function(tokens) {
-        var colorized = tokens.map(function(pair) {
-            var tok = pair[0];  // coloring token
-            var txt = pair[1];  // text to color
-
-            return this.palette[COLORMAP[tok]] + txt + this.palette[''];
-        }, this);
+        var colorized = tokens.map(this.palette.colorize, this.palette);
 
         return colorized.join('');
     };
@@ -121,6 +126,10 @@ module.exports = (function() {
     };
 
     CodeGen.prototype.emit_expression = function(expr) {
+        // declare some frequently used tokens
+        const SPACE  = [TOK_WHTSPCE, ' '];
+        const RPAREN = [TOK_PAREN, '('];
+        const LPAREN = [TOK_PAREN, ')'];
 
         // emit a generic unary expression
         var _emit_uexpr = function(uexpr, op) {
@@ -134,11 +143,7 @@ module.exports = (function() {
         var _emit_bexpr = function(bexpr, op) {
             return Array.prototype.concat(
                 this.emit_expression(bexpr.operands[0]),
-                [
-                    [TOK_WHTSPCE, ' '],
-                    op,
-                    [TOK_WHTSPCE, ' ']
-                ],
+                [SPACE, op, SPACE],
                 this.emit_expression(bexpr.operands[1])
             );
         };
@@ -147,19 +152,27 @@ module.exports = (function() {
         var _emit_texpr = function(texpr, op1, op2) {
             return Array.prototype.concat(
                 this.emit_expression(texpr.operands[0]),
-                [
-                    [TOK_WHTSPCE, ' '],
-                    op1,
-                    [TOK_WHTSPCE, ' ']
-                ],
+                [SPACE, op1, SPACE],
                 this.emit_expression(texpr.operands[1]),
-                [
-                    [TOK_WHTSPCE, ' '],
-                    op2,
-                    [TOK_WHTSPCE, ' ']
-                ],
+                [SPACE, op2, SPACE],
                 this.emit_expression(texpr.operands[2])
             );
+        };
+
+        // emit a list delimited by a comma
+        var _emit_list = function(arr) {
+            var elements = [];
+
+            if (arr.length > 0) {
+                Array.prototype.push.apply(elements, arr[0]);
+
+                for (var i = 1; i < arr.length; i++) {
+                    Array.prototype.push.apply(elements, [[TOK_PUNCT, ','], SPACE]);
+                    Array.prototype.push.apply(elements, arr[i]);
+                }
+            }
+
+            return Array.prototype.concat([RPAREN], elements, [LPAREN]);
         };
 
         if (expr instanceof Expr.Val) {
@@ -189,7 +202,7 @@ module.exports = (function() {
             // "x = x op y"
             if ((rhand instanceof Expr.BExpr) && (lhand.equals(rhand.operands[0]))) {
                 // "x = x op 1"
-                if (rhand.operands[1].equals(new Expr.Value(1, lhand.size))) {
+                if (rhand.operands[1].equals(new Expr.Val(1, lhand.size))) {
                     // x = x +/- 1
                     if ((rhand instanceof Expr.Add) || (rhand instanceof Expr.Sub)) {
                         // x++ / x--
@@ -203,7 +216,7 @@ module.exports = (function() {
                 // "x op= y"
                 return Array.prototype.concat(
                     this.emit_expression(lhand),
-                    [[TOK_WHTSPCE, ' '], [TOK_ASSIGN, rhand.operator + '='], [TOK_WHTSPCE, ' ']],
+                    [SPACE, [TOK_ASSIGN, rhand.operator + '='], SPACE],
                     this.emit_expression(rhand.operands[1])
                 );
             }
@@ -294,18 +307,10 @@ module.exports = (function() {
         }
 
         else if (expr instanceof Expr.Call) {
-            var args = expr.operands.slice(1);
+            var args = expr.operands.slice(1).map(this.emit_expression, this);
             var fname = this.xrefs.resolve_fname(expr.operator) || expr.operator;
 
-            return Array.prototype.concat(
-                [[TOK_FNCALL, fname.toString()], [TOK_PAREN, '(']],
-                Array.prototype.concat.apply([],
-                    args.map(function(a) {
-                        return Array.prototype.concat(this.emit_expression(a), [[TOK_PUNCT, ','], [TOK_WHTSPCE, ' ']]);
-                    }, this)
-                ).slice(0, -2),
-                [[TOK_PAREN, ')']]
-            );
+            return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_list(args));
         }
 
         else if (expr instanceof Expr.TCond) {
@@ -343,63 +348,61 @@ module.exports = (function() {
      * @param {number} depth Nesting level
      */
     CodeGen.prototype.emit_statement = function(stmt, depth) {
-        const p = this.pad(depth);
+        const INDENT = [TOK_WHTSPCE, this.pad(depth)];
         var tokens = [];
 
         // <DEBUG>
-        tokens.push([TOK_OFFSET, '0x' + stmt.addr.toString(16)]);
+        tokens.push([TOK_OFFSET, '0x' + stmt.address.toString(16)]);
         // </DEBUG>
 
-        tokens.push([TOK_WHTSPCE, p]);
+        tokens.push(INDENT);
 
+        // TODO: a Branch is meant to be replaced by an 'If'; it is here only for dev purpose
         if (stmt instanceof Stmt.Branch) {
-            // TODO: a Branch is meant to be replaced by an 'If'; it is here only for dev purpose
-            tokens.push([TOK_KEYWORD, 'branch']);
-            tokens.push([TOK_WHTSPCE, ' ']);
+            Array.prototype.push.apply(tokens, [[TOK_KEYWORD, 'branch'], [TOK_WHTSPCE, ' ']]);
             Array.prototype.push.apply(tokens, this.emit_expression(stmt.cond));
-            tokens.push([TOK_WHTSPCE, ' ']);
-            tokens.push([TOK_PUNCT, '?']);
-            tokens.push([TOK_WHTSPCE, ' ']);
+            Array.prototype.push.apply(tokens, [[TOK_WHTSPCE, ' '], [TOK_PUNCT, '?'], [TOK_WHTSPCE, ' ']]);
             Array.prototype.push.apply(tokens, this.emit_expression(stmt.taken));
-            tokens.push([TOK_WHTSPCE, ' ']);
-            tokens.push([TOK_PUNCT, ':']);
-            tokens.push([TOK_WHTSPCE, ' ']);
+            Array.prototype.push.apply(tokens, [[TOK_WHTSPCE, ' '], [TOK_PUNCT, ':'], [TOK_WHTSPCE, ' ']]);
             Array.prototype.push.apply(tokens, this.emit_expression(stmt.not_taken));
             tokens.push([TOK_PUNCT, ';']);
-        } else if (stmt instanceof Stmt.Break) {
+        }
+
+        else if (stmt instanceof Stmt.Break) {
             tokens.push([TOK_KEYWORD, 'break']);
             tokens.push([TOK_PUNCT, ';']);
-        } else if (stmt instanceof Stmt.Continue) {
+        }
+
+        else if (stmt instanceof Stmt.Continue) {
             tokens.push([TOK_KEYWORD, 'continue']);
             tokens.push([TOK_PUNCT, ';']);
-        } else if (stmt instanceof Stmt.DoWhile) {
+        }
+
+        else if (stmt instanceof Stmt.DoWhile) {
             tokens.push([TOK_KEYWORD, 'do']);
             Array.prototype.push.apply(tokens, this.emit_scope(stmt.body, depth));
-            tokens.push([TOK_KEYWORD, 'while']);
-            tokens.push([TOK_WHTSPCE, ' ']);
-            tokens.push([TOK_PAREN, '(']);
-            Array.prototype.push.apply(tokens, this.emit_expression(stmt.cond));
-            tokens.push([TOK_PAREN, ')']);
-        } else if (stmt instanceof Stmt.Goto) {
-            tokens.push([TOK_KEYWORD, 'goto']);
-            tokens.push([TOK_WHTSPCE, ' ']);
+            Array.prototype.push.apply(tokens, [[TOK_KEYWORD, 'while'], [TOK_WHTSPCE, ' ']]);
+            Array.prototype.push.apply(tokens, parenthesize(this.emit_expression(stmt.cond)));
+        }
+
+        else if (stmt instanceof Stmt.Goto) {
+            Array.prototype.push.apply(tokens, [[TOK_KEYWORD, 'goto'], [TOK_WHTSPCE, ' ']]);
             Array.prototype.push.apply(tokens, this.emit_expression(stmt.dest));
             tokens.push([TOK_PUNCT, ';']);
-        } else if (stmt instanceof Stmt.If) {
-            tokens.push([TOK_KEYWORD, 'if']);
-            tokens.push([TOK_WHTSPCE, ' ']);
-            tokens.push([TOK_PAREN, '(']);
-            Array.prototype.push.apply(tokens, this.emit_expression(stmt.cond));
-            tokens.push([TOK_PAREN, ')']);
+        }
+
+        else if (stmt instanceof Stmt.If) {
+            Array.prototype.push.apply(tokens, [[TOK_KEYWORD, 'if'], [TOK_WHTSPCE, ' ']]);
+            Array.prototype.push.apply(tokens, parenthesize(this.emit_expression(stmt.cond)));
             Array.prototype.push.apply(tokens, this.emit_scope(stmt.then_cntr, depth));
 
             if (stmt.else_cntr) {
                 if (this.scope_newline) {
                     tokens.push([TOK_WHTSPCE, '\n']);
                     // <DEBUG>
-                    tokens.push([TOK_OFFSET, ' '.repeat(stmt.addr.toString(16).length + 2)]);
+                    tokens.push([TOK_OFFSET, ' '.repeat(stmt.address.toString(16).length + 2)]);
                     // </DEBUG>
-                    tokens.push([TOK_WHTSPCE, p]);
+                    tokens.push(INDENT);
                 } else {
                     tokens.push([TOK_WHTSPCE, ' ']);
                 }
@@ -407,23 +410,27 @@ module.exports = (function() {
                 tokens.push([TOK_KEYWORD, 'else']);
                 Array.prototype.push.apply(tokens, this.emit_scope(stmt.else_cntr, depth));
             }
-        } else if (stmt instanceof Stmt.Return) {
+        }
+
+        else if (stmt instanceof Stmt.Return) {
             tokens.push([TOK_KEYWORD, 'return']);
 
             if (stmt.retval) {
                 tokens.push([TOK_WHTSPCE, ' ']);
-                Array.prototype.push.apply(tokens, this.emit_expression(stmt.retval));
+                Array.prototype.push.apply(tokens, auto_paren(this.emit_expression(stmt.retval)));
             }
             tokens.push([TOK_PUNCT, ';']);
 
-        } else if (stmt instanceof Stmt.While) {
-            tokens.push([TOK_KEYWORD, 'while']);
-            tokens.push([TOK_WHTSPCE, ' ']);
-            tokens.push([TOK_PAREN, '(']);
-            Array.prototype.push.apply(tokens, this.emit_expression(stmt.cond));
-            tokens.push([TOK_PAREN, ')']);
+        }
+
+        else if (stmt instanceof Stmt.While) {
+            Array.prototype.push.apply(tokens, [[TOK_KEYWORD, 'while'], [TOK_WHTSPCE, ' ']]);
+            Array.prototype.push.apply(tokens, parenthesize(this.emit_expression(stmt.cond)));
             Array.prototype.push.apply(tokens, this.emit_scope(stmt.body, depth));
-        } else {
+        }
+
+        // generic statement
+        else {
             Array.prototype.push.apply(tokens, this.emit_expression(stmt.expressions.pop()));
             tokens.push([TOK_PUNCT, ';']);
 
@@ -448,7 +455,7 @@ module.exports = (function() {
     CodeGen.prototype.emit_scope = function(cntr, depth, stripped) {
         console.assert(cntr);
 
-        const p = this.pad(depth);
+        const INDENT = [TOK_WHTSPCE, this.pad(depth)];
 
         var tokens = [];
 
@@ -460,7 +467,7 @@ module.exports = (function() {
                 tokens.push([TOK_OFFSET, '0x' + cntr.address.toString(16)]);
                 // </DEBUG>
 
-                tokens.push([TOK_WHTSPCE, p]);
+                tokens.push(INDENT);
             } else {
                 tokens.push([TOK_WHTSPCE, ' ']);
             }
@@ -475,8 +482,9 @@ module.exports = (function() {
             return this.emit_statement(s, depth + 1);
         }, this));
 
-        if (cntr.next) {
-            Array.prototype.push.apply(content, this.emit_scope(cntr.next, depth, true));
+        // emit fall-through container
+        if (cntr.fallthrough) {
+            Array.prototype.push.apply(content, this.emit_scope(cntr.fallthrough, depth, true));
         }
 
         var closing = [];
@@ -486,7 +494,7 @@ module.exports = (function() {
             closing.push([TOK_OFFSET, ' '.repeat(cntr.address.toString(16).length + 2)]);
             // </DEBUG>
 
-            closing.push([TOK_WHTSPCE, p]);
+            closing.push(INDENT);
             closing.push([TOK_PAREN, '}']);
         }
 
@@ -495,6 +503,10 @@ module.exports = (function() {
 
     CodeGen.prototype.emit_func = function(func) {
         var tokens = [];
+
+        // <DEBUG>
+        tokens.push([TOK_OFFSET, ' '.repeat(func.entry_block.container.address.toString(16).length + 2)]);
+        // </DEBUG>
 
         tokens.push([TOK_VARTYPE, func.rettype]);
         tokens.push([TOK_WHTSPCE, ' ']);
@@ -524,7 +536,7 @@ module.exports = (function() {
         tokens.push([TOK_PAREN, ')']);
 
         // emit containers recursively
-        Array.prototype.push.apply(tokens, this.emit_scope(func.entry_block.container, 0));
+        Array.prototype.push.apply(tokens, this.emit_scope(func.entry_block.container, 0, false));
 
         return this.emit(tokens);
     };
