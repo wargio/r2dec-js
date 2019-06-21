@@ -26,7 +26,7 @@ module.exports = (function() {
         var call_xrefs = {};
 
         // cache information for functions called in the scope of decompilation
-        afij.callrefs.forEach(function(cref) {
+        (afij.callrefs || []).forEach(function(cref) {
             if ((cref.type === 'CALL') && !(cref.addr in call_xrefs)) {
                 var afcfj = Global.r2cmdj('afcfj', '@', cref.addr);
 
@@ -52,7 +52,7 @@ module.exports = (function() {
         var data_xrefs = {};
 
         // cache information for data referred in the scope of decompilation
-        afij.datarefs.forEach(function(dref) {
+        (afij.datarefs || []).forEach(function(dref) {
             if (!(dref in call_xrefs)) {
                 data_xrefs[dref] = JSON.stringify(Global.r2cmdj('Cs.', '@', dref));
             }

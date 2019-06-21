@@ -19,7 +19,6 @@ module.exports = (function() {
     const Graph = require('core2/analysis/graph');
     const Stmt = require('core2/analysis/ir/statements');
     const Expr = require('core2/analysis/ir/expressions');
-    const Simplify = require('core2/analysis/ir/simplify');
 
     /**
      * Management object for SSA context.
@@ -32,9 +31,7 @@ module.exports = (function() {
         this.stack = {};
         this.defs = {};
 
-        // TODO: do we need to preseve this over time?
-        this.uninit = new Stmt.Statement(0, []);
-        var tmp = new Stmt.Container(0, [this.uninit]);   // TODO: temp workaround
+        this.uninit = new Stmt.Container(0, []);
     }
 
     Context.prototype.initialize = function(func) {
@@ -74,11 +71,17 @@ module.exports = (function() {
         // that is probably an architectural register that is initialized implicitly.
         // in x86 architecture that would be the stack pointer, function arguments, etc.
         if (!(this.defs.hasOwnProperty(key))) {
-            var uc = u.clone(['idx']);
-            uc.is_def = true;
-            this.uninit.push_expr(uc);
+            // uninitialized variable assigned with index 0
+            var lhand = u.clone(['idx']);
 
-            this.add_def(uc);
+            // default value: this is merely a placeholder and should be replaced
+            var rhand = new Expr.Val(0, u.size);
+
+            // all definitions should appear as assignments
+            var assign = new Expr.Assign(lhand, rhand);
+
+            this.uninit.push_stmt(Stmt.make_statement(0, assign));
+            this.add_def(lhand);
         }
 
         var def = this.defs[key];
@@ -152,8 +155,8 @@ module.exports = (function() {
 
     var get_stmt_addr = function(expr) {
         var p = expr.parent_stmt();
-        
-        return p ? p.addr.toString(16) : '?';
+
+        return p ? p.address.toString(16) : '?';
     };
 
     var padEnd = function(s, n) {
@@ -418,16 +421,10 @@ module.exports = (function() {
     SSA.prototype._rename_wrapper = function(selector, validate) {
         var context = this._rename(selector);
 
-        relax_phi(context);
-
-        var optimizations = [
-            eliminate_def_zero_uses,
-            propagate_def_single_use,
-            elliminate_self_ref_phi
-        ];
-
-        // keep optimizing as long as modifications are made
-        while (optimizations.some(function(opt) { return opt(context); })) { /* empty */ }
+        // phi relaxation
+        propagate_single_phi(context);
+        propagate_self_ref_phi(context);
+        propagate_chained_phi(context);
 
         if (validate) {
             context.validate(this.func);
@@ -556,99 +553,20 @@ module.exports = (function() {
 
     };
 
-    var relax_phi = function(ctx) {
-        propagate_single_phi(ctx);
-        propagate_self_ref_phi(ctx);
-        propagate_chained_phi(ctx);
-    };
+    SSA.prototype.transform_out = function() {
+        // TODO: handle phi statements
+        // TODO: this should be done by iterating over ssa context, and not function blocks
 
-    // dead code elimination
-    var eliminate_def_zero_uses = function(ctx) {
-        return ctx.iterate(function(def) {
-            if (def.uses.length === 0) {
-                if (def.idx === 0) {
-                    // uninitialized defs are not really Expr.Assign instances
-                    return true;
-                } else {
-                    var p = def.parent;         // p is Expr.Assign
-                    var lhand = p.operands[0];  // def
-                    var rhand = p.operands[1];  // assigned expression
-
-                    // function calls may have side effects, and cannot be eliminated altogether.
-                    // instead, they are extracted from the assignment and kept aside.
-                    if (rhand instanceof Expr.Call) {
-                        p.replace(rhand.clone(['idx', 'def']));
-
-                        return true;
-                    }
-
-                    // memory dereferences may have side effects as well, so they cannot be eliminated. an exception
-                    // to that are memory dereferences that are assigned to phi expressions. phi are not real program
-                    // operations and have no side effects.
-                    else if ((!(lhand instanceof Expr.Deref) || (rhand instanceof Expr.Phi))) {
-                        p.pluck(true);
-
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        });
-    };
-
-    // eliminate a variable that has only one use, which is a phi assignment to self
-    // e.g. x2 has only one use, and: x2 = Phi(..., x2, ...)
-    var elliminate_self_ref_phi = function(ctx) {
-        return ctx.iterate(function(def) {
-            // TODO: exclude implicitly initialized exprs (idx 0) for the moment as there
-            // is currently no assigned expression to propagate
-            if ((def.idx !== 0) && (def.uses.length === 1)) {
-                var p = def.parent;         // assignment expr
-                var u = def.uses[0];
-
-                var lhand = p.operands[0];  // def
-                var rhand = p.operands[1];  // assigned expression
-
-                // the only use is as a phi arg, which assigned to self
-                if ((u.parent instanceof Expr.Phi) && (u.parent == rhand)) {
-                    p.pluck(true);
-
-                    return true;
-                }
-            }
-
-            return false;
-        });
-    };
-
-    // propagate definitions with only one use to their users
-    var propagate_def_single_use = function(ctx) {
-        return ctx.iterate(function(def) {
-            // TODO: exclude implicitly initialized exprs (idx 0) for the moment as there
-            // is currently no assigned expression to propagate
-            if ((def.idx !== 0) && (def.uses.length === 1)) {
-                var p = def.parent;         // assignment expr
-                var u = def.uses[0];
-
-                var lhand = p.operands[0];  // def
-                var rhand = p.operands[1];  // assigned expression
-
-                // do not propagate if that single use is a phi arg or deref address
-                if (!(u.parent instanceof Expr.Phi) &&
-                    !(u.parent instanceof Expr.Deref)) {
-
-                    var c = rhand.clone(['idx', 'def']);
-
-                    u.replace(c);
-                    Simplify.reduce_stmt(c.parent_stmt());
-                    p.pluck(true);
-
-                    return true;
-                }
-            }
-
-            return false;
+        this.func.basic_blocks.forEach(function(bb) {
+            bb.container.statements.forEach(function(stmt) {
+                stmt.expressions.forEach(function(expr) {
+                    expr.iter_operands().forEach(function(op) {
+                        if (op.idx !== undefined) {
+                            op.idx = undefined;
+                        }
+                    });
+                });
+            });
         });
     };
 

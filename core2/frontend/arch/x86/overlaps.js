@@ -195,7 +195,7 @@ module.exports = (function() {
         if (ovl) {
             var i = ovl.indexOf(reg.name);
             var exprs = this.handlers[i](reg, ovl);
-            var addr = reg.parent_stmt().addr;
+            var addr = reg.parent_stmt().address;
 
             return exprs.map(function(e) {
                 return Stmt.make_statement(addr, e);

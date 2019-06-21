@@ -88,7 +88,7 @@
 
     // returns the unicode subscript representation of a number
     var subscript = function(n) {
-        var uc_digits = [
+        const uc_digits = [
             '\u2080',
             '\u2081',
             '\u2082',
@@ -101,7 +101,11 @@
             '\u2089'
         ];
 
-        return n.toString().split('').map(function(d) { return uc_digits[d - 0]; }).join('');
+        var str_digit_to_uc_digit = function(d) {
+            return uc_digits[d - 0];
+        };
+
+        return n.toString().split('').map(str_digit_to_uc_digit).join('');
     };
 
     // ------------------------------------------------------------
@@ -264,6 +268,10 @@
         return o;
     };
 
+    Value.prototype.replace = function(other) {
+        return this.parent.replace_operand(this, other);
+    };
+
     /** @returns {boolean} */
     Value.prototype.equals = function(other) {
         return ((other instanceof Value) &&
@@ -322,6 +330,9 @@
         return (is_neg ? '-' : '') + (radix === 16 ? '0x' : '') + val.toString(radix);
     };
 
+    Value.MAX_VAL16 = new Value(Long.fromBits(0x0000ffff, 0x00000000, true), 16);
+    Value.MAX_VAL32 = new Value(Long.fromBits(0xffffffff, 0x00000000, true), 32);
+    Value.MAX_VAL64 = new Value(Long.fromBits(0xffffffff, 0xffffffff, true), 64);
     // ------------------------------------------------------------
 
     /**
@@ -425,7 +436,8 @@
     /**
      * Have parent pluck `this` expression. The plucked expression could be
      * then inserted to another parent, or simply discarded.
-     * @param {boolean} detach Whether to detach `this` from users list
+     * @param {boolean} detach Whether to detach `this` along with its operands from
+     * their users list
      * @returns {!Expr} `this`
      */
     Expr.prototype.pluck = function(detach) {
@@ -460,7 +472,7 @@
      * @returns {boolean} `true` iff this and other are equal in operators and operands, `false` otherwise
      */
     Expr.prototype.equals = function(other) {
-        var eq = (other &&
+        var eq = ((other instanceof Expr) &&
             (this.operator === other.operator) &&
             (this.operands.length === other.operands.length));
 

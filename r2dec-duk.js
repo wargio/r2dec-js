@@ -22,6 +22,7 @@ const Decoder = require('core2/frontend/decoder');
 const Analyzer = require('core2/frontend/arch/x86/analyzer'); // TODO: does not belong here
 const Resolver = require('core2/frontend/resolver');
 const SSA = require('core2/analysis/ssa');
+const Optimizer = require('core2/analysis/opt');
 const ControlFlow = require('core2/analysis/controlflow');
 const CodeGen = require('core2/backend/codegen');
 
@@ -59,8 +60,14 @@ function Function(afij, afbj) {
     this.name = afij.name;
     this.calltype = afij.calltype;
 
-    this.args = Array.prototype.concat(afij.bpvars, afij.spvars, afij.regvars).filter(function(v) {
-        return v.kind === 'arg';
+    var vars = Array.prototype.concat(afij.bpvars, afij.spvars, afij.regvars);
+
+    this.args = vars.filter(function(v) {
+        return (v.kind === 'arg') || (v.kind === 'reg');
+    });
+
+    this.vars = vars.filter(function(v) {
+        return (v.kind === 'var');
     });
 
     // read and process function's basic blocks
@@ -68,9 +75,7 @@ function Function(afij, afbj) {
         return new BasicBlock(this, bb);
     }, this);
 
-    // TODO: Duktape Array prototype has no 'find' method. this workaround should be
-    // removed when Duktape implements this method for Array prototype.
-    // <WORKAROUND>
+    // <POLYFILL>
     this.basic_blocks.find = function(predicate) {
         for (var i = 0; i < this.length; i++) {
             if (predicate(this[i])) {
@@ -80,7 +85,7 @@ function Function(afij, afbj) {
 
         return undefined;
     };
-    // </WORKAROUND>
+    // </POLYFILL>
 
     // the first block provided by r2 is the function's entry block
     this.entry_block = this.basic_blocks[0];
@@ -90,7 +95,8 @@ function Function(afij, afbj) {
     // consist of the stack and frame pointers, and function parameters
     // this.uninitialized = null;
 
-    // TODO: return_type
+    // TODO: is there a more elegant way to extract that info?
+    this.rettype = afij.signature.split(afij.name, 1)[0].trim() || 'void';
 }
 
 Function.prototype.getBlock = function(address) {
@@ -182,14 +188,19 @@ function r2dec_main(args) {
                 var ssa_ctx;
 
                 // ssa tagging for registers
-                ssa_ctx = ssa.rename_regs();
+                ssa_ctx = ssa.rename_regs(true);
                 analyzer.ssa_step(ssa_ctx);
+                Optimizer.run(ssa_ctx);
+                console.log(ssa_ctx.toString());
 
                 // ssa tagging for memory dereferences
-                ssa_ctx = ssa.rename_derefs();
+                ssa_ctx = ssa.rename_derefs(true);
                 analyzer.ssa_step(ssa_ctx);
+                Optimizer.run(ssa_ctx);
+                console.log(ssa_ctx.toString());
 
-                analyzer.ssa_done(ssa_ctx);
+                analyzer.ssa_done(func, ssa_ctx);
+                ssa.transform_out();
 
                 // TODO:
                 //  - x86: add uninit stack locations for function arguments [cdecl]
@@ -200,6 +211,7 @@ function r2dec_main(args) {
                 var cflow = new ControlFlow(func);
                 cflow.fallthroughs();
                 cflow.conditions();
+                analyzer.controlflow_done(func);
 
                 var ecj = r2cmdj('ecj');
 

@@ -11,6 +11,22 @@ module.exports = (function() {
         this.key = key;
         this.inbound = [];
         this.outbound = [];
+
+        // <POLYFILL>
+        var __findIndex = function(predicate) {
+            for (var i = 0; i < this.length; i++) {
+                if (predicate(this[i])) {
+                    return i;
+                }
+            }
+
+            return (-1);
+        };
+
+        this.inbound.findIndex = __findIndex.bind(this.inbound);
+        this.outbound.findIndex = __findIndex.bind(this.outbound);
+        // </POLYFILL>
+
     }
 
     Node.prototype.toString = function(opt) {
@@ -93,6 +109,22 @@ module.exports = (function() {
         dst.inbound.push(src);
     };
 
+    var _remove_node = function(arr, node) {
+        var i = arr.findIndex(function(n) {
+            return n.key == node.key;
+        });
+
+        return (i === (-1) ? undefined : arr.splice(i, 1));
+    };
+
+    Directed.prototype.delEdge = function(edge) {
+        var src = this.getNode(edge[0]);
+        var dst = this.getNode(edge[1]);
+
+        _remove_node(src.outbound, dst);
+        _remove_node(dst.inbound, src);
+    };
+
     // not really an iterator, as Duktape does not support "yield" and "function*"
     // returns a list of nodes, not necessarily in insertion order
     Directed.prototype.iterNodes = function() {
@@ -129,15 +161,15 @@ module.exports = (function() {
 
     // construct a depth-first spanning tree of graph g
     function DFSpanningTree(g) {
-        var _nodes = [];
-        var _edges = [];
+        var nodes = [];
+        var edges = [];
 
         var explore = function(n) {
-            _nodes.push(n.key);
+            nodes.push(n.key);
 
             g.successors(n).forEach(function(succ) {
-                if (_nodes.indexOf(succ.key) === (-1)) {
-                    _edges.push([n.key, succ.key]);
+                if (nodes.indexOf(succ.key) === (-1)) {
+                    edges.push([n.key, succ.key]);
 
                     explore(succ);
                 }
@@ -146,11 +178,11 @@ module.exports = (function() {
 
         explore(g.root);
 
-        Directed.call(this, _nodes, _edges, _nodes[0]);
+        Directed.call(this, nodes, edges, nodes[0]);
 
         // graph nodes are stored in a dictionary in which their order is not guaranteed.
         // this array keeps them in order.
-        this.keys_dfs = _nodes;
+        this.keys_dfs = nodes;
 
         // modify Node objects to hold DFS indices
         this.iterNodes().forEach(function(n, i) {
@@ -281,6 +313,27 @@ module.exports = (function() {
         }
 
         return this.dominates(v, u.idom);
+    };
+
+    DominatorTree.prototype.all_dominated = function(v) {
+        var dominated = [];
+        var _this = this;
+
+        var descend_dom = function(n) {
+            if (n == v) {
+                return;
+            }
+
+            if (_this.dominates(v, n)) {
+                dominated.push(n.key);
+            }
+
+            _this.successors(n).forEach(descend_dom);
+        };
+
+        _this.successors(v).forEach(descend_dom);
+
+        return dominated.map(this.getNode, this);
     };
 
     DominatorTree.prototype.strictlyDominates = function(v, u) {

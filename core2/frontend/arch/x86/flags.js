@@ -74,9 +74,54 @@ module.exports = (function() {
         return new ops[f](expr);
     };
 
+    var cmp_from_flags = function(expr) {
+        var cmp = null;
+        var op = null;
+
+        // equal
+        if (expr instanceof Zero) {
+            cmp = Expr.EQ;
+            op = expr.operands[0];
+        }
+
+        // less (signed)
+        else if ((expr instanceof Expr.NE) &&
+            (expr.operands[0] instanceof Sign) &&
+            (expr.operands[1] instanceof Overflow) &&
+            (expr.operands[0].operands[0].equals(expr.operands[1].operands[0]))) {
+                cmp = Expr.LT;
+                op = expr.operands[0].operands[0];
+        }
+
+        // greater (signed)
+        else if ((expr instanceof Expr.EQ) &&
+            (expr.operands[0] instanceof Sign) &&
+            (expr.operands[1] instanceof Overflow) &&
+            (expr.operands[0].operands[0].equals(expr.operands[1].operands[0]))) {
+                cmp = Expr.GT;
+                op = expr.operands[0].operands[0];
+        }
+
+        // below (unsigned)
+        else if (expr instanceof Carry) {
+            cmp = Expr.LT;
+            op = expr.operands[0];
+        }
+
+        // above (unsigned)
+        else if ((expr instanceof Expr.BoolNot) &&
+            (expr.operands[0] instanceof Carry)) {
+                cmp = Expr.GT;
+                op = expr.operands[0];
+        }
+
+        return op ? new cmp(op.clone(['idx', 'def']), new Expr.Val(0, op.size)) : op;
+    };
+
     return {
         Flag    : Flag,
         FlagOp  : FlagOp,
+        cmp_from_flags : cmp_from_flags,
 
         Carry    : Carry,
         Parity   : Parity,
