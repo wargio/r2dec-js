@@ -3,32 +3,24 @@ module.exports = (function() {
 	const Graph = require('core2/analysis/graph');
     const Expr = require('core2/analysis/ir/expressions');
     const Stmt = require('core2/analysis/ir/statements');
+    const Simplify = require('core2/analysis/ir/simplify');
 
     function ControlFlow(func) {
         this.func = func;
-        this.cfg = func.cfg();
+        this.cfg = this.func.cfg();
+        this.dfs = new Graph.DFSpanningTree(this.cfg);
+        this.dom = new Graph.DominatorTree(this.cfg);
     }
 
     ControlFlow.prototype.fallthroughs = function() {
-        this.cfg.iterNodes().forEach(function(N) {
-            var successors = this.cfg.successors(N);
+        this.func.basic_blocks.forEach(function(bb) {
+            // N --> M
+            var n_block = bb;
+            var m_block = ((n_block.fail && this.func.getBlock(n_block.fail))
+                || (n_block.jump && this.func.getBlock(n_block.jump)));
 
-            if (successors.length === 1) {
-                var predecessors = this.cfg.predecessors(successors[0]);
-
-                if (predecessors.length === 1) {
-                    if (predecessors[0].eq(N)) {
-                        var n_container = node_to_block(this.func, N).container;
-                        var n_terminator = n_container.terminator();
-
-                        // probably always Goto
-                        if (n_terminator instanceof Stmt.Goto) {
-                            n_terminator.pluck();
-                        }
-
-                        n_container.next = node_to_block(this.func, predecessors[0]).container;
-                    }
-                }
+            if (m_block) {
+                n_block.container.set_fallthrough(m_block.container);
             }
         }, this);
     };
@@ -39,9 +31,80 @@ module.exports = (function() {
         return f.getBlock(node.key) || null;
     };
 
-    // get a graph node from a function basic block
-    var block_to_node = function(g, block) {
-        return g.getNode(block.address) || null;
+    var get_destination = function(terminator) {
+        var dest = undefined;
+
+        if (terminator instanceof Stmt.Branch) {
+            dest = terminator.taken.value;
+        } else if (terminator instanceof Stmt.Goto) {
+            dest = terminator.dest.value;
+        }
+
+        return dest;
+    };
+
+    // <DEBUG>
+    var ArrayToString = function(a, opt) {
+        return '[' + a.map(function(d) {
+            return d.toString(opt);
+        }).join(', ') + ']';
+    };
+
+    var ObjAddrToString = function(o, opt) {
+        return o ? o.address.toString(opt) : o;
+    };
+
+    // </DEBUG>
+
+    ControlFlow.prototype.construct_loop = function(node) {
+        // head of the loop
+        var head = this.dom.getNode(node);
+
+        // the loop body consists of all the nodes that can reach back the
+        // loop head. to know whether there is a path from some node S to another
+        // node T, we need a DFS traveresal starting from S; if T is picked up
+        // then there is a path. that is, a dedicated DFS traversal for each node
+        // in the graph, or at least for all nodes that are dominated by the loop
+        // head.
+        //
+        // to avoid that many DFS traversals, we just reverse the graph starting
+        // from the loop head and perform a DFS traversal only once. all the nodes
+        // that are picked up are known to be reached from loop head in the reversed
+        // graph, which means the loop head is reached from each one of them in
+        // the original one.
+        //
+        // note: that is normally done with a post-dominator tree, which features
+        // a reversed dfs tree
+
+        // build a reversed cfg starting from loop head; prune the edge
+        // pointing the head immediate dominator, which is outside the loop
+        var rcfg = this.cfg.reversed(node);
+        rcfg.delEdge([node, head.idom.key]);
+
+        // TODO: it looks like the idom trick won't work if there are multiple edges
+        // coming into the loop head; do we need to split the edges to get a pre-loop?
+
+        // build a dfs tree from the pruned reversed cfg; this would let us
+        // know which nodes are in the loop body
+        var rdfs = new Graph.DFSpanningTree(rcfg);
+        var body = rdfs.iterNodes();
+
+        // the set of nodes dominated by the loop head includes loop body nodes and
+        // exit nodes. we now "xoring" those sets together to find exit nodes
+        var exits = this.dom.all_dominated(head).filter(function(n) {
+            var found = false;
+
+            for (var i = 0; !found && (i < body.length); i++) {
+                found = (n.key == body[i].key);
+            }
+
+            return !found;
+        });
+
+        console.log('', 'loop:');
+        console.log('', '', 'head node :', head.toString(16));
+        console.log('', '', 'body nodes:', ArrayToString(body, 16));
+        console.log('', '', 'exit nodes:', ArrayToString(exits, 16));
     };
 
     ControlFlow.prototype.conditions = function() {
@@ -67,44 +130,34 @@ module.exports = (function() {
         //              replace S with I
         //              C0.next = container of last block left dominated by N, or null if nothing left
 
-        var dfs = new Graph.DFSpanningTree(this.cfg);
-        var dom = new Graph.DominatorTree(this.cfg);
+        var carried = null;
 
-        // <DEBUG>
-        // console.log('cfg:');
-        // console.log(this.cfg.toString(16));
-        // console.log('dom:');
-        // console.log(dom.toString(16));
-        // console.log('idom:');
-        // dom.iterNodes().forEach(function(_n) {
-        //      console.log(_n.toString(16), '.idom =', _n.idom ? _n.idom.toString(16) : 'undefined');
-        // });
-        // </DEBUG>
-
-        var pluck_trailing_goto = function(container) {
-            if (container) {
-                var terminator = container.terminator();
-
-                if (terminator instanceof Stmt.Goto) {
-                    terminator.pluck();
-                }
-            }
-        };
-
-        dfs.iterNodes().forEach(function(N) {
+        this.dfs.iterNodes().forEach(function(N) {
             var C0 = node_to_block(this.func, N).container;
             var S = C0.terminator();
+            var imm_dominated = this.dom.successors(this.dom.getNode(N.key));
+
+            console.log(ObjAddrToString(C0, 16), ':');
+            console.log('  domfront:', ArrayToString(this.dom.dominanceFrontier(N), 16));
+            console.log('  imm dom:', this.dom.getNode(N.key).idom ? this.dom.getNode(N.key).idom.toString(16) : 'none');
+            console.log('  +dominates:', ArrayToString(imm_dominated, 16));
+
+            var dest = get_destination(S) || node_to_block(this.func, N).jump;
+
+            // is this a back edge?
+            if (dest && this.dom.dominates(this.dom.getNode(dest), this.dom.getNode(N.key))) {
+                this.construct_loop(dest);
+                
+                S = null;
+            }
 
             if (S instanceof Stmt.Branch) {
-                var C1;     // container for 'then' clause
-                var C2;     // container for 'else' clause
-                var dominated = dom.successors(N);
-                var idx;
+                var M;
+                var C1; // container for 'then' clause
+                var C2; // container for 'else' clause
 
-                // TODO: Duktape Array prototype has no 'findIndex' method. this workaround should be
-                // removed when Duktape implements this method for Array prototype.
-                // <WORKAROUND> 
-                dominated.findIndex = function(predicate) {
+                // <POLYFILL>
+                imm_dominated.findIndex = function(predicate) {
                     for (var i = 0; i < this.length; i++) {
                         if (predicate(this[i])) {
                             return i;
@@ -113,29 +166,87 @@ module.exports = (function() {
 
                     return (-1);
                 };
-                // </WORKAROUND>
+                // </POLYFILL>
 
-                idx = dominated.findIndex(function(d) { return d.key.eq(S.not_taken.value); });
-                if ((idx !== (-1)) && (this.cfg.predecessors(dominated[idx]).length === 1)) {
-                    C1 = this.func.getBlock(S.not_taken.value).container;
+                var extract = function(arr, predicate) {
+                    var extracted = [];
+                    var i = arr.findIndex(predicate);
 
-                    dominated.splice(idx, 1);
+                    if (i !== (-1)) {
+                        extracted = arr.splice(i, 1);
+                    }
+
+                    return extracted.pop();
+                };
+
+                // 'then' clause
+                M = this.dom.getNode(S.not_taken.value);
+                if (extract(imm_dominated, function(D) { return D.key.eq(M.key); })) {
+                    C1 = node_to_block(this.func, M).container;
+                    C1.prev = C0;
                 }
 
-                idx = dominated.findIndex(function(d) { return d.key.eq(S.taken.value); });
-                if ((idx !== (-1)) && (this.cfg.predecessors(dominated[idx]).length === 1)) {
-                    C2 = this.func.getBlock(S.taken.value).container;
-
-                    dominated.splice(idx, 1);
+                // 'else' clause
+                M = this.dom.getNode(S.taken.value);
+                if (extract(imm_dominated, function(D) { return D.key.eq(M.key); })) {
+                    C2 = node_to_block(this.func, M).container;
+                    C2.prev = C0;
                 }
 
-                pluck_trailing_goto(C1);
-                pluck_trailing_goto(C2);
+                var cond = S.cond.clone();
 
-                S.replace(new Stmt.If(S.addr, new Expr.BoolNot(S.cond.clone(['idx', 'def'])), C1, C2));
-                var sink = dominated[0];
-                C0.next = sink && node_to_block(this.func, sink).container;
+                if (C1) {
+                    cond = new Expr.BoolNot(cond);
+                } else {
+                    C1 = C2;
+                    C2 = undefined;
+                }
+
+                S.replace(new Stmt.If(S.address, cond, C1, C2));
+                Simplify.reduce_expr(cond);
+                
+                console.log('  branch:', '[', ObjAddrToString(C1, 16), '|', ObjAddrToString(C2, 16), ']');
+                console.log('  -dominates:', ArrayToString(imm_dominated, 16));
             }
+
+            else if (S instanceof Stmt.Goto) {
+                var M = this.cfg.getNode(S.dest.value);
+
+                if (this.cfg.predecessors(M).length > 1) {
+                    S.pluck();
+                }
+            }
+
+            // condition sink should be the only node left on the domniation list.
+            // if there is none, the sink is undefined
+            var sink = imm_dominated[0];
+
+            // in case there is no sink and we are carrying one from previous
+            // branches, use it now
+            if (!sink) {
+                sink = carried;
+                carried = null;
+            }
+
+            // in some rare cases there would be more than one item left on the
+            // domination list, which means there is more than one sink. since we cannot
+            // display more than one sink, we would need to carry it down the DFS road
+            // and use it as a sink as soon as possible
+            if (!carried) {
+                carried = imm_dominated[1];
+            }
+
+            console.log('  carried:', carried ? carried.toString(16) : carried);
+
+            if (C0.fallthrough) {
+                console.log('  -fthrough:', ObjAddrToString(C0.fallthrough, 16));
+            }
+
+            // set fall-through container, if exists
+            C0.set_fallthrough(sink && node_to_block(this.func, sink).container);
+
+            console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
+            console.log();
         }, this);
     };
 
