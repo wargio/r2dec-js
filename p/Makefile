@@ -22,11 +22,11 @@ all: build install
 build: $(BIN)
 
 $(BIN): $(OBJS)
-	$(VERBOSE)$(ECHO) "LD\t$@"
+	$(VERBOSE)$(ECHO) "[LD] $@"
 	$(VERBOSE)$(LD) $(LDFLAGS) $(LDFLAGS_PKG) -shared $^ -o $@
 
 %.o: %.c
-	$(VERBOSE)$(ECHO) "CC\t$@"
+	$(VERBOSE)$(ECHO) "[CC] $@"
 	$(VERBOSE)$(CC) $(CFLAGS) $(CFLAGS_PKG) -c $< -o $@
 
 $(PLUGDIR):
