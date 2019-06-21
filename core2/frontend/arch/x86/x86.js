@@ -77,12 +77,16 @@ module.exports = (function() {
             'call'  : _call.bind(this),
             'ret'   : _ret.bind(this),
 
+            'pushad': _pushad.bind(this),
+            'popad' : _popad.bind(this),
+
             // arithmetic operations
             'add'   : _add.bind(this),
             'adc'   : _adc.bind(this),
             'sub'   : _sub.bind(this),
             'div'   : _div.bind(this),
             'mul'   : _mul.bind(this),
+            'imul'  : _imul.bind(this),
             'inc'   : _inc.bind(this),
             'dec'   : _dec.bind(this),
 
@@ -231,6 +235,20 @@ module.exports = (function() {
         }));
     };
 
+    /*
+    x86.prototype.get_implicit_vars = function(afij) {
+        const sreg = this.get_stack_reg();
+
+        var max_val = {
+            16: Expr.Val.MAX_VAL16,
+            32: Expr.Val.MAX_VAL32,
+            64: Expr.Val.MAX_VAL64
+        }[sreg.size];
+
+        return new Expr.Assign(sreg, new Expr.And(max_val, new Expr.Val(~(16 - 1), max_val.size)));
+    };
+    */
+
     /**
      * List of possible instruction prefixes.
      * see R_ANAL_OP_PREFIX_* definitions in r2.
@@ -245,6 +263,8 @@ module.exports = (function() {
     };
 
     x86.prototype.r2decode = function(aoj) {
+        var abits = this.bits;
+
         var process_ops = function(op) {
 
             // r2cmd creates Long objects for all numeric values it finds. though it is required
@@ -287,7 +307,8 @@ module.exports = (function() {
                     base:  op.base,
                     index: op.index,
                     scale: (op.scale > 1) ? op.scale : undefined,
-                    disp:  op.disp
+                    disp:  op.disp,
+                    abits: abits
                 }
             };
         };
@@ -305,6 +326,55 @@ module.exports = (function() {
     };
 
     /**
+     * Determines the size (in bits) of a given register name.
+     * @param {string} rname Register name
+     * @returns {!number}
+     */
+    var get_reg_size = function(rname) {
+        var elems = rname.match(/([re])?(.?[^dwhl]?)([dwhl])?/);
+
+        // reg string will be splitted into an array of 4, where:
+        //   [0]: match string
+        //   [1]: prefix (either 'r', 'e' or undefined)
+        //   [2]: reg name
+        //   [3]: suffix (either 'h', 'l', 'w', 'd' or undefined)
+        //
+        // when coming to determine the register size, the aforementioned elements are inspected
+        // in a certain order to look at the first that it isn't undefined: suffix -> prefix -> name
+
+        var sz;
+
+        if (elems[3] !== undefined) {
+            sz = {
+                'h': 8,
+                'l': 8,
+                'w': 16,
+                'd': 32
+            }[elems[3]];
+        } else if (elems[1] !== undefined) {
+            sz = {
+                'e': 32,
+                'r': 64
+            }[elems[1]];
+        } else {
+            // if neither suffix nor prefix are defined, test name for avx regs
+            var avx_elems = elems[2].match(/([xyz])mm\d+/);
+
+            if (avx_elems) {
+                sz = {
+                    'x': 128,
+                    'y': 256,
+                    'z': 512
+                }[avx_elems[1]];
+            } else {
+                sz = 16;
+            }
+        }
+
+        return sz;
+    };
+
+    /**
      * Analyze a textual assembly operand and create a matching IR expression for it.
      * @inner
      */
@@ -313,7 +383,7 @@ module.exports = (function() {
 
         switch (op.type) {
         case 'reg':
-            expr = new Expr.Reg(op.value, op.size);
+            expr = new Expr.Reg(op.value, get_reg_size(op.value));
             break;
 
         case 'imm':
@@ -321,10 +391,13 @@ module.exports = (function() {
             break;
 
         case 'mem':
-            var base = op.mem.base && new Expr.Reg(op.mem.base, op.size);
-            var index = op.mem.index && new Expr.Reg(op.mem.index, op.size);
-            var scale = op.mem.scale && new Expr.Val(op.mem.scale, op.size);
-            var disp = op.mem.disp && new Expr.Val(op.mem.disp, op.size);
+            // TODO: fallback option should be arch.bits
+            var bsize = op.mem.base ? get_reg_size(op.mem.base) : op.size;
+
+            var base = op.mem.base && new Expr.Reg(op.mem.base, bsize);
+            var index = op.mem.index && new Expr.Reg(op.mem.index, bsize);
+            var scale = op.mem.scale && new Expr.Val(op.mem.scale, bsize);
+            var disp = op.mem.disp && new Expr.Val(op.mem.disp, bsize);       
 
             if (base && index && disp) {
                 // [base + index*scale + disp]
@@ -527,7 +600,26 @@ module.exports = (function() {
         // TODO: %of, %cf = (upper part is non-zero)
 
         // product = multiplier * multiplicand
-        return [new Expr.Assign(arg_product, new Expr.Div(arg_multiplier, multiplicand))];
+        return [new Expr.Assign(arg_product, new Expr.Mul(arg_multiplier, multiplicand))];
+    };
+
+    var _imul = function(p) {
+        var num_ops = p.operands.length;
+
+        if (num_ops === 1) {
+            return _mul(p);
+        }
+
+        // num_ops == 2: op[0] = op[0] * op[1]
+        // num_ops == 3: op[0] = op[1] * op[2]
+        var multiplicand = get_operand_expr(p.operands[p.operands.length - 2]);
+        var multiplier = get_operand_expr(p.operands[p.operands.length - 1]);
+        var product = get_operand_expr(p.operands[0]);
+
+        // TODO: %of, %cf = (see intel sdm)
+
+        // product = multiplier * multiplicand
+        return [new Expr.Assign(product, new Expr.Mul(multiplier, multiplicand))];
     };
 
     var _inc = function(p) {
@@ -580,6 +672,56 @@ module.exports = (function() {
         ];
     };
 
+    var _pushad = function(p) {
+        var sreg = this.get_stack_reg();
+        var asize = this.get_asize_val();
+
+        var push_step = function(r) {
+            return [
+                new Expr.Assign(sreg.clone(), new Expr.Sub(sreg.clone(), asize.clone())),
+                new Expr.Assign(new Expr.Deref(sreg.clone()), r)
+            ];
+        };
+
+        var pushed_regs = [
+            new Expr.Reg('eax', 32),
+            new Expr.Reg('ecx', 32),
+            new Expr.Reg('edx', 32),
+            new Expr.Reg('ebx', 32),
+            new Expr.Add(new Expr.Reg('esp', 32), new Expr.Val(asize.value.mul(5), asize.size)),
+            new Expr.Reg('ebp', 32),
+            new Expr.Reg('esi', 32),
+            new Expr.Reg('edi', 32)
+        ];
+
+        return Array.prototype.concat.apply([], pushed_regs.map(push_step));
+    };
+
+    var _popad = function(p) {
+        var sreg = this.get_stack_reg();
+        var asize = this.get_asize_val();
+
+        var pop_step = function(r) {
+            return Array.prototype.concat(
+                r ? [new Expr.Assign(r, new Expr.Deref(sreg.clone()))] : [],
+                [new Expr.Assign(sreg.clone(), new Expr.Add(sreg.clone(), asize.clone()))]
+            );
+        };
+
+        var poped_regs = [
+            new Expr.Reg('edi', 32),
+            new Expr.Reg('esi', 32),
+            new Expr.Reg('ebp', 32),
+            null,
+            new Expr.Reg('ebx', 32),
+            new Expr.Reg('edx', 32),
+            new Expr.Reg('ecx', 32),
+            new Expr.Reg('eax', 32)
+        ];
+
+        return Array.prototype.concat.apply([], poped_regs.map(pop_step));
+    };
+
     var _nop = function(p) {
         return [];
     };
@@ -608,7 +750,7 @@ module.exports = (function() {
     };
 
     var _call = function(p) {
-        var args = [];  // TODO: determine calling convension and arguments
+        var args = [];
         var callee = get_operand_expr(p.operands[0]);
         var rreg = this.get_result_reg();
 
@@ -656,8 +798,6 @@ module.exports = (function() {
 
     var _jmp = function(p) {
         var dst = get_operand_expr(p.operands[0]);
-
-        // TODO: identify tail call optimizations
 
         return [new Stmt.Goto(p.address, dst)];
     };
@@ -850,11 +990,13 @@ module.exports = (function() {
     };
 
     var _invalid = function(p) {
-        return [new Expr.Unknown(p.disasm)]; // TODO: improve handling of unknown instructions
+        // TODO: improve handling of unknown instructions. consider generate expressions based on
+        // esil code for that instruction; that would help generate helpful dependencies although
+        // it will not be an accurate description
+        return [new Expr.Unknown(p.disasm)];
     };
 
     // TODO: to be implemented
-    // imul
     // idiv
     // movabs
     // cbw
@@ -869,8 +1011,8 @@ module.exports = (function() {
     // scas{b,w,d,q}
     // pushf{,d,q}
     // popf{,d,q}
-    // pusha{,d}
-    // popa{,d}
+    // pusha
+    // popa
 
     return x86;
 })();
