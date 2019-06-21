@@ -1,25 +1,46 @@
-CFLAGS+=-g -O3
-CFLAGS_TEST=-g -O3 -I./duktape
-CFLAGS+=$(shell pkg-config --cflags r_util r_io r_cons r_core) -I./duktape
-LDFLAGS_TEST=-lm -std=c99
-LDFLAGS+=$(shell pkg-config --libs r_util r_io r_cons r_core) -lm -std=c99
+CFLAGS+=-g -O3 -std=c99 -Wall -fPIC -I./duktape
+CFLAGS_PKG=$(shell pkg-config --cflags r_util r_io r_cons r_core)
+
+LDFLAGS+=-lm
+LDFLAGS_PKG=$(shell pkg-config --libs r_util r_io r_cons r_core)
+
 LIBEXT=$(shell r2 -H LIBEXT)
 PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
 
-all:
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -fPIC duktape/duktape.c duktape/duk_console.c core_pdd.c -o core_pdd.$(LIBEXT)
-	$(MAKE) install
+VERBOSE=@
+ECHO=echo
+RM=rm --force
+CP=cp --force
+MKDIR=mkdir --parents
 
-install:
-	mkdir -p $(PLUGDIR)
-	rm -rf $(PLUGDIR)/core_pdd.$(LIBEXT)*
-	cp -rf core_pdd.$(LIBEXT)* $(PLUGDIR)
+SRCS=duktape/duktape.c duktape/duk_console.c core_pdd.c
+OBJS=$(SRCS:.c=.o)
+BIN=core_pdd.$(LIBEXT)
+
+all: build install
+
+build: $(BIN)
+
+$(BIN): $(OBJS)
+	$(VERBOSE)$(ECHO) "LD $@"
+	$(VERBOSE)$(LD) $(LDFLAGS) $(LDFLAGS_PKG) -shared $^ -o $@
+
+%.o: %.c
+	$(VERBOSE)$(ECHO) "CC $@"
+	$(VERBOSE)$(CC) $(CFLAGS) $(CFLAGS_PKG) -c $< -o $@
+
+$(PLUGDIR):
+	$(VERBOSE)$(MKDIR) $@
+
+install: $(PLUGDIR) $(BIN)
+	$(VERBOSE)$(RM) $(PLUGDIR)/$(BIN)
+	$(VERBOSE)$(CP) $(BIN) $(PLUGDIR)
 
 uninstall:
-	rm -rf $(PLUGDIR)/core_pdd.$(LIBEXT)*
+	$(VERBOSE)$(RM) $(PLUGDIR)/$(BIN)
 
 clean:
-	rm -rf core_pdd.$(LIBEXT)* r2dec-test
+	$(VERBOSE)$(RM) $(BIN) $(OBJS)
 
 testbin r2dec-test:
-	$(CC) $(CFLAGS_TEST) -DUSE_RCONS=0 -o r2dec-test -fPIC duktape/duktape.c duktape/duk_console.c r2dec-test.c $(LDFLAGS_TEST)
+	$(VERBOSE)$(CC) $(CFLAGS) -DUSE_RCONS=0 -c duktape/duktape.c duktape/duk_console.c r2dec-test.c -o r2dec-test $(LDFLAGS)
