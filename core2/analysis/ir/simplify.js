@@ -19,25 +19,74 @@ module.exports = (function() {
     const Long = require('libdec/long');
     const Expr = require('core2/analysis/ir/expressions');
 
+    // list of ssa properties to preserve when cloning an expression
     const wssa = ['idx', 'def'];
+
+    // this list is ordered in a way that two relations indexes may be combined
+    // together using bitwise operations, and produce the appropriate relation
+    // as a result.
+    //
+    // for eample: (x EQ y) || (x LT y) would produce (x LE y) because 0b001 | 0b010 == 0b011
+    // that works for combining relations using bitwise and, or and not
+    /** @type {Array<string>} */
+    const __rel_names = [
+        null,   /* palceholder for False */ // 0b000
+        Expr.EQ.prototype.constructor.name, // 0b001
+        Expr.LT.prototype.constructor.name, // 0b010
+        Expr.LE.prototype.constructor.name, // 0b011
+        Expr.GT.prototype.constructor.name, // 0b100
+        Expr.GE.prototype.constructor.name, // 0b101
+        Expr.NE.prototype.constructor.name, // 0b110
+        null,   /* palceholder for True */  // 0b111
+    ];
+
+    /**
+     * A list of closures, each of which generates a relation that corresponds to its index (rank)
+     * @type {Array<function>}
+     * @inner
+     */
+    const __rel_exprs = [
+        function() { return new Expr.Val(0, 1); },
+        function(x, y) { return new Expr.EQ(x, y); },
+        function(x, y) { return new Expr.LT(x, y); },
+        function(x, y) { return new Expr.LE(x, y); },
+        function(x, y) { return new Expr.GT(x, y); },
+        function(x, y) { return new Expr.GE(x, y); },
+        function(x, y) { return new Expr.NE(x, y); },
+        function() { return new Expr.Val(1, 1); }
+    ];
+
+    /**
+     * Translates a relation rank into its corresponding expression.
+     * Instead of returning a new expression, a closure is returned to
+     * construct it
+     * @param {number} rank Rank of selected relation
+     * @returns {function} Construction closure 
+     * @inner
+     */
+    var __get_rel_expr = function(rank) {
+        return __rel_exprs[rank];
+    };
+
+    /**
+     * Returns the ranking value of a given relation (comparison) expression
+     * instance
+     * @param {Expr.Expr} expr Relation expression instance
+     * @returns {number} A numberic value between 0 and 7, or -1 if not a valid relation instance
+     * @inner
+     */
+    var __get_rel_rank = function(expr) {
+        return expr ? __rel_names.indexOf(expr.constructor.name) : (-1);
+    };
 
     /**
      * Checks whether an expression is an instance of a comparison expression
      * @param {Expr.Expr} expr An expression instance to check
-     * @returns `true` if `expr` is an instance of a comparison expression; `false` otherwise
-     * @private
+     * @returns `true` if `expr` is an instance of a comparison expression, `false` otherwise
+     * @inner
      */
     var __is_compare_expr = function(expr) {
-        const equalities = [
-            Expr.EQ.prototype.constructor.name,
-            Expr.NE.prototype.constructor.name,
-            Expr.LT.prototype.constructor.name,
-            Expr.LE.prototype.constructor.name,
-            Expr.GT.prototype.constructor.name,
-            Expr.GE.prototype.constructor.name,
-        ];
-
-        return expr && (equalities.indexOf(expr.constructor.name) !== (-1));
+        return __get_rel_rank(expr) !== (-1);
     };
 
     var _ctx_fold_assoc = function(expr) {
@@ -146,9 +195,10 @@ module.exports = (function() {
         if ((expr instanceof Expr.BExpr) && (expr.constructor.name in operations)) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
-            var op = operations[expr.constructor.name];
 
             if ((lhand instanceof Expr.Val) && (rhand instanceof Expr.Val)) {
+                var op = operations[expr.constructor.name];
+
                 return new Expr.Val(op.call(lhand.value, rhand.value), lhand.size);
             }
         }
@@ -195,36 +245,38 @@ module.exports = (function() {
 
                 // deMorgan rules
                 if (op instanceof Expr.BoolAnd) {
-                    return new Expr.BoolOr(new Expr.BoolNot(inner_lhand.clone(wssa)), new Expr.BoolNot(inner_rhand.clone(wssa)));
+                    return new Expr.BoolOr(
+                        new Expr.BoolNot(inner_lhand.clone(wssa)),
+                        new Expr.BoolNot(inner_rhand.clone(wssa))
+                    );
                 } else if (op instanceof Expr.BoolOr) {
-                    return new Expr.BoolAnd(new Expr.BoolNot(inner_lhand.clone(wssa)), new Expr.BoolNot(inner_rhand.clone(wssa)));
-                } else if (op instanceof Expr.EQ) {
-                    return new Expr.NE(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
-                } else if (op instanceof Expr.NE) {
-                    return new Expr.EQ(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
-                } else if (op instanceof Expr.GT) {
-                    return new Expr.LE(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
-                } else if (op instanceof Expr.GT) {
-                    return new Expr.LT(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
-                } else if (op instanceof Expr.LT) {
-                    return new Expr.GE(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
-                } else if (op instanceof Expr.LT) {
-                    return new Expr.GT(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
+                    return new Expr.BoolAnd(
+                        new Expr.BoolNot(inner_lhand.clone(wssa)),
+                        new Expr.BoolNot(inner_rhand.clone(wssa))
+                    );
                 }
 
-                // !(x + y)
-                // !(x - y)
+                // !(x + y) becomes: (x == -y)
                 else if (op instanceof Expr.Add) {
-                    return new Expr.EQ(inner_lhand.clone(wssa), new Expr.Neg(inner_rhand.clone(wssa)));
-                } else if (op instanceof Expr.Sub) {
-                    return new Expr.EQ(inner_lhand.clone(wssa), inner_rhand.clone(wssa));
+                    return new Expr.EQ(
+                        inner_lhand.clone(wssa),
+                        new Expr.Neg(inner_rhand.clone(wssa))
+                    );
+                }
+
+                // !(x - y) becomes: (x == y)
+                else if (op instanceof Expr.Sub) {
+                    return new Expr.EQ(
+                        inner_lhand.clone(wssa),
+                        inner_rhand.clone(wssa)
+                    );
                 }
             }
 
             else if (op instanceof Expr.UExpr) {
                 var inner_op = op.operands[0]; 
 
-                // !(!x)
+                // !(!x) becomes: x
                 if (op instanceof Expr.BoolNot) {
                     return inner_op.clone(wssa);
                 }
@@ -233,7 +285,7 @@ module.exports = (function() {
 
         return null;
     };
-    
+
     var _correct_sign = function(expr) {
         if (expr instanceof Expr.BExpr) {
             var lhand = expr.operands[0];
@@ -356,7 +408,7 @@ module.exports = (function() {
                 }
             }
 
-            // ((x >> c) << c) yields (x & ~((1 << c) - 1))
+            // ((x >> c) << c) becomes: (x & ~((1 << c) - 1))
             else if (expr instanceof Expr.Shl) {
                 if ((lhand instanceof Expr.Shr) && (rhand instanceof Expr.Val)) {
                     var inner_lhand = lhand.operands[0];
@@ -395,12 +447,12 @@ module.exports = (function() {
 
                         // ((x + c1) == c2) yields (x == c3) where c3 = c2 - c1
                         if (lhand instanceof Expr.Add) {
-                            return new expr.constructor(x.clone(wssa), new Expr.Val(c2.value.sub(c1.value), c2.size));
+                            return new expr.constructor(x.clone(wssa), new Expr.Sub(c2.clone(), c1.clone()));
                         }
 
                         // ((x - c1) == c2) yields (x == c3) where c3 = c2 + c1
                         else if (lhand instanceof Expr.Sub) {
-                            return new expr.constructor(x.clone(wssa), new Expr.Val(c2.value.add(c1.value), c2.size));
+                            return new expr.constructor(x.clone(wssa), new Expr.Add(c2.clone(), c1.clone()));
                         }
                     }
                 }
@@ -424,101 +476,87 @@ module.exports = (function() {
     };
 
     var _converged_cond = function(expr) {
-        var inner_or = function(lhand, rhand) {
-            if (__is_compare_expr(lhand) && __is_compare_expr(rhand)) {
-                // lhand inner operands
-                var x0 = lhand.operands[0];
-                var y0 = lhand.operands[1];
+        var __handle_not = function(cmp) {
+            // rel inner operands
+            var x0 = cmp.operands[0];
+            var y0 = cmp.operands[1];
 
-                // rhand inner operands
-                var x1 = rhand.operands[0];
-                var y1 = rhand.operands[1];
+            var rank = __get_rel_rank(cmp) ^ 0b111;
+            var cons = __get_rel_expr(rank);
 
-                // TODO: 'eq', 'ne' comparisons are commutative
-                if (x0.equals(x1) && y0.equals(y1)) {
-                    // ((x > y) || (x == y)) yields (x >= y)
-                    if ((lhand instanceof Expr.GT) && (rhand instanceof Expr.EQ)) {
-                        return new Expr.GE(x0.clone(wssa), y0.clone(wssa));
-                    }
+            return cons(x0.clone(wssa), y0.clone(wssa));
+        };
 
-                    // ((x < y) || (x == y)) yields (x <= y)
-                    if ((lhand instanceof Expr.LT) && (rhand instanceof Expr.EQ)) {
-                        return new Expr.LE(x0.clone(wssa), y0.clone(wssa));
-                    }
+        var __handle_or = function(lcmp, rcmp) {
+            // lhand inner operands
+            var x0 = lcmp.operands[0];
+            var y0 = lcmp.operands[1];
 
-                    // ((x < y) || (x > y))  yields (x != y)
-                    if ((lhand instanceof Expr.LT) && (rhand instanceof Expr.GT)) {
-                        return new Expr.NE(x0.clone(wssa), y0.clone(wssa));
-                    }
-                }
+            // rhand inner operands
+            var x1 = rcmp.operands[0];
+            var y1 = rcmp.operands[1];
+
+            // (x LCMP y) || (x RCMP y)
+            if (x0.equals(x1) && y0.equals(y1)) {
+                // the way the result relation expression is computed is indifferent
+                // to how the input relations are ordered, so there is no need to worry
+                // about 'or' being a commutative operator
+                var rank = __get_rel_rank(lcmp) | __get_rel_rank(rcmp);
+                var cons = __get_rel_expr(rank);
+
+                return cons(x0.clone(wssa), y0.clone(wssa));
             }
 
             return null;
         };
 
-        var inner_and = function(lhand, rhand) {
-            if (__is_compare_expr(lhand) && __is_compare_expr(rhand)) {
-                // lhand inner operands
-                var x0 = lhand.operands[0];
-                var y0 = lhand.operands[1];
+        var __handle_and = function(lcmp, rcmp) {
+            // lhand inner operands
+            var x0 = lcmp.operands[0];
+            var y0 = lcmp.operands[1];
 
-                // rhand inner operands
-                var x1 = rhand.operands[0];
-                var y1 = rhand.operands[1];
+            // rhand inner operands
+            var x1 = rcmp.operands[0];
+            var y1 = rcmp.operands[1];
 
-                // TODO: 'eq', 'ne' comparisons are commutative
+            // (x LCMP y) && (x RCMP y)
+            if (x0.equals(x1) && y0.equals(y1)) {
+                // the way the result relation expression is computed is indifferent
+                // to how the input relations are ordered, so there is no need to worry
+                // about 'and' being a commutative operator
+                var rank = __get_rel_rank(lcmp) & __get_rel_rank(rcmp);
+                var cons = __get_rel_expr(rank);
 
-                // (x CMP0 y) && (x CMP1 y)
-                if (x0.equals(x1) && y0.equals(y1)) {
-                    if (lhand instanceof Expr.NE) {
-                        // ((x != y) && (x >= y)) yields (x > y)
-                        if (rhand instanceof Expr.GE) {
-                            return new Expr.GT(x0.clone(wssa), y0.clone(wssa));
-                        }
-
-                        // ((x != y) && (x <= y)) yields (x < y)
-                        else if (rhand instanceof Expr.LE) {
-                            return new Expr.LT(x0.clone(wssa), y0.clone(wssa));
-                        }
-                    }
-
-                    else if (lhand instanceof Expr.EQ) {
-                        // ((x == y) && (x >= y)) yields (x == y)
-                        if (rhand instanceof Expr.GE) {
-                            return lhand.clone(wssa);
-                        }
-
-                        // ((x == y) && (x <= y)) yields (x == y)
-                        else if (rhand instanceof Expr.LE) {
-                            return lhand.clone(wssa);
-                        }
-                    }
-
-                    // ((x <= y) && (x >= y))  yields (x == y)
-                    else if ((lhand instanceof Expr.LE) && (rhand instanceof Expr.GE)) {
-                        return new Expr.EQ(x0.clone(wssa), y0.clone(wssa));
-                    }
-                }
+                return cons(x0.clone(wssa), y0.clone(wssa));
             }
 
             return null;
         };
 
-        if (expr instanceof Expr.BoolOr) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+        if (expr instanceof Expr.BoolNot) {
+            var op = expr.operands[0];
 
-            // Boolean OR is a commutative operation; try both original and swapped positions
-            return inner_or(lhand, rhand) || inner_or(rhand, lhand);
+            if (__is_compare_expr(op)) {
+                return __handle_not(op);
+            }
         }
 
-        // (rflags != 0 && rflags >= 0)
-        if (expr instanceof Expr.BoolAnd) {
+        else if (expr instanceof Expr.BoolOr) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
-            // Boolean AND is a commutative operation; try both original and swapped positions
-            return inner_and(lhand, rhand) || inner_and(rhand, lhand);
+            if (__is_compare_expr(lhand) && __is_compare_expr(rhand)) {
+                return __handle_or(lhand, rhand);
+            }
+        }
+
+        else if (expr instanceof Expr.BoolAnd) {
+            var lhand = expr.operands[0];
+            var rhand = expr.operands[1];
+
+            if (__is_compare_expr(lhand) && __is_compare_expr(rhand)) {
+                return __handle_and(lhand, rhand);
+            }
         }
 
         return null;
@@ -539,33 +577,55 @@ module.exports = (function() {
         _ctx_fold_arith
     ];
 
-    // simplify an expression and break as soon as it is modified
+    /**
+     * Simplify a given expression in-place, but break as soon as it is modified
+     * @param {Expr.Expr} expr An expression instance to simplify
+     * @returns {boolean} `true` if `expr` was replaced with a reduced variant, `false` otherwise
+     */
     var _reduce_expr_once = function(expr) {
-        var operands = expr.iter_operands(true);
+        for (var i = 0; i < rules.length; i++) {
+            var reduced = rules[i](expr);
 
-        for (var o in operands) {
-            o = operands[o];
+            if (reduced) {
+                expr.replace(reduced);
 
-            for (var r in rules) {
-                var alt = rules[r](o);
-
-                if (alt) {
-                    o.replace(alt);
-
-                    return o === expr ? null : alt;
-                }
+                return true;
             }
         }
 
-        return null;
+        return false;
     };
 
-    // keep simplifying `expr` until it cannot be simplified any further
+    /**
+     * Simplify a given expression in-place until it cannot be simplified any further
+     * @param {Expr.Expr} expr An expression instance to simplify
+     */
     var _reduce_expr = function(expr) {
-        while (_reduce_expr_once(expr)) { /* empty */ }
+        if (expr.operands) {
+            // do 'post order' reduction: operands first, then expr
+            while (expr.operands.some(_reduce_expr)) {
+                // empty
+            }
+
+            // normally, an expression would be considered for reduction only if at
+            // least one of its operands has been reduced. however, since literal
+            // operands (registers and values) cannot be reduced, the recursive nature
+            // of this function would cause their parent expression to never be
+            // considered for reduction. that is true for all expressions, so we will
+            // end up without any reduction. this is why an expression is considered
+            // for a reduction regardless of its operands
+
+            return _reduce_expr_once(expr);
+        }
+
+        return false;
     };
 
-    // simplify a statement along with the expressions it contains
+    /**
+     * Simplify a given statement in-place, along with its enclosed expressions, until
+     * they cannot be simplified any further
+     * @param {Expr.Expr} stmt An expression instance to simplify
+     */
     var _reduce_stmt = function(stmt) {
         stmt.expressions.forEach(_reduce_expr);
     };
