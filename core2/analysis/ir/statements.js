@@ -40,24 +40,20 @@
      * Statement abstract base class.
      * @param {!Long} addr Address of original assembly instruction
      * @param {Expr[]} exprs List of expressions enclosed by this statement; usually just one
+     * @param {Container[]} cntrs List of containers enclosed by this statement; may be empty
      * @returns {Statement}
      * @constructor
      */
-    function Statement(addr, exprs) {
-        /** @type {!number} */
-        this.addr = addr;
+    function Statement(addr, exprs, cntrs) {
+        this.address = addr;
+        this.parent = null;
 
-        /** @type {Array>} */
         this.expressions = [];
-
-        // set this as a parent to all enclosed expressions
-        exprs.forEach(this.push_expr, this);
-
-        /** @type {Array} */
         this.statements = [];
-
-        /** @type {Array} */
         this.containers = [];
+
+        exprs.forEach(this.push_expr, this);
+        cntrs.forEach(this.push_cntr, this);
     }
 
     /**
@@ -65,15 +61,15 @@
      * @param {!Statement} other Replacement statement
      */
     Statement.prototype.replace = function(other) {
-        var p = this.container;
+        var p = this.parent;
         var i = p.statements.indexOf(this);
 
-        other.container = p;
+        other.parent = p;
         p.statements[i] = other;
     };
 
     Statement.prototype.pluck = function(detach) {
-        var p = this.container;
+        var p = this.parent;
         var i = p.statements.indexOf(this);
 
         if (detach) {
@@ -120,13 +116,28 @@
         return old_expr;
     };
 
+    Statement.prototype.push_cntr = function(cntr) {
+        if (cntr) {
+            cntr.parent = this;
+        
+            this.containers.push(cntr);
+        }
+    };
+
     /**
      * Generate a deep copy of this.
      * @returns {!Statement}
      */
     Statement.prototype.clone = function() {
+        var array_clone = function(arr) {
+            return arr.map(function(elem) { return elem.clone(); });
+        };
+
         var inst = Object.create(this.constructor.prototype);
-        var cloned = this.constructor.apply(inst, this.expressions.map(function(expr) { return expr.clone(); }));
+        var cloned = this.constructor.apply(inst, [
+            array_clone(this.expressions),
+            array_clone(this.containers)
+        ]);
 
         return ((cloned !== null) && (typeof cloned === 'object')) ? cloned : inst;
     };
@@ -140,7 +151,7 @@
             return e.toString();
         }).join('\n');
 
-        return ['0x' + this.addr.toString(16), ':', exprs].join(' ');
+        return ['0x' + this.address.toString(16), ':', exprs].join(' ');
     };
 
     // each Statement.* class defines its own accessors to the expressions it
@@ -170,6 +181,15 @@
         });
     };
 
+    var define_cntr_property = function(obj, accname, i) {
+        Object.defineProperty(obj, accname, {
+            enumerable: true,
+            get: function() {
+                return this.containers[i];
+            }
+        });
+    };
+
     // ------------------------------------------------------------
 
     /**
@@ -180,7 +200,7 @@
      * @constructor
      */
     function Goto(addr, dst) {
-        Statement.call(this, addr, [dst]);
+        Statement.call(this, addr, [dst], []);
 
         define_expr_property(this, 'dest', 0);
     }
@@ -211,7 +231,7 @@
      * @constructor
      */
     function Branch(addr, cond, taken, not_taken) {
-        Statement.call(this, addr, [cond, taken, not_taken]);
+        Statement.call(this, addr, [cond, taken, not_taken], []);
 
         define_expr_property(this, 'cond', 0);
         define_expr_property(this, 'taken', 1);
@@ -245,26 +265,11 @@
      * @constructor
      */
     function If(addr, cond, then_cntr, else_cntr) {
-        Statement.call(this, addr, [cond]);
+        Statement.call(this, addr, [cond], [then_cntr, else_cntr]);
 
         define_expr_property(this, 'cond', 0);
-
-        this.then_cntr = then_cntr;
-        this.else_cntr = else_cntr;
-
-        // TODO: setting this here may prevent later statements replacement to be reflected
-        // this.statements = Array.prototype.concat(
-        //         this.then_cntr.statements,
-        //         this.else_cntr
-        //             ? this.else_cntr.statements
-        //             : []);
-        //
-        // TODO: setting this here may prevent later containers replacement to be reflected
-        // this.containers = Array.prototype.concat(
-        //     [this.then_cntr],
-        //     this.else_cntr
-        //         ? [this.else_cntr]
-        //         : []);
+        define_cntr_property(this, 'then_cntr', 0);
+        define_cntr_property(this, 'else_cntr', 1);
     }
 
     If.prototype = Object.create(Statement.prototype);
@@ -296,13 +301,10 @@
      * @constructor
      */
     function While(addr, cond, body) {
-        Statement.call(this, addr, [cond]);
+        Statement.call(this, addr, [cond], [body]);
 
         define_expr_property(this, 'cond', 0);
-        this.body = body;
-
-        this.statements = body.statements;
-        this.containers = [body];
+        define_cntr_property(this, 'body', 0);
     }
 
     While.prototype = Object.create(Statement.prototype);
@@ -330,13 +332,10 @@
      * @constructor
      */
     function DoWhile(addr, cond, body) {
-        Statement.call(this, addr, [cond]);
+        Statement.call(this, addr, [cond], [body]);
 
         define_expr_property(this, 'cond', 0);
-        this.body = body;
-
-        this.statements = body.statements;
-        this.containers = [body];
+        define_cntr_property(this, 'body', 0);
     }
 
     DoWhile.prototype = Object.create(Statement.prototype);
@@ -362,7 +361,7 @@
      * @constructor
      */
     function Break(addr) {
-        Statement.call(this, addr, []);
+        Statement.call(this, addr, [], []);
     }
 
     Break.prototype = Object.create(Statement.prototype);
@@ -382,7 +381,7 @@
      * @constructor
      */
     function Continue(addr) {
-        Statement.call(this, addr, []);
+        Statement.call(this, addr, [], []);
     }
 
     Continue.prototype = Object.create(Statement.prototype);
@@ -403,7 +402,7 @@
      * @constructor
      */
     function Return(addr, expr) {
-        Statement.call(this, addr, [expr]);
+        Statement.call(this, addr, [expr], []);
 
         define_expr_property(this, 'retval', 0);
     }
@@ -436,23 +435,32 @@
      */
     function Container(addr, stmts) {
         this.address = addr;
-
-        this.statements = [];
+        this.parent = null;
+        this.fallthrough = null;
+        this.statements = [];   // child statements
 
         // set this as the container of all statements enclosed in the block
         stmts.forEach(this.push_stmt, this);
     }
 
     Container.prototype.push_stmt = function(stmt) {
-        stmt.container = this;
+        stmt.parent = this;
 
         this.statements.push(stmt);
     };
 
     Container.prototype.unshift_stmt = function(stmt) {
-        stmt.container = this;
+        stmt.parent = this;
 
         this.statements.unshift(stmt);
+    };
+
+    Container.prototype.set_fallthrough = function(cntr) {
+        if (cntr) {
+            cntr.parent = this;
+        }
+
+        this.fallthrough = cntr;
     };
 
     Container.prototype.terminator = function() {
@@ -475,10 +483,9 @@
         return null;
     };
 
-    // TODO: should figure out how to pluck a container exactly
     Container.prototype.pluck = function(detach) {
-        // var p = this.parent;
-        // var i = p.containers.indexOf(this);
+        var p = this.parent;
+        var i = p.containers.indexOf(this);
 
         if (detach) {
             this.statements.forEach(function(stmt) {
@@ -486,19 +493,22 @@
             });
         }
 
-        // return p.containers.splice(i, 1);
+        // statements refer their child containers (if there are any) by their position, so removing a container
+        // must preserve other containers' position.
+
+        return p.containers[i] = null;
     };
 
-    /**
-     * Generate a deep copy of this.
-     * @returns {!Container}
-     */
-    Container.prototype.clone = function() {
-        var inst = Object.create(this.constructor.prototype);
-        var cloned = this.constructor.apply(inst, this.statements.map(function(stmt) { return stmt.clone(); }));
-
-        return ((cloned !== null) && (typeof cloned === 'object')) ? cloned : inst;
-    };
+    // /**
+    //  * Generate a deep copy of this.
+    //  * @returns {!Container}
+    //  */
+    // Container.prototype.clone = function() {
+    //     var inst = Object.create(this.constructor.prototype);
+    //     var cloned = this.constructor.apply(inst, this.statements.map(function(stmt) { return stmt.clone(); }));
+    //
+    //     return ((cloned !== null) && (typeof cloned === 'object')) ? cloned : inst;
+    // };
 
     Container.prototype.toString = function() {
         var repr = [
@@ -519,7 +529,7 @@
          * @returns {Statement}
          */
         make_statement: function(addr, expr) {
-            return expr instanceof Statement ? expr : new Statement(addr, [expr]);
+            return expr instanceof Statement ? expr : new Statement(addr, [expr], []);
         },
 
         Statement:  Statement,
