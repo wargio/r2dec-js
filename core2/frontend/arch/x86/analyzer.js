@@ -21,9 +21,36 @@
     const CallConv = require('core2/frontend/arch/x86/cconv');
 
     const Expr = require('core2/analysis/ir/expressions');
+    // const Stmt = require('core2/analysis/ir/statements');
     const Simplify = require('core2/analysis/ir/simplify');
 
     // TODO: this file looks terrible; refactor this sh*t
+
+    var resolve_pic = function(cntr, arch) {
+        const pcreg = arch.get_pc_reg();
+        var subst = [];
+
+        cntr.statements.forEach(function(s, i, stmts) {
+            s.expressions.forEach(function(e) {
+                e.iter_operands().forEach(function(o) {
+                    if (o.equals(pcreg)) {
+                        // TODO: rip value is taken at the end of instruction boundary.
+                        // the easy way to calculate that is to take the next statement's
+                        // address; however this hack doesn't work 100% of the times.
+                        // need to find a better solution for that; perhaps: aoj @ `s+1`
+                        subst.push([o, stmts[i + 1].address]);
+                    }
+                });
+            });
+        });
+    
+        subst.forEach(function(pair) {
+            var op = pair[0];
+            var addr_next = pair[1];
+    
+            op.replace(new Expr.Val(addr_next, pcreg.size));
+        });
+    };
 
     var assign_fcall_args = function(cntr, arch) {
         var fcalls = [];
@@ -66,7 +93,7 @@
             }
         });
     };
-    
+
     var gen_overlaps = function(cntr, arch) {
         var overlaps = new Overlaps(arch.bits);
         var stmts = cntr.statements;
@@ -90,100 +117,57 @@
         // replace stmts with copy array that includes generated overlaps
         copy.forEach(cntr.push_stmt, cntr);
     };
-    
-    var substitue_rip = function(cntr, arch) {
-        const pcreg = arch.get_pc_reg();
-        var subst = [];
 
-        cntr.statements.forEach(function(s, i, stmts) {
-            s.expressions.forEach(function(e) {
-                e.iter_operands().forEach(function(o) {
-                    if (o.equals(pcreg)) {
-                        // TODO: rip value is taken at the end of instruction boundary.
-                        // the easy way to calculate that is to take the next statement's
-                        // address; however this hack doesn't work 100% of the times.
-                        // need to find a better solution for that; perhaps: aoj @ `s+1`
-                        subst.push([o, stmts[i + 1].addr]);
-                    }
+    // TODO: this is not arch-specific and should be extracted
+    var insert_variables = function(func, arch) {
+        var size = arch.bits;
+        var vars = [];
+
+        Array.prototype.concat(func.vars, func.args).forEach(function(v) {
+            if (v.kind !== 'reg') {
+                var ref = new Expr.Add(new Expr.Reg(v.ref.base, size), new Expr.Val(v.ref.offset, size));
+                var variable = new Expr.Reg(v.name, size);  // TODO: should use a Variable instance rather than a fake Register
+                var assign = new Expr.Assign(ref, new Expr.AddrOf(variable));
+
+                Simplify.reduce_expr(assign);
+                vars.push(assign);
+            }
+        });
+
+        console.log('vars:');
+        vars.forEach(function(v) {
+            console.log('', v.toString());
+        });
+
+        var replace = [];
+
+        func.basic_blocks.forEach(function(bb) {
+            bb.container.statements.forEach(function(stmt) {
+                stmt.expressions.forEach(function(expr) {
+                    expr.iter_operands(/* TODO: shallow pass would be enough */).forEach(function(op) {
+                        for (var i in vars) {
+                            var lhand = vars[i].operands[0];
+                            var rhand = vars[i].operands[1];
+
+                            if (op.equals(lhand)) {
+                                replace.push([op, rhand.clone()]);
+                            }
+                        }
+                    });
                 });
             });
         });
-    
-        subst.forEach(function(pair) {
-            var op = pair[0];
-            var addr_next = pair[1];
-    
-            op.replace(new Expr.Val(addr_next, pcreg.size));
+
+        replace.forEach(function(pair) {
+            var stmt = pair[0].parent_stmt();
+
+            pair[0].replace(pair[1]);
+            Simplify.reduce_stmt(stmt);
         });
     };
 
-    // TODO: this takes place after propagation. either place somewhere earlier, before propagations
-    // or change to look for FlagOp rather than Flag
+    // TODO: extract simplify_flags and move it to a post-controlflow simplifying loop
     var transform_flags = function(func) {
-        const CF = Flags.Flag('CF');
-        const ZF = Flags.Flag('ZF');
-        const SF = Flags.Flag('SF');
-        const OF = Flags.Flag('OF');
-
-        var isCF = function(expr) { return (expr instanceof Expr.Reg) && (expr.equals_no_idx(CF)); };
-        var isZF = function(expr) { return (expr instanceof Expr.Reg) && (expr.equals_no_idx(ZF)); };
-        var isSF = function(expr) { return (expr instanceof Expr.Reg) && (expr.equals_no_idx(SF)); };
-        var isOF = function(expr) { return (expr instanceof Expr.Reg) && (expr.equals_no_idx(OF)); };
-
-        var simplify_flags = function(expr) {
-            var cmp;
-            var op;
-    
-            // equal
-            if (isZF(expr)) {
-                cmp = Expr.EQ;
-                console.log('operands', Object.keys(expr));
-                op = expr.operands[0];
-            }
-
-            // less (signed)
-            // SIGN(a - b) != OVERFLOW(a - b) becomes a < b
-            else if ((expr instanceof Expr.NE) &&
-                (isSF(expr.operands[0])) &&
-                (isOF(expr.operands[1])) &&
-                (expr.operands[0].operands[0].equals(expr.operands[1].operands[0]))) {
-                    cmp = Expr.LT;
-                    op = expr.operands[0].operands[0];
-            }
-    
-            // greater (signed)
-            // SIGN(a - b) == OVERFLOW(a - b) becomes a > b
-            else if ((expr instanceof Expr.EQ) &&
-                (isSF(expr.operands[0])) &&
-                (isOF(expr.operands[1])) &&
-                (expr.operands[0].operands[0].equals(expr.operands[1].operands[0]))) {
-                    cmp = Expr.GT;
-                    op = expr.operands[0].operands[0];
-            }
-    
-            // below (unsigned)
-            // CARRY(a - b) becomes a < b
-            else if (isCF(expr)) {
-                cmp = Expr.LT;
-                op = expr.operands[0];
-            }
-    
-            // above (unsigned)
-            // !CARRY(a - b) becomes a > b
-            else if ((expr instanceof Expr.BoolNot) &&
-                (isCF(expr.operands[0]))) {
-                    cmp = Expr.GT;
-                    op = expr.operands[0];
-            }
-    
-            if (op) {
-                var zero = new Expr.Val(0, op.size);
-    
-                return new cmp(op.pluck(), zero);
-            }
-    
-            return null;
-        };
 
         var reduce_expr = function(expr) {
             var operands = expr.iter_operands(true);
@@ -191,13 +175,12 @@
             for (var o in operands) {
                 o = operands[o];
 
-                console.log(o);
-                var alt = simplify_flags(o);
+                var alt = Flags.cmp_from_flags(o);
 
                 if (alt) {
                     o.replace(alt);
 
-                    return alt;
+                    return o === expr ? undefined : alt;
                 }
             }
 
@@ -205,11 +188,17 @@
         };
 
         func.basic_blocks.forEach(function(bb) {
-            bb.container.statements.forEach(function(stmt) {
-                stmt.expressions.forEach(function(expr) {
-                    while (reduce_expr(expr)) { /* empty */ }
-                });
-            });
+            var terminator = bb.container.terminator();
+
+            if (terminator) {
+                var conditional = terminator.cond || terminator.retval;
+
+                if (conditional) {
+                    while (reduce_expr(conditional)) {
+                        Simplify.reduce_expr(conditional);
+                    }
+                }
+            }
         });
     };
 
@@ -217,26 +206,39 @@
     var cleanup_fcall_args = function(ctx, arch) {
         const sreg = arch.get_stack_reg();
 
-        var is_stack_deref = function(e) {
-            return (e instanceof Expr.Deref) && (e.operands[0].iter_operands(true)[0].equals_no_idx(sreg));
+        var is_stack_loc = function(e) {
+            if (e instanceof Expr.Deref) {
+                var deref_op = e.operands[0];
+
+                if ((deref_op instanceof Expr.Sub) || (deref_op instanceof Expr.Add)) {
+                    return sreg.equals_no_idx(deref_op.operands[0]);
+                }
+
+                return sreg.equals_no_idx(deref_op);
+            }
+
+            return false;
         };
 
+        // remove all function call arguments that refer to a dead stack location. in other
+        // words: iterate through all definitions and if it is an uninitialized stack location,
+        // remove all its function call arguments users
         return ctx.iterate(function(def) {
-            if (def.idx === 0) {
-                if (is_stack_deref(def)) {
-                    var cleanup = def.uses.filter(function(u) {
-                        return (u.parent instanceof Expr.Call);
-                    });
+            if ((def.idx === 0) && is_stack_loc(def)) {
+                // filters def users for fcall arguments
+                var fcall_args = def.uses.filter(function(u) {
+                    return (u.parent instanceof Expr.Call);
+                });
 
-                    cleanup.forEach(function(u) {
-                        u.pluck(true);
-                    });
+                fcall_args.forEach(function(u) {
+                    u.pluck(true);
+                });
 
-                    if (def.uses.length === 0) {
-                        def.pluck(true);
+                // if no users left for that stack location, remove it altogether
+                if (def.uses.length === 0) {
+                    def.pluck(true);
 
-                        return true;
-                    }
+                    return true;
                 }
             }
 
@@ -244,7 +246,35 @@
         });
     };
 
-    var propagate_stack_locations = function(ctx, arch) {
+    var propagate_flags_reg = function(ctx, arch) {
+        const freg = arch.get_flags_reg();
+
+        return ctx.iterate(function(def) {
+            if (def.idx !== 0) {
+                var p = def.parent;         // p is Expr.Assign
+                var lhand = p.operands[0];  // def
+                var rhand = p.operands[1];  // assigned expression
+
+                if (freg.equals_no_idx(lhand)) {
+                    while (def.uses.length > 0) {
+                        var u = def.uses.pop();
+                        var c = rhand.clone(['idx', 'def']);
+
+                        u.replace(c);
+                        Simplify.reduce_stmt(c.parent_stmt());
+                    }
+
+                    p.pluck(true);
+
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    };
+
+    var propagate_stack_reg = function(ctx, arch) {
         const sreg = arch.get_stack_reg();
         
         return ctx.iterate(function(def) {
@@ -253,7 +283,7 @@
                 var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
-                if (lhand.equals_no_idx(sreg)) {
+                if (sreg.equals_no_idx(lhand)) {
                     while (def.uses.length > 0) {
                         var u = def.uses.pop();
                         var c = rhand.clone(['idx', 'def']);
@@ -282,30 +312,34 @@
     }
 
     Analyzer.prototype.transform_step = function(container) {
-        // TODO: make StackVar objects?
 
-        // x64: replace position independent references with actual addresses
-        substitue_rip(container, this.arch);
+        // replace position independent references with actual addresses
+        resolve_pic(container, this.arch);
 
         // analyze and assign function calls arguments
         assign_fcall_args(container, this.arch);
 
         // duplicate assignments for overlapping registers to maintain def-use correctness. this
         // generates a lot of redundant statements that eventually eliminated if they are not used.
-        // note: stmts array is modified by this function
         gen_overlaps(container, this.arch);
     };
 
     Analyzer.prototype.transform_done = function(func) {
-        // transform_flags(func);
+        insert_variables(func, this.arch);
     };
 
     Analyzer.prototype.ssa_step = function(context) {
-        while (propagate_stack_locations(context, this.arch)) { /* empty */ }
+        while (propagate_stack_reg(context, this.arch)) { /* empty */ }
+        while (propagate_flags_reg(context, this.arch)) { /* empty */ }
     };
 
-    Analyzer.prototype.ssa_done = function(context) {
+    Analyzer.prototype.ssa_done = function(func, context) {
         cleanup_fcall_args(context, this.arch);
+        transform_flags(func, this.arch);
+    };
+
+    Analyzer.prototype.controlflow_done = function(func) {
+        // nothing here for now
     };
 
     return Analyzer;
