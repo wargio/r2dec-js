@@ -106,20 +106,34 @@ module.exports = (function() {
 
             // branches
             'jmp'   : _jmp.bind(this),
-            'je'    : _je.bind(this),
-            'jne'   : _jne.bind(this),
             'ja'    : _ja.bind(this),
             'jae'   : _jae.bind(this),
             'jb'    : _jb.bind(this),
             'jbe'   : _jbe.bind(this),
+            'jc'    : _jb.bind(this),
+            'je'    : _je.bind(this),
             'jg'    : _jg.bind(this),
             'jge'   : _jge.bind(this),
             'jl'    : _jl.bind(this),
             'jle'   : _jle.bind(this),
-            'jo'    : _jo.bind(this),
+            'jna'   : _jbe.bind(this),
+            'jnae'  : _jb.bind(this),
+            'jnb'   : _jae.bind(this),
+            'jnbe'  : _ja.bind(this),
+            'jnc'   : _jae.bind(this),
+            'jne'   : _jne.bind(this),
+            'jng'   : _jle.bind(this),
+            'jnge'  : _jl.bind(this),
+            'jnl'   : _jge.bind(this),
+            'jnle'  : _jg.bind(this),
             'jno'   : _jno.bind(this),
-            'js'    : _js.bind(this),
             'jns'   : _jns.bind(this),
+            'jnz'   : _jne.bind(this),
+            'jo'    : _jo.bind(this),
+            'jpe'   : _jp.bind(this),
+            'jpo'   : _jnp.bind(this),
+            'js'    : _js.bind(this),
+            'jz'    : _je.bind(this),
 
             // conditional assignments
             'cmova'  : _cmova.bind(this),
@@ -802,60 +816,68 @@ module.exports = (function() {
         return [new Stmt.Goto(p.address, dst)];
     };
 
-    var _je = function(p) {
-        return _common_jcc(p, Flags.Flag('ZF'));
-    };
-
     var _ja = function(p) {
         return _common_jcc(p, new Expr.BoolAnd(new Expr.BoolNot(Flags.Flag('ZF')), new Expr.BoolNot(Flags.Flag('CF'))));
-    };
-
-    var _jb = function(p) {
-        return _common_jcc(p, Flags.Flag('CF'));
-    };
-
-    var _jg = function(p) {
-        return _common_jcc(p, new Expr.BoolAnd(new Expr.BoolNot(Flags.Flag('ZF')), new Expr.EQ(Flags.Flag('SF'), Flags.Flag('OF'))));
-    };
-
-    var _jl = function(p) {
-        return _common_jcc(p, new Expr.NE(Flags.Flag('SF'), Flags.Flag('OF')));
-    };
-
-    var _jo = function(p) {
-        return _common_jcc(p, Flags.Flag('OF'));
-    };
-
-    var _js = function(p) {
-        return _common_jcc(p, Flags.Flag('SF'));
-    };
-
-    var _jne = function(p) {
-        return _common_jcc(p, new Expr.BoolNot(Flags.Flag('ZF')));
     };
 
     var _jae = function(p) {
         return _common_jcc(p, new Expr.BoolNot(Flags.Flag('CF')));
     };
 
+    var _jb = function(p) {
+        return _common_jcc(p, Flags.Flag('CF'));
+    };
+
     var _jbe = function(p) {
         return _common_jcc(p, new Expr.BoolOr(Flags.Flag('ZF'), Flags.Flag('CF')));
+    };
+
+    var _je = function(p) {
+        return _common_jcc(p, Flags.Flag('ZF'));
+    };
+
+    var _jg = function(p) {
+        return _common_jcc(p, new Expr.BoolAnd(new Expr.BoolNot(Flags.Flag('ZF')), new Expr.EQ(Flags.Flag('SF'), Flags.Flag('OF'))));
     };
 
     var _jge = function(p) {
         return _common_jcc(p, new Expr.EQ(Flags.Flag('SF'), Flags.Flag('OF')));
     };
 
+    var _jl = function(p) {
+        return _common_jcc(p, new Expr.NE(Flags.Flag('SF'), Flags.Flag('OF')));
+    };
+
     var _jle = function(p) {
         return _common_jcc(p, new Expr.BoolOr(Flags.Flag('ZF'), new Expr.NE(Flags.Flag('SF'), Flags.Flag('OF'))));
+    };
+
+    var _jne = function(p) {
+        return _common_jcc(p, new Expr.BoolNot(Flags.Flag('ZF')));
+    };
+
+    var _jno = function(p) {
+        return _common_jcc(p, new Expr.BoolNot(Flags.Flag('OF')));
+    };
+
+    var _jnp = function(p) {
+        return _common_jcc(p, new Expr.BoolNot(Flags.Flag('PF')));
     };
 
     var _jns = function(p) {
         return _common_jcc(p, new Expr.BoolNot(Flags.Flag('SF')));
     };
 
-    var _jno = function(p) {
-        return _common_jcc(p, new Expr.BoolNot(Flags.Flag('OF')));
+    var _jo = function(p) {
+        return _common_jcc(p, Flags.Flag('OF'));
+    };
+
+    var _jp = function(p) {
+        return _common_jcc(p, Flags.Flag('PF'));
+    };
+
+    var _js = function(p) {
+        return _common_jcc(p, Flags.Flag('SF'));
     };
 
     var _cmova = function(p) {
