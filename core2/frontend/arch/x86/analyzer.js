@@ -248,6 +248,14 @@
 
     var propagate_flags_reg = function(ctx, arch) {
         const freg = arch.get_flags_reg();
+        const flagbits = [
+            Flags.Flag('CF'),
+            Flags.Flag('PF'),
+            Flags.Flag('AF'),
+            Flags.Flag('ZF'),
+            Flags.Flag('SF'),
+            Flags.Flag('OF')
+        ];
 
         return ctx.iterate(function(def) {
             if (def.idx !== 0) {
@@ -255,9 +263,13 @@
                 var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
-                if (freg.equals_no_idx(lhand)) {
+                var is_flag_bit = function(fb) {
+                    return lhand.equals_no_idx(fb);
+                };
+
+                if (freg.equals_no_idx(lhand) || flagbits.some(is_flag_bit)) {
                     while (def.uses.length > 0) {
-                        var u = def.uses.pop();
+                        var u = def.uses[0];
                         var c = rhand.clone(['idx', 'def']);
 
                         u.replace(c);
@@ -276,16 +288,16 @@
 
     var propagate_stack_reg = function(ctx, arch) {
         const sreg = arch.get_stack_reg();
-        
+
         return ctx.iterate(function(def) {
             if (def.idx !== 0) {
                 var p = def.parent;         // p is Expr.Assign
                 var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
-                if (sreg.equals_no_idx(lhand)) {
+                if (lhand.equals_no_idx(sreg)) {
                     while (def.uses.length > 0) {
-                        var u = def.uses.pop();
+                        var u = def.uses[0];
                         var c = rhand.clone(['idx', 'def']);
 
                         u.replace(c);
@@ -315,6 +327,8 @@
 
         // replace position independent references with actual addresses
         resolve_pic(container, this.arch);
+
+        // TODO: resole tail calls before calling assign_fcall_args
 
         // analyze and assign function calls arguments
         assign_fcall_args(container, this.arch);
