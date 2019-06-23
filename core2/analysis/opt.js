@@ -31,7 +31,7 @@ module.exports = (function() {
                     // function calls may have side effects, and cannot be eliminated altogether.
                     // instead, they are extracted from the assignment and kept as standalone
                     if (rhand instanceof Expr.Call) {
-                        p.replace(rhand.clone(['idx', 'def']));
+                        p.replace(rhand.pluck());
 
                         return true;
                     }
@@ -62,13 +62,13 @@ module.exports = (function() {
         return ctx.iterate(function(def) {
             if (def.uses.length === 1) {
                 var p = def.parent;         // assignment expr
-                var u = def.uses[0];
-
-                // var lhand = p.operands[0];  // def
+                var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
+                var u = def.uses[0];
+
                 // the only use is as a phi arg, which assigned to self
-                if ((u.parent instanceof Expr.Phi) && (u.parent == rhand)) {
+                if ((u.parent instanceof Expr.Phi) && (u.parent.equals(rhand))) {
                     p.pluck(true);
 
                     return true;
@@ -91,17 +91,18 @@ module.exports = (function() {
                     // lead to an incorrect result
                     if (!(def instanceof Expr.Deref)) {
                         var p = def.parent;         // assignment expr
-                        var u = def.uses[0];
-
-                        // var lhand = p.operands[0];  // def
+                        var lhand = p.operands[0];  // def
                         var rhand = p.operands[1];  // assigned expression
 
-                        // do not propagate if that single use is a phi arg or deref address
+                        var u = def.uses[0];
+
+                        // do not propagate if that single use is a phi arg
                         if (!(u.parent instanceof Expr.Phi)) {
                             var c = rhand.pluck();
-
+                            
                             u.replace(c);
                             Simplify.reduce_stmt(c.parent_stmt());
+
                             p.pluck(true);
 
                             return true;
@@ -123,17 +124,26 @@ module.exports = (function() {
 
                 // propagate constsnats, but do not propagate constants assigned to memory derefs
                 if ((!(lhand instanceof Expr.Deref)) && (rhand instanceof Expr.Val)) {
-                    while (def.uses.length > 0) {
-                        var u = def.uses.pop();
-                        var c = rhand.clone();
+                    var phi_users = 0;
 
-                        u.replace(c);
-                        Simplify.reduce_stmt(c.parent_stmt());
+                    while (def.uses.length > phi_users) {
+                        var u = def.uses[phi_users];
+
+                        if (u.parent instanceof Expr.Phi) {
+                            phi_users++;
+                        } else {
+                            var c = rhand.clone();
+
+                            u.replace(c);
+                            Simplify.reduce_stmt(c.parent_stmt());
+                        }
                     }
     
-                    p.pluck(true);
-    
-                    return true;
+                    if (def.uses.length === 0) {
+                        p.pluck(true);
+        
+                        return true;
+                    }
                 }
             }
 
