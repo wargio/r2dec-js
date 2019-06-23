@@ -448,33 +448,21 @@ module.exports = (function() {
     // propagate phi groups that have only one item in them.
     // if a phi expression has only one argument, propagate it into defined variable
     //
-    //   x7 = Phi(x4)       // phi and x7 are eliniminated, x4 propagated to x7 uses
-    //   x8 = x7 + 1   -->  x8 = x4 + 1
-    //   x9 = *(x7)         x9 = *(x4)
+    // x7 = Phi(x4) --> x7 = x4
     var propagate_single_phi = function(ctx) {
         return ctx.iterate(function(def) {
-            var p = def.parent;
+            var p = def.parent;         // p is Expr.Assign
+            var lhand = p.operands[0];  // def
+            var rhand = p.operands[1];  // assigned expression
 
-            if (is_phi_assignment(p)) {
-                var v = p.operands[0];
-                var phi = p.operands[1];
+            if ((rhand instanceof Expr.Phi) && (rhand.operands.length === 1)) {
+                var phi_arg = rhand.operands[0];
 
-                if (phi.operands.length === 1) {
-                    var phi_arg = phi.operands[0];
-
-                    while (v.uses.length > 0) {
-                        var u = v.uses.pop();
-                        var c = phi_arg.clone(['idx', 'def']);
-
-                        u.replace(c);
-                    }
-
-                    p.pluck(true);
-
-                    return true;
-                }
+                rhand.replace(phi_arg.pluck());
             }
 
+            // this function always return false because it never plucks the
+            // entire assignment, rather it just updates it
             return false;
         });
     };
@@ -484,67 +472,61 @@ module.exports = (function() {
     //   x5 = Phi(x2, x5)  -->  x5 = x2
     var propagate_self_ref_phi = function(ctx) {
         return ctx.iterate(function(def) {
-            var p = def.parent;
+            var p = def.parent;         // p is Expr.Assign
+            var lhand = p.operands[0];  // def
+            var rhand = p.operands[1];  // assigned expression
 
-            if (is_phi_assignment(p)) {
-                var v = p.operands[0];
-                var phi = p.operands[1];
+            if ((rhand instanceof Expr.Phi) && (rhand.operands.length === 2)) {
+                var other = null;
 
-                if (phi.operands.length === 2) {
-                    var other = null;
+                // check which of the phi operands (if any) equals to the assigned variable
+                if (rhand.operands[0].equals(lhand)) {
+                    other = rhand.operands[1];
+                } else if (rhand.operands[1].equals(lhand)) {
+                    other = rhand.operands[0];
+                }
 
-                    if (phi.operands[0].equals(v)) {
-                        other = phi.operands[1].pluck();
-                    } else if (phi.operands[1].equals(v)) {
-                        other = phi.operands[0].pluck();
-                    }
-
-                    if (other) {
-                        phi.replace(other);
-                    }
-
-                    // note: return false anyway since we do not eliminating the definition
-                    // rather we just update it with another assigned expr. 
+                if (other) {
+                    rhand.replace(other.pluck());
                 }
             }
 
+            // this function always return false because it never plucks the
+            // entire assignment, rather it just updates it
             return false;
         });
     };
 
-    // propagate a phi with only one use that happens to be a phi
+    // propagate a phi with only one use that happens to be also a phi
     var propagate_chained_phi = function(ctx) {
         return ctx.iterate(function(def) {
-            var p = def.parent;
+            var p = def.parent;         // p is Expr.Assign
+            var lhand = p.operands[0];  // def
+            var rhand = p.operands[1];  // assigned expression
 
-            if (is_phi_assignment(p)) {
-                var v = p.operands[0];
-                var phi = p.operands[1];
+            if ((rhand instanceof Expr.Phi) && (lhand.uses.length === 1)) {
+                var u = lhand.uses[0];
 
-                if (v.uses.length === 1) {
-                    if (v.uses[0].parent instanceof Expr.Phi) {
-                        var u = v.uses.pop();
-                        var target_phi = u.parent;
+                if (u.parent instanceof Expr.Phi) {
+                    var target_phi = u.parent;
 
-                        // remove propagted phi as it is going to be replaced with its operands
-                        u.pluck();
+                    // remove propagted phi as it is going to be replaced with its operands
+                    u.pluck();
 
-                        for (var i = 0; i < phi.operands.length; i++)
-                        {
-                            var o = phi.operands[i];
+                    for (var i = 0; i < rhand.operands.length; i++) {
+                        var o = rhand.operands[i];
 
-                            // propagate phi operands into its phi user, avoiding duplications
-                            // TODO: not sure if we can safely discard duplicates or not
-                            if (!target_phi.has(o)) {
-                                target_phi.push_operand(o.clone(['idx', 'def']));
-                            }
+                        // propagate phi operands into its phi user, avoiding duplications
+                        // TODO: not sure if we can safely discard duplicates or not
+                        if (!target_phi.has(o)) {
+                            target_phi.push_operand(o.clone(['idx', 'def']));
                         }
-
-                        // detach propagated phi along of its operands
-                        p.pluck(true);
-
-                        return true;
                     }
+
+                    // detach propagated phi along of its operands
+                    p.pluck(true);
+
+                    return true;
                 }
             }
 

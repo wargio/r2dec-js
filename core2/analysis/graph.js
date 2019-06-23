@@ -140,6 +140,14 @@ module.exports = (function() {
         return this.getNode(node.key).outbound.slice();
     };
 
+    Directed.prototype.indegree = function(node) {
+        return this.getNode(node.key).inbound.length;
+    };
+
+    Directed.prototype.outdegree = function(node) {
+        return this.getNode(node.key).outbound.length;
+    };
+
     Directed.prototype.reversed = function(rev_root) {
         var nodes = [];
         var edges = [];

@@ -152,9 +152,9 @@ module.exports = (function() {
             }
 
             if (S instanceof Stmt.Branch) {
-                var M;
                 var C1; // container for 'then' clause
                 var C2; // container for 'else' clause
+                var target;
 
                 // <POLYFILL>
                 imm_dominated.findIndex = function(predicate) {
@@ -168,32 +168,31 @@ module.exports = (function() {
                 };
                 // </POLYFILL>
 
-                var extract = function(arr, predicate) {
-                    var extracted = [];
-                    var i = arr.findIndex(predicate);
+                // block is immediately dominated by N
+                var valid_if_block = function(address) {
+                    var i = imm_dominated.findIndex(function(D) {
+                        return D.key.eq(address);
+                    });
 
-                    if (i !== (-1)) {
-                        extracted = arr.splice(i, 1);
-                    }
-
-                    return extracted.pop();
+                    return i === (-1) ? undefined : imm_dominated.splice(i, 1).pop();
                 };
 
-                // 'then' clause
-                M = this.dom.getNode(S.not_taken.value);
-                if (extract(imm_dominated, function(D) { return D.key.eq(M.key); })) {
-                    C1 = node_to_block(this.func, M).container;
+                // 'then' clause: should be immediately dominated by N
+                target = S.not_taken.value;
+                if (valid_if_block(target)) {
+                    C1 = this.func.getBlock(target).container;
                     C1.prev = C0;
                 }
 
-                // 'else' clause
-                M = this.dom.getNode(S.taken.value);
-                if (extract(imm_dominated, function(D) { return D.key.eq(M.key); })) {
-                    C2 = node_to_block(this.func, M).container;
+                // 'else' clause: should be immediately dominates by N and have only one predecessor
+                target = S.taken.value;
+                if ((this.cfg.indegree(this.cfg.getNode(target)) === 1) && valid_if_block(target)) {
+                    C2 = this.func.getBlock(target).container;
                     C2.prev = C0;
                 }
 
-                var cond = S.cond.clone();
+                // TODO: do we have ssa at this point?
+                var cond = S.cond.clone(['idx', 'def']);
 
                 if (C1) {
                     cond = new Expr.BoolNot(cond);
@@ -212,7 +211,7 @@ module.exports = (function() {
             else if (S instanceof Stmt.Goto) {
                 var M = this.cfg.getNode(S.dest.value);
 
-                if (this.cfg.predecessors(M).length > 1) {
+                if (M && this.cfg.predecessors(M).length > 1) {
                     S.pluck();
                 }
             }

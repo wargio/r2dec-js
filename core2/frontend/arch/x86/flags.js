@@ -98,7 +98,7 @@ module.exports = (function() {
             (expr.operands[0] instanceof Sign) &&
             (expr.operands[1] instanceof Overflow) &&
             (expr.operands[0].operands[0].equals(expr.operands[1].operands[0]))) {
-                cmp = Expr.GT;
+                cmp = Expr.GE;
                 op = expr.operands[0].operands[0];
         }
 

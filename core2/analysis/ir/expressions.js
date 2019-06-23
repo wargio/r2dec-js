@@ -147,6 +147,8 @@
         var func = p.replace_operand || p.replace_expr;
         var args = [this, other];
 
+        detach_user(this);
+
         return func.apply(p, args);
     };
 
