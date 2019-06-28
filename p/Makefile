@@ -17,7 +17,7 @@ SRCS=duktape/duktape.c duktape/duk_console.c core_pdd.c
 OBJS=$(SRCS:.c=.o)
 BIN=core_pdd.$(LIBEXT)
 
-all: build install
+all: clean build install
 
 build: $(BIN)
 
@@ -40,7 +40,7 @@ uninstall:
 	$(V)$(RM) $(PLUGDIR)/$(BIN)
 
 clean:
-	$(V)$(RM) $(BIN) $(OBJS)
+	$(V)$(RM) $(BIN) $(OBJS) || sleep 0
 
 testbin:
 	$(V)$(CC) $(CFLAGS) -DUSE_RCONS=0 -o r2dec-test duktape/duktape.c duktape/duk_console.c r2dec-test.c $(LDFLAGS)
