@@ -10,6 +10,9 @@
         "no-console": ["error", {
             "allow": ["log"]
         }],
+        "no-redeclare": ["error", {
+            "builtinGlobals": false
+        }],
         "no-empty": ["error", {
             "allowEmptyCatch": true
         }],
