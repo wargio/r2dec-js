@@ -1,5 +1,8 @@
 /nbproject/
-/node_modules/
-p/core_pdd.so
+/.vscode/
+p/*.so
+p/*.o
+p/duktape/*.o
 p/r2dec-test
-/themes/*.json
+graph-test.js
+steps.txt
