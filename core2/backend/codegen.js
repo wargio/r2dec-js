@@ -102,13 +102,12 @@ module.exports = (function() {
         return (complex && !has_paren) ? parenthesize(s) : s;
     };
 
-    function CodeGen(ecj, resolver) {
+    function CodeGen(ecj, resolver, conf) {
         this.palette = new ThemePalette(ecj);
         this.xrefs = resolver;
 
-        // TODO: these could be set through r2 variables
-        this.tabstop = 4;
-        this.scope_newline = true;
+        this.tabstop = conf.tabsize;
+        this.scope_newline = conf.newline;
 
         // TODO: scope guidelines
         //  o regular: '\u2506', '\u250a', '\u254e'

@@ -80,16 +80,21 @@ module.exports = (function() {
     };
 
     // propagate definitions with only one use to their users
-    var propagate_def_single_use = function(ctx) {
+    var propagate_def_single_use = function(ctx, conf) {
         return ctx.iterate(function(def) {
             if (def.idx !== 0) {
                 if (def.uses.length === 1) {
-                    // TODO: add a configuration setting for "assume no aliasing"
+                    // propagation of memory dereferences may yield nicer results, but
+                    // will lead to incorrect results in case of pointer aliasing.
+                    //
+                    // since identifying pointer aliasing is impossible without emulating
+                    // the code, the decompiler stays at the safe side. the user may decide
+                    // to override this by setting 'opt.noalias'.
+                    //
+                    // note that some memory dereferences may be marked as safe for propagation;
+                    // for example, x86 stack locations
 
-                    // propagation of memory dereferences is very tricky, since we cannot
-                    // identify pointer aliasing. in case of aliasing, the propgation will
-                    // lead to an incorrect result
-                    if (!(def instanceof Expr.Deref)) {
+                    if (!(def instanceof Expr.Deref) || def.is_safe || conf.noalias) {
                         var p = def.parent;         // assignment expr
                         var lhand = p.operands[0];  // def
                         var rhand = p.operands[1];  // assigned expression
@@ -98,8 +103,8 @@ module.exports = (function() {
 
                         // do not propagate if that single use is a phi arg
                         if (!(u.parent instanceof Expr.Phi)) {
-                            var c = rhand.pluck();
-                            
+                            var c = rhand.clone(['idx', 'def']);
+
                             u.replace(c);
                             Simplify.reduce_stmt(c.parent_stmt());
 
@@ -138,7 +143,7 @@ module.exports = (function() {
                             Simplify.reduce_stmt(c.parent_stmt());
                         }
                     }
-    
+
                     if (def.uses.length === 0) {
                         p.pluck(true);
         
@@ -159,10 +164,10 @@ module.exports = (function() {
     ];
 
     return {
-        run: function(context) {
+        run: function(context, config) {
             // keep optimizing as long as modifications are made
             while (optimizations.some(function(opt) {
-                return opt(context);
+                return opt(context, config);
             })) { /* empty */ }
         }
     };

@@ -212,13 +212,6 @@ static void _cmd_pdd(RCore* core, const char* input)
 	}
 }
 
-static const char* spill_spaces(const char* s)
-{
-	for ( ; *s == ' '; s++);
-
-	return s;
-}
-
 static int r_cmd_pdd(void* user, const char* input)
 {
 	RCore* core = (RCore*) user;
@@ -239,9 +232,13 @@ int r_cmd_pdd_init(void* user, const char* cmd)
 	RConfig* cfg = core->config;
 
 	r_config_lock (cfg, false);
-	SETPREFS("r2dec.scopegl", "true", "display scope guidelines");
-	SETPREFS("r2dec.style.newline", "true", "add a new line before an opening bracket");
-	SETPREFI("r2dec.style.tabsize", 4, "indent size");
+	// output settings
+	SETPREFS("pdd.out.guides", "true", "display scope guidelines");
+	SETPREFS("pdd.out.newline", "true", "add a new line before an opening curly bracket");
+	SETPREFI("pdd.out.tabsize", 4, "indent size");
+
+	// optimization settings
+	SETPREFS("pdd.opt.noalias", "false", "assume no pointer aliasing");
 	r_config_lock (cfg, true);
 
 	// autocomplete here..
