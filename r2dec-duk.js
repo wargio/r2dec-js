@@ -31,30 +31,20 @@ const CodeGen = require('core2/backend/codegen');
  * @type {Object}
  */
 var Global = {
-//     context: null,
-//     evars: null,
-//     printer: null,
-//     warning: require('libdec/warning')
+
+    /** Pipes a command to r2 and returns its output as a string */
+    r2cmd: function() {
+        return r2cmd(Array.prototype.slice.call(arguments).join(' ')).trim();
+    },
+
+    /** Pipes a command to r2 and returns its output as a parsed JSON object */
+    r2cmdj: function() {
+        // ES6 version: function(...args) { var output = r2cmd(args.join(' ')).trim(); /* ... */ }
+        var output = r2cmd(Array.prototype.slice.call(arguments).join(' ')).trim();
+
+        return output ? JSONr2.parse(output) : undefined;
+    }
 };
-
-// ES6 version:
-//
-// var r2cmdj = function(...args) {
-//     var output = r2cmd(args.join(' ')).trim();
-//
-//     return output ? JSONr2.parse(output) : undefined;
-// };
-
-/**
- * Pipes a command to r2 and returns its output as a parsed JSON object
- */
-var r2cmdj = function() {
-    var output = r2cmd(Array.prototype.slice.call(arguments).join(' ')).trim();
-
-    return output ? JSONr2.parse(output) : undefined;
-};
-
-Global['r2cmdj'] = r2cmdj;
 
 function Function(afij, afbj) {
     this.name = afij.name;
@@ -87,13 +77,23 @@ function Function(afij, afbj) {
     };
     // </POLYFILL>
 
-    // the first block provided by r2 is the function's entry block
-    this.entry_block = this.basic_blocks[0];
+    // the block that serves as the function head. except of some rare cases, there should be exactly
+    // one entry block. in case of multiple entry blocks, the first would be arbitraily selected.
+    //
+    // though we could just pick the first block listed in 'afbj' [which is is usually the function's
+    // entry block], this approach seems to be more robust
+    this.entry_block = this.basic_blocks.filter(function(bb) { return bb.is_entry; })[0];
 
-    // a dummy statement that holds all variables referenced in function
-    // that were not explicitly initialized beforehand. normally it would
-    // consist of the stack and frame pointers, and function parameters
-    // this.uninitialized = null;
+    // a list of blocks that leaves the function either by returning or tail-calling another function.
+    // there should be at least one item in this list. note that an exit block may be the function entry
+    // block as well
+    this.exit_blocks = this.basic_blocks.filter(function(bb) { return bb.is_exit; });
+
+    // function's lower and upper bounds
+    var va_base = afij.offset.sub(afij.minbound);
+
+    this.lbound = afij.minbound.add(va_base);
+    this.ubound = afij.maxbound.add(va_base);
 
     // TODO: is there a more elegant way to extract that info?
     this.rettype = afij.signature.split(afij.name, 1)[0].trim() || 'void';
@@ -129,6 +129,12 @@ function BasicBlock(parent, bb) {
     // parent function object
     this.parent = parent;
 
+    // is a function starting block
+    this.is_entry = bb.inputs.eq(0);
+
+    // is a function ending block
+    this.is_exit = bb.outputs.eq(0);
+
     // block starting address
     this.address = bb.addr;
 
@@ -141,7 +147,7 @@ function BasicBlock(parent, bb) {
     this.fail = bb.fail;
 
     // get instructions list
-    this.instructions = r2cmdj('aoj', bb.ninstr, '@', bb.addr);
+    this.instructions = Global.r2cmdj('aoj', bb.ninstr, '@', bb.addr);
 }
 
 // this is used to hash basic blocks in arrays and enumerable objects
@@ -154,18 +160,49 @@ BasicBlock.prototype.toString = function() {
     return '[' + repr + ']';
 };
 
+var load_r2_evars = function(ns) {
+    var evj = Global.r2cmdj('evj', ns);
+    var conf = {};
+
+    // build a tree out of namespace crumbs for easy access
+    // e.g. 'pdd.out.tabsize' turns into: conf['pdd']['out']['tabsize']
+    evj.forEach(function(vobj) {
+        var crumbs = vobj.name.split('.');
+        var key = crumbs.pop();
+        var val = vobj.type === 'int' ? vobj.value.toInt() : vobj.value;
+
+        var tree = conf;
+
+        for (var i = 0; i < crumbs.length; i++) {
+            var c = crumbs[i];
+
+            if (tree[c] === undefined) {
+                tree[c] = {};
+            }
+
+            tree = tree[c];
+        }
+
+        tree[key] = val;
+    });
+
+    return conf[ns];
+};
+
 /** Javascript entrypoint */
 function r2dec_main(args) {
 
     try {
-        var iIj = r2cmdj('iIj');
+        var iIj = Global.r2cmdj('iIj');
 
         if (Decoder.has(iIj.arch)) {
-            var afij = r2cmdj('afij').pop();
-            var afbj = r2cmdj('afbj');
+            var afij = Global.r2cmdj('afij').pop();
+            var afbj = Global.r2cmdj('afbj');
 
             if (afij && afbj) {
                 // TODO: separate decoding, ssa, controlflow and codegen stages
+
+                var config = load_r2_evars('pdd');
 
                 var decoder = new Decoder(iIj);
                 var analyzer = new Analyzer(decoder.arch);  // TODO: this is a design workaround!
@@ -188,19 +225,20 @@ function r2dec_main(args) {
                 var ssa_ctx;
 
                 // ssa tagging for registers
-                ssa_ctx = ssa.rename_regs(true);
+                ssa_ctx = ssa.rename_regs();
                 analyzer.ssa_step(ssa_ctx);
-                Optimizer.run(ssa_ctx);
-                console.log(ssa_ctx.toString());
 
                 // ssa tagging for memory dereferences
-                ssa_ctx = ssa.rename_derefs(true);
+                ssa_ctx = ssa.rename_derefs();
                 analyzer.ssa_step(ssa_ctx);
-                Optimizer.run(ssa_ctx);
-                console.log(ssa_ctx.toString());
 
                 analyzer.ssa_done(func, ssa_ctx);
-                ssa.transform_out();
+                Optimizer.run(ssa_ctx, config['opt']);
+
+                // console.log(ssa_ctx.toString());
+                // ssa.validate();
+
+                // ssa.transform_out();
 
                 // TODO:
                 //  - x86: add uninit stack locations for function arguments [cdecl]
@@ -211,11 +249,10 @@ function r2dec_main(args) {
                 var cflow = new ControlFlow(func);
                 cflow.fallthroughs();
                 cflow.conditions();
-                analyzer.controlflow_done(func);
 
-                var ecj = r2cmdj('ecj');
+                var ecj = Global.r2cmdj('ecj');
 
-                console.log(new CodeGen(ecj, resolver).emit_func(func));
+                console.log(new CodeGen(ecj, resolver, config['out']).emit_func(func));
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }

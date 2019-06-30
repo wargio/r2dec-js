@@ -17,35 +17,55 @@
 
 module.exports = (function() {
 
+    var _r2_get_func_name = function(addr) {
+        var afcfj = Global.r2cmdj('afcfj', '@', addr);
+        var fname = undefined;
+
+        // input is undefined on indirect calls
+        if (afcfj) {
+            fname = afcfj.pop().name;
+
+            // strip 'sym.' prefix
+            if (fname.startsWith('sym.')) {
+                fname = fname.substring('sym.'.length);
+            }
+
+            // strip 'imp.' prefix
+            if (fname.startsWith('imp.')) {
+                fname = fname.substring('imp.'.length);
+            }
+        }
+
+        return fname;
+    };
+
+    var _r2_get_string = function(addr) {
+        return Global.r2cmd('Cs.', '@', addr);
+    };
+
     /**
      * Resolving helper for xreferences in decompiled function.
      * @param {*} afij JSON object representing output of 'afij' r2 command
      * @constructor
      */
     function Resolver(afij) {
+
+        // calculate function bounds
+        var va_base = afij.offset.sub(afij.minbound);
+        var lbound = afij.minbound.add(va_base);
+        var ubound = afij.maxbound.add(va_base);
+
+        /** @inner */
+        var _outside_function = function(addr) {
+            return addr.lt(lbound) || addr.gt(ubound);
+        };
+
         var call_xrefs = {};
 
         // cache information for functions called in the scope of decompilation
         (afij.callrefs || []).forEach(function(cref) {
-            if ((cref.type === 'CALL') && !(cref.addr in call_xrefs)) {
-                var afcfj = Global.r2cmdj('afcfj', '@', cref.addr);
-
-                // input is undefined on indirect calls
-                if (afcfj) {
-                    var fname = afcfj.pop().name;
-
-                    // strip 'sym.' prefix
-                    if (fname.startsWith('sym.')) {
-                        fname = fname.substring('sym.'.length);
-                    }
-
-                    // strip 'imp.' prefix
-                    if (fname.startsWith('imp.')) {
-                        fname = fname.substring('imp.'.length);
-                    }
-
-                    call_xrefs[cref.addr] = fname;
-                }
+            if (!(cref.addr in call_xrefs) && _outside_function(cref.addr)) {
+                call_xrefs[cref.addr] = _r2_get_func_name(cref.addr);
             }
         });
 
@@ -54,7 +74,7 @@ module.exports = (function() {
         // cache information for data referred in the scope of decompilation
         (afij.datarefs || []).forEach(function(dref) {
             if (!(dref in call_xrefs)) {
-                data_xrefs[dref] = JSON.stringify(Global.r2cmdj('Cs.', '@', dref));
+                data_xrefs[dref] = _r2_get_string(dref);
             }
         });
 

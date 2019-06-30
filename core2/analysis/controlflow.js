@@ -101,10 +101,10 @@ module.exports = (function() {
             return !found;
         });
 
-        console.log('', 'loop:');
-        console.log('', '', 'head node :', head.toString(16));
-        console.log('', '', 'body nodes:', ArrayToString(body, 16));
-        console.log('', '', 'exit nodes:', ArrayToString(exits, 16));
+        // console.log('', 'loop:');
+        // console.log('', '', 'head node :', head.toString(16));
+        // console.log('', '', 'body nodes:', ArrayToString(body, 16));
+        // console.log('', '', 'exit nodes:', ArrayToString(exits, 16));
     };
 
     ControlFlow.prototype.conditions = function() {
@@ -137,10 +137,10 @@ module.exports = (function() {
             var S = C0.terminator();
             var imm_dominated = this.dom.successors(this.dom.getNode(N.key));
 
-            console.log(ObjAddrToString(C0, 16), ':');
-            console.log('  domfront:', ArrayToString(this.dom.dominanceFrontier(N), 16));
-            console.log('  imm dom:', this.dom.getNode(N.key).idom ? this.dom.getNode(N.key).idom.toString(16) : 'none');
-            console.log('  +dominates:', ArrayToString(imm_dominated, 16));
+            // console.log(ObjAddrToString(C0, 16), ':');
+            // console.log('  domfront:', ArrayToString(this.dom.dominanceFrontier(N), 16));
+            // console.log('  imm dom:', this.dom.getNode(N.key).idom ? this.dom.getNode(N.key).idom.toString(16) : 'none');
+            // console.log('  +dominates:', ArrayToString(imm_dominated, 16));
 
             var dest = get_destination(S) || node_to_block(this.func, N).jump;
 
@@ -204,15 +204,15 @@ module.exports = (function() {
                 S.replace(new Stmt.If(S.address, cond, C1, C2));
                 Simplify.reduce_expr(cond);
                 
-                console.log('  branch:', '[', ObjAddrToString(C1, 16), '|', ObjAddrToString(C2, 16), ']');
-                console.log('  -dominates:', ArrayToString(imm_dominated, 16));
+                // console.log('  branch:', '[', ObjAddrToString(C1, 16), '|', ObjAddrToString(C2, 16), ']');
+                // console.log('  -dominates:', ArrayToString(imm_dominated, 16));
             }
 
             else if (S instanceof Stmt.Goto) {
                 var M = this.cfg.getNode(S.dest.value);
 
                 if (M && this.cfg.predecessors(M).length > 1) {
-                    S.pluck();
+                    // S.pluck();
                 }
             }
 
@@ -235,17 +235,17 @@ module.exports = (function() {
                 carried = imm_dominated[1];
             }
 
-            console.log('  carried:', carried ? carried.toString(16) : carried);
-
-            if (C0.fallthrough) {
-                console.log('  -fthrough:', ObjAddrToString(C0.fallthrough, 16));
-            }
+            // console.log('  carried:', carried ? carried.toString(16) : carried);
+            //
+            // if (C0.fallthrough) {
+            //     console.log('  -fthrough:', ObjAddrToString(C0.fallthrough, 16));
+            // }
 
             // set fall-through container, if exists
             C0.set_fallthrough(sink && node_to_block(this.func, sink).container);
 
-            console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
-            console.log();
+            // console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
+            // console.log();
         }, this);
     };
 
