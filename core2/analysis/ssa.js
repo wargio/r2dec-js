@@ -24,9 +24,7 @@ module.exports = (function() {
      * Management object for SSA context.
      * @constructor
      */
-    function Context(selector) {
-        this.selector = selector;
-
+    function Context() {
         this.count = {};
         this.stack = {};
         this.defs = {};
@@ -34,22 +32,28 @@ module.exports = (function() {
         this.uninit = new Stmt.Container(0, []);
     }
 
-    Context.prototype.initialize = function(func) {
+    Context.prototype.initialize = function(func, selector) {
+        var count = {};
+        var stack = {};
+
         func.basic_blocks.forEach(function(blk) {
             blk.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands().forEach(function(op) {
-                        if (this.selector(op)) {
+                        if (selector(op)) {
                             var repr = op.repr();
 
-                            this.count[repr] = 0;
-                            this.stack[repr] = [0];
+                            count[repr] = 0;
+                            stack[repr] = [0];
                         }
-                    }, this);
-                }, this);
-            }, this);
-        }, this);
-    };
+                    });
+                });
+            });
+        });
+
+        this.count = count;
+        this.stack = stack;
+};
 
     Context.prototype.add_def = function(v) {
         // string representation of definition, including ssa subscripts
@@ -108,51 +112,6 @@ module.exports = (function() {
         return eliminate.length > 0;
     };
 
-    Context.prototype.validate = function(func) {
-        console.log('validating ssa');
-
-        func.basic_blocks.forEach(function(blk) {
-            blk.container.statements.forEach(function(stmt) {
-                stmt.expressions.forEach(function(expr) {
-                    expr.iter_operands().forEach(function(op) {
-                        if (this.selector(op)) {
-                            if (op.is_def) {
-                                if (!(op in this.defs)) {
-                                    console.log('[!] missing def for:', op);
-                                    console.log('    parent_stmt:', op.parent_stmt());
-                                }
-                            } else {
-                                if (op.def === undefined) {
-                                    console.log('[!] use without an assigned def:', op);
-                                    console.log('    parent_stmt:', op.parent_stmt());
-                                } else {
-                                    if (op.def.uses.indexOf(op) === (-1)) {
-                                        console.log('[!] unregistered use:', op);
-                                        console.log('    parent_stmt:', op.parent_stmt());
-                                    }
-                                }
-                            }
-                        }
-                    }, this);
-                }, this);
-            }, this);
-        }, this);
-
-        for (var d in this.defs) {
-            var v = this.defs[d];
-
-            if (v.parent_stmt() === undefined) {
-                console.log('[!] stale def:', v);
-            }
-
-            v.uses.forEach(function(u, i) {
-                if (!(u.def.equals(v))) {
-                    console.log('[!] stale use:', v, '[' + i + ']');
-                }
-            });
-        }
-    };
-
     var get_stmt_addr = function(expr) {
         var p = expr.parent_stmt();
 
@@ -184,6 +143,7 @@ module.exports = (function() {
         this.func = func;
         this.cfg = func.cfg();
         this.dom = new Graph.DominatorTree(this.cfg);
+        this.context = new Context();
     }
 
     // iterate all statements in block and collect only defined names
@@ -235,11 +195,6 @@ module.exports = (function() {
         return g.getNode(block.address) || null;
     };
 
-    // predicate to determine whether an expression is a phi definition
-    var is_phi_assignment = function(expr) {
-        return (expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Phi);
-    };
-
     var insert_phi_exprs = function(selector) {
         var defs = {};
         var blocks = this.func.basic_blocks;
@@ -275,7 +230,7 @@ module.exports = (function() {
             var W = defsites[a];    // W: an array of blocks where 'a' is defined
 
             while (W.length > 0) {
-                // defsites value list elements are basic block addresses, while domTree accepts a Node
+                // defsites value list elements are basic blocks, while domTree accepts nodes
                 var n = block_to_node(this.dom, W.pop());
 
                 this.dom.dominanceFrontier(n).forEach(function(y) {
@@ -299,7 +254,8 @@ module.exports = (function() {
 
                         // insert the statement a = Phi(a, a, ..., a) at the top of block y, where the
                         // phi-function has as many arguments as y has predecessors
-                        var phi_stmt = Stmt.make_statement(_y.address, new Expr.Assign(a.clone(['idx', 'def']), new Expr.Phi(args)));
+                        var phi_assignment = new Expr.Assign(a.clone(['idx', 'def']), new Expr.Phi(args));
+                        var phi_stmt = Stmt.make_statement(_y.address, phi_assignment);
 
                         // insert phi at the beginning of the container
                         _y.container.unshift_stmt(phi_stmt);
@@ -317,6 +273,11 @@ module.exports = (function() {
     /** @private */
     SSA.prototype._rename = function(selector) {
 
+        // predicate to determine whether an expression is a phi definition
+        var is_phi_assignment = function(expr) {
+            return (expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Phi);
+        };
+
         // get the top element of an array
         var top = function(arr) {
             return arr[arr.length - 1];
@@ -324,10 +285,11 @@ module.exports = (function() {
 
         var rename_rec = function(context, n) {
             n.container.statements.forEach(function(stmt) {
+                // pick up uses to assign ssa index
                 stmt.expressions.forEach(function(expr) {
                     if (!is_phi_assignment(expr)) {
                         expr.iter_operands(true).forEach(function(op) {
-                            if (context.selector(op) && !op.is_def) {
+                            if (selector(op) && !op.is_def) {
                                 var repr = op.repr();
  
                                 // nesting derefs are picked up in stack initialization without inner
@@ -356,9 +318,10 @@ module.exports = (function() {
                     }
                 });
 
+                // pick up definitions to assign ssa index
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands(true).forEach(function(op) {
-                        if (context.selector(op) && op.is_def) {
+                        if (selector(op) && op.is_def) {
                             var repr = op.repr();
 
                             context.count[repr]++;
@@ -380,7 +343,7 @@ module.exports = (function() {
                         if (is_phi_assignment(expr)) {
                             var v = expr.operands[0];
 
-                            if (context.selector(v)) {
+                            if (selector(v)) {
                                 var phi = expr.operands[1];
                                 var op = phi.operands[j];
 
@@ -392,14 +355,16 @@ module.exports = (function() {
                 });
             }, this);
 
+            // descend the dominator tree recursively
             this.dom.successors(block_to_node(this.dom, n)).forEach(function(X) {
                 rename_rec.call(this, context, node_to_block(this.func, X));
             }, this);
 
+            // cleanup context stack of current block's definitions
             n.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands(true).forEach(function(op) {
-                        if (context.selector(op) && op.is_def) {
+                        if (selector(op) && op.is_def) {
                             context.stack[op.repr()].pop();
                         }
                     });
@@ -407,18 +372,17 @@ module.exports = (function() {
             });
         };
 
-        var context = new Context(selector);
         var entry_block = node_to_block(this.func, this.dom.getRoot());
 
-        context.initialize(this.func);  // TODO: initialize in context constructor?
+        this.context.initialize(this.func, selector);
         insert_phi_exprs.call(this, selector);
-        rename_rec.call(this, context, entry_block);
+        rename_rec.call(this, this.context, entry_block);
 
-        return context;
+        return this.context;
     };
 
     /** @private */
-    SSA.prototype._rename_wrapper = function(selector, validate) {
+    SSA.prototype._rename_wrapper = function(selector) {
         var context = this._rename(selector);
 
         // phi relaxation
@@ -426,23 +390,23 @@ module.exports = (function() {
         propagate_self_ref_phi(context);
         propagate_chained_phi(context);
 
-        if (validate) {
-            context.validate(this.func);
-        }
-
         return context;
     };
 
-    SSA.prototype.rename_regs = function(validate) {
-        return this._rename_wrapper(function(expr) {
+    SSA.prototype.rename_regs = function() {
+        var select_regs = function(expr) {
             return (expr instanceof Expr.Reg);
-        }, validate);
+        };
+
+        return this._rename_wrapper(select_regs);
     };
 
-    SSA.prototype.rename_derefs = function(validate) {
-        return this._rename_wrapper(function(expr) {
+    SSA.prototype.rename_derefs = function() {
+        var select_derefs = function(expr) {
             return (expr instanceof Expr.Deref);
-        }, validate);
+        };
+
+        return this._rename_wrapper(select_derefs);
     };
 
     // propagate phi groups that have only one item in them.
@@ -533,6 +497,57 @@ module.exports = (function() {
             return false;
         });
 
+    };
+
+    SSA.prototype.validate = function() {
+        console.log('validating ssa');
+
+        var ctx = this.context;
+
+        // iterate through all expressions in function:
+        // - if a definition: make sure it is registered in context defs
+        // - if a use: make sure it is attached to a valid definition, which in turn has it on its uses list
+        this.func.basic_blocks.forEach(function(blk) {
+            blk.container.statements.forEach(function(stmt) {
+                stmt.expressions.forEach(function(expr) {
+                    expr.iter_operands().forEach(function(op) {
+                        if (op.is_def) {
+                            if (!(op in ctx.defs)) {
+                                console.log('[!] missing def for:', op);
+                                console.log('    parent statement:', op.parent_stmt());
+                            }
+                        } else {
+                            if (op.def === undefined) {
+                                console.log('[!] use without an assigned def:', op);
+                                console.log('    parent statement:', op.parent_stmt());
+                            } else {
+                                if (op.def.uses.indexOf(op) === (-1)) {
+                                    console.log('[!] unregistered use:', op);
+                                    console.log('    parent statement:', op.parent_stmt());
+                                }
+                            }
+                        }
+                    });
+                });
+            });
+        });
+
+        // iterate through all definitions registered in context defs:
+        // - make sure there are no orphand definitions (i.e. pruned from function but not from context)
+        // - make sure all uses are attached appropriately to their definition
+        for (var d in ctx.defs) {
+            var v = ctx.defs[d];
+
+            if (v.parent_stmt() === undefined) {
+                console.log('[!] stale def:', v);
+            }
+
+            v.uses.forEach(function(u, i) {
+                if (!(u.def.equals(v))) {
+                    console.log('[!] stale use:', v, '[' + i + ']');
+                }
+            });
+        }
     };
 
     SSA.prototype.transform_out = function() {
