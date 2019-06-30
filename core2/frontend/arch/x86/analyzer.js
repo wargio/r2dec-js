@@ -21,7 +21,7 @@
     const CallConv = require('core2/frontend/arch/x86/cconv');
 
     const Expr = require('core2/analysis/ir/expressions');
-    // const Stmt = require('core2/analysis/ir/statements');
+    const Stmt = require('core2/analysis/ir/statements');
     const Simplify = require('core2/analysis/ir/simplify');
 
     // TODO: this file looks terrible; refactor this sh*t
@@ -59,10 +59,10 @@
         // extract function calls and their setup blocks
         cntr.statements.forEach(function(s) {
             var expr = s.expressions[0];
-    
+
             if (expr instanceof Expr.Assign) {
                 var rhand = expr.operands[1];
-    
+
                 // reached a function call?
                 if (rhand instanceof Expr.Call) {
                     fcalls.push([rhand, setup]);
@@ -72,24 +72,26 @@
                 }
             }
         });
-    
+
         var cconv = new CallConv(arch);
-    
+
         fcalls.forEach(function(pair) {
             var cexpr = pair[0];
             var setup = pair[1];
-    
+
             // process only direct calls with known destinations
             if (cexpr.operator instanceof Expr.Val) {
-                // WORKAROUND: we cannot r2pipe 'afc' since it does not return a JSON object; rather
-                // we would just ask for the whole 'afij', which has this information
-                var ccname = Global.r2cmdj('afij', '@', cexpr.operator.value.toString()).pop().calltype;
-    
+                var ccname = Global.r2cmd('afc', '@', cexpr.operator.value.toString());
+
                 if (!cconv.has(ccname)) {
-                    throw new Error(ccname, 'calling convension is not supported yet');
+                    throw new Error(ccname, 'calling convention is not supported yet');
                 }
-    
-                cconv.get(ccname).get_args_expr(setup).forEach(cexpr.push_operand, cexpr);
+
+                cconv.get(ccname).get_args_expr(setup).forEach(function(arg) {
+                    Simplify.reduce_expr(arg);
+
+                    cexpr.push_operand(arg);
+                });
             }
         });
     };
@@ -129,15 +131,13 @@
                 var variable = new Expr.Reg(v.name, size);  // TODO: should use a Variable instance rather than a fake Register
                 var assign = new Expr.Assign(ref, new Expr.AddrOf(variable));
 
-                Simplify.reduce_expr(assign);
+                Simplify.reduce_expr(ref);
                 vars.push(assign);
             }
         });
 
         console.log('vars:');
-        vars.forEach(function(v) {
-            console.log('', v.toString());
-        });
+        console.log(vars.map(function(v) { return '  ' + v.toString(16); }).join('\n'));
 
         var replace = [];
 
@@ -149,7 +149,7 @@
                             var lhand = vars[i].operands[0];
                             var rhand = vars[i].operands[1];
 
-                            if (op.equals(lhand)) {
+                            if (lhand.equals_no_idx(op)) {
                                 replace.push([op, rhand.clone()]);
                             }
                         }
@@ -202,6 +202,31 @@
         });
     };
 
+    var transform_tailcalls = function(func) {
+        func.basic_blocks.forEach(function(bb) {
+            var terminator = bb.container.terminator();
+
+            if (terminator instanceof Stmt.Goto) {
+                var dest = terminator.dest;
+
+                // direct jump
+                if (dest instanceof Expr.Val) {
+                    // jumping out of function boundaries? this is a tail call
+                    if (dest.value.lt(func.lbound) || dest.value.gt(func.ubound)) {
+                        var fcall = new Expr.Call(dest.clone(), []);
+
+                        terminator.replace(Stmt.make_statement(terminator.address, fcall));
+                    }
+                }
+
+                // indirect jump
+                // else if (dest instanceof Expr.Reg) {
+                //     // TODO: to be implemented
+                // }
+            }
+        });
+    };
+
     // note: this has to take place before propagating sp0
     var cleanup_fcall_args = function(ctx, arch) {
         const sreg = arch.get_stack_reg();
@@ -210,11 +235,16 @@
             if (e instanceof Expr.Deref) {
                 var deref_op = e.operands[0];
 
-                if ((deref_op instanceof Expr.Sub) || (deref_op instanceof Expr.Add)) {
-                    return sreg.equals_no_idx(deref_op.operands[0]);
-                }
+                // TODO: this is a temp workaround until stack locations are tagged appropriately
+                return sreg.equals_no_idx(deref_op.iter_operands(true)[0]);
 
-                return sreg.equals_no_idx(deref_op);
+                // if ((deref_op instanceof Expr.Sub)
+                //  || (deref_op instanceof Expr.Add)
+                //  || (deref_op instanceof Expr.And)) {
+                //     return sreg.equals_no_idx(deref_op.operands[0]);
+                // }
+                //
+                // return sreg.equals_no_idx(deref_op);
             }
 
             return false;
@@ -239,6 +269,45 @@
                     def.pluck(true);
 
                     return true;
+                }
+            }
+
+            return false;
+        });
+    };
+
+    var cleanup_preserved_loc = function(ctx) {
+        return ctx.iterate(function(def) {
+            if (def.idx !== 0) {
+                var p = def.parent;         // p is Expr.Assign
+                var lhand = p.operands[0];  // def
+                var rhand = p.operands[1];  // assigned expression
+
+                // mem1 = x1
+                // ...
+                // x2 = mem1
+                if ((lhand instanceof Expr.Deref) && (rhand.def !== undefined) && (rhand.def.idx === 0)) {
+                    var skipped = 0;
+
+                    while (def.uses.length > skipped) {
+                        var u = def.uses[skipped];
+
+                        if (u.parent instanceof Expr.Assign) {
+                            // console.log('preserved loc:');
+                            // console.log(' ', def.parent.parent_stmt().toString());
+                            // console.log(' ', u.parent.parent_stmt().toString());
+
+                            u.replace(rhand.clone(['idx', 'def']));
+                        } else {
+                            skipped++;
+                        }
+                    }
+
+                    if (def.uses.length === 0) {
+                        p.pluck(true);
+
+                        return true;
+                    }
                 }
             }
 
@@ -286,8 +355,42 @@
         });
     };
 
+    // propagate stack register definitions to their uses
     var propagate_stack_reg = function(ctx, arch) {
         const sreg = arch.get_stack_reg();
+
+        var is_stack_reg = function(expr) {
+            return expr.equals_no_idx(sreg);
+        };
+
+        var is_aligned_stack_var = function(expr) {
+            if (expr instanceof Expr.And) {
+                var lhand = expr.operands[0];
+                var rhand = expr.operands[1];
+
+                // return (is_stack_var(lhand) && (rhand instanceof Expr.Val));
+
+                if (((lhand instanceof Expr.Sub) || (lhand instanceof Expr.Add)) && (rhand instanceof Expr.Val)) {
+                    var inner_lhand = lhand.operands[0];
+                    var inner_rhand = lhand.operands[1];
+
+                    return is_stack_reg(inner_lhand) && (inner_rhand instanceof Expr.Val);
+                }
+            }
+
+            return false;
+        };
+
+        var is_stack_var = function(expr) {
+            if ((expr instanceof Expr.Sub) || (expr instanceof Expr.Add)) {
+                var lhand = expr.operands[0];
+                var rhand = expr.operands[1];
+
+                return (is_stack_reg(lhand) || is_aligned_stack_var(lhand)) && (rhand instanceof Expr.Val);
+            }
+
+            return false;
+        };
 
         return ctx.iterate(function(def) {
             if (def.idx !== 0) {
@@ -295,29 +398,27 @@
                 var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
-                if (lhand.equals_no_idx(sreg)) {
+                if (is_stack_reg(lhand) || is_stack_var(lhand)) {
                     while (def.uses.length > 0) {
                         var u = def.uses[0];
                         var c = rhand.clone(['idx', 'def']);
 
                         u.replace(c);
                         Simplify.reduce_stmt(c.parent_stmt());
+
+                        // unless something really hacky is going on in the binary,
+                        // stack locations are assumed to be safe for propagations
+                        // (i.e. they will not be aliased)
+                        if (c.parent instanceof Expr.Deref) {
+                            c.parent.is_safe = true;
+                        }
                     }
-
-                    p.pluck(true);
-
-                    return true;
                 }
             }
 
             return false;
         });
     };
-
-    // function StackVar(expr) { Expr.Deref.call(this, expr); }
-    //
-    // StackVar.prototype = Object.create(Expr.Deref.prototype);
-    // StackVar.prototype.constructor = StackVar;
 
     function Analyzer(arch) {
         this.arch = arch;
@@ -328,8 +429,6 @@
         // replace position independent references with actual addresses
         resolve_pic(container, this.arch);
 
-        // TODO: resole tail calls before calling assign_fcall_args
-
         // analyze and assign function calls arguments
         assign_fcall_args(container, this.arch);
 
@@ -339,7 +438,7 @@
     };
 
     Analyzer.prototype.transform_done = function(func) {
-        insert_variables(func, this.arch);
+        // insert_variables(func, this.arch);
     };
 
     Analyzer.prototype.ssa_step = function(context) {
@@ -348,12 +447,13 @@
     };
 
     Analyzer.prototype.ssa_done = function(func, context) {
+        cleanup_preserved_loc(context);
+        
+        // TODO: this should take place before assigning fcall args
+        transform_tailcalls(func);
+
         cleanup_fcall_args(context, this.arch);
         transform_flags(func, this.arch);
-    };
-
-    Analyzer.prototype.controlflow_done = function(func) {
-        // nothing here for now
     };
 
     return Analyzer;
