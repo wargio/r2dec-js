@@ -140,7 +140,7 @@
 
     /**
      * Have parent replace `this` expression with `other`
-     * @param {!Expr|!Register|!Value} other Replacement expression
+     * @param {(!Expr|!Register|!Value)} other Replacement expression
      */
     Register.prototype.replace = function(other) {
         var p = this.parent;
@@ -341,7 +341,7 @@
      * Expression base class.
      * This class is abstract and meant to be only inherited, not instantiated.
      * @param {string} operator An operator token
-     * @param {Array.<Expr|Register|Value>} operands An array of expressions instances
+     * @param {Array.<(Expr|Register|Value)>} operands An array of expressions instances
      * @constructor
      */
     function Expr(operator, operands) {
@@ -360,7 +360,7 @@
     /**
      * Perform a deep iteratation over expression's operands, from left to right.
      * @param {boolean} depth_first Whether predecessors' operands should be emitted before this'
-     * @returns {!Array<Expr>}
+     * @returns {!Array.<Expr>}
      */
     Expr.prototype.iter_operands = function(depth_first) {
         // note: sadly Duktape does not support the function* and yield* keywords so
@@ -512,9 +512,12 @@
         return clone;
     };
 
-    /** [!] This abstract method must be implemented by the inheriting class */
-    Expr.prototype.toString = function() {
-        throw new Error('not implemented');
+    Expr.prototype.toString = function(opt) {
+        var args = this.operands.map(function(a) {
+            return a.toString(opt);
+        });
+
+        return this.operator + parenthesize(args.join(', '));
     };
 
     // ------------------------------------------------------------
@@ -526,39 +529,33 @@
      * @constructor
      */
     function Call(fname, args) {
+        if (!(args instanceof Array)) {
+            args = Array.prototype.slice.call(arguments);
+        }
+
+        Expr.call(this, fname, args);
+    }
+
+    Call.prototype = Object.create(Expr.prototype);
+    Call.prototype.constructor = Call;
+
+    Call.prototype.clone = function(keep) {
+        var cloned = Object.getPrototypeOf(Object.getPrototypeOf(this)).clone.call(this, keep);
+
         // the `Expr.prototype.clone` method duplicates Expr objects by calling their constructor
         // with clones of their their `operands`. that implementation implies that their `operator`
         // is already known and there is no need to pass it on. Expr classes are defined in a way
-        // they do not require the `operator`, because each Expr.* class has its own consistent
+        // they do not require the `operator`, because each Expr subclass has its own consistent
         // operator. e.g. when duplicating an Expr.Add instance, the operator '+' is not passed,
         // because Expr.Add is known to have this operator.
         //
         // the case of Expr.Call is different, since it has no consistent operator: the function
         // target or name could be used for that purpose, but they are not consistent over all
         // Expr.Call instances -- rather they are unique to a specific call.
-        //
-        // for that reason, the Expr.Call constructor implies that the function (callee) target is
-        // stored as the first slot in `args` so we would be able to clone it even though it is not
-        // consistent. this is a bit hacky, since the clone method will flat the operands list so
-        // the first operand is passed as `fname` in this case. to regroup the rest of the arguments,
-        // we use the condition below:
 
-        if (!(args instanceof Array)) {
-            args = Array.prototype.slice.call(arguments, 1);
-        }
+        cloned.operator = this.operator.clone(keep);
 
-        Expr.call(this, fname, [fname].concat(args));
-    }
-
-    Call.prototype = Object.create(Expr.prototype);
-    Call.prototype.constructor = Call;
-
-    Call.prototype.toString = function(opt) {
-        var args = this.operands.slice(1).map(function(a) {
-            return a.toString(opt);
-        });
-
-        return this.operator + parenthesize(args.join(', '));
+        return cloned;
     };
 
     // ------------------------------------------------------------
@@ -582,8 +579,6 @@
     Phi.prototype = Object.create(Expr.prototype);
     Phi.prototype.constructor = Phi;
 
-    // TODO: consider extending 'operands' array of Expr instead of implementing
-    // Expr methods to handle its operations.
     Phi.prototype.has = function(op) {
         var found = false;
 
@@ -592,14 +587,6 @@
         }
 
         return found;
-    };
-
-    Phi.prototype.toString = function(opt) {
-        var args = this.operands.map(function(a) {
-            return a.toString(opt);
-        });
-
-        return this.operator + parenthesize(args.join(', '));
     };
 
     // ------------------------------------------------------------
@@ -619,8 +606,9 @@
     Asm.prototype = Object.create(Expr.prototype);
     Asm.prototype.constructor = Asm;
 
+    /** @override */
     Asm.prototype.toString = function() {
-        return '__asm ("' + this.line + '")';
+        return this.operator + parenthesize('"' + this.line + '"');
     };
 
     // ------------------------------------------------------------
@@ -628,7 +616,7 @@
     /**
      * Unary expression base class.
      * @param {string} operator An operator token
-     * @param {Expr|Register|Value} operand1 1st operand expression
+     * @param {(Expr|Register|Value)} operand1 1st operand expression
      * @constructor
      */
     function UExpr(operator, operand1) {
@@ -648,8 +636,8 @@
     /**
      * Binary expression base class.
      * @param {string} operator An operator token
-     * @param {Expr|Register|Value} operand1 1st operand expression
-     * @param {Expr|Register|Value} operand2 2nd operand expression
+     * @param {(Expr|Register|Value)} operand1 1st operand expression
+     * @param {(Expr|Register|Value)} operand2 2nd operand expression
      * @constructor
      */
     function BExpr(operator, operand1, operand2) {
@@ -674,9 +662,9 @@
      * Ternary expression base class.
      * @param {string} operator1 1st operator token
      * @param {string} operator2 2nd operator token
-     * @param {Expr|Register|Value} operand1 1st operand expression
-     * @param {Expr|Register|Value} operand2 2nd operand expression
-     * @param {Expr|Register|Value} operand3 3rd operand expression
+     * @param {(Expr|Register|Value)} operand1 1st operand expression
+     * @param {(Expr|Register|Value)} operand2 2nd operand expression
+     * @param {(Expr|Register|Value)} operand3 3rd operand expression
      * @constructor
      */
     function TExpr(operator1, operator2, operand1, operand2, operand3) {
@@ -708,39 +696,6 @@
 
     Assign.prototype = Object.create(BExpr.prototype);
     Assign.prototype.constructor = Assign;
-
-    /** @override */
-    Assign.prototype.toString = function(opt) {
-        var lhand = this.operands[0];
-        var rhand = this.operands[1];
-
-        // there are three special cases where assignments should be displayed diffreently:
-        //  x = x op y  -> x op= y
-        //  x = x + 1   -> x++
-        //  x = x - 1   -> x--
-
-        // "x = x op y"
-        if ((rhand instanceof BExpr) && (lhand.equals(rhand.operands[0]))) {
-            // "x = x op 1"
-            if (rhand.operands[1].equals(new Value(1, lhand.size))) {
-                // x = x +/- 1
-                if ((rhand instanceof Add) || (rhand instanceof Sub)) {
-                    // x++ / x--
-                    return lhand.toString() + rhand.operator.repeat(2);
-                }
-            }
-
-            // "x op= y"
-            return [
-                lhand.toString(opt),
-                rhand.operator + this.operator,
-                rhand.operands[1].toString(opt)
-            ].join(' ');
-        }
-
-        // not a special case? use super's toString result
-        return Object.getPrototypeOf(Object.getPrototypeOf(this)).toString.call(this, opt);
-    };
 
     // ------------------------------------------------------------
 

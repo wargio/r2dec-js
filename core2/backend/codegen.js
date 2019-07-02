@@ -198,26 +198,28 @@ module.exports = (function() {
             //  x = x + 1   -> x++
             //  x = x - 1   -> x--
 
-            // "x = x op y"
-            if ((rhand instanceof Expr.BExpr) && (lhand.equals(rhand.operands[0]))) {
-                // "x = x op 1"
-                if (rhand.operands[1].equals(new Expr.Val(1, lhand.size))) {
+            if (rhand instanceof Expr.BExpr) {
+                var inner_lhand = rhand.operands[0];
+                var inner_rhand = rhand.operands[1];
+
+                // "x = x op y"
+                if (lhand.equals(inner_lhand)) {
                     // x = x +/- 1
-                    if ((rhand instanceof Expr.Add) || (rhand instanceof Expr.Sub)) {
-                        // x++ / x--
+                    if (((rhand instanceof Expr.Add) || (rhand instanceof Expr.Sub)) && inner_rhand.equals(new Expr.Val(1, lhand.size))) {
+                        // "x++" / "x--"
                         return Array.prototype.concat(
                             this.emit_expression(lhand),
                             [[TOK_ARITH, rhand.operator.repeat(2)]]
                         );
                     }
-                }
 
-                // "x op= y"
-                return Array.prototype.concat(
-                    this.emit_expression(lhand),
-                    [SPACE, [TOK_ASSIGN, rhand.operator + '='], SPACE],
-                    this.emit_expression(rhand.operands[1])
-                );
+                    // "x op= y"
+                    return Array.prototype.concat(
+                        this.emit_expression(lhand),
+                        [SPACE, [TOK_ASSIGN, rhand.operator + '='], SPACE],
+                        this.emit_expression(rhand.operands[1])
+                    );
+                }
             }
 
             // not a special case
@@ -306,7 +308,7 @@ module.exports = (function() {
         }
 
         else if (expr instanceof Expr.Call) {
-            var args = expr.operands.slice(1).map(this.emit_expression, this);
+            var args = expr.operands.map(this.emit_expression, this);
             var fname = this.xrefs.resolve_fname(expr.operator) || expr.operator;
 
             return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_list(args));
