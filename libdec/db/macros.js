@@ -130,7 +130,7 @@
         },
         'scanf': {
             macro: ['#include <stdio.h>'],
-            required: 1,
+            required: -1,
             varargs: true
         },
         'getenv': {
