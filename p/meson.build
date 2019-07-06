@@ -12,9 +12,6 @@ if build_machine.system() == 'windows'
   cmd = 'print(__import__("os").path.dirname(r"@0@"))'.format(r2.path())
   root = run_command('python', '-c', cmd).stdout().strip()
   incs += join_paths(root, incdir)
-  if cc.get_id() == 'msvc'
-    incs += join_paths(root, incdir, 'msvc')
-  endif
 else
   incs += incdir
 endif
