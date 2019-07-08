@@ -27,7 +27,7 @@
             "callname": config['call'] || 'gray',
             "integers": config['num'] || 'cyan',
             "comment": config['comment'] || 'red',
-            "labels": config['flag'] || ' green',
+            "labels": config['flag'] || 'green',
             "types": config['func_var_type'] || 'green',
             "macro": config['cjmp'] || 'yellow',
             "flow": config['flow'] || 'magenta',
