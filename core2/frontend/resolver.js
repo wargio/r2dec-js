@@ -17,72 +17,63 @@
 
 module.exports = (function() {
 
-    var _r2_get_func_name = function(addr) {
-        var afcfj = Global.r2cmdj('afcfj', '@', addr);
-        var fname = undefined;
+    var _r2_get_fname = function(addr) {
+        return Global.r2cmd('afn', '@', addr);
+    };
 
-        // input is undefined on indirect calls
-        if (afcfj) {
-            fname = afcfj.pop().name;
+    var _r2_get_flag = function(addr) {
+        var fij = Global.r2cmdj('fij', '1', '@', addr);
+        var flag = undefined;
 
-            // strip 'sym.' prefix
-            if (fname.startsWith('sym.')) {
-                fname = fname.substring('sym.'.length);
-            }
-
-            // strip 'imp.' prefix
-            if (fname.startsWith('imp.')) {
-                fname = fname.substring('imp.'.length);
-            }
+        if ((fij instanceof Array) && (fij.length > 0)) {
+            flag = fij.pop().name;
         }
 
-        return fname;
+        return flag;
     };
 
     var _r2_get_string = function(addr) {
         return Global.r2cmd('Cs.', '@', addr);
     };
 
+    var _r2_get_libs_names = function() {
+        var ilj = Global.r2cmdj('ilj');
+
+        // XXX for some reason r2 does not keep the name in its original case
+        // so we have to canonicalize it for later
+        return ilj.map(function(lname) {
+            return lname.toLowerCase() + '_';
+        });
+    };
+
     /**
      * Resolving helper for xreferences in decompiled function.
-     * @param {*} afij JSON object representing output of 'afij' r2 command
      * @constructor
      */
-    function Resolver(afij) {
+    function Resolver() {
+        // prefixes that should be trimmed
+        this.prefixes = ['sym.', 'imp.'].concat(_r2_get_libs_names());
 
-        // calculate function bounds
-        var va_base = afij.offset.sub(afij.minbound);
-        var lbound = afij.minbound.add(va_base);
-        var ubound = afij.maxbound.add(va_base);
+        // functions names cache
+        this.fcalls = {};
 
-        /** @inner */
-        var _outside_function = function(addr) {
-            return addr.lt(lbound) || addr.gt(ubound);
-        };
-
-        var call_xrefs = {};
-
-        // cache information for functions called in the scope of decompilation
-        (afij.callrefs || []).forEach(function(cref) {
-            if (!(cref.addr in call_xrefs) && _outside_function(cref.addr)) {
-                call_xrefs[cref.addr] = _r2_get_func_name(cref.addr);
-            }
-        });
-
-        var data_xrefs = {};
-
-        // cache information for data referred in the scope of decompilation
-        (afij.datarefs || []).forEach(function(dref) {
-            if (!(dref in call_xrefs)) {
-                data_xrefs[dref] = _r2_get_string(dref);
-            }
-        });
-
-        this.xref = {
-            'data'   : data_xrefs,
-            'fcalls' : call_xrefs
-        };
+        // strings cache
+        this.data = {};
     }
+
+    Resolver.prototype.demangle = function(name) {
+        var trimmed = name;
+
+        if (trimmed) {
+            this.prefixes.forEach(function(pref) {
+                if (trimmed.toLowerCase().startsWith(pref)) {
+                    trimmed = trimmed.substring(pref.length);
+                }
+            });
+        }
+
+        return trimmed;
+    };
 
     /**
      * Resolve a callee function name
@@ -90,7 +81,14 @@ module.exports = (function() {
      * @returns {string|undefined}
      */
     Resolver.prototype.resolve_fname = function(val) {
-        return this.xref.fcalls[val.value];
+        var key = val.value.toString();
+
+        // if not cached, retrieve it from r2
+        if (!(key in this.fcalls)) {
+            this.fcalls[key] = this.demangle(_r2_get_fname(key) || _r2_get_flag(key));
+        }
+
+        return this.fcalls[key];
     };
 
     /**
@@ -99,7 +97,16 @@ module.exports = (function() {
      * @returns {string|undefined}
      */
     Resolver.prototype.resolve_data = function(val) {
-        return this.xref.data[val.value];
+        var key = val.value.toString();
+
+        // if not cached, retrieve it from r2
+        if (!(key in this.data)) {
+            // TODO: falling to flag causes low values to appear funny; need a better solution
+            // or filter what uses this resolving method
+            this.data[key] = this.demangle(_r2_get_string(key) /*|| _r2_get_flag(key)*/);
+        }
+
+        return this.data[key];
     };
 
     return Resolver;
