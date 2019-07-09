@@ -597,25 +597,42 @@ module.exports = (function() {
     };
 
     /**
+     * Tests whether the specified object is an instance of a literal expression,
+     * which means it cannot be reduced
+     * @param {object} expr An expression to test
+     */
+    var _is_literal_expr = function(expr) {
+        return (expr instanceof Expr.Reg) || (expr instanceof Expr.Val);
+    };
+
+    /**
      * Simplify a given expression in-place until it cannot be simplified any further
      * @param {Expr.Expr} expr An expression instance to simplify
      */
     var _reduce_expr = function(expr) {
         if (expr.operands) {
-            // do 'post order' reduction: operands first, then expr
-            while (expr.operands.some(_reduce_expr)) {
-                // empty
-            }
-
             // normally, an expression would be considered for reduction only if at
             // least one of its operands has been reduced. however, since literal
             // operands (registers and values) cannot be reduced, the recursive nature
             // of this function would cause their parent expression to never be
             // considered for reduction. that is true for all expressions, so we will
-            // end up without any reduction. this is why an expression is considered
-            // for a reduction regardless of its operands
+            // end up without any reduction.
+            //
+            // to work around that, an expression would be considered for reduction
+            // if it has only literal operands, in addition to the criterion above
 
-            return _reduce_expr_once(expr);
+            var only_literlal_ops = expr.operands.every(_is_literal_expr);
+            var modified_ops = false;
+
+            // do 'post order' reduction: reduce operands first
+            if (!only_literlal_ops) {
+                while (expr.operands.some(_reduce_expr)) {
+                    modified_ops = true;
+                }
+            }
+
+            // ... then reduce expr
+            return (only_literlal_ops || modified_ops) && _reduce_expr_once(expr);
         }
 
         return false;
