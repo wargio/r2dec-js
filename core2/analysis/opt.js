@@ -19,36 +19,81 @@ module.exports = (function() {
     const Expr = require('core2/analysis/ir/expressions');
     const Simplify = require('core2/analysis/ir/simplify');
 
-    // dead code elimination
-    var eliminate_def_zero_uses = function(ctx) {
+    // function Tranformation() {
+    //     // empty
+    // }
+    //
+    // Tranformation.prototype.should_transform = function(def, val) {
+    //     // empty
+    // };
+    //
+    // Tranformation.prototype.get_transformed_expr = function(use, val) {
+    //     // empty
+    // };
+    //
+    // Tranformation.prototype.run = function(context) {
+    //     var modified = false;
+    //
+    //     for (var d in context.defs) {
+    //         var p = context.defs[d].parent;
+    //         var def = p.operands[0];  // defined variable
+    //         var val = p.operands[1];  // assigned expression
+    //
+    //         if (this.should_transform(def, val)) {
+    //             var skipped = 0;
+    //
+    //             while (def.uses.length > skipped) {
+    //                 var u = def.uses[skipped];
+    //                 var t = this.get_transformed_expr(u);
+    //
+    //                 if (t === null) {
+    //                     skipped++;
+    //                 } else {
+    //                     u.replace(t);
+    //                     Simplify.reduce_stmt(t.parent_stmt());
+    //
+    //                     modified = true;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //
+    //     return modified;
+    // };
+
+    // eliminate dead assignments to registers
+    var eliminate_dead_regs = function(ctx) {
         return ctx.iterate(function(def) {
-            if (def.idx !== 0) {
-                if (def.uses.length === 0) {
-                    var p = def.parent;         // p is Expr.Assign
-                    var lhand = p.operands[0];  // def
-                    var rhand = p.operands[1];  // assigned expression
+            if (def.uses.length === 0) {
+                var p = def.parent;         // p is Expr.Assign
+                var lhand = p.operands[0];  // def
+                var rhand = p.operands[1];  // assigned expression
 
-                    // function calls may have side effects, and cannot be eliminated altogether.
-                    // instead, they are extracted from the assignment and kept as standalone
-                    if (rhand instanceof Expr.Call) {
-                        p.replace(rhand.pluck());
+                // function calls cannot be eliminated as they may have side effects
+                if ((lhand instanceof Expr.Reg) && !(rhand instanceof Expr.Call)) {
+                    p.pluck(true);
 
-                        return true;
-                    }
+                    return true;
+                }
+            }
 
-                    // phi assignments 
-                    else if (rhand instanceof Expr.Phi) {
-                        p.pluck(true);
+            return false;
+        });
+    };
 
-                        return true;
-                    }
+    var eliminate_dead_results = function(ctx) {
+        return ctx.iterate(function(def) {
+            if (def.uses.length === 0) {
+                var p = def.parent;         // p is Expr.Assign
+                var lhand = p.operands[0];  // def
+                var rhand = p.operands[1];  // assigned expression
 
-                    // memory dereferences cannot be eliminated as they may have side effects
-                    else if (!(lhand instanceof Expr.Deref) && !(rhand instanceof Expr.Deref)) {
-                        p.pluck(true);
+                // function calls may have side effects and cannot be eliminated altogether.
+                // instead, they are extracted from the assignment and kept as standalone exprs
+                if ((lhand instanceof Expr.Reg) && (rhand instanceof Expr.Call)) {
+                    p.replace(rhand.pluck());
 
-                        return true;
-                    }
+                    return true;
                 }
             }
 
@@ -157,7 +202,8 @@ module.exports = (function() {
     };
 
     var optimizations = [
-        eliminate_def_zero_uses,
+        eliminate_dead_regs,
+        eliminate_dead_results,
         propagate_constants,
         propagate_def_single_use,
         eliminate_def_single_phi
