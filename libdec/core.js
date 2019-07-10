@@ -111,16 +111,16 @@
      */
     var _print = function(session) {
         if (!session.routine) {
-            console.log('Error: no "good" data given (all invalid opcodes).');
+            Global.context.printLog('Error: no "good" data given (all invalid opcodes).', true);
             return;
         }
         if (Global.evars.extra.ascomment) {
             session.ascomment();
-            console.log('[r2dec] comments applied for "' + session.routine_name + '".');
+            Global.context.printLog('[r2dec] comments applied for "' + session.routine_name + '".');
             return;
         } else if (Global.evars.extra.ascodeline) {
             session.ascodeline();
-            console.log('[r2dec] new code lines applied for "' + session.routine_name + '".');
+            Global.context.printLog('[r2dec] new code lines applied for "' + session.routine_name + '".');
             return;
         }
         var t = Global.printer.theme;

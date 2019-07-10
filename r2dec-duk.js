@@ -42,6 +42,7 @@ var Global = {
  */
 var libdec = require('libdec/libdec');
 var r2util = require('libdec/r2util');
+var Long = require('libdec/long');
 
 /**
  * r2dec main function.
@@ -49,6 +50,10 @@ var r2util = require('libdec/r2util');
  */
 function r2dec_main(args) {
     var Printer = require('libdec/printer');
+    var lines = null;
+    var errors = [];
+    var log = [];
+    var useJSON = false;
     try {
         Global.evars = new r2util.evars(args);
         r2util.sanitize(true, Global.evars);
@@ -56,6 +61,8 @@ function r2dec_main(args) {
             r2util.sanitize(false, Global.evars);
             return;
         }
+
+        useJSON = Global.evars.extra.json;
 
         // theme (requires to be initialized after evars)
         Global.printer = new Printer();
@@ -76,15 +83,50 @@ function r2dec_main(args) {
                 libdec.core.analysis.post(p, architecture, arch_context);
                 libdec.core.print(p);
             } else {
-                console.log('Error: no data available.\nPlease analyze the function/binary first.');
+                Global.context.printLog('Error: no data available.\nPlease analyze the function/binary first.', true);
             }
+            lines = Global.context.lines;
+            errors = errors.concat(Global.context.errors);
+            log = log.concat(Global.context.log);
         } else {
-            console.log(Global.evars.arch + ' is not currently supported.\n' +
-                'Please open an enhancement issue at https://github.com/wargio/r2dec-js/issues');
-            libdec.supported();
+            errors.push(Global.evars.arch + ' is not currently supported.\n' +
+                'Please open an enhancement issue at https://github.com/wargio/r2dec-js/issues\n' +
+                libdec.supported());
         }
         r2util.sanitize(false, Global.evars);
     } catch (e) {
-        r2util.debug(Global.evars, e);
+        errors.push(r2util.debug(Global.evars, e));
+    }
+
+    if (useJSON) {
+        var result = {};
+        if (lines && lines.length > 0) {
+            result.lines = lines;
+        }
+        if (errors && errors.length > 0) {
+            result.errors = errors;
+        }
+        if (log && log.length > 0) {
+            result.log = log;
+        }
+        console.log(JSON.stringify(result, function(name, val) {
+            if (Long.isLong(val)) {
+                return val.toString(10);
+            } else {
+                return val;
+            }
+        }));
+    } else {
+        if (lines && lines.length > 0) {
+            for (var i = 0; i < lines.length; i++) {
+                console.log(lines[i].str);
+            }
+        }
+        if (errors && errors.length > 0) {
+            console.log(errors.join("\n"));
+        }
+        if (log && log.length > 0) {
+            console.log(log.join("\n"));
+        }
     }
 }

@@ -17,15 +17,36 @@
 
 (function() {
     return function() {
+        this.lines = [];
+        this.errors = [];
+        this.log = [];
+
         /**
          * Print a line of decompiled code.
-         * @param - str content of the line
+         * @param str - content of the line
          * @param offset - offset of the original instruction (optional)
          */
         this.printLine = function(str, offset) {
-            console.log(str);
+            var line = { str: str, offset: offset };
+            this.lines.push(line);
         }
 
+        /**
+         * Print a line for logging.
+         * @param str - content to print
+         * @param error - boolean whether this is an error (optional)
+         */
+        this.printLog = function(str, error) {
+            if (Global.evars.extra.json) {
+                if(error) {
+                    this.errors.push(str);
+                } else {
+                    this.log.push(str);
+                }
+            } else {
+                console.log(str);
+            }
+        }
 
         /**
          * Internal C macro list.
