@@ -70,12 +70,12 @@
             b = Global.printer.auto;
             addr = Extra.align_address(instr.location);
             if (instr.code && instr.code.composed) {
-                console.log(Global.context.identfy(addr.length, t.integers(addr)) + instr.code.composed[0] + ';');
+                Global.context.printLine(Global.context.identfy(addr.length, t.integers(addr)) + instr.code.composed[0] + ';', instr.location);
                 for (i = 1; i < instr.code.composed.length; i++) {
-                    console.log(Global.context.identfy(addr.length, t.integers(addr)) + instr.code.composed[i] + ';');
+                    Global.context.printLine(Global.context.identfy(addr.length, t.integers(addr)) + instr.code.composed[i] + ';', instr.location);
                 }
             } else if (_printable(instr)) {
-                console.log(Global.context.identfy(addr.length, t.integers(addr)) + instr.code + ';');
+                Global.context.printLine(Global.context.identfy(addr.length, t.integers(addr)) + instr.code + ';', instr.location);
             }
         } else if (Global.evars.honor.assembly) {
             t = Global.printer.theme;
@@ -83,20 +83,20 @@
             addr = Extra.align_address(instr.location);
             s = 1 + addr.length + instr.simplified.length;
             if (instr.code && instr.code.composed) {
-                console.log(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + instr.code.composed[0] + ';');
+                Global.context.printLine(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + instr.code.composed[0] + ';', instr.location);
                 for (i = 1; i < instr.code.composed.length; i++) {
-                    console.log(Global.context.identfy() + instr.code.composed[i] + ';');
+                    Global.context.printLine(Global.context.identfy() + instr.code.composed[i] + ';', instr.location);
                 }
             } else {
-                console.log(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + (_printable(instr) ? (instr.code + ';') : ''));
+                Global.context.printLine(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + (_printable(instr) ? (instr.code + ';') : ''), instr.location);
             }
         } else {
             if (instr.code && instr.code.composed) {
                 for (i = 0; i < instr.code.composed.length; i++) {
-                    console.log(Global.context.identfy() + instr.code.composed[i] + ';');
+                    Global.context.printLine(Global.context.identfy() + instr.code.composed[i] + ';', instr.location);
                 }
             } else if (_printable(instr)) {
-                console.log(Global.context.identfy() + instr.code + ';');
+                Global.context.printLine(Global.context.identfy() + instr.code + ';', instr.location);
             }
         }
     };
@@ -147,15 +147,15 @@
             var t = Global.printer.theme;
             var empty = Global.context.identfy();
             if (this.comments.length == 1) {
-                console.log(empty + t.comment('/* ' + this.comments[0] + ' */'));
+                Global.context.printLine(empty + t.comment('/* ' + this.comments[0] + ' */', this.location));
             } else if (this.comments.length > 1) {
-                console.log(empty + t.comment('/* ' + this.comments[0]));
+                Global.context.printLine(empty + t.comment('/* ' + this.comments[0]), this.location);
                 for (var i = 1; i < this.comments.length; i++) {
-                    console.log(empty + t.comment(' * ' + this.comments[i] + (i == this.comments.length - 1 ? ' */' : '')));
+                    Global.context.printLine(empty + t.comment(' * ' + this.comments[i] + (i == this.comments.length - 1 ? ' */' : '')), this.location);
                 }
             }
             if (this.label) {
-                console.log(Global.context.identfy(null, null, true) + this.label + ':');
+                Global.context.printLine(Global.context.identfy(null, null, true) + this.label + ':', this.location);
             }
             _asm_view(this);
         };

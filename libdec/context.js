@@ -18,6 +18,16 @@
 (function() {
     return function() {
         /**
+         * Print a line of decompiled code.
+         * @param - str content of the line
+         * @param offset - offset of the original instruction (optional)
+         */
+        this.printLine = function(str, offset) {
+            console.log(str);
+        }
+
+
+        /**
          * Internal C macro list.
          * @type {Array}
          */
@@ -40,10 +50,10 @@
             if (!Global.evars.honor.blocks) {
                 var t = Global.printer.theme;
                 for (var i = 0; i < this.macros.length; i++) {
-                    console.log(this.identfy() + t.macro(this.macros[i]));
+                    this.printLine(this.identfy() + t.macro(this.macros[i]));
                 }
             }
-            console.log(this.identfy() + ' ');
+            this.printLine(this.identfy() + ' ');
         };
 
         /**
@@ -74,7 +84,7 @@
                 x.print();
             });
             if (this.dependencies.length > 0) {
-                console.log(this.identfy() + ' ');
+                this.printLine(this.identfy() + ' ');
             }
         };
 
