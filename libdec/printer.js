@@ -19,7 +19,6 @@
 /**
  * Imports.
  */
-const Long = require('libdec/long');
 const json64 = require('libdec/json64');
 
 (function() {
