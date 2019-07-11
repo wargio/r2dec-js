@@ -1,3 +1,6 @@
+
+const Long = require('libdec/long');
+
 (function() {
     var json_parse = function(options) {
         "use strict";
@@ -270,7 +273,66 @@
             }, '')) : result;
         };
     };
+
+    function _iterate_value(variable, pad, depth, used) {
+        if (used.indexOf(variable) >= 0) {
+            return null;
+        }
+        var spad = pad.repeat(depth);
+        var nl = pad.length > 0 ? "\n" : "";
+        var sp = "\"";
+        var k, sval, str = "";
+        var comma = false;
+        if (Array.isArray(variable)) {
+            used.push(variable);
+            str = "[" + nl;
+            for (k = 0; k < variable.length; k++) {
+                sval = _iterate_value(variable[k], pad, depth + 1, used);
+                if (sval) {
+                    comma = true;
+                    str += spad + sval + "," + nl;
+                }
+            }
+            if (comma) {
+                str = str.slice(0, 0 - ("," + nl).length) + nl;
+                str += pad.repeat(depth - 1) + "]";
+            } else {
+                str = str.slice(0, -1) + "]";
+            }
+            return str;
+        } else if (Long.isLong(variable)) {
+            return variable.toString(10);
+        } else if (typeof variable == "function") {
+            return null;
+        } else if (typeof variable == "object") {
+            used.push(variable);
+            str = "{" + nl;
+            for (k in variable) {
+                sval = _iterate_value(variable[k], pad, depth + 1, used);
+                if (sval) {
+                    comma = true;
+                    str += spad + sp + k + sp + ":" + sval + "," + nl;
+                }
+            }
+            if (comma) {
+                str = str.slice(0, 0 - ("," + nl).length) + nl;
+                str += pad.repeat(depth - 1) + "}";
+            } else {
+                str = str.slice(0, -1) + "}";
+            }
+            return str;
+        } else {
+            return JSON.stringify(variable);
+        }
+    }
+
+    function stringify(variable, pad) {
+        pad = pad ? pad : "";
+        return _iterate_value(variable, pad, 1, []);
+    }
+
     return {
-        parse: json_parse()
+        parse: json_parse(),
+        stringify: stringify
     };
 });

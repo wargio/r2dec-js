@@ -19,7 +19,8 @@
 /**
  * Imports.
  */
-var Long = require('libdec/long');
+const Long = require('libdec/long');
+const json64 = require('libdec/json64');
 
 (function() {
     function initializeColors() {
@@ -218,13 +219,7 @@ var Long = require('libdec/long');
             if (log && log.length > 0) {
                 result.log = log;
             }
-            console.log(JSON.stringify(result, function(name, val) {
-                if (Long.isLong(val)) {
-                    return val.toString(10);
-                } else {
-                    return val;
-                }
-            }));
+            console.log(json64.stringify(result));
         } else {
             if (lines && lines.length > 0) {
                 for (var i = 0; i < lines.length; i++) {
