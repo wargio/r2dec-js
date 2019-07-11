@@ -238,7 +238,7 @@ var Long = require('libdec/long');
                 console.log(log.join("\n"));
             }
         }
-    }
+    };
 
     /**
      * Printer Object
