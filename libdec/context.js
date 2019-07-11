@@ -29,7 +29,7 @@
         this.printLine = function(str, offset) {
             var line = { str: str, offset: offset };
             this.lines.push(line);
-        }
+        };
 
         /**
          * Print a line for logging.
@@ -46,7 +46,7 @@
             } else {
                 console.log(str);
             }
-        }
+        };
 
         /**
          * Internal C macro list.
