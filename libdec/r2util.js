@@ -266,7 +266,7 @@
         debug: function(evars, exception) {
             r2util.sanitize(false, evars);
             if (evars.extra.debug) {
-                return 'Exception:', exception.stack;
+                return 'Exception: ' + exception.stack;
             } else {
                 return '\n\nr2dec has crashed (info: ' + r2pipe.string('i~^file[1:0]') + ' @ ' + r2pipe.string('s') + ').\n' +
                     'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
