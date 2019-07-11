@@ -15,6 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
+/**
+ * Imports.
+ */
+var Long = require('libdec/long');
+
 (function() {
     function initializeColors() {
         const config = {};

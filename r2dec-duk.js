@@ -42,7 +42,6 @@ var Global = {
  */
 var libdec = require('libdec/libdec');
 var r2util = require('libdec/r2util');
-var Long = require('libdec/long');
 
 /**
  * r2dec main function.
