@@ -197,6 +197,44 @@
     };
 
     /**
+     * Prints the final r2dec output
+     * @param useJSON - boolean whether to print as json
+     */
+    var _flush_output = function(lines, errors, log, useJSON) {
+        if (useJSON) {
+            var result = {};
+            if (lines && lines.length > 0) {
+                result.lines = lines;
+            }
+            if (errors && errors.length > 0) {
+                result.errors = errors;
+            }
+            if (log && log.length > 0) {
+                result.log = log;
+            }
+            console.log(JSON.stringify(result, function(name, val) {
+                if (Long.isLong(val)) {
+                    return val.toString(10);
+                } else {
+                    return val;
+                }
+            }));
+        } else {
+            if (lines && lines.length > 0) {
+                for (var i = 0; i < lines.length; i++) {
+                    console.log(lines[i].str);
+                }
+            }
+            if (errors && errors.length > 0) {
+                console.log(errors.join("\n"));
+            }
+            if (log && log.length > 0) {
+                console.log(log.join("\n"));
+            }
+        }
+    }
+
+    /**
      * Printer Object
      * @return {Function} - Printer object (to be called via `new Printer()`)
      */
@@ -205,5 +243,6 @@
         this.theme = _theme_colors;
         this.auto = _colorize_text;
         this.html = _htmlize;
+        this.flushOutput = _flush_output;
     };
 });

@@ -98,35 +98,9 @@ function r2dec_main(args) {
         errors.push(r2util.debug(Global.evars, e));
     }
 
-    if (useJSON) {
-        var result = {};
-        if (lines && lines.length > 0) {
-            result.lines = lines;
-        }
-        if (errors && errors.length > 0) {
-            result.errors = errors;
-        }
-        if (log && log.length > 0) {
-            result.log = log;
-        }
-        console.log(JSON.stringify(result, function(name, val) {
-            if (Long.isLong(val)) {
-                return val.toString(10);
-            } else {
-                return val;
-            }
-        }));
-    } else {
-        if (lines && lines.length > 0) {
-            for (var i = 0; i < lines.length; i++) {
-                console.log(lines[i].str);
-            }
-        }
-        if (errors && errors.length > 0) {
-            console.log(errors.join("\n"));
-        }
-        if (log && log.length > 0) {
-            console.log(log.join("\n"));
-        }
+    var printer = Global.printer;
+    if (!printer) {
+        printer = new Printer();
     }
+    printer.flushOutput(lines, errors, log, useJSON);
 }
