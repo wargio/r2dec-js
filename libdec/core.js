@@ -100,7 +100,7 @@
                 break;
             }
             var fcn = arch.instructions[instr.parsed.mnem];
-            // console.log(instr.assembly)
+            // Global.context.printLine(instr.assembly)
             instr.code = fcn ? fcn(instr, arch_context, instructions) : new Base.unknown(instr.assembly);
         }
     };
@@ -111,23 +111,23 @@
      */
     var _print = function(session) {
         if (!session.routine) {
-            console.log('Error: no "good" data given (all invalid opcodes).');
+            Global.context.printLog('Error: no "good" data given (all invalid opcodes).', true);
             return;
         }
         if (Global.evars.extra.ascomment) {
             session.ascomment();
-            console.log('[r2dec] comments applied for "' + session.routine_name + '".');
+            Global.context.printLog('[r2dec] comments applied for "' + session.routine_name + '".');
             return;
         } else if (Global.evars.extra.ascodeline) {
             session.ascodeline();
-            console.log('[r2dec] new code lines applied for "' + session.routine_name + '".');
+            Global.context.printLog('[r2dec] new code lines applied for "' + session.routine_name + '".');
             return;
         }
         var t = Global.printer.theme;
         var asm_header = Global.evars.honor.offsets ? '' : '; assembly';
         var details = '/* ' + Global.evars.extra.file + ' @ 0x' + Global.evars.extra.offset.toString(16) + ' */';
-        console.log(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo code output */'));
-        console.log(Global.context.identfy() + t.comment(details));
+        Global.context.printLine(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo code output */'));
+        Global.context.printLine(Global.context.identfy() + t.comment(details));
         if (['java', 'dalvik'].indexOf(Global.evars.arch) < 0) {
             Global.context.printMacros();
             Global.context.printDependencies();
@@ -135,7 +135,7 @@
         session.print();
         while (Global.context.ident.length > 0) {
             Global.context.identOut();
-            console.log(Global.context.identfy() + '}');
+            Global.context.printLine(Global.context.identfy() + '}');
         }
     };
 

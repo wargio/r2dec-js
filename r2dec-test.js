@@ -68,6 +68,7 @@ function r2dec_main(filename) {
                 libdec.core.decompile(p, architecture, arch_context);
                 libdec.core.analysis.post(p, architecture, arch_context);
                 libdec.core.print(p);
+                Global.printer.flushOutput(Global.context.lines, Global.context.errors, Global.context.log, Global.evars.extra.json);
             } else {
                 console.log('Error: no data available.\nPlease analyze the function/binary first.');
             }

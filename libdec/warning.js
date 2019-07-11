@@ -22,7 +22,7 @@
 			if (this.printer.theme.comment) {
 				message = this.printer.theme.comment(message);
 			}
-			console.log(message);
+			this.context.printLog(message);
 		}
 	};
 });

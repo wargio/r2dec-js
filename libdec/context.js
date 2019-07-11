@@ -17,6 +17,37 @@
 
 (function() {
     return function() {
+        this.lines = [];
+        this.errors = [];
+        this.log = [];
+
+        /**
+         * Print a line of decompiled code.
+         * @param str - content of the line
+         * @param offset - offset of the original instruction (optional)
+         */
+        this.printLine = function(str, offset) {
+            var line = { str: str, offset: offset };
+            this.lines.push(line);
+        };
+
+        /**
+         * Print a line for logging.
+         * @param str - content to print
+         * @param error - boolean whether this is an error (optional)
+         */
+        this.printLog = function(str, error) {
+            if (Global.evars.extra.json) {
+                if(error) {
+                    this.errors.push(str);
+                } else {
+                    this.log.push(str);
+                }
+            } else {
+                console.log(str);
+            }
+        };
+
         /**
          * Internal C macro list.
          * @type {Array}
@@ -40,10 +71,10 @@
             if (!Global.evars.honor.blocks) {
                 var t = Global.printer.theme;
                 for (var i = 0; i < this.macros.length; i++) {
-                    console.log(this.identfy() + t.macro(this.macros[i]));
+                    this.printLine(this.identfy() + t.macro(this.macros[i]));
                 }
             }
-            console.log(this.identfy() + ' ');
+            this.printLine(this.identfy() + ' ');
         };
 
         /**
@@ -74,7 +105,7 @@
                 x.print();
             });
             if (this.dependencies.length > 0) {
-                console.log(this.identfy() + ' ');
+                this.printLine(this.identfy() + ' ');
             }
         };
 

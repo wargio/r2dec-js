@@ -21,8 +21,7 @@
 		archs: require('libdec/archs'),
 		context: require('libdec/context'),
 		supported: function() {
-			console.log('Supported architectures:');
-			console.log('    ' + Object.keys(this.archs).join(', '));
+			return 'Supported architectures:\n    ' + Object.keys(this.archs).join(', ');
 		}
 	};
 });

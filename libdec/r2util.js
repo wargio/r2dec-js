@@ -76,6 +76,7 @@
         "--xrefs": "shows also instruction xrefs in the pseudo code",
         "--as-comment": "the decompiled code is returned to r2 as comment (via CCu)",
         "--as-code-line": "the decompiled code is returned to r2 as 'file:line code' (via CL)",
+        "--as-json": "the decompiled code lines are returned as JSON"
     };
 
     function has_option(args, name) {
@@ -212,6 +213,7 @@
                 offset: r2pipe.long('s'),
                 ascomment: has_option(args, '--as-comment'),
                 ascodeline: has_option(args, '--as-code-line'),
+                json: has_option(args, '--as-json'),
                 debug: r2pipe.bool('e r2dec.debug') || has_option(args, '--debug'),
                 slow: r2pipe.bool('e r2dec.slow')
             };
@@ -264,14 +266,12 @@
         debug: function(evars, exception) {
             r2util.sanitize(false, evars);
             if (evars.extra.debug) {
-                console.log('Exception:', exception.stack);
+                return 'Exception: ' + exception.stack;
             } else {
-                console.log(
-                    '\n\nr2dec has crashed (info: ' + r2pipe.string('i~^file[1:0]') + ' @ ' + r2pipe.string('s') + ').\n' +
+                return '\n\nr2dec has crashed (info: ' + r2pipe.string('i~^file[1:0]') + ' @ ' + r2pipe.string('s') + ').\n' +
                     'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
                     'Use the option \'--issue\' or the command \'pddi\' to generate \n' +
-                    'the needed data for the issue.'
-                );
+                    'the needed data for the issue.';
             }
         }
     };

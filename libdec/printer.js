@@ -15,6 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
+/**
+ * Imports.
+ */
+const json64 = require('libdec/json64');
+
 (function() {
     function initializeColors() {
         const config = {};
@@ -197,6 +203,38 @@
     };
 
     /**
+     * Prints the final r2dec output
+     * @param useJSON - boolean whether to print as json
+     */
+    var _flush_output = function(lines, errors, log, useJSON) {
+        if (useJSON) {
+            var result = {};
+            if (lines && lines.length > 0) {
+                result.lines = lines;
+            }
+            if (errors && errors.length > 0) {
+                result.errors = errors;
+            }
+            if (log && log.length > 0) {
+                result.log = log;
+            }
+            console.log(json64.stringify(result));
+        } else {
+            if (lines && lines.length > 0) {
+                for (var i = 0; i < lines.length; i++) {
+                    console.log(lines[i].str);
+                }
+            }
+            if (errors && errors.length > 0) {
+                console.log(errors.join("\n"));
+            }
+            if (log && log.length > 0) {
+                console.log(log.join("\n"));
+            }
+        }
+    };
+
+    /**
      * Printer Object
      * @return {Function} - Printer object (to be called via `new Printer()`)
      */
@@ -205,5 +243,6 @@
         this.theme = _theme_colors;
         this.auto = _colorize_text;
         this.html = _htmlize;
+        this.flushOutput = _flush_output;
     };
 });
