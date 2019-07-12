@@ -175,7 +175,7 @@
                 graph: o.agj || [],
                 xrefs: {
                     symbols: o.isj || [],
-                    strings: o.Csj || [],
+                    strings: o.Csj || o.izj || [],
                     functions: o.aflj || [],
                     classes: o.icj || [],
                     arguments: offset_long(o.afvj) || {
