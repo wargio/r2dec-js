@@ -52,10 +52,10 @@
     };
 
     /*
-     * Expects the izj json as input.
+     * Expects the Csj json as input.
      */
-    return function(izj) {
-        this.data = izj.filter(_sanitize).map(function(x) {
+    return function(Csj) {
+        this.data = Csj.filter(_sanitize).map(function(x) {
             return {
                 location: Global.evars.honor.paddr ? x.paddr : x.vaddr || x.offset,
                 value: (new TextDecoder().decode(Duktape.dec('base64', x.string || x.name))).replace(/\\\\/g, '\\')

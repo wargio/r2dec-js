@@ -24,7 +24,7 @@ const json64 = require('libdec/json64');
 (function() {
     function initializeColors() {
         const config = {};
-        const colors = r2cmd? r2cmd("ec*"): '';
+        const colors = r2cmd ? r2cmd("ec*") : '';
         colors.split('\n').forEach(function(line) {
             const tok = line.split(' ');
             config[tok[1]] = tok[2];
@@ -61,54 +61,20 @@ const json64 = require('libdec/json64');
     var colortheme = defaulttheme;
 
     /**
-     * Color types (ansi, html, nocolor)
+     * Color types (ansi, nocolor)
      * @type {Object}
      */
     const Colors = {
         ansi: require('libdec/colors/ansi'),
-        html: require('libdec/colors/html'),
         text: require('libdec/colors/invalid'),
     };
 
     var _theme_colors = Colors.text.make(defaulttheme);
 
     /**
-     * HTML escape chars
-     * @type {Object}
-     */
-    const _html_basic = {
-        '<': '&lt;',
-        '>': '&gt;',
-        '&': '&amp;',
-        '"': '&quot;',
-        '\'': '&apos;',
-        ' ': '&nbsp;',
-        '\n': '</br>\n'
-    };
-
-    /**
-     * Escapes a given string chars to html ones.
-     * @param  {String} text - string to escape to html
-     * @return {String}      - escaped string
-     */
-    var _htmlize = function(text) {
-        if (!Global.evars.honor.html) {
-            return text;
-        }
-        var l = text.split(/([ <>&"'\n])/g);
-        for (var i = 0; i < l.length; i++) {
-            var value = _html_basic[l[i]];
-            if (value) {
-                l[i] = value;
-            }
-        }
-        return l.join('');
-    };
-
-    /**
      * Applies colors to the string given a certain regex
      * @param  {String} input - Input string
-     * @param  {String} type  - Color name (ansi, html, text)
+     * @param  {String} type  - Color name (ansi, text)
      * @param  {String} regex - Regex to apply
      * @return {String}       - Result string
      */
@@ -134,7 +100,7 @@ const json64 = require('libdec/json64');
     };
 
     /**
-     * Colorize the input string via ansi/html converters
+     * Colorize the input string via ansi converters
      * @param  {String} input - Input string
      * @return {String}       - Result string
      */
@@ -142,7 +108,7 @@ const json64 = require('libdec/json64');
         if (!input || input.length < 1) {
             return '';
         }
-        if (!Global.evars.honor.color && !Global.evars.honor.html) {
+        if (!Global.evars.honor.color) {
             return input;
         }
         /* control flow (if, else, while, do, etc..) */
@@ -189,13 +155,11 @@ const json64 = require('libdec/json64');
     };
 
     /**
-     * Applies all the colors options (theme/colors/html).
+     * Applies all the colors options (theme/colors).
      */
     var _set_options = function() {
         _themefy(Global.evars.extra.theme);
-        if (Global.evars.honor.color && Global.evars.honor.html) {
-            _theme_colors = Colors.html.make(colortheme);
-        } else if (Global.evars.honor.color) {
+        if (Global.evars.honor.color) {
             _theme_colors = Colors.ansi.make(colortheme);
         } else {
             _theme_colors = Colors.text.make(colortheme);
@@ -242,7 +206,6 @@ const json64 = require('libdec/json64');
         _set_options();
         this.theme = _theme_colors;
         this.auto = _colorize_text;
-        this.html = _htmlize;
         this.flushOutput = _flush_output;
     };
 });

@@ -166,16 +166,15 @@
          * @return {string}                     - Identation including eventual string to be printed.
          */
         this.identfy = function(size_no_colors, string_to_print, disable_identation) {
-            var h = Global.printer.html;
-            var ident = disable_identation ? '' : h(this.ident);
+            var ident = disable_identation ? '' : this.ident;
             if (Global.evars.honor.assembly && !Global.evars.honor.blocks) {
                 string_to_print = string_to_print || '';
                 size_no_colors = size_no_colors || 0;
-                return h('    ') + string_to_print + this.identAsm.substring(size_no_colors, this.identAsm.length) + h(' | ') + ident;
+                return '    ' + string_to_print + this.identAsm.substring(size_no_colors, this.identAsm.length) + ' | ' + ident;
             } else if (Global.evars.honor.offsets && !Global.evars.honor.blocks) {
                 string_to_print = string_to_print || '';
                 size_no_colors = size_no_colors || 0;
-                return h('    ') + string_to_print + this.identAsm.substring(size_no_colors, 14) + h(' | ') + ident;
+                return '    ' + string_to_print + this.identAsm.substring(size_no_colors, 14) + ' | ' + ident;
             }
             return ident;
         };

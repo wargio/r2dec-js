@@ -46,13 +46,12 @@
                     var type = this.returns.replace(/###/g, this.bits);
                     var args = this.args.replace(/###/g, this.bits);
                     var a = Global.printer.auto;
-                    var h = Global.printer.html;
                     var t = Global.printer.theme;
-                    Global.context.printLine(Global.context.identfy() + t.types(type) + h(' ') + t.callname(call) + h(' (') + args + h(' ) {'));
+                    Global.context.printLine(Global.context.identfy() + t.types(type) + ' ' + t.callname(call) + ' (' + args + ' ) {');
                     for (var i = 0; i < this.data.length; i++) {
                         Global.context.printLine(Global.context.identfy() + a(this.data[i].replace(/###/g, this.bits)));
                     }
-                    Global.context.printLine(Global.context.identfy() + h('}'));
+                    Global.context.printLine(Global.context.identfy() + '}');
                 };
             }
         },
@@ -77,13 +76,12 @@
                     var type = this.returns.replace(/###/g, this.bits);
                     var args = this.args.replace(/###/g, this.bits);
                     var a = Global.printer.auto;
-                    var h = Global.printer.html;
                     var t = Global.printer.theme;
-                    Global.context.printLine(Global.context.identfy() + t.types(type) + h(' ') + t.callname(call) + h(' (') + args + h(' ) {'));
+                    Global.context.printLine(Global.context.identfy() + t.types(type) + ' ' + t.callname(call) + ' (' + args + ' ) {');
                     for (var i = 0; i < this.data.length; i++) {
                         Global.context.printLine(Global.context.identfy() + a(this.data[i].replace(/###/g, this.bits)));
                     }
-                    Global.context.printLine(Global.context.identfy() + h('}'));
+                    Global.context.printLine(Global.context.identfy() + '}');
                 };
             }
         },

@@ -69,7 +69,6 @@
         "--casts": "shows all casts in the pseudo code",
         "--colors": "enables syntax colors",
         "--debug": "do not catch exceptions",
-        "--html": "outputs html data instead of text",
         "--issue": "generates the json used for the test suite",
         "--offsets": "shows pseudo next to the assembly offset",
         "--paddr": "all xrefs uses physical addresses instead of virtual addresses",
@@ -116,7 +115,7 @@
             '","archbits":' + archbits +
             ',"agj":' + data +
             ',"isj":' + xrefs +
-            ',"izj":' + strings +
+            ',"Csj":' + strings +
             ',"icj":' + classes +
             ',"afvj":' + farguments +
             ',"afcfj":' + database +
@@ -147,7 +146,6 @@
                 xrefs: false,
                 paddr: false,
                 pseudo: false,
-                html: false,
                 offsets: false,
             };
             this.extra = {
@@ -177,7 +175,7 @@
                 graph: o.agj || [],
                 xrefs: {
                     symbols: o.isj || [],
-                    strings: o.izj || [],
+                    strings: o.Csj || [],
                     functions: o.aflj || [],
                     classes: o.icj || [],
                     arguments: offset_long(o.afvj) || {
@@ -199,13 +197,13 @@
                 xrefs: r2pipe.bool('e r2dec.xrefs') || has_option(args, '--xrefs'),
                 paddr: r2pipe.bool('e r2dec.paddr') || has_option(args, '--paddr'),
                 offsets: has_option(args, '--offsets'),
-                html: r2pipe.bool('e scr.html') || has_option(args, '--html'),
                 color: r2pipe.int('e scr.color', 0) > 0 || has_option(args, '--colors')
             };
             this.sanitize = {
                 ucase: r2pipe.bool('e asm.ucase'),
                 pseudo: r2pipe.bool('e asm.pseudo'),
                 capitalize: r2pipe.bool('e asm.capitalize'),
+                html: r2pipe.bool('e scr.html'),
             };
             this.extra = {
                 theme: r2pipe.string('e r2dec.theme'),
@@ -235,7 +233,6 @@
             if (this.extra.ascomment || this.extra.ascodeline) {
                 this.honor.assembly = false;
                 this.honor.color = false;
-                this.honor.html = false;
                 this.honor.blocks = false;
             }
         },
@@ -262,6 +259,7 @@
             r2dec_sanitize(enable, 'asm.ucase', s.ucase, 'false');
             r2dec_sanitize(enable, 'asm.pseudo', s.pseudo, 'false');
             r2dec_sanitize(enable, 'asm.capitalize', s.capitalize, 'false');
+            r2dec_sanitize(enable, 'scr.html', s.html, 'false');
         },
         debug: function(evars, exception) {
             r2util.sanitize(false, evars);
