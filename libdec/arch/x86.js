@@ -913,7 +913,7 @@
             }
         }
 
-        if (callname.startsWith('0x')) {
+        if (callname.startsWith('0x') || (!callname.startsWith('imp.') && callsite.mem_access)) {
             callname = Variable.functionPointer(callname, callsite.mem_access, args);
         } else if (is_pointer || (!callsite.mem_access && _x86_x64_registers.indexOf(callname) > (-1))) {
             callname = Variable.functionPointer(callname, 0, args);
