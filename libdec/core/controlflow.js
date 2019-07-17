@@ -204,6 +204,13 @@
                     context.addLabel(label);
                 }
                 instruction.code = Base.goto(label);
+            } else if (instruction.code.composed) {
+                label = context.findLabel(instruction.jump);
+                if (!label) {
+                    label = Variable.newLabel(instruction.jump);
+                    context.addLabel(label);
+                }
+                instruction.code.composed.push(Base.goto(label));
             }
             return true;
         }

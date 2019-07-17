@@ -189,6 +189,32 @@
     };
 
     /**
+     * Returns any instruction which a jump is pointing to.
+     * @param {Object} instr Instruction instance to check
+     * @param {Array<Object>} instructions Array of all instructions in the enclosing function
+     * @returns {object} Returns the instruction that is pointed or null
+     */
+    var _get_jump_instruction = function(instr, instructions) {
+        var i, current = instructions.indexOf(instr);
+        if (instr.jump && instr.location.eq(instr.jump)) {
+            return instr;
+        } else if (instr.jump && instr.location.lt(instr.jump)) {
+            for (i = current + 1; i < instructions.length; i++) {
+                if (instructions[i].location.eq(instr.jump)) {
+                    return instructions[i];
+                }
+            }
+        } else if (instr.jump && instr.location.gt(instr.jump)) {
+            for (i = 0; i < current; i++) {
+                if (instructions[i].location.eq(instr.jump)) {
+                    return instructions[i];
+                }
+            }
+        }
+        return null;
+    };
+
+    /**
      * Determines the size (in bits) of a given register name.
      * @param {string} reg Register name
      * @returns {!number}
@@ -688,7 +714,7 @@
         });
     };
 
-    var _call_function = function(instr, context, instrs, is_pointer) {
+    var _call_function = function(instr, context, instrs, is_pointer, cannot_return) {
         var start = instrs.indexOf(instr);
         var i, j;
         // indicates the function call return type (if used)
@@ -932,11 +958,10 @@
         }
 
         // if return value is used, assign it. otherwise just emit the call
-        if (returnval) {
+        if (returnval && !cannot_return) {
             return Base.assign(returnval, call);
-        } else {
-            return call;
         }
+        return call;
     };
 
     var _standard_mov = function(instr, context, instructions) {
@@ -1437,6 +1462,13 @@
                     }
                 } else if (_is_last_instruction(instr, instructions) && dst.token.startsWith('sym.')) {
                     return Base.call(dst.token);
+                }
+
+                var ijmp = _get_jump_instruction(instr, instructions);
+                if (ijmp && ijmp.parsed.mnem == 'call' && instructions[instructions.indexOf(ijmp) - 1].parsed.mnem == 'push') {
+                    instr.parsed = ijmp.parsed;
+                    var r = _call_function(instr, context, instructions, false, true);
+                    return r ? Base.composed([r]) : null;
                 }
 
                 var ref = dst.token.split(' ');
