@@ -1044,11 +1044,21 @@
         var lhand = p.opd[0];
         var rhand = p.opd[1];
 
+        var counter = {
+            16: 'cx',
+            32: 'ecx',
+            64: 'rcx'
+        }[Global.evars.archbits];
+
         // scasd eax, dword es:[edi]
         // cmpsd dword [esi], dword ptr es:[edi]
         // lodsd eax, dword [esi]
         // stosd dword es:[edi], eax
         // movsd dword es:[edi], dword ptr [esi]
+
+        if (p.mnem == "stosd") {
+            return Base.call('memset', [lhand.token.replace(/\w+:/, ''), rhand.token, counter]);
+        }
 
         var reciept = {
             'lods': [lhand, rhand, [rhand]],
@@ -1071,12 +1081,6 @@
         var incdec = dflag ?
             Base.decrease :
             Base.increase;
-
-        var counter = {
-            16: 'cx',
-            32: 'ecx',
-            64: 'rcx'
-        }[Global.evars.archbits];
 
         // possible prefixes:
         //  o rep
