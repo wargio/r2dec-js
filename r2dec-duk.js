@@ -191,7 +191,6 @@ var load_r2_evars = function(ns) {
 
 /** Javascript entrypoint */
 function r2dec_main(args) {
-
     try {
         var iIj = Global.r2cmdj('iIj');
 
@@ -232,19 +231,50 @@ function r2dec_main(args) {
                 ssa_ctx = ssa.rename_derefs();
                 analyzer.ssa_step(ssa_ctx);
 
+                // DEBUG
+                func.basic_blocks.forEach(function(bb) {
+                    // TODO: this is calculated recursively; use memoization to reduce complexity
+                    bb.live_ranges = ssa.find_live_ranges(bb);
+                });
+
+                ssa.preserved_locations();
+
                 analyzer.ssa_done(func, ssa_ctx);
-                Optimizer.run(ssa_ctx, config['opt']);
+
+                // Optimizer.run(ssa_ctx, config['opt']);
 
                 // console.log(ssa_ctx.toString());
-                // ssa.validate();
+                ssa.validate();
 
                 // ssa.transform_out();
 
                 // TODO:
-                //  - x86: add uninit stack locations for function arguments [cdecl]
-                //  - x86: add uninit registers for function arguments [amd64]
-                //  - x86: add sp0 def
-                //  - make stack var objects before propagating sp0 to tell stack locations from plain pointers
+                // + find restored locations
+                // + adjust returns
+                //
+                // - resolve fcall parameters
+                //
+                // o rename func regs arguments
+                // o rename func stack arguments
+                // o tag arguments
+                //
+                // + prune unused registers
+                // o prune restored locations
+                // o prune unused fcall rregs
+                //
+                // o rename stack variables
+                // o tag stack variables
+                //
+                // o prune unused stack locations
+                //
+                // o propagate registers
+                // o propagate fcall arguments
+                //
+                // o rename local variables?
+                //
+                // o remove ssa form
+                //
+                // o control flow
 
                 var cflow = new ControlFlow(func);
                 cflow.fallthroughs();
