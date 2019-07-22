@@ -10,7 +10,7 @@ First of all when you need to add a new architecture, you need to create a new `
 
 For example `libdec/arch/arch9999.js` and it needs to follow the minimal base javascript template:
 ```js
-module.exports = (function() {
+(function() {
     const Base = require('libdec/core/base');
     const Variable = require('libdec/core/variable');
     const Extra = require('libdec/core/extra');
@@ -48,7 +48,7 @@ module.exports = (function() {
             return 'void';
         }
     };
-})();
+});
 ```
 After saving the new arch (`arch9999.js` in the example), you need to add this arch to the file `libdec/Archs.js`.
 
@@ -56,13 +56,13 @@ The new architecture needs to have the same name as the cmd `e asm.arch`, becaus
 
 For example:
 ```js
-module.exports = (function() {
+(function() {
     return {
         arm: require('libdec/arch/arm'),
         arch9999: require('libdec/arch/arch9999'),
         x86: require('libdec/arch/x86')
     };
-})();
+});
 ```
 
 ## Codebase:
