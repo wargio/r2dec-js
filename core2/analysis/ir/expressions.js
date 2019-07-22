@@ -834,6 +834,7 @@
         UExpr:  UExpr,
         BExpr:  BExpr,
         TExpr:  TExpr,
+        Expr:   Expr,
 
         // ssa phi expression
         Phi:    Phi,

@@ -187,7 +187,7 @@ module.exports = (function() {
         /** @const {Array.<Array.<string>>} */
         this.archregs = archregs;
 
-        /** @const {Object.<string,number} */
+        /** @const {Object.<string,number>} */
         this.lookup = lookup;
 
         this.handlers = [
@@ -214,6 +214,10 @@ module.exports = (function() {
 
             // wrap each generated assignment with a statement
             return assingments.map(function(expr) {
+                // overalpping assignments add artificial definitions. those definitions are tagged
+                // here to let later analysis distinct them from genuine ones
+                expr.operands[0].weak = true;
+
                 return Stmt.make_statement(addr, expr);
             });
         }

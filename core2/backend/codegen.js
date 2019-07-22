@@ -103,6 +103,7 @@ module.exports = (function() {
     };
 
     function CodeGen(ecj, resolver, conf) {
+        // TODO: do not use colors if 'scr.color' is set to 0
         this.palette = new ThemePalette(ecj);
         this.xrefs = resolver;
 
@@ -158,16 +159,16 @@ module.exports = (function() {
             );
         };
 
-        // emit a list delimited by a comma
-        var _emit_list = function(arr) {
+        // emit a list of expressions delimited by a comma
+        var _emit_expr_list = function(exprs) {
             var elements = [];
 
-            if (arr.length > 0) {
-                Array.prototype.push.apply(elements, arr[0]);
+            if (exprs.length > 0) {
+                Array.prototype.push.apply(elements, this.emit_expression(exprs[0]));
 
-                for (var i = 1; i < arr.length; i++) {
+                for (var i = 1; i < exprs.length; i++) {
                     Array.prototype.push.apply(elements, [[TOK_PUNCT, ','], SPACE]);
-                    Array.prototype.push.apply(elements, arr[i]);
+                    Array.prototype.push.apply(elements, this.emit_expression(exprs[i]));
                 }
             }
 
@@ -175,6 +176,8 @@ module.exports = (function() {
         };
 
         if (expr instanceof Expr.Val) {
+            // TODO: this causes even pointer displacements to be attempted for resolving.
+            // need to find a better way to filter what needs to be resolved (derefs and fcall args..?)
             var str = this.xrefs.resolve_data(expr);
             
             if (str) {
@@ -308,10 +311,18 @@ module.exports = (function() {
         }
 
         else if (expr instanceof Expr.Call) {
-            var args = expr.operands.map(this.emit_expression, this);
-            var fname = this.xrefs.resolve_fname(expr.operator) || expr.operator;
+            var args = expr.operands;
+            var fname = expr.operator;
 
-            return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_list(args));
+            // calling indirectly or through relocation table
+            if (fname instanceof Expr.Deref) {
+                fname = fname.operands[0];
+            }
+
+            // attempt to resolve function name; fallback to called expression
+            fname = this.xrefs.resolve_fname(fname) || expr.operator;
+
+            return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_expr_list.call(this, args));
         }
 
         else if (expr instanceof Expr.TCond) {
@@ -454,7 +465,8 @@ module.exports = (function() {
      * @param {boolean} stripped Strip off curly braces
      */
     CodeGen.prototype.emit_scope = function(cntr, depth, stripped) {
-        console.assert(cntr);
+        if (!cntr) { return; }
+        // console.assert(cntr);
 
         const INDENT = [TOK_WHTSPCE, this.pad(depth)];
 
