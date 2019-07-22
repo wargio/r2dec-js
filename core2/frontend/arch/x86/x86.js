@@ -21,7 +21,7 @@ module.exports = (function() {
     const Stmt = require('core2/analysis/ir/statements');
 
     /** @constructor */
-    function x86(nbits, btype, endianess) {
+    function x86(nbits, btype) {
 
         /** @type {number} */
         this.bits = nbits.toInt();
@@ -29,43 +29,43 @@ module.exports = (function() {
         /** @type {string} */
         this.bintype = btype;
 
-        /** @type {string} */
-        this.endianess = endianess;
-
-        /** @type {string} */
-        this.FRAME_REG = {
+        /** System frame pointer */
+        this.FRAME_REG = new Expr.Reg({
             16: 'bp',
             32: 'ebp',
             64: 'rbp'
-        }[nbits];
+        }[nbits], this.bits);
 
-        /** @type {string} */
-        this.RESULT_REG = {
+        /** System result register */
+        this.RESULT_REG = new Expr.Reg({
             16: 'ax',
             32: 'eax',
             64: 'rax'
-        }[nbits];
+        }[nbits], this.bits);
 
-        /** @type {string} */
-        this.STACK_REG = {
+        /** System stack pointer */
+        this.STACK_REG = new Expr.Reg({
             16: 'sp',
             32: 'esp',
             64: 'rsp'
-        }[nbits];
+        }[nbits], this.bits);
 
-        /** @type {string} */
-        this.PC_REG = {
+        /** System program counter */
+        this.PC_REG = new Expr.Reg({
             16: 'ip',
             32: 'eip',
             64: 'rip'
-        }[nbits];
+        }[nbits], this.bits);
 
-        /** @type {string} */
-        this.FLAGS_REG = {
+        /** System flags register */
+        this.FLAGS_REG = new Expr.Reg({
             16: 'flags',
             32: 'eflags',
             64: 'rflags'
-        }[nbits];
+        }[nbits], this.bits);
+
+        /** Address size value */
+        this.ASIZE_VAL = new Expr.Val(this.bits / 8, this.bits);
 
         this.instructions = {
             // basic
@@ -183,54 +183,6 @@ module.exports = (function() {
     }
 
     /**
-     * Get a copy of the system frame pointer.
-     * @returns {Expr.Reg}
-     */
-    x86.prototype.get_frame_reg = function() {
-        return new Expr.Reg(this.FRAME_REG, this.bits);
-    };
-
-    /**
-     * Get a copy of the system function result register.
-     * @returns {Expr.Reg}
-     */
-    x86.prototype.get_result_reg = function() {
-        return new Expr.Reg(this.RESULT_REG, this.bits);
-    };
-
-    /**
-     * Get a copy of the system stack pointer.
-     * @returns {Expr.Reg}
-     */
-    x86.prototype.get_stack_reg = function() {
-        return new Expr.Reg(this.STACK_REG, this.bits);
-    };
-
-    /**
-     * Get a copy of the system program counter register.
-     * @returns {Expr.Reg}
-     */
-    x86.prototype.get_pc_reg = function() {
-        return new Expr.Reg(this.PC_REG, this.bits);
-    };
-
-    /**
-     * Get a copy of the system [pseudo] flags register.
-     * @returns {Expr.Reg}
-     */
-    x86.prototype.get_flags_reg = function() {
-        return new Expr.Reg(this.FLAGS_REG, this.bits);
-    };
-
-    /**
-     * Get a copy of the system native address size value.
-     * @returns {Expr.Val}
-     */
-    x86.prototype.get_asize_val = function() {
-        return new Expr.Val(this.bits / 8, this.bits);
-    };
-
-    /**
      * Create an Assign expression to system flags
      * @param {string} f Flag token to modify
      * @param {number} bval Either 0 or 1
@@ -241,27 +193,13 @@ module.exports = (function() {
     };
 
     x86.prototype.eval_flags = function(expr, flist) {
-        var flreg = this.get_flags_reg();
-        var e = [new Expr.Assign(flreg, expr.clone())];
+        var flreg = this.FLAGS_REG;
+        var e = [new Expr.Assign(flreg.clone(), expr.clone())];
 
         return e.concat(flist.map(function(f) {
             return new Expr.Assign(Flags.Flag(f), Flags.FlagOp(f, flreg.clone()));
         }));
     };
-
-    /*
-    x86.prototype.get_implicit_vars = function(afij) {
-        const sreg = this.get_stack_reg();
-
-        var max_val = {
-            16: Expr.Val.MAX_VAL16,
-            32: Expr.Val.MAX_VAL32,
-            64: Expr.Val.MAX_VAL64
-        }[sreg.size];
-
-        return new Expr.Assign(sreg, new Expr.And(max_val, new Expr.Val(~(16 - 1), max_val.size)));
-    };
-    */
 
     /**
      * List of possible instruction prefixes.
@@ -438,6 +376,32 @@ module.exports = (function() {
         }
 
         return expr;
+    };
+
+    x86.prototype.is_stack_reg = function(expr) {
+        return this.STACK_REG.equals_no_idx(expr);
+    };
+
+    x86.prototype.is_aligned_stack_var = function(expr) {
+        if (expr instanceof Expr.And) {
+            var lhand = expr.operands[0];
+            var rhand = expr.operands[1];
+
+            return (rhand instanceof Expr.Val) && (this.is_stack_reg(lhand) || this.is_stack_var(lhand));
+        }
+
+        return false;
+    };
+
+    x86.prototype.is_stack_var = function(expr) {
+        if ((expr instanceof Expr.Sub) || (expr instanceof Expr.Add)) {
+            var lhand = expr.operands[0];
+            var rhand = expr.operands[1];
+
+            return (rhand instanceof Expr.Val) && (this.is_stack_reg(lhand) || this.is_aligned_stack_var(lhand));
+        }
+
+        return false;
     };
 
     // ---------- common handlers ----------//
@@ -662,33 +626,33 @@ module.exports = (function() {
 
     var _push = function(p) {
         var expr = get_operand_expr(p.operands[0]);
-        var sreg = this.get_stack_reg();
-        var asize = this.get_asize_val();
+        var sreg = this.STACK_REG;
+        var asize = this.ASIZE_VAL;
 
         // rsp = rsp - asize
         // *rsp = expr
         return [
-            new Expr.Assign(sreg.clone(), new Expr.Sub(sreg.clone(), asize)),
-            new Expr.Assign(new Expr.Deref(sreg), expr)
+            new Expr.Assign(sreg.clone(), new Expr.Sub(sreg.clone(), asize.clone())),
+            new Expr.Assign(new Expr.Deref(sreg.clone()), expr)
         ];
     };
 
     var _pop = function(p) {
         var expr = get_operand_expr(p.operands[0]);
-        var sreg = this.get_stack_reg();
-        var asize = this.get_asize_val();
+        var sreg = this.STACK_REG;
+        var asize = this.ASIZE_VAL;
 
         // expr = *rsp
         // rsp = rsp + asize
         return [
             new Expr.Assign(expr, new Expr.Deref(sreg.clone())),
-            new Expr.Assign(sreg, new Expr.Add(sreg.clone(), asize))
+            new Expr.Assign(sreg.clone(), new Expr.Add(sreg.clone(), asize.clone()))
         ];
     };
 
     var _pushad = function(p) {
-        var sreg = this.get_stack_reg();
-        var asize = this.get_asize_val();
+        var sreg = this.STACK_REG;
+        var asize = this.ASIZE_VAL;
 
         var push_step = function(r) {
             return [
@@ -712,8 +676,8 @@ module.exports = (function() {
     };
 
     var _popad = function(p) {
-        var sreg = this.get_stack_reg();
-        var asize = this.get_asize_val();
+        var sreg = this.STACK_REG;
+        var asize = this.ASIZE_VAL;
 
         var pop_step = function(r) {
             return Array.prototype.concat(
@@ -749,36 +713,32 @@ module.exports = (function() {
     };
 
     var _leave = function(p) {
-        var freg = this.get_frame_reg();
-        var sreg = this.get_stack_reg();
-        var asize = this.get_asize_val();
+        var freg = this.FRAME_REG;
+        var sreg = this.STACK_REG;
+        var asize = this.ASIZE_VAL;
 
         // rsp = rbp
         // rbp = *rsp
         // rsp = rsp + asize
         return [
-            new Expr.Assign(sreg, freg),
+            new Expr.Assign(sreg.clone(), freg.clone()),
             new Expr.Assign(freg.clone(), new Expr.Deref(sreg.clone())),
-            new Expr.Assign(sreg.clone(), new Expr.Add(sreg.clone(), asize))
+            new Expr.Assign(sreg.clone(), new Expr.Add(sreg.clone(), asize.clone()))
         ];
     };
 
     var _call = function(p) {
         var args = [];
         var callee = get_operand_expr(p.operands[0]);
-        var rreg = this.get_result_reg();
+        var rreg = this.RESULT_REG;
 
         // the function call arguments list will be populated later on, according to calling convention
-        return [new Expr.Assign(rreg, new Expr.Call(callee, args))];
+        return [new Expr.Assign(rreg.clone(), new Expr.Call(callee, args))];
     };
 
     var _ret = function(p) {
-        // a function might need to clean up a few bytes from the stack as it returns
-        var cleanup = p.operands.length > 0 ?
-            [new Expr.Add(this.get_stack_reg(), get_operand_expr(p.operands[0]))] :
-            [];
-
-        return [new Stmt.Return(p.address, this.get_result_reg())].concat(cleanup);
+        // stack unwinding value [e.g. "ret 8"] is safely ignored
+        return [new Stmt.Return(p.address, this.RESULT_REG.clone())];
     };
 
     // bitwise operations
