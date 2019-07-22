@@ -17,6 +17,7 @@
 
 module.exports = (function() {
     const Expr = require('core2/analysis/ir/expressions');
+    const Simplify = require('core2/analysis/ir/simplify');
 
     function CallConv(arch) {
         this.cconvs = {
@@ -44,43 +45,71 @@ module.exports = (function() {
     // --------------------------------------------------
 
     function CConvCdecl(arch) {
-        this.arch_stack_reg = arch.get_stack_reg();
-        this.arch_asize_val = arch.get_asize_val();
+        this.arch = arch;
     }
 
-    var scale = function(vexpr, scalar) {
-        return new Expr.Val(vexpr.value.mul(scalar), vexpr.size);
+    var _parent_stmt_address = function(expr) {
+        return expr.parent_stmt().address;
     };
 
-    var cdecl_get_nargs = function(setup, sreg) {
-        var nargs = 0;
+    // XXX: 'lt' is not correct, since 'before' and 'after' relations should be determined
+    // by control flow graph rather than the address
+    var _is_defined_by = function(range, address) {
+        return _parent_stmt_address(range[0]).lt(address);
+    };
 
-        setup.forEach(function(expr) {
-            if (expr instanceof Expr.Assign) {
-                var lhand = expr.operands[0];
-                var rhand = expr.operands[1];
+    // XXX: see remark above
+    var _is_alive_by = function(range, address) {
+        return (range[1] === null) || _parent_stmt_address(range[1]).lt(address);
+    };
 
-                // reached an assignment to a stack location; that is probably an argument for the upcoming function call
-                if ((lhand instanceof Expr.Deref) && lhand.iter_operands(true)[0].equals(sreg)) {
-                    nargs++;
-                }
+    var _get_live_defs_by = function(ranges, address) {
+        return ranges.filter(function(rng) {
+            return _is_defined_by(rng, address) && _is_alive_by(rng, address);
+        }).map(function(rng) {
+            return rng[0];
+        // }).sort(function(a, b) {
+        //     var a_addr = a.parent_stmt().address;
+        //     var b_addr = b.parent_stmt().address;
+        //
+        //     return a_addr.compare(b_addr);
+        });
+    };
 
-                // reached a stack pointer adjustment, this is most likely a cleanup after a function call. start over
-                else if (lhand.equals(sreg) && (rhand instanceof Expr.Add) && rhand.operands[0].equals(sreg)) {
-                    nargs = 0;
+    CConvCdecl.prototype.get_args_expr = function(fcall, live_ranges) {
+        var top_of_stack = null;
+        var args = [];
+
+        var live_by_fcall = _get_live_defs_by(live_ranges, _parent_stmt_address(fcall));
+
+        for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
+            var def = live_by_fcall[i];
+
+            if (def instanceof Expr.Deref) {
+                var deref_op = def.operands[0];
+
+                if (this.arch.is_stack_reg(deref_op) || this.arch.is_stack_var(deref_op)) {
+                    if (!top_of_stack) {
+                        top_of_stack = def.clone(['def', 'idx']);
+                    }
+
+                    if (def.equals_no_idx(top_of_stack)) {
+                        var arg = def.clone(['def', 'idx']);
+
+                        // register arg as a new user
+                        arg.def = def;
+                        def.uses.push(arg);
+
+                        args.push(arg);
+
+                        top_of_stack = new Expr.Deref(new Expr.Add(top_of_stack.operands[0], this.arch.ASIZE_VAL.clone()));
+                        Simplify.reduce_expr(top_of_stack);
+                    } else {
+                        // no more args
+                        break;
+                    }
                 }
             }
-        });
-
-        return nargs;
-    };
-
-    CConvCdecl.prototype.get_args_expr = function(setup) {
-        var nargs = cdecl_get_nargs(setup, this.arch_stack_reg);
-        var args = new Array(nargs);
-
-        for (var j = 0; j < nargs; j++) {
-            args[j] = new Expr.Deref(new Expr.Add(this.arch_stack_reg.clone(), scale(this.arch_asize_val, j)));
         }
 
         return args;
@@ -110,9 +139,33 @@ module.exports = (function() {
         ];
     }
 
-    CConvAmd64.prototype.get_args_expr = function(setup) {
+    var _parent_def = function(expr) {
+        for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
+            if (p instanceof Expr.Assign) {
+                return p.operands[0];
+            }
+        }
+
+        return null;
+    };
+
+    var _is_weak_use = function(expr) {
+        var def = _parent_def(expr);
+
+        return def && (def instanceof Expr.Reg) && (def.weak);
+    };
+
+    CConvAmd64.prototype.get_args_expr = function(fcall, live_ranges) {
         var args = this.arg_regs64.slice();
         var nargs = 0;
+
+        var fcall_address = _parent_stmt_address(fcall);
+
+        var live_by_fcall = live_ranges.filter(function(rng) {
+            return _is_defined_by(rng, fcall_address) && ((rng[1] !== null) && _is_weak_use(rng[1]));
+        }).map(function(rng) {
+            return rng[0];
+        });
 
         // as opposed to arguments passed on the stack, arguments passed on registers are
         // not necessarily assigned in their natural order; in some cases, they may not be
@@ -121,27 +174,30 @@ module.exports = (function() {
         // here we look for assignments to arguments registers and will set `nargs` to be the
         // latest index of an argument register, regardless of the order they are set in code.
         //
-        // for example: if a setup block contains two assignments: to "rdx" and then "edi",
+        // for example: if a setup contains two assignments: to "rdx" and then "edi",
         // `nargs` will be set to 3 since "edx" comes later on the arguments list of this
         // calling convension and it is the 3rd one. this is regardless of the actual
         // assignment order and the fact that "rsi" was not assigned at all (it is assumed to
         // be passed directly).
 
-        setup.forEach(function(expr) {
-            if (expr instanceof Expr.Assign) {
-                var lhand = expr.operands[0];
+        for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
+            var def = live_by_fcall[i];
 
-                // reached an assignment to an argument register; that is probably an argument for the upcoming function call
-                for (var i = 0; i < this.arg_regs64.length; i++) {
-                    if (lhand.equals(this.arg_regs64[i]) ||
-                        lhand.equals(this.arg_regs32[i])) {
-                        args[i] = lhand.clone();
+            for (var j = 0; j < this.arg_regs64.length; j++) {
+                if (def.equals_no_idx(this.arg_regs64[j]) ||
+                    def.equals_no_idx(this.arg_regs32[j])) {
+                    var arg = def.clone(['idx', 'def']);
 
-                        nargs = Math.max(nargs, i);
-                    }
+                    // register arg as a new user
+                    arg.def = def;
+                    def.uses.push(arg);
+
+                    args[j] = arg;
+
+                    nargs = Math.max(nargs, j);
                 }
             }
-        }, this);
+        }
 
         return args.slice(0, nargs + 1);
     };
