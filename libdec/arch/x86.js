@@ -996,6 +996,10 @@
         } else if (_is_stack_reg(dst.token) || _is_frame_reg(dst.token)) {
             return null;
         } else {
+            if (src.token.startsWith('str.') && !instr.string) {
+                var sref = Long.fromString(x86x64.parse(instr.simplified).opd[1].token, true);
+                instr.string = Global.xrefs.find_string(sref);
+            }
             if (prev && prev.parsed.mnem == instr.parsed.mnem &&
                 prev.parsed.opd[0].token == src.token &&
                 !prev.parsed.opd[0].mem_access && !src.mem_access) {

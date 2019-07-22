@@ -231,7 +231,7 @@
         } else {
             unsigned = !!unsigned;
         }
-        radix = radix || 10;
+        radix = radix || str.startsWith('0x') ? 16 : 10;
         if (radix < 2 || 36 < radix) {
             throw RangeError('radix');
         }
