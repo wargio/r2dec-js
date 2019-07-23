@@ -1122,8 +1122,8 @@
             ret: function(instr, context, instructions) {
                 var start = instructions.indexOf(instr);
                 var returnval = null;
-                if (instructions[start - 1].parsed.opd[1] == 'x0') {
-                    returnval = 'x0';
+                if (['r0', 'w0', 'x0'].indexOf(instructions[start - 1].parsed.opd[0]) >= 0) {
+                    returnval = instructions[start - 1].parsed.opd[0];
                 } else if (context.markers[instr.marker]) {
                     if (context.markers[instr.marker]['r0'] && context.markers[instr.marker]['r0'].instr.valid) {
                         //context.markers[instr.marker]['r0'].instr.valid = false;
