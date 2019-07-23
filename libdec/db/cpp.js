@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
 
     const _known_cpp_data = {
         'std::basic_stringstream<char,std::char_traits<char>,std::allocator<char>>::basic_stringstream': 'std::stringstream ',

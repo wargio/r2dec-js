@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
 
     const Variable = require('libdec/core/variable');
     const Base = require('libdec/core/base');
@@ -489,8 +489,6 @@
             } else if (nextinstr.parsed.mnem.startsWith('bl') && args.length > 0) {
                 return Global.evars.archbits > 32 ? 'x0' : 'r0';
             }
-        } else if (nextinstr && nextinstr.parsed.mnem.startsWith('bl') && args.length > 0) {
-            return Global.evars.archbits > 32 ? 'x0' : 'r0';
         }
     }
 
@@ -501,7 +499,7 @@
         var args = [];
         var current = instructions.indexOf(instr);
         var regnum = 3;
-        var varargs;
+        var varargs, i;
         var callee = instr.callee;
 
 
@@ -532,7 +530,7 @@
                         delete marker[reg];
                         return ret;
                     }
-                    for (var i = subslice.length - 1; i >= 0; i--) {
+                    for (i = subslice.length - 1; i >= 0; i--) {
                         if (subslice[i].parsed.mnem.startsWith('b') || subslice[i].jump) {
                             break;
                         }
@@ -551,8 +549,8 @@
                             }
                             if (marker && marker[opd2]) {
                                 marker[opd2].instr.valid = false;
-                                bits = Global.evars.archbits > 32 ? 64 : 32;
-                                vtype = marker[opd2].instr.parsed.mnem.startsWith('ld') ? 'pointer' : 'local';
+                                //bits = Global.evars.archbits > 32 ? 64 : 32;
+                                //vtype = marker[opd2].instr.parsed.mnem.startsWith('ld') ? 'pointer' : 'local';
                                 ret = marker[opd2].instr.string || marker[opd2].instr.klass;
                                 if (ret) {
                                     return ret;
@@ -641,7 +639,7 @@
             } else if (known_args_n > 0) {
                 regnum = known_args_n - 1;
             }
-            var i, op, reg, reg32, reg64, start, arg0 = null;
+            var op, reg, reg32, reg64, start, arg0 = null;
             start = current;
             for (i = start - 1; i >= 0 && (regnum >= 0 || varargs); i--) {
                 op = instructions[i].parsed.mnem;

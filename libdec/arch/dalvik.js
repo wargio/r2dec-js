@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
 	const Long = require('libdec/long');
 	const Base = require('libdec/core/base');
 	const Variable = require('libdec/core/variable');
@@ -568,7 +568,7 @@
 						if (ref && ref.type == DalvikType.NewArray) {
 							type = Extra.replace.object(_get_type(ref.instr.parsed.opd[2]));
 						}
-						dst = Variable.globalPointer(varname, type, true, reference || instr.parsed.opd[1]);
+						dst = Variable.globalPointer(varname, type, true, instr.parsed.opd[1]);
 					} else {
 						dst = Variable.local(reference);
 					}

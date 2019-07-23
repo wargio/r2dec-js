@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
     const _syscall_table = {
         '10': {
             arch: 'x86',

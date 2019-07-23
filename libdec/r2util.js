@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
     const r2pipe = require('libdec/r2pipe');
     const _JSON = require('libdec/json64');
     const Long = require('libdec/long');

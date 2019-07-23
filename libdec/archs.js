@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
 	return {
 		arm: require('libdec/arch/arm'),
 		avr: require('libdec/arch/avr'),

@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
 
     var Instruction = require('libdec/core/instruction');
     var Base = require('libdec/core/base');

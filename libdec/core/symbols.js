@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
     const Long = require('libdec/long');
     const r2pipe = require('libdec/r2pipe');
     const Utils = require('libdec/core/utils');
