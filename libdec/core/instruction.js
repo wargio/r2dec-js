@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
     const Long = require('libdec/long');
     const Condition = require('libdec/core/condition');
     const Extra = require('libdec/core/extra');

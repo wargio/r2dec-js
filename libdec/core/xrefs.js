@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
     var XReference = function(strings, symbols, classes) {
         this.db_strings = strings;
         this.db_symbols = symbols;

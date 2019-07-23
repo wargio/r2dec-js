@@ -16,7 +16,7 @@
  */
 
 /* https://www.ibm.com/developerworks/systems/library/es-archguide-v2.html */
-(function() {
+(function() { // lgtm [js/useless-expression]
     var Base = require('libdec/core/base');
     var Variable = require('libdec/core/variable');
     var Long = require('libdec/long');

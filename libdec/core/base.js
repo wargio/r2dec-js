@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
     const Cpp = require('libdec/db/cpp');
     const CCalls = require('libdec/db/c_calls');
 

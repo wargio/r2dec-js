@@ -25,7 +25,7 @@
  */
 
 
-(function() {
+(function() { // lgtm [js/useless-expression]
     const _call_common = require('libdec/db/macros');
     const Long = require('libdec/long');
 

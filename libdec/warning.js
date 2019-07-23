@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-(function() {
+(function() { // lgtm [js/useless-expression]
 	return function(message) {
 		if (typeof message == 'string') {
 			message = "[!] " + message;

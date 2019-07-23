@@ -16,12 +16,13 @@
  */
 
 
-/**
- * Imports.
- */
-const json64 = require('libdec/json64');
 
-(function() {
+(function() { // lgtm [js/useless-expression]
+    /**
+     * Imports.
+     */
+    const json64 = require('libdec/json64');
+
     function initializeColors() {
         const config = {};
         const colors = r2cmd ? r2cmd("ec*") : '';

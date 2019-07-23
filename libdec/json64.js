@@ -1,7 +1,7 @@
 
 const Long = require('libdec/long');
 
-(function() {
+(function() { // lgtm [js/useless-expression]
     var json_parse = function(options) {
         "use strict";
         var Long = require('libdec/long');
