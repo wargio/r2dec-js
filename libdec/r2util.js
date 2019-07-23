@@ -227,7 +227,7 @@
                     return;
                 }
                 var line = __line_cnt++;
-                r2cmd('"CL 0x' + offset.toString(16) + ' r2dec.c:' + line + ' ' + comment.replace(/"/g, '\\"') + ';"');
+                r2cmd('"CL 0x' + offset.toString(16) + ' r2dec.c:' + line + ' ' + comment.replace(/\n/g, '; ').replace(/\\/g, '\\\\').replace(/"/g, '\\"') + ';"');
             };
 
             if (this.extra.ascomment || this.extra.ascodeline) {
