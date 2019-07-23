@@ -1,4 +1,7 @@
-[![Build Status](https://travis-ci.org/wargio/r2dec-js.svg?branch=master)](https://travis-ci.org/wargio/r2dec-js) [![CodeFactor](https://www.codefactor.io/repository/github/wargio/r2dec-js/badge)](https://www.codefactor.io/repository/github/wargio/r2dec-js)
+[![Build Status](https://travis-ci.org/wargio/r2dec-js.svg?branch=master)](https://travis-ci.org/wargio/r2dec-js)
+[![CodeFactor](https://www.codefactor.io/repository/github/wargio/r2dec-js/badge)](https://www.codefactor.io/repository/github/wargio/r2dec-js)
+[![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/wargio/r2dec-js.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/wargio/r2dec-js/context:javascript)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/wargio/r2dec-js.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/wargio/r2dec-js/alerts/)
 
 r2dec
 =====
