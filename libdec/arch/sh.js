@@ -125,7 +125,7 @@
             mov: _op_move,
             mova: _op_move,
             movt: function(instr, context, instructions) {
-                instr.opd[0].token = _carry;
+                instr.parsed.opd[0].token = _carry;
                 return _op_move(instr);
             },
             swap: function(instr, context, instructions) {
