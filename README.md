@@ -103,6 +103,7 @@ e scr.color         | enables syntax colors.
     m68k (experimental)
     mips
     ppc 32/64 bit (VLE included)
+    superh (experimental)
     sparc
     v850
     wasm (experimental)
