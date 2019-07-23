@@ -471,7 +471,7 @@
                             (\(\w+\s\w+\)) A + B value
                               |
                                 (-)?  Pre-decrement
-                                \w+   register
+                                ([\w._]+) register
                                 (\+)? Post-increment
                         )
                     )
@@ -484,14 +484,14 @@
                             (\(\w+\s\w+\)) A + B value
                               |
                                 (-)?  Pre-decrement
-                                (\w+) register
+                                ([\w._]+) register
                                 (\+)? Post-increment
                         )
                     )
                   )?
                 $
             */
-            var tokens = assembly.match(/^(\w+)\.?([wlb])?([sn])?\/?(hi|eq|hs|pl|pz|str)? ?(((@)?((\(\w+\s\w+\))|(-)?(\w+)(\+)?)))? ?(((@)?((\(\w+\s\w+\))|(-)?(\w+)(\+)?)))?$/);
+            var tokens = assembly.match(/^(\w+)\.?([wlb])?([sn])?\/?(hi|eq|hs|pl|pz|str)? ?(((@)?((\(\w+\s\w+\))|(-)?([\w._]+)(\+)?)))? ?(((@)?((\(\w+\s\w+\))|(-)?([\w._]+)(\+)?)))?$/);
             var mnem = tokens[1];
             var size = _size_map[tokens[2]];
             var delayed = tokens[3] == 's';
