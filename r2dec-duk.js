@@ -91,7 +91,7 @@ function r2dec_main(args) {
                 var current = r2pipe.string('s');
                 var functions = r2pipe.json64('aflj');
                 functions.forEach(function(x) {
-                    if (x.name.startsWith('sym.imp.')) {
+                    if (x.name.startsWith('sym.imp.') || x.name.startsWith('loc.imp.')) {
                         return;
                     }
                     r2pipe.string('s 0x' + x.offset.toString(16));
