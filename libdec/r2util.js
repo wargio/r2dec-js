@@ -64,6 +64,7 @@
     var padding = '            ';
     var usages = {
         "--help": "this help message",
+        "--all-functions": "decompile all functions",
         "--assembly": "shows pseudo next to the assembly",
         "--blocks": "shows only scopes blocks",
         "--casts": "shows all casts in the pseudo code",
@@ -154,6 +155,7 @@
                 offset: Long.ZERO,
                 ascomment: false,
                 ascodeline: false,
+                allfuncs: false,
                 debug: true,
                 slow: true
             };
@@ -211,6 +213,7 @@
                 offset: r2pipe.long('s'),
                 ascomment: has_option(args, '--as-comment'),
                 ascodeline: has_option(args, '--as-code-line'),
+                allfunctions: has_option(args, '--all-functions'),
                 json: has_option(args, '--as-json'),
                 debug: r2pipe.bool('e r2dec.debug') || has_option(args, '--debug'),
                 slow: r2pipe.bool('e r2dec.slow')
@@ -232,8 +235,19 @@
 
             if (this.extra.ascomment || this.extra.ascodeline) {
                 this.honor.assembly = false;
-                this.honor.color = false;
                 this.honor.blocks = false;
+                this.honor.offsets = false;
+                this.extra.json = false;
+                this.honor.color = false;
+            }
+
+            if (this.extra.allfunctions) {
+                this.extra.ascomment = false;
+                this.extra.ascodeline = false;
+                this.honor.assembly = false;
+                this.honor.blocks = false;
+                this.honor.offsets = false;
+                this.extra.json = false;
             }
         },
         data: function() {

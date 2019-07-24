@@ -1,9 +1,4 @@
-/* radare - LGPL - Copyright 2018 - pancake, deroad */
-#if 0
-gcc -o core_test.so -fPIC `pkg-config --cflags --libs r_core` core_test.c -shared
-mkdir -p ~/.config/radare2/plugins
-mv core_test.so ~/.config/radare2/plugins
-#endif
+/* radare - LGPL - Copyright 2018,2019 - pancake, deroad */
 
 #include <stdlib.h>
 #include <string.h>
@@ -171,6 +166,7 @@ static void usage(const RCore* const core) {
 		"pddb",	"",        "decompile current function but show only scopes",
 		"pddo",	"",        "decompile current function side by side with offsets",
 		"pddj", "",        "decompile current function as json",
+		"pddf", "",        "decompile all functions",
 		"pddu",	"",        "upgrade r2dec via r2pm",
 		"pdds", " branch", "switch r2dec branch",
 		"pddi",	"",        "generate issue data",
@@ -236,7 +232,7 @@ static void _cmd_pdd(RCore *core, const char *input) {
 		duk_r2dec (core, "--assembly");
 		break;
 	case 'o':
-		// --assembly
+		// --offsets
 		duk_r2dec (core, "--offsets");
 		break;
 	case 'b':
@@ -244,8 +240,11 @@ static void _cmd_pdd(RCore *core, const char *input) {
 		duk_r2dec (core, "--blocks");
 		break;
 	case 'c':
-		// --blocks
+		// --as-code-line
 		duk_r2dec (core, "--as-code-line");
+		break;
+	case 'f':
+		duk_r2dec (core, "--all-functions");
 		break;
 	case '*':
 		// --as-comment
@@ -293,11 +292,13 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_core_autocomplete_add (core->autocomplete, "pdda", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddb", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddc", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pddf", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pdds", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (pdd, "--as-comment", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--all-functions", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--as-code-line", R_CORE_AUTOCMPLT_OPTN, true);
+	r_core_autocomplete_add (pdd, "--as-comment", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--assembly", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--blocks", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdd, "--casts", R_CORE_AUTOCMPLT_OPTN, true);
