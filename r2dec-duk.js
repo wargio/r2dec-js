@@ -42,6 +42,26 @@ var Global = {
  */
 var libdec = require('libdec/libdec');
 var r2util = require('libdec/r2util');
+var r2pipe = require('libdec/r2pipe');
+
+function decompile_offset(architecture, fcnname) {
+    var data = new r2util.data();
+    Global.argdb = data.argdb;
+    // af seems to break renaming.
+    /* asm.pseudo breaks things.. */
+    if (data.graph && data.graph.length > 0) {
+        var p = new libdec.core.session(data, architecture);
+        var arch_context = architecture.context(data);
+        libdec.core.analysis.pre(p, architecture, arch_context);
+        libdec.core.decompile(p, architecture, arch_context);
+        libdec.core.analysis.post(p, architecture, arch_context);
+        libdec.core.print(p);
+    } else if (Global.evars.extra.allfunctions) {
+        Global.context.printLog('Error: Please analyze the ' + fcnname + ' first.', true);
+    } else {
+        Global.context.printLog('Error: no data available.\nPlease analyze the function/binary first.', true);
+    }
+}
 
 /**
  * r2dec main function.
@@ -52,7 +72,6 @@ function r2dec_main(args) {
     var lines = null;
     var errors = [];
     var log = [];
-    var useJSON = false;
     try {
         Global.evars = new r2util.evars(args);
         r2util.sanitize(true, Global.evars);
@@ -61,32 +80,44 @@ function r2dec_main(args) {
             return;
         }
 
-        useJSON = Global.evars.extra.json;
-
         // theme (requires to be initialized after evars)
         Global.printer = new Printer();
 
         var architecture = libdec.archs[Global.evars.arch];
 
         if (architecture) {
-            var data = new r2util.data();
             Global.context = new libdec.context();
-            Global.argdb = data.argdb;
-            // af seems to break renaming.
-            /* asm.pseudo breaks things.. */
-            if (data.graph && data.graph.length > 0) {
-                var p = new libdec.core.session(data, architecture);
-                var arch_context = architecture.context(data);
-                libdec.core.analysis.pre(p, architecture, arch_context);
-                libdec.core.decompile(p, architecture, arch_context);
-                libdec.core.analysis.post(p, architecture, arch_context);
-                libdec.core.print(p);
+            if (Global.evars.extra.allfunctions) {
+                var current = r2pipe.string('s');
+                var functions = r2pipe.json64('aflj');
+                functions.forEach(function(x) {
+                    if (x.name.startsWith('sym.imp.') || x.name.startsWith('loc.imp.')) {
+                        return;
+                    }
+                    r2pipe.string('s 0x' + x.offset.toString(16));
+                    Global.context.printLine("");
+                    Global.context.printLine(Global.printer.theme.comment('/* name: ' + x.name + ' @ 0x' + x.offset.toString(16) + ' */'));
+                    decompile_offset(architecture, x.name);
+                });
+                r2pipe.string('s ' + current);
+                var o = Global.context;
+                Global.context = new libdec.context();
+                Global.context.macros = o.macros;
+                Global.context.dependencies = o.dependencies;
+                Global.context.printLine(Global.printer.theme.comment('/* r2dec pseudo code output */'));
+                Global.context.printLine(Global.printer.theme.comment('/* ' + Global.evars.extra.file + ' */'));
+                if (['java', 'dalvik'].indexOf(Global.evars.arch) < 0) {
+                    Global.context.printMacros(true);
+                    Global.context.printDependencies(true);
+                }
+                o.lines = Global.context.lines.concat(o.lines);
+                Global.context = o;
             } else {
-                Global.context.printLog('Error: no data available.\nPlease analyze the function/binary first.', true);
+                decompile_offset(architecture);
             }
-            lines = Global.context.lines;
             errors = errors.concat(Global.context.errors);
             log = log.concat(Global.context.log);
+            lines = Global.context.lines;
         } else {
             errors.push(Global.evars.arch + ' is not currently supported.\n' +
                 'Please open an enhancement issue at https://github.com/wargio/r2dec-js/issues\n' +
@@ -101,5 +132,5 @@ function r2dec_main(args) {
     if (!printer) {
         printer = new Printer();
     }
-    printer.flushOutput(lines, errors, log, useJSON);
+    printer.flushOutput(lines, errors, log, Global.evars.extra);
 }

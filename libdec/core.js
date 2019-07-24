@@ -123,14 +123,16 @@
             Global.context.printLog('[r2dec] new code lines applied for "' + session.routine_name + '".');
             return;
         }
-        var t = Global.printer.theme;
-        var asm_header = Global.evars.honor.offsets ? '' : '; assembly';
-        var details = '/* ' + Global.evars.extra.file + ' @ 0x' + Global.evars.extra.offset.toString(16) + ' */';
-        Global.context.printLine(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo code output */'));
-        Global.context.printLine(Global.context.identfy() + t.comment(details));
-        if (['java', 'dalvik'].indexOf(Global.evars.arch) < 0) {
-            Global.context.printMacros();
-            Global.context.printDependencies();
+        if (!Global.evars.extra.allfunctions) {
+            var t = Global.printer.theme;
+            var asm_header = Global.evars.honor.offsets ? '' : '; assembly';
+            var details = '/* ' + Global.evars.extra.file + ' @ 0x' + Global.evars.extra.offset.toString(16) + ' */';
+            Global.context.printLine(Global.context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo code output */'));
+            Global.context.printLine(Global.context.identfy() + t.comment(details));
+            if (['java', 'dalvik'].indexOf(Global.evars.arch) < 0) {
+                Global.context.printMacros();
+                Global.context.printDependencies();
+            }
         }
         session.print();
         while (Global.context.ident.length > 0) {

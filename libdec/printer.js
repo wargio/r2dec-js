@@ -171,8 +171,8 @@
      * Prints the final r2dec output
      * @param useJSON - boolean whether to print as json
      */
-    var _flush_output = function(lines, errors, log, useJSON) {
-        if (useJSON) {
+    var _flush_output = function(lines, errors, log, evars) {
+        if (evars.json) {
             var result = {};
             if (lines && lines.length > 0) {
                 result.lines = lines;
@@ -185,16 +185,17 @@
             }
             console.log(json64.stringify(result));
         } else {
+            var prefix = evars.allfunctions ? "// " : "";
             if (lines && lines.length > 0) {
                 for (var i = 0; i < lines.length; i++) {
                     console.log(lines[i].str);
                 }
             }
             if (errors && errors.length > 0) {
-                console.log(errors.join("\n"));
+                console.log(prefix + errors.join("\n").replace(/\n/g, '\n' + prefix));
             }
             if (log && log.length > 0) {
-                console.log(log.join("\n"));
+                console.log(prefix + log.join("\n").replace(/\n/g, '\n' + prefix));
             }
         }
     };
