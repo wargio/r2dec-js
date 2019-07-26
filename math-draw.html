@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!--
+  Copyright (c) 2019, Giovanni Dante Grazioli <deroad@libero.it>
+  All rights reserved.
+  
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+  
+  * Redistributions of source code must retain the above copyright notice, this
+    list of conditions and the following disclaimer.
+  * Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+  
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE.
+-->
+</head>
+<body>
+<canvas width="1500" height="1500" id="canvas" style="border: 1px solid black"></canvas>
+<script type="text/javascript">
+
+
+function drawall(varK, varZ, mult) {
+	mult = mult || 150;
+	var const_a = 1.0;
+	var const_b = 0.5;
+	var const_c = varK; //6.0;
+	var const_d = 1 / 3;
+	var const_e = varZ; //14;
+
+	function fun1(t) {
+		return (const_a * Math.cos(t)) + (const_b * Math.cos(const_c * t)) + (const_d * Math.sin(const_e * t));
+	}
+
+	function fun2(t) {
+		return (const_a * Math.sin(t)) + (const_b * Math.sin(const_c * t)) + (const_d * Math.cos(const_e * t));
+	}
+
+
+	function draw() {
+		var canvas = document.getElementById("canvas");
+		if (null == canvas || !canvas.getContext) return;
+
+		var axes = {},
+			ctx = canvas.getContext("2d");
+		axes.x0 = (canvas.width / 2); // x0 pixels from left to x=0
+		axes.y0 = (canvas.height / 2); // y0 pixels from top to y=0
+		axes.scale = 40; // 40 pixels from x=0 to x=1
+		axes.doNegativeX = true;
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		funGraph(ctx, axes, fun1, fun2, "rgb(0,0,0)", 15*1.4);
+	}
+
+	function point(x, y, ctx) {
+		ctx.beginPath();
+		//ctx.fillRect(x, y, 1, 1);
+		ctx.arc(x, y, 4, 0, 2 * Math.PI, true);
+		ctx.stroke();
+	}
+
+	function funGraph(ctx, axes, funcX, funcY, color, thick) {
+		var xx, yy, dx = 4,
+			x0 = axes.x0,
+			y0 = axes.y0,
+			scale = axes.scale;
+		var iMax = Math.round((ctx.canvas.width - x0) / dx);
+		var iMin = axes.doNegativeX ? Math.round(-x0 / dx) : 0;
+		ctx.lineWidth = thick;
+		ctx.strokeStyle = color;
+		ctx.fillStyle = color;
+
+		for (var i = iMin; i <= iMax; i += 0.001) {
+			px = Math.floor(funcX(i) * mult)
+			py = Math.floor(funcY(i) * mult)
+				//console.log(px, py)
+			point(x0 + px, y0 + py, ctx);
+		}
+	}
+	draw()
+}
+drawall(8, 13, 400)
+</script>
+</body>
+</html>
