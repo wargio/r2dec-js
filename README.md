@@ -2,7 +2,7 @@
 
 The symbol is derived from the following equation:
 
-![equation](https://latex.codecogs.com/gif.download?f%28t%29%20%3D%20e%5E%7Bit%7D%20+%20%5Cfrac%7B1%7D%7B2%7D%20e%5E%7B8it%7D%20+%20%5Cfrac%7Bi%7D%7B3%7D%20e%5E%7B13it%7D)
+![equation](https://latex.codecogs.com/gif.latex?f%28t%29%20%3D%20e%5E%7Bit%7D%20+%20%5Cfrac%7B1%7D%7B2%7D%20e%5E%7B8it%7D%20+%20%5Cfrac%7Bi%7D%7B3%7D%20e%5E%7B13it%7D)
 
 ```
     Copyright (c) 2019, Giovanni Dante Grazioli <deroad@libero.it>
