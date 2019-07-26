@@ -321,7 +321,7 @@
             'sltu': function(instr) {
                 var e = instr.parsed;
                 if (e.opd[2] == 'zero') {
-                    e.opd[2] == '0';
+                    e.opd[2] = '0';
                 }
                 var arg0 = Variable.local(e.opd[1], 32);
                 var arg1 = Variable.local(e.opd[2], 32);

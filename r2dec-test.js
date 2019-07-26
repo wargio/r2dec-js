@@ -46,7 +46,7 @@ const r2cmd = null;
  * r2dec main function.
  * @param  {String} filename - Issue filename to analyze (relative/fullpath)
  */
-function r2dec_main(filename) {
+function r2dec_main(filename) { // lgtm [js/unused-local-variable]
     try {
         // imports
         var Printer = require('libdec/printer');

@@ -114,7 +114,7 @@
                     this.data.push('                               ((n & 0x00ff0000) >>  8) | \\');
                     this.data.push('                               ((n & 0xff000000) >> 24)))');
                 } else {
-                    bits = 64;
+                    this.bits = 64;
                     this.data.push('#define SWAP64(val) ((uint64_t) (((val & 0x00000000000000ffull) << 56) | \\');
                     this.data.push('                                 ((val & 0x000000000000ff00ull) << 40) | \\');
                     this.data.push('                                 ((val & 0x0000000000ff0000ull) << 24) | \\');

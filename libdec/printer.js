@@ -82,10 +82,10 @@
     var _apply_regex = function(input, type, regex) {
         var x = input.split(regex);
         var p = input.match(regex);
+        var s = '';
         if (!p) {
             return s;
         }
-        var s = '';
         var i = 0;
         for (i = 0; i < p.length; i++) {
             if (p[i].length > 0) {

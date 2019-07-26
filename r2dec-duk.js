@@ -67,7 +67,7 @@ function decompile_offset(architecture, fcnname) {
  * r2dec main function.
  * @param  {Array} args - r2dec arguments to be used to configure the output.
  */
-function r2dec_main(args) {
+function r2dec_main(args) { // lgtm [js/unused-local-variable] 
     var Printer = require('libdec/printer');
     var lines = null;
     var errors = [];

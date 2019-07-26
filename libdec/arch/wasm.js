@@ -274,7 +274,7 @@
             lt: _conditional,
             le: _conditional,
             const: function(instr, context, instructions) {
-                var s = new StackVar('const ' + _type(instr), instr);
+                var s = StackVar('const ' + _type(instr), instr);
                 context.stack.push(s);
                 var num = parseInt(instr.parsed.opd[0]);
                 if (num > 1023) {

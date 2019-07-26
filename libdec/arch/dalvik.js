@@ -973,11 +973,9 @@
 		parse: function(assembly) {
 			const regex = /^([\w-]+)(\/?(from|high|range|jumbo|2addr|lit\d+)?(\d+)?(\s.+$)$)?(\s.+$)?$/;
 			var token = assembly.trim().replace(/^\+/, '').match(regex);
-			var operands;
-			var bits = 32;
+			var operands, bits, mnem;
 			var cast = false;
 			var args = [];
-			var mnem = 'illegal';
 			mnem = token[1] || token[0];
 			cast = token[3] ? true : false;
 			bits = token[4] ? parseInt(token[4]) : 32;

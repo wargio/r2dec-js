@@ -97,7 +97,7 @@
             return assign_stack;
         }
 
-        signed = signed || false;
+        //signed = signed || false;
         var e = instr.parsed.opd;
         var mem, arg;
         if (e[0] == 'lr') {

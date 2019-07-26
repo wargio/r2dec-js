@@ -1859,7 +1859,7 @@
         postanalisys: function(instructions, context) {
             /* simplifies any load address 32/64 bit */
             for (var i = 0; i < instructions.length; i++) {
-                i = _load_address_32_64(i, instructions, context);
+                i = _load_address_32_64(i, instructions);
             }
         },
         localvars: function(context) {

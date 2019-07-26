@@ -498,7 +498,7 @@
             return new _generic_method_call(object_this, function_name, function_arguments, method_separator, prefix, postfix);
         },
         objc_call: function(object_this, function_name, function_arguments) {
-            return new _generic_objc_call(object_this, function_name, function_arguments, null);
+            return new _generic_objc_call(object_this, function_name, function_arguments);
         },
         /* Object based langs */
         assign_to_object_field: function(destination, object, method_separator, field) {

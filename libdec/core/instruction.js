@@ -67,7 +67,6 @@
         }
         if (Global.evars.honor.offsets) {
             t = Global.printer.theme;
-            b = Global.printer.auto;
             addr = Extra.align_address(instr.location);
             if (instr.code && instr.code.composed) {
                 Global.context.printLine(Global.context.identfy(addr.length, t.integers(addr)) + instr.code.composed[0] + ';', instr.location);

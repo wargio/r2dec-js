@@ -715,7 +715,7 @@
     };
 
     var _call_function = function(instr, context, instrs, is_pointer, cannot_return) {
-        var start = instrs.indexOf(instr);
+        var call, start = instrs.indexOf(instr);
         var i, j;
         // indicates the function call return type (if used)
         var returnval = undefined;
@@ -945,7 +945,7 @@
             callname = Variable.functionPointer(callname, 0, args);
         }
 
-        var call = Base.call(callname, args);
+        call = Base.call(callname, args);
 
         if (tailcall) {
             // ControlFlow does not interpret well the specific case of a tail jmp through
@@ -1550,8 +1550,6 @@
                         var opd1 = instrs[i].parsed.opd[0];
 
                         if (mnem === 'push') {
-                            mnem = 'nop';
-
                             var value = instrs[i].string ?
                                 Variable.string(instrs[i].string) :
                                 opd1.token;
