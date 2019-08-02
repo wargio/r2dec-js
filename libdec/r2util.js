@@ -206,6 +206,7 @@
                 pseudo: r2pipe.bool('e asm.pseudo'),
                 capitalize: r2pipe.bool('e asm.capitalize'),
                 html: r2pipe.bool('e scr.html'),
+                syntax: r2pipe.bool('asm.syntax'),
             };
             this.extra = {
                 theme: r2pipe.string('e r2dec.theme'),
@@ -274,6 +275,9 @@
             r2dec_sanitize(enable, 'asm.pseudo', s.pseudo, 'false');
             r2dec_sanitize(enable, 'asm.capitalize', s.capitalize, 'false');
             r2dec_sanitize(enable, 'scr.html', s.html, 'false');
+            if (evars.arch == 'x86') {
+                r2dec_sanitize(enable, 'asm.syntax', s.syntax, 'intel');
+            }
         },
         debug: function(evars, exception) {
             r2util.sanitize(false, evars);
