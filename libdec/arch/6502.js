@@ -164,16 +164,16 @@
                 return Base.nop();
             },
             clc: function(instr, context) {
-                return Base.assign(_REG.carry, 0);
+                return Base.assign(_REG.carry, '0');
             },
             cld: function(instr, context) {
-                return Base.assign(_REG.decimal, 0);
+                return Base.assign(_REG.decimal, '0');
             },
             cli: function(instr, context) {
-                return Base.assign(_REG.interrupt, 0);
+                return Base.assign(_REG.interrupt, '0');
             },
             clv: function(instr, context) {
-                return Base.assign(_REG.overflow, 0);
+                return Base.assign(_REG.overflow, '0');
             },
             cmp: function(instr, context) {
                 instr.setBadJump();
