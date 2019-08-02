@@ -96,6 +96,7 @@ e scr.color         | enables syntax colors.
 
 # Supported Arch
 
+    6502 (experimental)
     arm 16/32/64 bit
     avr
     dalvik
