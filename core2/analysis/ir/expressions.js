@@ -201,7 +201,7 @@
      * @param {?Array.<string>} keep A list of object properties to preserve [optional]
      * @returns {!Register}
      */
-    Register.prototype.clone = function(keep) {
+    Register.prototype.clone = function(keep, omit_use) {
         // instantiating a new object using the ordinary constructor
         // ssa-related data is reset as a side effect
         var clone = new Register(this.name, this.size);
@@ -214,7 +214,7 @@
         }
 
         // register clone as a new use for its def
-        if (clone.def) {
+        if (!omit_use && clone.def) {
             clone.def.uses.push(clone);
         }
 
@@ -488,14 +488,15 @@
     /**
      * Generate a deep copy of `this`.
      * @param {?Array.<string>} keep A list of object properties to preserve [optional]
+     * @param {boolean} omit_use Whether the cloned instance should not be registered as a user of its def
      * @returns {!Expr}
      */
-    Expr.prototype.clone = function(keep) {
+    Expr.prototype.clone = function(keep, omit_use) {
         // create a shallow copy of this object; omitting the operands
         var clone = Object.create(this.constructor.prototype, { operands: { value: [], writable: true }});
 
         // calling this object's constructor with cloned operands, ssa-related data is reset as a side effect
-        this.constructor.apply(clone, this.operands.map(function(op) { return op.clone(keep); }));
+        this.constructor.apply(clone, this.operands.map(function(op) { return op.clone(keep, omit_use); }));
 
         // allow to preserve specific properties
         if (keep) {
@@ -505,7 +506,7 @@
         }
 
         // register clone as a new use for its def (if any)
-        if (clone.def) {
+        if (!omit_use && clone.def) {
             clone.def.uses.push(clone);
         }
 
