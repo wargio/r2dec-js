@@ -52,20 +52,39 @@ module.exports = (function() {
         return expr.parent_stmt().address;
     };
 
-    // XXX: 'lt' is not correct, since 'before' and 'after' relations should be determined
-    // by control flow graph rather than the address
+    // XXX: 'before' and 'after' relations should be determined by control flow graph rather than the address
+    //      perhaps better sort by address only those that are in the same block (others are already guaranteed
+    //      to be alive on entry)
     var _is_defined_by = function(range, address) {
         return _parent_stmt_address(range[0]).lt(address);
     };
 
-    // XXX: see remark above
-    var _is_alive_by = function(range, address) {
-        return (range[1] === null) || _parent_stmt_address(range[1]).lt(address);
+    var _parent_def = function(expr) {
+        for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
+            if (p instanceof Expr.Assign) {
+                return p.operands[0];
+            }
+        }
+
+        return null;
     };
 
-    var _get_live_defs_by = function(ranges, address) {
+    var _is_weak_use = function(expr) {
+        var def = _parent_def(expr);
+
+        return def && (def instanceof Expr.Reg) && (def.weak);
+    };
+
+    // XXX: see remark above
+    // check whether a range is alive by a specific address; if ignoring weak uses, then a range will be
+    // also considered alive if killed by a weak use
+    var _is_alive_by = function(range, address, ignore_weak_uses) {
+        return (range[1] === null) || _parent_stmt_address(range[1]).ge(address) || (ignore_weak_uses && _is_weak_use(range[1]));
+    };
+
+    var _get_live_defs_by = function(ranges, address, ignore_weak_uses) {
         return ranges.filter(function(rng) {
-            return _is_defined_by(rng, address) && _is_alive_by(rng, address);
+            return _is_defined_by(rng, address) && _is_alive_by(rng, address, ignore_weak_uses);
         }).map(function(rng) {
             return rng[0];
         // }).sort(function(a, b) {
@@ -80,7 +99,7 @@ module.exports = (function() {
         var top_of_stack = null;
         var args = [];
 
-        var live_by_fcall = _get_live_defs_by(live_ranges, _parent_stmt_address(fcall));
+        var live_by_fcall = _get_live_defs_by(live_ranges, _parent_stmt_address(fcall), false);
 
         for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
             var def = live_by_fcall[i];
@@ -90,7 +109,7 @@ module.exports = (function() {
 
                 if (this.arch.is_stack_reg(deref_op) || this.arch.is_stack_var(deref_op)) {
                     if (!top_of_stack) {
-                        top_of_stack = def.clone(['def', 'idx']);
+                        top_of_stack = def.clone(['def', 'idx'], true);
                     }
 
                     if (def.equals_no_idx(top_of_stack)) {
@@ -98,7 +117,7 @@ module.exports = (function() {
 
                         // register arg as a new user
                         arg.def = def;
-                        def.uses.push(arg);
+                        arg.def.uses.push(arg);
 
                         args.push(arg);
 
@@ -139,33 +158,11 @@ module.exports = (function() {
         ];
     }
 
-    var _parent_def = function(expr) {
-        for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
-            if (p instanceof Expr.Assign) {
-                return p.operands[0];
-            }
-        }
-
-        return null;
-    };
-
-    var _is_weak_use = function(expr) {
-        var def = _parent_def(expr);
-
-        return def && (def instanceof Expr.Reg) && (def.weak);
-    };
-
     CConvAmd64.prototype.get_args_expr = function(fcall, live_ranges) {
-        var args = this.arg_regs64.slice();
         var nargs = 0;
+        var args = this.arg_regs64.slice();
 
-        var fcall_address = _parent_stmt_address(fcall);
-
-        var live_by_fcall = live_ranges.filter(function(rng) {
-            return _is_defined_by(rng, fcall_address) && ((rng[1] !== null) && _is_weak_use(rng[1]));
-        }).map(function(rng) {
-            return rng[0];
-        });
+        var live_by_fcall = _get_live_defs_by(live_ranges, _parent_stmt_address(fcall), true);
 
         // as opposed to arguments passed on the stack, arguments passed on registers are
         // not necessarily assigned in their natural order; in some cases, they may not be
@@ -184,13 +181,12 @@ module.exports = (function() {
             var def = live_by_fcall[i];
 
             for (var j = 0; j < this.arg_regs64.length; j++) {
-                if (def.equals_no_idx(this.arg_regs64[j]) ||
-                    def.equals_no_idx(this.arg_regs32[j])) {
+                if ((def.equals_no_idx(this.arg_regs64[j]) || def.equals_no_idx(this.arg_regs32[j])) && !_is_weak_use(def)) {
                     var arg = def.clone(['idx', 'def']);
 
                     // register arg as a new user
                     arg.def = def;
-                    def.uses.push(arg);
+                    arg.def.uses.push(arg);
 
                     args[j] = arg;
 
@@ -199,6 +195,7 @@ module.exports = (function() {
             }
         }
 
+        // XXX: some elements of 'args' may be the default ones, i.e. with no ssa data
         return args.slice(0, nargs + 1);
     };
 

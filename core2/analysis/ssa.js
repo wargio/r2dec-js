@@ -24,12 +24,13 @@ module.exports = (function() {
      * Management object for SSA context.
      * @constructor
      */
-    function Context() {
+    function Context(ssa) {
+        this.func = ssa.func;
+        this.cfg = ssa.cfg;
+
         this.count = {};
         this.stack = {};
-
         this.defs = {};
-        this.live_defs = {};
 
         this.uninit = new Stmt.Container(0, []);
     }
@@ -115,6 +116,163 @@ module.exports = (function() {
         return eliminate.length > 0;
     };
 
+    Context.prototype.get_local_defs = function() {
+        var local_defs = {};
+
+        for (var d in this.defs) {
+            var def = this.defs[d];
+            var def_container = def.parent_stmt().parent;
+
+            if (!(def_container in local_defs)) {
+                local_defs[def_container] = [];
+            }
+
+            local_defs[def_container].push(def);
+        }
+
+        return local_defs;
+    };
+
+    Context.prototype.get_live_ranges = function(block) {
+        var local_defs = this.get_local_defs();
+
+        var _get_block_live_ranges = function(block, live_at_entry) {
+
+            var curr_container = block.container;
+            var live = Array.prototype.concat(live_at_entry, local_defs[curr_container] || []);
+
+            return live.map(function(def) {
+                var killing = def.uses.filter(function(use) {
+                    var use_container = use.parent_stmt().parent;
+
+                    return (use_container === curr_container);
+                });
+
+                var earliest = null;
+
+                // find the earliest expression that kills def (if any)
+                if (killing.length > 0) {
+                    earliest = killing.reduce(function(a, b) {
+                        var a_address = a.parent_stmt().address;
+                        var b_address = b.parent_stmt().address;
+
+                        return b_address.lt(a_address) ? b : a;
+                    }, killing[0]);
+                }
+
+                // definition and its earliest user; if no such user (null), it means this
+                // definition is still alive
+                return [def, earliest];
+            });
+        };
+
+        var _concat_no_dups = function(arrays) {
+            var unique = function(elem, i, arr) {
+                return arr.indexOf(elem) === i;
+            };
+
+            return Array.prototype.concat.apply([], arrays).filter(unique);
+        };
+
+        var visited_blocks = [];
+
+        var _ascend_cfg = function(curr) {
+            if (visited_blocks.indexOf(curr) !== (-1)) {
+                return [];
+            }
+
+            visited_blocks.push(curr);
+
+            // ascend cfg recursively: get predecessors' lives on exit
+            var live_at_entry;
+            var curr_block = node_to_block(this.func, curr);
+
+            if (curr_block === this.func.entry_block) {
+                live_at_entry = this.uninit.statements.map(function(stmt) {
+                    return stmt.expressions[0].operands[0];
+                });
+            } else {
+                var live_only = function(rng) {
+                    return (rng[1] === null);
+                };
+
+                // get definitions that have no killing users, i.e. are still alive
+                live_at_entry = _concat_no_dups(this.cfg.predecessors(curr).map(function(pred) {
+                    return _ascend_cfg.call(this, pred).filter(live_only).map(function(rng) {
+                        return rng[0];
+                    });
+                }, this));
+            }
+
+            return _get_block_live_ranges(curr_block, live_at_entry);
+        };
+
+        var live_ranges = _ascend_cfg.call(this, block_to_node(this.cfg, block));
+
+        // <DEBUG>
+        // console.log('live ranges for:', block.address.toString(16));
+        // live_ranges.forEach(function(rng) {
+        //     var s = rng[0].toString();
+        //     var info = rng[1] === null ? 'live' : 'killed at: ' + rng[1].parent_stmt().address.toString(16);
+        
+        //     console.log(' ', s + ' '.repeat(32 - s.length), '[', info, ']');
+        // });
+        // </DEBUG>
+
+        return live_ranges;
+    };
+
+    Context.prototype.validate = function() {
+        console.log('validating ssa context');
+
+        // iterate through all expressions in function:
+        // - if a definition: make sure it is registered in context defs
+        // - if a use: make sure it is attached to a valid definition, which in turn has it on its uses list
+        this.func.basic_blocks.forEach(function(blk) {
+            blk.container.statements.forEach(function(stmt) {
+                stmt.expressions.forEach(function(expr) {
+                    expr.iter_operands().forEach(function(op) {
+                        if ((op instanceof Expr.Reg) || (op instanceof Expr.Deref)) {
+                            if (op.is_def) {
+                                if (!(op in this.defs)) {
+                                    console.log('[!] missing def for:', op);
+                                    console.log('    parent statement:', op.parent_stmt());
+                                }
+                            } else {
+                                if (op.def === undefined) {
+                                    console.log('[!] use without an assigned def:', op);
+                                    console.log('    parent statement:', op.parent_stmt());
+                                } else {
+                                    if (op.def.uses.indexOf(op) === (-1)) {
+                                        console.log('[!] unregistered use:', op);
+                                        console.log('    parent statement:', op.parent_stmt());
+                                    }
+                                }
+                            }
+                        }
+                    }, this);
+                }, this);
+            }, this);
+        }, this);
+
+        // iterate through all definitions registered in context defs:
+        // - make sure there are no orphand definitions (i.e. pruned from function but not from context)
+        // - make sure all uses are attached appropriately to their definition
+        for (var d in this.defs) {
+            var v = this.defs[d];
+
+            if (v.parent_stmt() === undefined) {
+                console.log('[!] stale def:', v);
+            }
+
+            v.uses.forEach(function(u, i) {
+                if (!(u.def.equals(v))) {
+                    console.log('[!] stale use:', v, '[' + i + ']');
+                }
+            });
+        }
+    };
+
     Context.prototype.toString = function() {
         var _get_stmt_addr = function(expr) {
             var p = expr.parent_stmt();
@@ -146,7 +304,7 @@ module.exports = (function() {
         this.func = func;
         this.cfg = func.cfg();
         this.dom = new Graph.DominatorTree(this.cfg);
-        this.context = new Context();
+        this.context = new Context(this);
     }
 
     // iterate all statements in block and collect only defined names
@@ -519,10 +677,11 @@ module.exports = (function() {
         };
 
         var candidates = {};
+        var local_defs = this.context.get_local_defs();
 
-        console.log('preserved_locations:');
+        // console.log('preserved_locations:');
         this.func.exit_blocks.forEach(function(block) {
-            block.local_defs.forEach(function(def) {
+            local_defs[block.container].forEach(function(def) {
                 var origin = _get_origin(def);
 
                 if (origin && def.equals_no_idx(origin)) {
@@ -532,7 +691,7 @@ module.exports = (function() {
                         candidates[key] = [def, []];
                     }
 
-                    console.log(' ', 'origin:', origin, '|', 'restored:', def);
+                    // console.log(' ', 'origin:', origin, '|', 'restored:', def);
                     candidates[key][1].push(origin);
                 }
             });
@@ -554,168 +713,6 @@ module.exports = (function() {
         }
 
         return this.context.preserved = preserved;
-    };
-
-    SSA.prototype.find_live_ranges = function(block) {
-
-        var _refresh_local_defs = function(func, defs) {
-            var local_defs = {};
-
-            for (var d in defs) {
-                var def = defs[d];
-                var def_container = def.parent_stmt().parent;
-            
-                if (!(def_container in local_defs)) {
-                    local_defs[def_container] = [];
-                }
-
-                local_defs[def_container].push(def);
-            }
-
-            func.basic_blocks.forEach(function(block) {
-                block.local_defs = local_defs[block.container] || [];
-            });
-        };
-
-        var _get_block_live_ranges = function(block, live_at_entry) {
-
-            var live = Array.prototype.concat(live_at_entry, block.local_defs);
-            var curr_container = block.container;
-
-            return live.map(function(def) {
-                var killing = def.uses.filter(function(use) {
-                    var use_container = use.parent_stmt().parent;
-
-                    return (use_container === curr_container);
-                });
-
-                var earliest = null;
-
-                // find the earliest expression that kills def (if any)
-                if (killing.length > 0) {
-                    earliest = killing.reduce(function(a, b) {
-                        var a_address = a.parent_stmt().address;
-                        var b_address = b.parent_stmt().address;
-
-                        return b_address.lt(a_address) ? b : a;
-                    }, killing[0]);
-                }
-
-                // definition and its earliest user; if no such user (null), it means this
-                // definition is still alive
-                return [def, earliest];
-            });
-        };
-
-        var _concat_no_dups = function(arrays) {
-            var unique = function(elem, i, arr) {
-                return arr.indexOf(elem) === i;
-            };
-
-            return Array.prototype.concat.apply([], arrays).filter(unique);
-        };
-
-        var visited_blocks = [];
-
-        var _ascend_cfg = function(curr) {
-            if (visited_blocks.indexOf(curr) !== (-1)) {
-                return [];
-            }
-
-            visited_blocks.push(curr);
-
-            // ascend cfg recursively: get predecessors' lives on exit
-            var live_at_entry;
-            var curr_block = node_to_block(this.func, curr);
-
-            if (curr_block === this.func.entry_block) {
-                live_at_entry = this.context.uninit.statements.map(function(stmt) {
-                    return stmt.expressions[0].operands[0];
-                });
-            } else {
-                var live_only = function(rng) {
-                    return (rng[1] === null);
-                };
-
-                // get definitions that have no killing users, i.e. are still alive
-                live_at_entry = _concat_no_dups(this.cfg.predecessors(curr).map(function(pred) {
-                    return _ascend_cfg.call(this, pred).filter(live_only).map(function(rng) {
-                        return rng[0];
-                    });
-                }, this));
-            }
-
-            return _get_block_live_ranges(curr_block, live_at_entry);
-        };
-
-        _refresh_local_defs(this.func, this.context.defs);
-
-        var live_ranges = _ascend_cfg.call(this, block_to_node(this.cfg, block));
-
-        // <DEBUG>
-        // console.log('live ranges for:', block.address.toString(16));
-        // live_ranges.forEach(function(rng) {
-        //     var s = rng[0].toString();
-        //     var info = rng[1] === null ? 'live' : 'killed at: ' + rng[1].parent_stmt().address.toString(16);
-        // 
-        //     console.log(' ', s + ' '.repeat(32 - s.length), '[', info, ']');
-        // });
-        // </DEBUG>
-
-        return live_ranges;
-    };
-
-    SSA.prototype.validate = function() {
-        console.log('validating ssa');
-
-        var ctx = this.context;
-
-        // iterate through all expressions in function:
-        // - if a definition: make sure it is registered in context defs
-        // - if a use: make sure it is attached to a valid definition, which in turn has it on its uses list
-        this.func.basic_blocks.forEach(function(blk) {
-            blk.container.statements.forEach(function(stmt) {
-                stmt.expressions.forEach(function(expr) {
-                    expr.iter_operands().forEach(function(op) {
-                        if ((op instanceof Expr.Reg) || (op instanceof Expr.Deref)) {
-                            if (op.is_def) {
-                                if (!(op in ctx.defs)) {
-                                    console.log('[!] missing def for:', op);
-                                    console.log('    parent statement:', op.parent_stmt());
-                                }
-                            } else {
-                                if (op.def === undefined) {
-                                    console.log('[!] use without an assigned def:', op);
-                                    console.log('    parent statement:', op.parent_stmt());
-                                } else {
-                                    if (op.def.uses.indexOf(op) === (-1)) {
-                                        console.log('[!] unregistered use:', op);
-                                        console.log('    parent statement:', op.parent_stmt());
-                                    }
-                                }
-                            }
-                        }
-                    });
-                });
-            });
-        });
-
-        // iterate through all definitions registered in context defs:
-        // - make sure there are no orphand definitions (i.e. pruned from function but not from context)
-        // - make sure all uses are attached appropriately to their definition
-        for (var d in ctx.defs) {
-            var v = ctx.defs[d];
-
-            if (v.parent_stmt() === undefined) {
-                console.log('[!] stale def:', v);
-            }
-
-            v.uses.forEach(function(u, i) {
-                if (!(u.def.equals(v))) {
-                    console.log('[!] stale use:', v, '[' + i + ']');
-                }
-            });
-        }
     };
 
     SSA.prototype.transform_out = function() {

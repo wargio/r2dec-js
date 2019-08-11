@@ -52,36 +52,40 @@
         });
     };
 
-    var assign_fcall_args = function(func, arch) {
+    var assign_fcall_args = function(func, ctx, arch) {
         var cconv = new CallConv(arch);
 
         func.basic_blocks.forEach(function(block) {
-            // filter only function calls
-            var fcall_defs = block.local_defs.filter(function(def) {
-                return (def.parent.operands[1] instanceof Expr.Call);
-            });
+            block.container.statements.forEach(function(stmt) {
+                stmt.expressions.forEach(function(expr) {
 
-            fcall_defs.forEach(function(def) {
-                var fcall = def.parent.operands[1];
-                var callee = fcall.operator;
+                    // is a function call?
+                    if ((expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Call)) {
+                        var fcall = expr.operands[1];
+                        var callee = fcall.operator;
+        
+                        if (callee instanceof Expr.Deref) {
+                            callee = callee.operands[0];
+                        }
 
-                if (callee instanceof Expr.Deref) {
-                    callee = callee.operands[0];
-                }
+                        // process only direct calls with known destinations
+                        if (callee instanceof Expr.Val) {
+                            var ccname = Global.r2cmd('afc', '@', callee.value.toString());
+        
+                            if (!cconv.has(ccname)) {
+                                throw new Error('unsupported calling convention');
+                            }
 
-                // process only direct calls with known destinations
-                if (callee instanceof Expr.Val) {
-                    var ccname = Global.r2cmd('afc', '@', callee.value.toString());
+                            // live ranges should be refreshed as args are added to fcalls (i.e. defs are killed)
+                            // TODO: this is quite time consuming; a good candidate for an optimization
+                            var live_ranges = ctx.get_live_ranges(block);
 
-                    if (!cconv.has(ccname)) {
-                        throw new Error('unsupported calling convention');
+                            cconv.get(ccname).get_args_expr(fcall, live_ranges).forEach(function(arg) {
+                                fcall.push_operand(arg);
+                            });
+                        }
                     }
-
-                    // TODO: live ranges should be updated as args are added to fcalls (i.e. defs are killed)
-                    cconv.get(ccname).get_args_expr(fcall, block.live_ranges).forEach(function(arg) {
-                        fcall.push_operand(arg);
-                    });
-                }
+                });
             });
         });
     };
@@ -135,7 +139,7 @@
             var assignment = new Expr.Assign(ref, new Expr.AddrOf(arg));
 
             Simplify.reduce_expr(ref);
-            entry.unshift_stmt(Stmt.make_statement(0, assignment));
+            entry.unshift_stmt(Stmt.make_statement(new Expr.Val(0).value, assignment));
 
             console.log('', assignment.toString(16));
         });
@@ -291,8 +295,6 @@
             var restored = pair[0];
             var saved = pair[1];
 
-            console.log('saved:', saved, '|', 'restored:', restored);
-
             while (restored !== saved) {
                 var p = restored.parent;
 
@@ -380,9 +382,13 @@
                         }
                     }
 
-                    p.pluck(true);
+                    // unused stack dereferences cannot be removed just yet, as they may
+                    // serve as function call arguments
+                    if (!(def instanceof Expr.Deref)) {
+                        p.pluck(true);
 
-                    return true;
+                        return true;
+                    }
                 }
             }
 
@@ -442,7 +448,7 @@
 
         // generate assignments for overlapping register counterparts to maintain def-use correctness.
         // that generates a lot of redundant statements that eventually eliminated if remained unused
-        // gen_overlaps(func, this.ovlgen);
+        gen_overlaps(func, this.ovlgen);
     };
 
     Analyzer.prototype.ssa_step = function(context) {
@@ -451,19 +457,18 @@
     };
 
     Analyzer.prototype.ssa_done = function(func, context) {
-        // XXX: removing preserved locations invalidates local_defs and live ranges
-        // remove_preserved_loc(context);
+        remove_preserved_loc(context);
 
         transform_tailcalls(func);
 
         // analyze and assign function calls arguments
-        assign_fcall_args(func, this.arch);
+        assign_fcall_args(func, context, this.arch);
 
         // TODO: this should happen after propagating registers
         adjust_returns(func, this.arch);
 
         // cleanup_fcall_args(context, this.arch);
-        transform_flags(func, this.arch);
+        transform_flags(func);
     };
 
     return Analyzer;
