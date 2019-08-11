@@ -84,11 +84,7 @@ module.exports = (function() {
     ThemePalette.prototype.constructor = ThemePalette;
 
     var parenthesize = function(s) {
-        return Array.prototype.concat(
-            [[TOK_PAREN, '(']],
-            s,
-            [[TOK_PAREN, ')']]
-        );
+        return Array.prototype.concat([[TOK_PAREN, '(']], s, [[TOK_PAREN, ')']]);
     };
 
     var auto_paren = function(s) {
@@ -107,29 +103,49 @@ module.exports = (function() {
         this.palette = new ThemePalette(ecj);
         this.xrefs = resolver;
 
-        this.tabstop = conf.tabsize;
+        this.tabsize = conf.tabsize;
         this.scope_newline = conf.newline;
+        this.guide = conf.guides ? '\uffe8' : ' ';
 
-        // TODO: scope guidelines
+        // TODO: scope guidelines [see: http://unicode-search.net/unicode-namesearch.pl?term=VERTICAL]
+        //
+        //  o          '\u00a6', '\u205e', '\u22ee'
         //  o regular: '\u2506', '\u250a', '\u254e'
         //  o bold:    '\u2507', '\u250b', '\u254f'
     }
 
-    CodeGen.prototype.emit = function(tokens) {
-        var colorized = tokens.map(this.palette.colorize, this.palette);
+    // <DEBUG>
+    var array_toString = function(seq) {
+        var elems = seq.map(function(elem) {
+            return elem instanceof Array ? array_toString(elem) : elem && elem.toString();
+        }).join(', ');
 
-        return colorized.join('');
+        return '[' + elems + ']';
     };
+    // </DEBUG>
 
-    CodeGen.prototype.pad = function(depth) {
-        return ' '.repeat(this.tabstop).repeat(depth);
+    CodeGen.prototype.emit = function(lines) {
+        const INDENT = [TOK_WHTSPCE, ' '.repeat(this.tabsize)];
+
+        var colorized = lines.map(function(l) {
+            // return array_toString(l);
+
+            var addr = l[0];
+            var tokens = l[1];
+
+            tokens.unshift(INDENT);
+            tokens.unshift(addr);
+
+            return tokens.map(this.palette.colorize, this.palette).join('');
+        }, this);
+
+        return colorized.join('\n');
     };
 
     CodeGen.prototype.emit_expression = function(expr) {
-        // declare some frequently used tokens
-        const SPACE  = [TOK_WHTSPCE, ' '];
-        const RPAREN = [TOK_PAREN, '('];
-        const LPAREN = [TOK_PAREN, ')'];
+        const SPACE = [TOK_WHTSPCE, ' '];
+
+        var tname = Object.getPrototypeOf(expr).constructor.name;
 
         // emit a generic unary expression
         var _emit_uexpr = function(uexpr, op) {
@@ -172,14 +188,14 @@ module.exports = (function() {
                 }
             }
 
-            return Array.prototype.concat([RPAREN], elements, [LPAREN]);
+            return parenthesize(elements);
         };
 
         if (expr instanceof Expr.Val) {
             // TODO: this causes even pointer displacements to be attempted for resolving.
             // need to find a better way to filter what needs to be resolved (derefs and fcall args..?)
             var str = this.xrefs.resolve_data(expr);
-            
+
             if (str) {
                 return [[TOK_STRING, str]];
             }
@@ -192,122 +208,93 @@ module.exports = (function() {
             return [[TOK_VARNAME, expr.toString()]];
         }
 
-        else if (expr instanceof Expr.Assign) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+        else if (expr instanceof Expr.UExpr) {
+            var _uexpr_op = {
+                'Deref'  : [TOK_PUNCT, '*'],
+                'AddrOf' : [TOK_PUNCT, '&'],
+                'Not'    : [TOK_BITWISE, '~'],
+                'Neg'    : [TOK_BITWISE, '-'],
+                'BoolNot': [TOK_COMPARE, '!']
+            }[tname] || [TOK_INVALID, expr.operator];
 
-            // there are three special cases where assignments should be displayed diffreently:
-            //  x = x op y  -> x op= y
-            //  x = x + 1   -> x++
-            //  x = x - 1   -> x--
+            // <DEBUG>
+            if (expr instanceof Expr.Deref) {
+                return [[TOK_PUNCT, expr.toString()]];
+            }
+            // </DEBUG>
 
-            if (rhand instanceof Expr.BExpr) {
-                var inner_lhand = rhand.operands[0];
-                var inner_rhand = rhand.operands[1];
+            return _emit_uexpr.call(this, expr, _uexpr_op);
+        }
 
-                // "x = x op y"
-                if (lhand.equals(inner_lhand)) {
-                    // x = x +/- 1
-                    if (((rhand instanceof Expr.Add) || (rhand instanceof Expr.Sub)) && inner_rhand.equals(new Expr.Val(1, lhand.size))) {
-                        // "x++" / "x--"
+        else if (expr instanceof Expr.BExpr) {
+            var _bexpr_op = {
+                'Assign' : [TOK_ASSIGN, '='],
+                'Add'    : [TOK_ARITH, '+'],
+                'Sub'    : [TOK_ARITH, '-'],
+                'Mul'    : [TOK_ARITH, '*'],
+                'Div'    : [TOK_ARITH, '/'],
+                'Mod'    : [TOK_ARITH, '%'],
+                'And'    : [TOK_BITWISE, '&'],
+                'Or'     : [TOK_BITWISE, '|'],
+                'Xor'    : [TOK_BITWISE, '^'],
+                'Shl'    : [TOK_BITWISE, '<<'],
+                'Shr'    : [TOK_BITWISE, '>>'],
+                'EQ'     : [TOK_COMPARE, '=='],
+                'NE'     : [TOK_COMPARE, '!='],
+                'LT'     : [TOK_COMPARE, '<'],
+                'GT'     : [TOK_COMPARE, '>'],
+                'LE'     : [TOK_COMPARE, '<='],
+                'GE'     : [TOK_COMPARE, '>='],
+                'BoolAnd': [TOK_COMPARE, '&&'],
+                'BoolOr' : [TOK_COMPARE, '||']
+            }[tname] || [TOK_INVALID, expr.operator];
+
+            // check whether this is an assignment special case
+            if (expr instanceof Expr.Assign) {
+                var lhand = expr.operands[0];
+                var rhand = expr.operands[1];
+    
+                // there are three special cases where assignments should be displayed diffreently:
+                //  x = x op y  -> x op= y
+                //  x = x + 1   -> x++
+                //  x = x - 1   -> x--
+    
+                if (rhand instanceof Expr.BExpr) {
+                    var inner_lhand = rhand.operands[0];
+                    var inner_rhand = rhand.operands[1];
+    
+                    // "x = x op y"
+                    if (lhand.equals(inner_lhand)) {
+                        // x = x +/- 1
+                        if (((rhand instanceof Expr.Add) || (rhand instanceof Expr.Sub)) && inner_rhand.equals(new Expr.Val(1, lhand.size))) {
+                            // "x++" / "x--"
+                            return Array.prototype.concat(
+                                this.emit_expression(lhand),
+                                [[TOK_ARITH, rhand.operator.repeat(2)]]
+                            );
+                        }
+    
+                        // "x op= y"
                         return Array.prototype.concat(
                             this.emit_expression(lhand),
-                            [[TOK_ARITH, rhand.operator.repeat(2)]]
+                            [SPACE, [TOK_ASSIGN, rhand.operator + '='], SPACE],
+                            this.emit_expression(rhand.operands[1])
                         );
                     }
-
-                    // "x op= y"
-                    return Array.prototype.concat(
-                        this.emit_expression(lhand),
-                        [SPACE, [TOK_ASSIGN, rhand.operator + '='], SPACE],
-                        this.emit_expression(rhand.operands[1])
-                    );
                 }
+
+                // not a special case; stay with default token
             }
 
-            // not a special case
-            return _emit_bexpr.call(this, expr, [TOK_ASSIGN, '=']);
+            return _emit_bexpr.call(this, expr, _bexpr_op);
         }
 
-        else if (expr instanceof Expr.Deref) {
-            return [[TOK_PUNCT, expr.toString()]];
-            // return _emit_uexpr.call(this, expr, [TOK_PUNCT, '*']);
-        }
+        else if (expr instanceof Expr.TExpr) {
+            var _texpr_ops = {
+                'TCond': [[TOK_PUNCT, '?'], [TOK_PUNCT, ':']]
+            }[tname] || [[TOK_INVALID, expr.operator[0]], [TOK_INVALID, expr.operator[1]]];
 
-        else if (expr instanceof Expr.AddrOf) {
-            return _emit_uexpr.call(this, expr, [TOK_PUNCT, '&']);
-        }
-
-        else if (expr instanceof Expr.Not) {
-            return _emit_uexpr.call(this, expr, [TOK_BITWISE, '~']);
-        }
-
-        else if (expr instanceof Expr.Neg) {
-            return _emit_uexpr.call(this, expr, [TOK_BITWISE, '-']);
-        }
-
-        else if (expr instanceof Expr.Add) {
-            return _emit_bexpr.call(this, expr, [TOK_ARITH, '+']);
-        }
-
-        else if (expr instanceof Expr.Sub) {
-            return _emit_bexpr.call(this, expr, [TOK_ARITH, '-']);
-        }
-
-        else if (expr instanceof Expr.Mul) {
-            return _emit_bexpr.call(this, expr, [TOK_ARITH, '*']);
-        }
-
-        else if (expr instanceof Expr.Div) {
-            return _emit_bexpr.call(this, expr, [TOK_ARITH, '/']);
-        }
-
-        else if (expr instanceof Expr.Mod) {
-            return _emit_bexpr.call(this, expr, [TOK_ARITH, '%']);
-        }
-
-        else if (expr instanceof Expr.And) {
-            return _emit_bexpr.call(this, expr, [TOK_BITWISE, '&']);
-        }
-
-        else if (expr instanceof Expr.Or) {
-            return _emit_bexpr.call(this, expr, [TOK_BITWISE, '|']);
-        }
-
-        else if (expr instanceof Expr.Xor) {
-            return _emit_bexpr.call(this, expr, [TOK_BITWISE, '^']);
-        }
-
-        else if (expr instanceof Expr.Shl) {
-            return _emit_bexpr.call(this, expr, [TOK_BITWISE, '<<']);
-        }
-
-        else if (expr instanceof Expr.Shr) {
-            return _emit_bexpr.call(this, expr, [TOK_BITWISE, '>>']);
-        }
-
-        else if (expr instanceof Expr.EQ) {
-            return _emit_bexpr.call(this, expr, [TOK_COMPARE, '==']);
-        }
-
-        else if (expr instanceof Expr.NE) {
-            return _emit_bexpr.call(this, expr, [TOK_COMPARE, '!=']);
-        }
-
-        else if (expr instanceof Expr.LT) {
-            return _emit_bexpr.call(this, expr, [TOK_COMPARE, '<']);
-        }
-
-        else if (expr instanceof Expr.GT) {
-            return _emit_bexpr.call(this, expr, [TOK_COMPARE, '>']);
-        }
-
-        else if (expr instanceof Expr.LE) {
-            return _emit_bexpr.call(this, expr, [TOK_COMPARE, '<=']);
-        }
-
-        else if (expr instanceof Expr.GE) {
-            return _emit_bexpr.call(this, expr, [TOK_COMPARE, '>=']);
+            return _emit_texpr.call(this, expr, _texpr_ops[0], _texpr_ops[1]);
         }
 
         else if (expr instanceof Expr.Call) {
@@ -325,233 +312,186 @@ module.exports = (function() {
             return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_expr_list.call(this, args));
         }
 
-        else if (expr instanceof Expr.TCond) {
-            return _emit_texpr.call(this, expr, [TOK_PUNCT, '?'], [TOK_PUNCT, ':']);
-        }
-
-        else if (expr instanceof Expr.BoolAnd) {
-            return _emit_bexpr.call(this, expr, [TOK_COMPARE, '&&']);
-        }
-
-        else if (expr instanceof Expr.BoolOr) {
-            return _emit_bexpr.call(this, expr, [TOK_COMPARE, '||']);
-        }
-
-        else if (expr instanceof Expr.BoolNot) {
-            return _emit_uexpr.call(this, expr, [TOK_COMPARE, '!']);
-        }
-
-        // generic invalid uexpr
-        else if (expr instanceof Expr.UExpr) {
-            return _emit_uexpr.call(this, expr, [TOK_INVALID, expr.operator]);
-        }
-
-        // generic invalid bexpr
-        else if (expr instanceof Expr.BExpr) {
-            return _emit_bexpr.call(this, expr, [TOK_INVALID, expr.operator]);
-        }
-
         return [[TOK_INVALID, expr ? expr.toString() : expr]];
     };
 
     /**
      * Emit a statement with the appropriate indentation.
      * @param {!Stmt.Statement} stmt  Statement object to emit
-     * @param {number} depth Nesting level
      */
-    CodeGen.prototype.emit_statement = function(stmt, depth) {
-        const INDENT = [TOK_WHTSPCE, this.pad(depth)];
-        var tokens = [];
+    CodeGen.prototype.emit_statement = function(stmt) {
+        const SPACE = [TOK_WHTSPCE, ' '];
 
-        // <DEBUG>
-        tokens.push([TOK_OFFSET, '0x' + stmt.address.toString(16)]);
-        // </DEBUG>
+        var addr_str = '0x' + stmt.address.toString(16);
 
-        tokens.push(INDENT);
+        // a list of lists: each element in `lines` is a line of output made of list of tokens
+        var lines = [];
 
         // TODO: a Branch is meant to be replaced by an 'If'; it is here only for dev purpose
         if (stmt instanceof Stmt.Branch) {
-            Array.prototype.push.apply(tokens, [[TOK_KEYWORD, 'branch'], [TOK_WHTSPCE, ' ']]);
-            Array.prototype.push.apply(tokens, this.emit_expression(stmt.cond));
-            Array.prototype.push.apply(tokens, [[TOK_WHTSPCE, ' '], [TOK_PUNCT, '?'], [TOK_WHTSPCE, ' ']]);
-            Array.prototype.push.apply(tokens, this.emit_expression(stmt.taken));
-            Array.prototype.push.apply(tokens, [[TOK_WHTSPCE, ' '], [TOK_PUNCT, ':'], [TOK_WHTSPCE, ' ']]);
-            Array.prototype.push.apply(tokens, this.emit_expression(stmt.not_taken));
-            tokens.push([TOK_PUNCT, ';']);
+            lines.push(Array.prototype.concat(
+                [[TOK_KEYWORD, 'branch'], SPACE],
+                this.emit_expression(stmt.cond),
+                [SPACE, [TOK_PUNCT, '?'], SPACE],
+                this.emit_expression(stmt.taken),
+                [SPACE, [TOK_PUNCT, ':'], SPACE],
+                this.emit_expression(stmt.not_taken),
+                [[TOK_PUNCT, ';']]));
         }
 
         else if (stmt instanceof Stmt.Break) {
-            tokens.push([TOK_KEYWORD, 'break']);
-            tokens.push([TOK_PUNCT, ';']);
+            lines.push([[TOK_KEYWORD, 'break'], [TOK_PUNCT, ';']]);
         }
 
         else if (stmt instanceof Stmt.Continue) {
-            tokens.push([TOK_KEYWORD, 'continue']);
-            tokens.push([TOK_PUNCT, ';']);
+            lines.push([[TOK_KEYWORD, 'continue'], [TOK_PUNCT, ';']]);
         }
 
         else if (stmt instanceof Stmt.DoWhile) {
-            tokens.push([TOK_KEYWORD, 'do']);
-            Array.prototype.push.apply(tokens, this.emit_scope(stmt.body, depth));
-            Array.prototype.push.apply(tokens, [[TOK_KEYWORD, 'while'], [TOK_WHTSPCE, ' ']]);
-            Array.prototype.push.apply(tokens, parenthesize(this.emit_expression(stmt.cond)));
+            var do_body = this.emit_scope(stmt.body);
+            var do_cond = this.emit_expression(stmt.cond);
+
+            lines.push([[TOK_KEYWORD, 'do']].concat(this.scope_newline ? [] : [SPACE, do_body.shift()[1][0]]));
+            Array.prototype.push.apply(lines, do_body);
+            lines.push([[TOK_KEYWORD, 'while'], SPACE].concat(parenthesize(do_cond)).concat([[TOK_PUNCT, ';']]));
         }
 
         else if (stmt instanceof Stmt.Goto) {
-            Array.prototype.push.apply(tokens, [[TOK_KEYWORD, 'goto'], [TOK_WHTSPCE, ' ']]);
-            Array.prototype.push.apply(tokens, this.emit_expression(stmt.dest));
-            tokens.push([TOK_PUNCT, ';']);
+            var goto_dest = this.emit_expression(stmt.dest);
+
+            lines.push([[TOK_KEYWORD, 'goto'], SPACE].concat(goto_dest).concat([[TOK_PUNCT, ';']]));
         }
 
         else if (stmt instanceof Stmt.If) {
-            Array.prototype.push.apply(tokens, [[TOK_KEYWORD, 'if'], [TOK_WHTSPCE, ' ']]);
-            Array.prototype.push.apply(tokens, parenthesize(this.emit_expression(stmt.cond)));
-            Array.prototype.push.apply(tokens, this.emit_scope(stmt.then_cntr, depth));
+            var if_cond = this.emit_expression(stmt.cond);
+            var if_true = this.emit_scope(stmt.then_cntr);
+            var if_true_o = this.scope_newline ? [] : [SPACE, if_true.shift()[1][0]];
+
+            var if_true_c = [];
+            var if_false = [];
+            var if_false_o = [];
 
             if (stmt.else_cntr) {
-                if (this.scope_newline) {
-                    tokens.push([TOK_WHTSPCE, '\n']);
-                    // <DEBUG>
-                    tokens.push([TOK_OFFSET, ' '.repeat(stmt.address.toString(16).length + 2)]);
-                    // </DEBUG>
-                    tokens.push(INDENT);
-                } else {
-                    tokens.push([TOK_WHTSPCE, ' ']);
-                }
+                if_false = this.emit_scope(stmt.else_cntr);
 
-                tokens.push([TOK_KEYWORD, 'else']);
-                Array.prototype.push.apply(tokens, this.emit_scope(stmt.else_cntr, depth));
+                if (!this.scope_newline) {
+                    if_true_c = [if_true.pop()[1][0], SPACE];
+                    if_false_o = [SPACE, if_false.shift()[1][0]];
+                }
+            }
+
+            lines.push([[TOK_KEYWORD, 'if'], SPACE].concat(parenthesize(if_cond)).concat(if_true_o));
+            Array.prototype.push.apply(lines, if_true);
+
+            if (stmt.else_cntr) {
+                lines.push([[TOK_OFFSET, ' '.repeat(addr_str.length)], if_true_c.concat([[TOK_KEYWORD, 'else']]).concat(if_false_o)]);
+                Array.prototype.push.apply(lines, if_false);
             }
         }
 
         else if (stmt instanceof Stmt.Return) {
-            tokens.push([TOK_KEYWORD, 'return']);
+            var retval = stmt.retval ? [SPACE].concat(auto_paren(this.emit_expression(stmt.retval))) : [];
 
-            if (stmt.retval) {
-                tokens.push([TOK_WHTSPCE, ' ']);
-                Array.prototype.push.apply(tokens, auto_paren(this.emit_expression(stmt.retval)));
-            }
-            tokens.push([TOK_PUNCT, ';']);
-
+            lines.push([[TOK_KEYWORD, 'return']].concat(retval).concat([[TOK_PUNCT, ';']]));
         }
 
         else if (stmt instanceof Stmt.While) {
-            Array.prototype.push.apply(tokens, [[TOK_KEYWORD, 'while'], [TOK_WHTSPCE, ' ']]);
-            Array.prototype.push.apply(tokens, parenthesize(this.emit_expression(stmt.cond)));
-            Array.prototype.push.apply(tokens, this.emit_scope(stmt.body, depth));
+            var while_cond = this.emit_expression(stmt.cond);
+            var while_body = this.emit_scope(stmt.body);
+            
+            lines.push([[TOK_KEYWORD, 'while'], SPACE].concat(parenthesize(while_cond)).concat(this.scope_newline ? [] : [SPACE, while_body.shift()[1][0]]));
+            Array.prototype.push.apply(lines, while_body);
         }
 
         // generic statement
         else {
-            Array.prototype.push.apply(tokens, this.emit_expression(stmt.expressions.pop()));
-            tokens.push([TOK_PUNCT, ';']);
-
-            stmt.expressions.forEach(function(expr) {
-                tokens.push([TOK_WHTSPCE, '\n']);
-                Array.prototype.push.apply(tokens, this.emit_expression(expr));
-                tokens.push([TOK_PUNCT, ';']);
+            lines = stmt.expressions.map(function(expr) {
+                return this.emit_expression(expr).concat([[TOK_PUNCT, ';']]);
             }, this);
         }
 
-        tokens.push([TOK_WHTSPCE, '\n']);
+        lines[0] = [[TOK_OFFSET, addr_str], lines[0]];
 
-        return tokens;
+        return lines;
     };
 
     /**
      * Emit a lexical scope with the appropriate indentation.
      * @param {!Stmt.Container} cntr  Container object to emit
-     * @param {number} depth Nesting level
      * @param {boolean} stripped Strip off curly braces
      */
-    CodeGen.prototype.emit_scope = function(cntr, depth, stripped) {
+    CodeGen.prototype.emit_scope = function(cntr, stripped) {
         if (!cntr) { return; }
         // console.assert(cntr);
 
-        const INDENT = [TOK_WHTSPCE, this.pad(depth)];
+        const INDENT = [TOK_OFFSET, this.guide + ' '.repeat(this.tabsize - 1)];
 
-        var tokens = [];
+        var lines = [];
 
         if (!stripped) {
-            if (this.scope_newline) {
-                tokens.push([TOK_WHTSPCE, '\n']);
-
-                // <DEBUG>
-                tokens.push([TOK_OFFSET, '0x' + cntr.address.toString(16)]);
-                // </DEBUG>
-
-                tokens.push(INDENT);
-            } else {
-                tokens.push([TOK_WHTSPCE, ' ']);
-            }
-
-            tokens.push([TOK_PAREN, '{']);
+            lines.push([[TOK_OFFSET, '0x' + cntr.address.toString(16)], [[TOK_PAREN, '{']]]);
         }
 
-        tokens.push([TOK_WHTSPCE, '\n']);
+        cntr.statements.map(function(s) {
+            var stmt_lines = this.emit_statement(s);
 
-        var content = [];
-        content = Array.prototype.concat.apply(content, cntr.statements.map(function(s) {
-            return this.emit_statement(s, depth + 1);
-        }, this));
+            stmt_lines.forEach(function(l) {
+                lines.push([l[0], [INDENT].concat(l[1])]);
+            });
+        }, this);
 
         // emit fall-through container
         if (cntr.fallthrough) {
-            Array.prototype.push.apply(content, this.emit_scope(cntr.fallthrough, depth, true));
+            Array.prototype.push.apply(lines, this.emit_scope(cntr.fallthrough, true));
         }
-
-        var closing = [];
 
         if (!stripped) {
-            // <DEBUG>
-            closing.push([TOK_OFFSET, ' '.repeat(cntr.address.toString(16).length + 2)]);
-            // </DEBUG>
-
-            closing.push(INDENT);
-            closing.push([TOK_PAREN, '}']);
+            lines.push([[TOK_OFFSET, ' '.repeat(('0x' + cntr.address.toString(16)).length)], [[TOK_PAREN, '}']]]);
         }
 
-        return Array.prototype.concat(tokens, content, closing);
+        return lines;
     };
 
     CodeGen.prototype.emit_func = function(func) {
-        var tokens = [];
+        const SPACE = [TOK_WHTSPCE, ' '];
 
-        // <DEBUG>
-        tokens.push([TOK_OFFSET, ' '.repeat(func.entry_block.container.address.toString(16).length + 2)]);
-        // </DEBUG>
+        var fdecl = [];
 
-        tokens.push([TOK_VARTYPE, func.rettype]);
-        tokens.push([TOK_WHTSPCE, ' ']);
-        tokens.push([TOK_FNNAME, func.name]);
-        tokens.push([TOK_WHTSPCE, ' ']);
+        fdecl.push([TOK_VARTYPE, func.rettype]);
+        fdecl.push(SPACE);
+        fdecl.push([TOK_FNNAME, func.name]);
 
-        tokens.push([TOK_PAREN, '(']);
+        fdecl.push([TOK_PAREN, '(']);
         if (func.args.length === 0) {
-            tokens.push([TOK_VARTYPE, 'void']);
+            fdecl.push([TOK_VARTYPE, 'void']);
         } else {
             var a = func.args[0];
 
             // handle first arg
-            tokens.push([TOK_VARTYPE, a.type]);
-            tokens.push([TOK_WHTSPCE, ' ']);
-            tokens.push([TOK_VARNAME, a.name]);
+            fdecl.push([TOK_VARTYPE, a.type]);
+            fdecl.push(SPACE);
+            fdecl.push([TOK_VARNAME, a.name]);
 
             // handle rest of the args
             func.args.slice(1).forEach(function(a) {
-                tokens.push([TOK_PUNCT, ',']);
-                tokens.push([TOK_WHTSPCE, ' ']);
-                tokens.push([TOK_VARTYPE, a.type]);
-                tokens.push([TOK_WHTSPCE, ' ']);
-                tokens.push([TOK_VARNAME, a.name]);
+                fdecl.push([TOK_PUNCT, ',']);
+                fdecl.push(SPACE);
+                fdecl.push([TOK_VARTYPE, a.type]);
+                fdecl.push(SPACE);
+                fdecl.push([TOK_VARNAME, a.name]);
             });
         }
-        tokens.push([TOK_PAREN, ')']);
+        fdecl.push([TOK_PAREN, ')']);
 
         // emit containers recursively
-        Array.prototype.push.apply(tokens, this.emit_scope(func.entry_block.container, 0, false));
+        var func_body = this.emit_scope(func.entry_block.container);
 
-        return this.emit(tokens);
+        if (!this.scope_newline) {
+            fdecl.push(SPACE);
+            fdecl.push(func_body.shift()[1][0]);
+        }
+
+        return this.emit([[[TOK_OFFSET, '0x' + func.address.toString(16)], fdecl]].concat(func_body));
     };
 
     return CodeGen;
