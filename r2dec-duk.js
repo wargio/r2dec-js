@@ -47,6 +47,7 @@ var Global = {
 };
 
 function Function(afij, afbj) {
+    this.address = afij.offset;
     this.name = afij.name;
     this.calltype = afij.calltype;
 
@@ -231,20 +232,15 @@ function r2dec_main(args) {
                 ssa_ctx = ssa.rename_derefs();
                 analyzer.ssa_step(ssa_ctx);
 
-                // DEBUG
-                func.basic_blocks.forEach(function(bb) {
-                    // TODO: this is calculated recursively; use memoization to reduce complexity
-                    bb.live_ranges = ssa.find_live_ranges(bb);
-                });
-
                 ssa.preserved_locations();
 
                 analyzer.ssa_done(func, ssa_ctx);
 
-                // Optimizer.run(ssa_ctx, config['opt']);
+                // console.log(ssa_ctx.toString());
+                Optimizer.run(ssa_ctx, config['opt']);
 
                 // console.log(ssa_ctx.toString());
-                ssa.validate();
+                // ssa_ctx.validate();
 
                 // ssa.transform_out();
 
@@ -259,7 +255,7 @@ function r2dec_main(args) {
                 // o tag arguments
                 //
                 // + prune unused registers
-                // o prune restored locations
+                // + prune restored locations
                 // o prune unused fcall rregs
                 //
                 // o rename stack variables
