@@ -81,6 +81,25 @@ module.exports = (function() {
         });
     };
 
+    // eliminate dead assignments to memory
+    var eliminate_dead_derefs = function(ctx, conf) {
+        return ctx.iterate(function(def) {
+            if (def.uses.length === 0) {
+                var p = def.parent;         // p is Expr.Assign
+                var lhand = p.operands[0];  // def
+                var rhand = p.operands[1];  // assigned expression
+
+                if ((lhand instanceof Expr.Deref) && ((rhand instanceof Expr.Phi) || def.is_safe || conf.noalias)) {
+                    p.pluck(true);
+
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    };
+    
     var eliminate_dead_results = function(ctx) {
         return ctx.iterate(function(def) {
             if (def.uses.length === 0) {
@@ -203,6 +222,7 @@ module.exports = (function() {
 
     var optimizations = [
         eliminate_dead_regs,
+        eliminate_dead_derefs,
         eliminate_dead_results,
         propagate_constants,
         propagate_def_single_use,
