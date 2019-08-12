@@ -18,6 +18,7 @@
 (function() { // lgtm [js/useless-expression]
 
     const _known_cpp_data = {
+        'std::basic_string<char,std::char_traits<char>,std::allocator<char>>,std::allocator<std::basic_string<char,std::char_traits<char>,std::allocator<char>>>': 'std::string',
         'std::basic_stringstream<char,std::char_traits<char>,std::allocator<char>>::basic_stringstream': 'std::stringstream ',
         'std::basic_istringstream<char,std::char_traits<char>,std::allocator<char>>::basic_istringstream': 'std::istringstream ',
         'std::basic_ostringstream<char,std::char_traits<char>,std::allocator<char>>::basic_ostringstream': 'std::ostringstream ',
@@ -56,7 +57,7 @@
     };
 
     return function(str) {
-        str = str.replace(/::_cxx\d\d::/g, '::');
+        str = str.replace(/::_cxx\d\d::/g, '::').replace(/\s+/g, '');
         for (var key in _known_cpp_data) {
             if (str.indexOf(key) >= 0) {
                 var find = new RegExp(key.replace(/([()[\]|\\*+])/g, '\\$1'), 'g');
