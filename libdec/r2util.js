@@ -142,23 +142,24 @@
             this.arch = data.arch;
             this.archbits = data.bits;
             this.honor = {
-                casts: true,
                 assembly: true,
                 blocks: false,
-                xrefs: false,
+                casts: true,
+                offsets: false,
                 paddr: false,
                 pseudo: false,
-                offsets: false,
+                xrefs: false,
             };
             this.extra = {
-                theme: 'default',
-                file: 'testsuite',
-                offset: Long.ZERO,
-                ascomment: false,
-                ascodeline: false,
                 allfuncs: false,
+                ascodeline: false,
+                ascomment: false,
                 debug: true,
-                slow: true
+                file: 'testsuite',
+                highlights: false,
+                offset: Long.ZERO,
+                slow: true,
+                theme: 'default',
             };
         },
         dataTestSuite: function(x) {
