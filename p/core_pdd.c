@@ -275,14 +275,15 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 	RCore *core = (RCore *) rcmd->data;
 	RConfig *cfg = core->config;
 	r_config_lock (cfg, false);
-	SETPREF("r2dec.casts", "false", "if false, hides all casts in the pseudo code.");
 	SETPREF("r2dec.asm", "false", "if true, shows pseudo next to the assembly.");
 	SETPREF("r2dec.blocks", "false", "if true, shows only scopes blocks.");
-	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code.");
-	SETPREF("r2dec.paddr", "false", "if true, all xrefs uses physical addresses compare.");
-	SETPREF("r2dec.theme", "default", "defines the color theme to be used on r2dec.");
+	SETPREF("r2dec.casts", "false", "if false, hides all casts in the pseudo code.");
 	SETPREF("r2dec.debug", "false", "do not catch exceptions in r2dec.");
+	SETPREF("r2dec.highlight", "default", "highlights the current address.");
+	SETPREF("r2dec.paddr", "false", "if true, all xrefs uses physical addresses compare.");
 	SETPREF("r2dec.slow", "false", "load all the data before to avoid multirequests to r2.");
+	SETPREF("r2dec.theme", "default", "defines the color theme to be used on r2dec.");
+	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code.");
 	r_config_lock (cfg, true);
 
 	// autocomplete here..

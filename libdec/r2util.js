@@ -61,7 +61,7 @@
         return vars;
     }
 
-    var padding = '            ';
+    var padding = '                   ';
     var usages = {
         "--help": "this help message",
         "--all-functions": "decompile all functions",
@@ -74,6 +74,7 @@
         "--offsets": "shows pseudo next to the assembly offset",
         "--paddr": "all xrefs uses physical addresses instead of virtual addresses",
         "--xrefs": "shows also instruction xrefs in the pseudo code",
+        "--highlight-current": "highlights the current address.",
         "--as-comment": "the decompiled code is returned to r2 as comment (via CCu)",
         "--as-code-line": "the decompiled code is returned to r2 as 'file:line code' (via CL)",
         "--as-json": "the decompiled code lines are returned as JSON"
@@ -209,15 +210,16 @@
                 syntax: r2pipe.bool('asm.syntax'),
             };
             this.extra = {
-                theme: r2pipe.string('e r2dec.theme'),
-                file: r2pipe.string('i~^file[1:0]'),
-                offset: r2pipe.long('s'),
-                ascomment: has_option(args, '--as-comment'),
-                ascodeline: has_option(args, '--as-code-line'),
                 allfunctions: has_option(args, '--all-functions'),
-                json: has_option(args, '--as-json'),
+                ascodeline: has_option(args, '--as-code-line'),
+                ascomment: has_option(args, '--as-comment'),
                 debug: r2pipe.bool('e r2dec.debug') || has_option(args, '--debug'),
-                slow: r2pipe.bool('e r2dec.slow')
+                file: r2pipe.string('i~^file[1:0]'),
+                highlights: r2pipe.bool('e r2dec.highlight') || has_option(args, '--highlight-current'),
+                json: has_option(args, '--as-json'),
+                offset: r2pipe.long('s'),
+                slow: r2pipe.bool('e r2dec.slow'),
+                theme: r2pipe.string('e r2dec.theme'),
             };
             this.add_comment = function(comment, offset) {
                 if (!comment || comment.length < 1) {
@@ -240,6 +242,7 @@
                 this.honor.offsets = false;
                 this.extra.json = false;
                 this.honor.color = false;
+                this.extra.highlights = false;
             }
 
             if (this.extra.allfunctions) {
@@ -249,6 +252,11 @@
                 this.honor.blocks = false;
                 this.honor.offsets = false;
                 this.extra.json = false;
+                this.extra.highlights = false;
+            }
+
+            if (this.sanitize.html || !this.honor.color) {
+                this.extra.highlights = false;
             }
         },
         data: function() {

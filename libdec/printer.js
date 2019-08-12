@@ -21,6 +21,7 @@
     /**
      * Imports.
      */
+    const Long = require('libdec/long');
     const json64 = require('libdec/json64');
 
     function initializeColors() {
@@ -188,7 +189,11 @@
             var prefix = evars.allfunctions ? "// " : "";
             if (lines && lines.length > 0) {
                 for (var i = 0; i < lines.length; i++) {
-                    console.log(lines[i].str);
+                    if (evars.highlights && evars.offset.eq(lines[i].offset || Long.ZERO)) {
+                        console.log('\u001b[7m' + lines[i].str + '\u001b[0m');
+                    } else {
+                        console.log(lines[i].str);
+                    }
                 }
             }
             if (errors && errors.length > 0) {
