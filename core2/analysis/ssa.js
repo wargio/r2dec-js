@@ -133,7 +133,23 @@ module.exports = (function() {
         return local_defs;
     };
 
-    Context.prototype.get_live_ranges = function(block) {
+    var _parent_def = function(expr) {
+        for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
+            if (p instanceof Expr.Assign) {
+                return p.operands[0];
+            }
+        }
+
+        return null;
+    };
+
+    var _is_weak_use = function(expr) {
+        var def = _parent_def(expr);
+
+        return def && (def instanceof Expr.Reg) && (def.weak);
+    };
+
+    Context.prototype.get_live_ranges = function(block, ignore_weak) {
         var local_defs = this.get_local_defs();
 
         var _get_block_live_ranges = function(block, live_at_entry) {
@@ -142,10 +158,13 @@ module.exports = (function() {
             var live = Array.prototype.concat(live_at_entry, local_defs[curr_container] || []);
 
             return live.map(function(def) {
+                // keep uses that are in the same block as the definition that they kill, and not weak (in case ignoring weak).
+                // weak uses are normally a result of artificial assignemtns generated to represent side effects (e.g. overlapping
+                // registers in x86 arch)
                 var killing = def.uses.filter(function(use) {
                     var use_container = use.parent_stmt().parent;
 
-                    return (use_container === curr_container);
+                    return (use_container === curr_container) && !(ignore_weak && _is_weak_use(use));
                 });
 
                 var earliest = null;
@@ -214,7 +233,7 @@ module.exports = (function() {
         // live_ranges.forEach(function(rng) {
         //     var s = rng[0].toString();
         //     var info = rng[1] === null ? 'live' : 'killed at: ' + rng[1].parent_stmt().address.toString(16);
-        
+        //
         //     console.log(' ', s + ' '.repeat(32 - s.length), '[', info, ']');
         // });
         // </DEBUG>

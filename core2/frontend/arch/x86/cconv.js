@@ -59,32 +59,14 @@ module.exports = (function() {
         return _parent_stmt_address(range[0]).lt(address);
     };
 
-    var _parent_def = function(expr) {
-        for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
-            if (p instanceof Expr.Assign) {
-                return p.operands[0];
-            }
-        }
-
-        return null;
-    };
-
-    var _is_weak_use = function(expr) {
-        var def = _parent_def(expr);
-
-        return def && (def instanceof Expr.Reg) && (def.weak);
-    };
-
     // XXX: see remark above
-    // check whether a range is alive by a specific address; if ignoring weak uses, then a range will be
-    // also considered alive if killed by a weak use
-    var _is_alive_by = function(range, address, ignore_weak_uses) {
-        return (range[1] === null) || _parent_stmt_address(range[1]).ge(address) || (ignore_weak_uses && _is_weak_use(range[1]));
+    var _is_alive_by = function(range, address) {
+        return (range[1] === null) || _parent_stmt_address(range[1]).ge(address);
     };
 
-    var _get_live_defs_by = function(ranges, address, ignore_weak_uses) {
+    var _get_live_defs_by = function(ranges, address) {
         return ranges.filter(function(rng) {
-            return _is_defined_by(rng, address) && _is_alive_by(rng, address, ignore_weak_uses);
+            return _is_defined_by(rng, address) && _is_alive_by(rng, address);
         }).map(function(rng) {
             return rng[0];
         // }).sort(function(a, b) {
@@ -99,7 +81,7 @@ module.exports = (function() {
         var top_of_stack = null;
         var args = [];
 
-        var live_by_fcall = _get_live_defs_by(live_ranges, _parent_stmt_address(fcall), false);
+        var live_by_fcall = _get_live_defs_by(live_ranges, _parent_stmt_address(fcall));
 
         for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
             var def = live_by_fcall[i];
@@ -162,7 +144,19 @@ module.exports = (function() {
         var nargs = 0;
         var args = this.arg_regs64.slice();
 
-        var live_by_fcall = _get_live_defs_by(live_ranges, _parent_stmt_address(fcall), true);
+        var live_by_fcall = _get_live_defs_by(live_ranges, _parent_stmt_address(fcall));
+
+        // drop all weak definitions
+        live_by_fcall = live_by_fcall.filter(function(def) {
+            return !(def.weak);
+        });
+
+        // <DEBUG>
+        // console.log('live definitions by:', _parent_stmt_address(fcall).toString(16));
+        // live_by_fcall.forEach(function(def) {
+        //     console.log(' ', def);
+        // });
+        // </DEBUG>
 
         // as opposed to arguments passed on the stack, arguments passed on registers are
         // not necessarily assigned in their natural order; in some cases, they may not be
@@ -181,7 +175,8 @@ module.exports = (function() {
             var def = live_by_fcall[i];
 
             for (var j = 0; j < this.arg_regs64.length; j++) {
-                if ((def.equals_no_idx(this.arg_regs64[j]) || def.equals_no_idx(this.arg_regs32[j])) && !_is_weak_use(def)) {
+                if (def.equals_no_idx(this.arg_regs64[j]) ||
+                    def.equals_no_idx(this.arg_regs32[j])) {
                     var arg = def.clone(['idx', 'def']);
 
                     // register arg as a new user
