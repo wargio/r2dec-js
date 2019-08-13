@@ -208,7 +208,7 @@
                 pseudo: r2pipe.bool('e asm.pseudo'),
                 capitalize: r2pipe.bool('e asm.capitalize'),
                 html: r2pipe.bool('e scr.html'),
-                syntax: r2pipe.bool('asm.syntax'),
+                syntax: r2pipe.string('e asm.syntax'),
             };
             this.extra = {
                 allfunctions: has_option(args, '--all-functions'),
