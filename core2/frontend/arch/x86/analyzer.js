@@ -59,26 +59,34 @@
             block.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
 
-                    // is a function call?
-                    if ((expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Call)) {
-                        var fcall = expr.operands[1];
+                    // normally a function call would be assigned to a result register, but not
+                    // necessarilly (e.g. as in a return statement). in order to cover both cases
+                    // we peel off the assignment
+                    if (expr instanceof Expr.Assign) {
+                        expr = expr.operands[1];
+                    }
+
+                    if (expr instanceof Expr.Call) {
+                        var fcall = expr;
                         var callee = fcall.operator;
-        
+
+                        // most probably an imported function
                         if (callee instanceof Expr.Deref) {
                             callee = callee.operands[0];
                         }
 
-                        // process only direct calls with known destinations
+                        // process only direct calls with known destinations; we cannot get calling convention
+                        // info for indirect targets
                         if (callee instanceof Expr.Val) {
                             var ccname = Global.r2cmd('afc', '@', callee.value.toString());
-        
+
                             if (!cconv.has(ccname)) {
                                 throw new Error('unsupported calling convention');
                             }
 
                             // live ranges should be refreshed as args are added to fcalls (i.e. defs are killed)
-                            // TODO: this is quite time consuming; a good candidate for an optimization
-                            var live_ranges = ctx.get_live_ranges(block);
+                            // TODO: this is quite time consuming; and makes a good candidate for optimization
+                            var live_ranges = ctx.get_live_ranges(block, true);
 
                             cconv.get(ccname).get_args_expr(fcall, live_ranges).forEach(function(arg) {
                                 fcall.push_operand(arg);
@@ -233,20 +241,20 @@
     };
 
     var transform_tailcalls = function(func) {
-        func.basic_blocks.forEach(function(bb) {
-            var terminator = bb.container.terminator();
+        func.exit_blocks.forEach(function(block) {
+            var terminator = block.container.terminator();
 
+            // a goto terminator in an exit block means this is a tail call
             if (terminator instanceof Stmt.Goto) {
                 var dest = terminator.dest;
 
                 // direct jump
                 if (dest instanceof Expr.Val) {
-                    // jumping out of function boundaries? this is a tail call
-                    if (dest.value.lt(func.lbound) || dest.value.gt(func.ubound)) {
-                        var fcall = new Expr.Call(dest.clone(), []);
+                    var fcall = new Expr.Call(dest.clone(), []);
+                    var ret = new Stmt.Return(terminator.address, fcall);
 
-                        terminator.replace(Stmt.make_statement(terminator.address, fcall));
-                    }
+                    // replace 'goto dest' with 'return dest()'
+                    terminator.replace(ret);
                 }
 
                 // indirect jump
@@ -449,6 +457,9 @@
         // generate assignments for overlapping register counterparts to maintain def-use correctness.
         // that generates a lot of redundant statements that eventually eliminated if remained unused
         gen_overlaps(func, this.ovlgen);
+
+        // transform exit blocks' gotos into function calls
+        transform_tailcalls(func);
     };
 
     Analyzer.prototype.ssa_step = function(context) {
@@ -459,12 +470,10 @@
     Analyzer.prototype.ssa_done = function(func, context) {
         remove_preserved_loc(context);
 
-        transform_tailcalls(func);
-
         // analyze and assign function calls arguments
         assign_fcall_args(func, context, this.arch);
 
-        // TODO: this should happen after propagating registers
+        // TODO: this should happen after propagating registers, since phi(rreg0,...) is not propagated to return just yet
         adjust_returns(func, this.arch);
 
         // cleanup_fcall_args(context, this.arch);
