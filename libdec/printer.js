@@ -190,7 +190,7 @@
             if (lines && lines.length > 0) {
                 for (var i = 0; i < lines.length; i++) {
                     if (evars.highlights && evars.offset.eq(lines[i].offset || Long.ZERO)) {
-                        console.log('\u001b[7m' + lines[i].str + '\u001b[0m');
+                        console.log('\u001b[7m' + lines[i].str + '\u001b[49m\u001b[0m');
                     } else {
                         console.log(lines[i].str);
                     }
