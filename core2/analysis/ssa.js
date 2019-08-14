@@ -153,9 +153,20 @@ module.exports = (function() {
         var local_defs = this.get_local_defs();
 
         var _get_block_live_ranges = function(block, live_at_entry) {
-
             var curr_container = block.container;
-            var live = Array.prototype.concat(live_at_entry, local_defs[curr_container] || []);
+
+            var locals = local_defs[curr_container] || [];
+
+            // sort local definitions by their address, so later definitions appear
+            // later on the list
+            locals.sort(function(d0, d1) {
+                var addr0 = d0.parent_stmt().address;
+                var addr1 = d1.parent_stmt().address;
+
+                return addr0.sub(addr1);
+            });
+
+            var live = Array.prototype.concat(live_at_entry, locals);
 
             return live.map(function(def) {
                 // keep uses that are in the same block as the definition that they kill, and not weak (in case ignoring weak).

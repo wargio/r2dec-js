@@ -48,32 +48,42 @@ module.exports = (function() {
         this.arch = arch;
     }
 
-    var _parent_stmt_address = function(expr) {
-        return expr.parent_stmt().address;
+    // check whether a definition precedes a specified expression in cfg
+    var _is_defined_by = function(def, expr) {
+        var def_pstmt = def.parent_stmt();
+        var exp_pstmt = expr.parent_stmt();
+
+        // live ranges are collected recursively along cfg walk. for that reason, all definitions defined in
+        // another block are guaranteed to precede expr. definition that is defined in the same block, must
+        // be checked to be defined earlier
+        return (def_pstmt.parent !== exp_pstmt.parent) || def_pstmt.address.lt(exp_pstmt.address);
     };
 
-    // XXX: 'before' and 'after' relations should be determined by control flow graph rather than the address
-    //      perhaps better sort by address only those that are in the same block (others are already guaranteed
-    //      to be alive on entry)
-    var _is_defined_by = function(range, address) {
-        return _parent_stmt_address(range[0]).lt(address);
+    // check whether a definition is alive by specified expression
+    var _is_alive_by = function(use, expr) {
+        if (use === null) {
+            return true;
+        }
+
+        var use_pstmt = use.parent_stmt();
+        var exp_pstmt = expr.parent_stmt();
+
+        return (use_pstmt.parent !== exp_pstmt.parent) || use_pstmt.address.ge(exp_pstmt.address);
     };
 
-    // XXX: see remark above
-    var _is_alive_by = function(range, address) {
-        return (range[1] === null) || _parent_stmt_address(range[1]).ge(address);
-    };
+    var _get_live_defs_by = function(ranges, expr) {
+        // select ranges of deinitions that are either defined by specified expr, or
+        // still alive by its address
+        var live_by = ranges.filter(function(rng) {
+            var def = rng[0];   // defined variable
+            var use = rng[1];   // killing user
 
-    var _get_live_defs_by = function(ranges, address) {
-        return ranges.filter(function(rng) {
-            return _is_defined_by(rng, address) && _is_alive_by(rng, address);
-        }).map(function(rng) {
+            return _is_defined_by(def, expr) && _is_alive_by(use, expr);
+        });
+
+        // extract definitions out of ranges
+        return live_by.map(function(rng) {
             return rng[0];
-        // }).sort(function(a, b) {
-        //     var a_addr = a.parent_stmt().address;
-        //     var b_addr = b.parent_stmt().address;
-        //
-        //     return a_addr.compare(b_addr);
         });
     };
 
@@ -81,7 +91,7 @@ module.exports = (function() {
         var top_of_stack = null;
         var args = [];
 
-        var live_by_fcall = _get_live_defs_by(live_ranges, _parent_stmt_address(fcall));
+        var live_by_fcall = _get_live_defs_by(live_ranges, fcall);
 
         for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
             var def = live_by_fcall[i];
@@ -95,7 +105,7 @@ module.exports = (function() {
                     }
 
                     if (def.equals_no_idx(top_of_stack)) {
-                        var arg = def.clone(['def', 'idx']);
+                        var arg = def.clone(['idx']);
 
                         // register arg as a new user
                         arg.def = def;
@@ -144,7 +154,7 @@ module.exports = (function() {
         var nargs = 0;
         var args = this.arg_regs64.slice();
 
-        var live_by_fcall = _get_live_defs_by(live_ranges, _parent_stmt_address(fcall));
+        var live_by_fcall = _get_live_defs_by(live_ranges, fcall);
 
         // drop all weak definitions
         live_by_fcall = live_by_fcall.filter(function(def) {
@@ -177,15 +187,18 @@ module.exports = (function() {
             for (var j = 0; j < this.arg_regs64.length; j++) {
                 if (def.equals_no_idx(this.arg_regs64[j]) ||
                     def.equals_no_idx(this.arg_regs32[j])) {
-                    var arg = def.clone(['idx', 'def']);
 
-                    // register arg as a new user
-                    arg.def = def;
-                    arg.def.uses.push(arg);
+                    // make sure that slot was not already taken
+                    if (args[j].def === undefined) {
+                        var arg = def.clone(['idx']);
 
-                    args[j] = arg;
+                        // register arg as a new user
+                        arg.def = def;
+                        arg.def.uses.push(arg);
 
-                    nargs = Math.max(nargs, j);
+                        args[j] = arg;
+                        nargs = Math.max(nargs, j);
+                    }
                 }
             }
         }
