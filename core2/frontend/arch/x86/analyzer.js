@@ -125,12 +125,13 @@
         });
     };
 
-    var insert_variables = function(func, arch) {
+    var insert_arguments = function(func, arch) {
         var size = arch.bits;
         var entry = func.entry_block.container;
 
-        console.log('args:');
-        Array.prototype.concat(func.vars, func.args).forEach(function(a) {
+        func.args.forEach(function(a) {
+            // TODO: use a dedicated object rather than a fake Reg?
+            var arg = new Expr.Reg(a.name, size);
             var ref;
 
             if (typeof(a.ref) === 'object') {
@@ -138,20 +139,16 @@
                 var disp = new Expr.Val(a.ref.offset, size);
 
                 ref = new Expr.Add(base, disp);
+                arg = new Expr.AddrOf(arg);
             } else {
                 ref = new Expr.Reg(a.ref, size);
             }
 
-            // TODO: use a dedicated object rather than a fake Reg?
-            var arg = new Expr.Reg(a.name, size);
-            var assignment = new Expr.Assign(ref, new Expr.AddrOf(arg));
+            var assignment = new Expr.Assign(ref, arg);
 
             Simplify.reduce_expr(ref);
-            entry.unshift_stmt(Stmt.make_statement(new Expr.Val(0).value, assignment));
-
-            console.log('', assignment.toString(16));
+            entry.unshift_stmt(Stmt.make_statement(entry.address, assignment));
         });
-
 
         // var sreg = arch.STACK_REG;
         // var freg = arch.FRAME_REG();
@@ -452,7 +449,7 @@
     };
 
     Analyzer.prototype.transform_done = function(func) {
-        // insert_variables(func, this.arch);
+        insert_arguments(func, this.arch);
 
         // generate assignments for overlapping register counterparts to maintain def-use correctness.
         // that generates a lot of redundant statements that eventually eliminated if remained unused
