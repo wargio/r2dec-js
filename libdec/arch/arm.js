@@ -502,6 +502,10 @@
         var varargs, i;
         var callee = instr.callee;
 
+        if (Global.evars.archbits == 16 && callee && callee.calltype == 'arm64') {
+            callee = null;
+        }
+
 
         if (ObjC.is(callname)) {
             var pargs, receiver, selector, pcounted = 0;
@@ -625,7 +629,6 @@
             } else if (nargs == (-1)) {
                 nargs = 0;
             }
-
             args = populate_call_args(instructions.slice(0, current), nargs, context, varargs);
 
             if (nargs > 0 && !varargs) {
