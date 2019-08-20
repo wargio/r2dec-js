@@ -262,7 +262,9 @@ module.exports = (function() {
             blk.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands().forEach(function(op) {
-                        if ((op instanceof Expr.Reg) || (op instanceof Expr.Deref)) {
+                        if ((op instanceof Expr.Reg) ||
+                            (op instanceof Expr.Deref) ||
+                            (op instanceof Expr.Arg)) {
                             if (op.is_def) {
                                 if (!(op in this.defs)) {
                                     console.log('[!] missing def for:', op);
@@ -598,6 +600,14 @@ module.exports = (function() {
         };
 
         return this._rename_wrapper(select_derefs);
+    };
+
+    SSA.prototype.rename_vars = function() {
+        var select_vars = function(expr) {
+            return (expr instanceof Expr.Arg);
+        };
+
+        return this._rename_wrapper(select_vars);
     };
 
     // propagate phi groups that have only one item in them.

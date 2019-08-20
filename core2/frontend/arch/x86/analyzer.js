@@ -125,76 +125,92 @@
         });
     };
 
-    var insert_arguments = function(func, arch) {
+    var insert_arguments = function(func, ctx, arch) {
         var size = arch.bits;
-        var entry = func.entry_block.container;
 
-        func.args.forEach(function(a) {
-            // TODO: use a dedicated object rather than a fake Reg?
-            var arg = new Expr.Reg(a.name, size);
+        var _make_arg_var = function(a) {
+            var arg = new Expr.Arg(a.name, size);
             var ref;
 
             if (typeof(a.ref) === 'object') {
                 var base = new Expr.Reg(a.ref.base, size);
                 var disp = new Expr.Val(a.ref.offset, size);
 
+                if (arch.FRAME_REG.equals_no_idx(base)) {
+                    base.idx = 1;
+                }
+
                 ref = new Expr.Add(base, disp);
                 arg = new Expr.AddrOf(arg);
             } else {
                 ref = new Expr.Reg(a.ref, size);
+
+                ref.idx = 0;
             }
 
             var assignment = new Expr.Assign(ref, arg);
-
             Simplify.reduce_expr(ref);
-            entry.unshift_stmt(Stmt.make_statement(entry.address, assignment));
+
+            return assignment;
+        };
+
+        var vars = [];
+
+        func.vars.forEach(function(v) {
+            var assignment = _make_arg_var(v);
+
+            console.log('var:', assignment);
+            vars.push(assignment);
+        });
+/*
+        func.args.forEach(function(a) {
+            var assignment = _make_arg_var(a);
+
+            console.log('arg:', assignment);
+            vars.push(assignment);
+        });
+*/
+        var propagate = [];
+
+        func.basic_blocks.forEach(function(bb) {
+            bb.container.statements.forEach(function(stmt) {
+                stmt.expressions.forEach(function(expr) {
+                    expr.iter_operands(true).forEach(function(op) {
+                        for (var i = 0; i < vars.length; i++) {
+                            var vloc = vars[i].operands[0];
+
+                            if (vloc.equals(op)) {
+                                var vname = vars[i].operands[1];
+
+                                // we cannot replace operands while iterating; that would invalidate
+                                // the iterator. save pairs of [original, replacement] for later processing
+                                propagate.push([op, vname.clone()]);
+                                break;
+                            }
+                        }
+                    });
+                });
+            });
         });
 
-        // var sreg = arch.STACK_REG;
-        // var freg = arch.FRAME_REG();
-        //
-        // Array.prototype.concat(func.vars, func.args).forEach(function(v) {
-        //     if (v.kind !== 'reg') {
-        //         var base = new Expr.Reg(v.ref.base, size);
-        //
-        //         if (base.equals_no_idx(base)) {
-        //             // ..?
-        //         }
-        //
-        //         var ref = new Expr.Add(base, new Expr.Val(v.ref.offset, size));
-        //         var variable = new Expr.Reg(v.name, size);  // TODO: should use a Variable instance rather than a fake Register
-        //         var assign = new Expr.Assign(ref, new Expr.AddrOf(variable));
-        //
-        //         Simplify.reduce_expr(ref);
-        //         vars.push(assign);
-        //     }
-        // });
-        //
-        // var replace = [];
-        //
-        // func.basic_blocks.forEach(function(bb) {
-        //     bb.container.statements.forEach(function(stmt) {
-        //         stmt.expressions.forEach(function(expr) {
-        //             expr.iter_operands(/* TODO: shallow pass would be enough */).forEach(function(op) {
-        //                 for (var i in vars) {
-        //                     var lhand = vars[i].operands[0];
-        //                     var rhand = vars[i].operands[1];
-        //
-        //                     if (lhand.equals_no_idx(op)) {
-        //                         replace.push([op, rhand.clone()]);
-        //                     }
-        //                 }
-        //             });
-        //         });
-        //     });
-        // });
-        //
-        // replace.forEach(function(pair) {
-        //     var stmt = pair[0].parent_stmt();
+        propagate.forEach(function(pair) {
+            var expr = pair[0];
+            var replacement = pair[1];
+            var def = null;
 
-        //     pair[0].replace(pair[1]);
-        //     Simplify.reduce_stmt(stmt);
-        // });
+            if (expr.is_def) {
+                def = expr;
+            } else if (expr.parent.is_def) {
+                def = expr.parent;
+            }
+
+            if (def) {
+                delete ctx.defs[def];
+            }
+
+            expr.replace(replacement);
+            Simplify.reduce_expr(replacement.parent);
+        });
     };
 
     // TODO: extract simplify_flags and move it to a post-controlflow simplifying loop
@@ -371,7 +387,7 @@
                 var rhand = p.operands[1];  // assigned expression
 
                 // TODO: should we avoid propagating phi assignments and into phi exprs?
-                if (arch.is_stack_reg(lhand) || arch.is_stack_var(lhand) || arch.is_stack_var(rhand)) {
+                if (arch.is_stack_reg(lhand) || arch.is_stack_var(lhand) /*|| arch.is_stack_var(rhand)*/) {
                     while (def.uses.length > 0) {
                         var u = def.uses[0];
                         var c = rhand.clone(['idx', 'def']);
@@ -449,7 +465,6 @@
     };
 
     Analyzer.prototype.transform_done = function(func) {
-        insert_arguments(func, this.arch);
 
         // generate assignments for overlapping register counterparts to maintain def-use correctness.
         // that generates a lot of redundant statements that eventually eliminated if remained unused
@@ -459,9 +474,17 @@
         transform_tailcalls(func);
     };
 
-    Analyzer.prototype.ssa_step = function(context) {
+    Analyzer.prototype.ssa_step_regs = function(func, context) {
         while (propagate_stack_reg(context, this.arch)) { /* empty */ }
         while (propagate_flags_reg(context, this.arch)) { /* empty */ }
+    };
+
+    Analyzer.prototype.ssa_step_derefs = function(func, context) {
+        insert_arguments(func, context, this.arch);
+    };
+
+    Analyzer.prototype.ssa_step_vars = function(func, context) {
+        // empty
     };
 
     Analyzer.prototype.ssa_done = function(func, context) {
