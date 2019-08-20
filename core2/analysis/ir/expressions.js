@@ -202,9 +202,11 @@
      * @returns {!Register}
      */
     Register.prototype.clone = function(keep, omit_use) {
-        // instantiating a new object using the ordinary constructor
-        // ssa-related data is reset as a side effect
-        var clone = new Register(this.name, this.size);
+        // create a shallow copy of this object
+        var clone = Object.create(this.constructor.prototype);
+
+        // calling this object's constructor with cloned operands, ssa-related data is reset as a side effect
+        this.constructor.apply(clone, [this.name, this.size]);
 
         // allow preserving specific properties 
         if (keep) {
@@ -232,6 +234,15 @@
 
         return this.name.toString() + sub;
     };
+
+    // ------------------------------------------------------------
+
+    function Argument(name, size) {
+        Register.call(this, name, size);
+    }
+
+    Argument.prototype = Object.create(Register.prototype);
+    Argument.prototype.constructor = Argument;
 
     // ------------------------------------------------------------
 
@@ -842,6 +853,7 @@
 
         // common expressions
         Reg:        Register,
+        Arg:        Argument,
         Val:        Value,
         Deref:      Deref,
         AddrOf:     AddressOf,
