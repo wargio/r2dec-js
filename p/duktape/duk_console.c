@@ -18,6 +18,8 @@
 #include "duktape.h"
 #include "duk_console.h"
 
+#include "../r2dec_ctx.h"
+
 /* XXX: Add some form of log level filtering. */
 
 /* XXX: Should all output be written via e.g. console.write(formattedMsg)?
@@ -59,8 +61,11 @@ static duk_ret_t duk__console_log_helper(duk_context *ctx, const char *error_nam
 	}
 
 #if USE_RCONS
+	R2DecCtx *r2dec_ctx = r2dec_ctx_get (ctx);
+	r_cons_sleep_end (r2dec_ctx->bed);
 	r_cons_strcat (duk_to_string (ctx, -1));
 	r_cons_newline ();
+	r2dec_ctx->bed = r_cons_sleep_begin ();
 #else
 	duk_uint_t flags = (duk_uint_t) duk_get_current_magic(ctx);
 	FILE *output = (flags & DUK_CONSOLE_STDOUT_ONLY) ? stdout : stderr;
