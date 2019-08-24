@@ -12,6 +12,8 @@
 #include "duk_console.h"
 #include "duk_missing.h"
 
+#include "r2dec_ctx.h"
+
 #undef R_API
 #define R_API static
 #undef R_IPI
@@ -23,8 +25,6 @@
 #ifndef R2_HOME_DATADIR
 #define R2_HOME_DATADIR R2_HOMEDIR
 #endif
-
-static RCore *core_link = 0;
 
 static char* r2dec_read_file(const char* file) {
 	if (!file) {
@@ -62,7 +62,10 @@ static duk_ret_t duk_r2cmd(duk_context *ctx) {
 		const char* command = duk_safe_to_string (ctx, 0);
 	    //fprintf (stderr, "R2CMD: %s\n", command);
 	    //fflush (stderr);
-		char* output = r_core_cmd_str (core_link, command);
+		R2DecCtx *r2dec_ctx = r2dec_ctx_get (ctx);
+		r_cons_sleep_end (r2dec_ctx->bed);
+		char* output = r_core_cmd_str (r2dec_ctx->core, command);
+		r2dec_ctx->bed = r_cons_sleep_begin ();
 		duk_push_string (ctx, output);
 		free (output);
 		return 1;
@@ -104,13 +107,26 @@ static duk_ret_t duk_internal_require(duk_context *ctx) {
 	return DUK_RET_TYPE_ERROR;
 }
 
-static void duk_r2_init(duk_context* ctx) {
+static void duk_r2_init(duk_context* ctx, R2DecCtx *r2dec_ctx) {
+	duk_push_global_stash (ctx);
+	duk_push_pointer (ctx, (void *)r2dec_ctx);
+	duk_put_prop_string (ctx, -2, "r2dec_ctx");
+	duk_pop (ctx);
+
 	duk_push_c_function (ctx, duk_internal_require, 1);
 	duk_put_global_string (ctx, "___internal_require");
 	duk_push_c_function (ctx, duk_internal_load, 1);
 	duk_put_global_string (ctx, "___internal_load");
 	duk_push_c_function (ctx, duk_r2cmd, 1);
 	duk_put_global_string (ctx, "r2cmd");
+}
+
+R2DecCtx *r2dec_ctx_get(duk_context *ctx) {
+	duk_push_global_stash (ctx);
+	duk_get_prop_string (ctx, -1, "r2dec_ctx");
+	R2DecCtx *r = duk_require_pointer (ctx, -1);
+	duk_pop_2 (ctx);
+	return r;
 }
 
 //static void duk_r2_debug_stack(duk_context* ctx) {
@@ -138,11 +154,13 @@ static void r2dec_fatal_function (void *udata, const char *msg) {
 
 static void duk_r2dec(RCore *core, const char *input) {
 	char args[1024] = {0};
-	core_link = core;
+	R2DecCtx r2dec_ctx;
+	r2dec_ctx.core = core;
+	r2dec_ctx.bed = r_cons_sleep_begin ();
 	duk_context *ctx = duk_create_heap (0, 0, 0, 0, r2dec_fatal_function);
 	duk_console_init (ctx, 0);
 //	Long_init (ctx);
-	duk_r2_init (ctx);
+	duk_r2_init (ctx, &r2dec_ctx);
 	eval_file (ctx, "require.js");
 	eval_file (ctx, "r2dec-duk.js");
 	if (*input) {
@@ -153,7 +171,7 @@ static void duk_r2dec(RCore *core, const char *input) {
 	duk_eval_string_noresult (ctx, args);
 	//duk_r2_debug_stack(ctx);
 	duk_destroy_heap (ctx);
-	core_link = 0;
+	r_cons_sleep_end(r2dec_ctx.bed);
 }
 
 static void usage(const RCore* const core) {
