@@ -580,30 +580,32 @@ module.exports = (function() {
     /**
      * Simplify a given expression in-place, but break as soon as it is modified
      * @param {Expr.Expr} expr An expression instance to simplify
-     * @returns {boolean} `true` if `expr` was replaced with a reduced variant, `false` otherwise
+     * @returns {Expr.Expr} Reduced expression, or `null` if `expr` cannot be reduced any further
      */
     var _reduce_expr_once = function(expr) {
-        for (var i = 0; i < rules.length; i++) {
-            var reduced = rules[i](expr);
+        var reduced = null;
 
-            if (reduced) {
-                expr.replace(reduced);
-
-                return true;
-            }
+        for (var i = 0; !reduced && (i < rules.length); i++) {
+            reduced = rules[i](expr);
         }
 
-        return false;
+        if (reduced) {
+            expr.replace(reduced);
+        }
+
+        return reduced;
     };
 
     /**
-     * Simplify a given expression in-place until it cannot be simplified any further
+     * Recursively simplify a specified expression and return its simplified version
+     * Note that this function replaced `expr` with a new expression.
      * @param {Expr.Expr} expr An expression instance to simplify
+     * @returns {Expr.Expr} Reduced expression, or `null` if `expr` cannot be reduced any further
      */
-    var _reduce_expr = function(expr) {
+    var _reduce_expr_rec = function(expr) {
         if (expr.operands) {
             // do 'post order' reduction: reduce operands first
-            while (expr.operands.some(_reduce_expr)) {
+            while (expr.operands.some(_reduce_expr_rec)) {
                 // empty
             }
 
@@ -611,7 +613,17 @@ module.exports = (function() {
             return _reduce_expr_once(expr);
         }
 
-        return false;
+        return null;
+    };
+
+    /**
+     * Simplify a given expression in-place until it cannot be simplified any further
+     * @param {Expr.Expr} expr An expression instance to simplify
+     */
+    var _reduce_expr = function(expr) {
+        while (expr) {
+            expr = _reduce_expr_rec(expr);
+        }
     };
 
     /**
