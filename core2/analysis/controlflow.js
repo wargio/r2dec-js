@@ -44,16 +44,15 @@ module.exports = (function() {
     };
 
     // <DEBUG>
-    var ArrayToString = function(a, opt) {
-        return '[' + a.map(function(d) {
-            return d.toString(opt);
-        }).join(', ') + ']';
-    };
-
-    var ObjAddrToString = function(o, opt) {
-        return o ? o.address.toString(opt) : o;
-    };
-
+    // var ArrayToString = function(a, opt) {
+    //     return '[' + a.map(function(d) {
+    //         return d.toString(opt);
+    //     }).join(', ') + ']';
+    // };
+    //
+    // var ObjAddrToString = function(o, opt) {
+    //     return o ? o.address.toString(opt) : o;
+    // };
     // </DEBUG>
 
     ControlFlow.prototype.construct_loop = function(node) {
@@ -132,6 +131,7 @@ module.exports = (function() {
 
         var carried = null;
 
+        // turn Branch statements into If
         this.dfs.iterNodes().forEach(function(N) {
             var C0 = node_to_block(this.func, N).container;
             var S = C0.terminator();
@@ -179,7 +179,7 @@ module.exports = (function() {
 
                 // 'then' clause: should be immediately dominated by N
                 target = S.not_taken.value;
-                if (valid_if_block(target)) {
+                if ((this.cfg.indegree(this.cfg.getNode(target)) === 1) && valid_if_block(target)) {
                     C1 = this.func.getBlock(target).container;
                     C1.prev = C0;
                 }
@@ -206,14 +206,6 @@ module.exports = (function() {
                 
                 // console.log('  branch:', '[', ObjAddrToString(C1, 16), '|', ObjAddrToString(C2, 16), ']');
                 // console.log('  -dominates:', ArrayToString(imm_dominated, 16));
-            }
-
-            else if (S instanceof Stmt.Goto) {
-                var M = this.cfg.getNode(S.dest.value);
-
-                if (M && this.cfg.predecessors(M).length > 1) {
-                    // S.pluck();
-                }
             }
 
             // condition sink should be the only node left on the domniation list.
@@ -246,6 +238,26 @@ module.exports = (function() {
 
             // console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
             // console.log();
+        }, this);
+
+        // prune Goto statements
+        this.dfs.iterNodes().forEach(function(N) {
+            var C0 = node_to_block(this.func, N).container;
+            var S = C0.terminator();
+
+            if (S instanceof Stmt.Goto) {
+                // recursively ascend nested 'if-else' structure to find out what is the
+                // sink address that both 'then' and 'else' parts are falling to. in case
+                // the terminator is a Goto statement that targets the sink - it is redundant
+                // and should be removed
+                while (C0 && !(C0.fallthrough)) {
+                    C0 = C0.prev;
+                }
+
+                if (C0 && S.dest.value.eq(C0.fallthrough.address)) {
+                    S.pluck(true);
+                }
+            }
         }, this);
     };
 
