@@ -82,6 +82,9 @@ module.exports = (function() {
             // uninitialized variable assigned with index 0
             var lhand = u.clone(['idx']);
 
+            // this is an auto-generated assignment; mark as weak def
+            lhand.weak = true;
+
             // default value: this is merely a placeholder and should be replaced
             var rhand = new Expr.Val(0, u.size);
 
@@ -253,7 +256,7 @@ module.exports = (function() {
     };
 
     Context.prototype.validate = function() {
-        console.log('validating ssa context');
+        // console.log('validating ssa context');
 
         // iterate through all expressions in function:
         // - if a definition: make sure it is registered in context defs
