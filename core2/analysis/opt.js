@@ -163,18 +163,21 @@ module.exports = (function() {
                         var lhand = p.operands[0];  // def
                         var rhand = p.operands[1];  // assigned expression
 
-                        var u = def.uses[0];
+                        // do not propagate phi
+                        if (!(rhand instanceof Expr.Phi)) {
+                            var u = def.uses[0];
 
-                        // do not propagate if that single use is a phi arg
-                        if (!(u.parent instanceof Expr.Phi)) {
-                            var c = rhand.clone(['idx', 'def']);
+                            // do not propagate into phi (i.e. use is a phi argument)
+                            if (!(u.parent instanceof Expr.Phi)) {
+                                var c = rhand.clone(['idx', 'def']);
 
-                            u.replace(c);
-                            Simplify.reduce_stmt(c.parent_stmt());
+                                u.replace(c);
+                                Simplify.reduce_stmt(c.parent_stmt());
 
-                            p.pluck(true);
+                                p.pluck(true);
 
-                            return true;
+                                return true;
+                            }
                         }
                     }
                 }
@@ -184,34 +187,35 @@ module.exports = (function() {
         });
     };
 
-    var propagate_constants = function(ctx) {
+    var propagate_constants = function(ctx, conf) {
         return ctx.iterate(function(def) {
             if (def.idx !== 0) {
-                var p = def.parent;         // assignment expr
-                var lhand = p.operands[0];  // def
-                var rhand = p.operands[1];  // assigned expression
+                if (!(def instanceof Expr.Deref) || def.is_safe || conf.noalias) {
+                    var p = def.parent;         // assignment expr
+                    var lhand = p.operands[0];  // def
+                    var rhand = p.operands[1];  // assigned expression
 
-                // propagate constsnats, but do not propagate constants assigned to memory derefs
-                if ((!(lhand instanceof Expr.Deref)) && (rhand instanceof Expr.Val)) {
-                    var phi_users = 0;
+                    if (rhand instanceof Expr.Val) {
+                        var phi_users = 0;
 
-                    while (def.uses.length > phi_users) {
-                        var u = def.uses[phi_users];
+                        while (def.uses.length > phi_users) {
+                            var u = def.uses[phi_users];
 
-                        if (u.parent instanceof Expr.Phi) {
-                            phi_users++;
-                        } else {
-                            var c = rhand.clone();
+                            if (u.parent instanceof Expr.Phi) {
+                                phi_users++;
+                            } else {
+                                var c = rhand.clone();
 
-                            u.replace(c);
-                            Simplify.reduce_stmt(c.parent_stmt());
+                                u.replace(c);
+                                Simplify.reduce_stmt(c.parent_stmt());
+                            }
                         }
-                    }
 
-                    if (def.uses.length === 0) {
-                        p.pluck(true);
-        
-                        return true;
+                        if (def.uses.length === 0) {
+                            p.pluck(true);
+            
+                            return true;
+                        }
                     }
                 }
             }
