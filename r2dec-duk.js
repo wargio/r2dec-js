@@ -221,26 +221,37 @@ function r2dec_main(args) {
                 // perform arch-specific modifications (whole function)
                 analyzer.transform_done(func);
 
+                // <DEBUG>
+                // func.basic_blocks.forEach(function(bb) {
+                //     bb.container.statements.forEach(function(stmt) {
+                //         console.log(stmt);
+                //     });
+                // });
+                // </DEBUG>
+
                 var ssa = new SSA(func);
                 var ssa_ctx;
 
                 // ssa tagging for registers
                 ssa_ctx = ssa.rename_regs();
-                analyzer.ssa_step(ssa_ctx);
+                analyzer.ssa_step_regs(func, ssa_ctx);
 
                 // ssa tagging for memory dereferences
                 ssa_ctx = ssa.rename_derefs();
-                analyzer.ssa_step(ssa_ctx);
+                analyzer.ssa_step_derefs(func, ssa_ctx);
 
                 ssa.preserved_locations();
 
+                // ssa tagging for local variables
+                ssa_ctx = ssa.rename_vars();
+                analyzer.ssa_step_vars(func, ssa_ctx);
+
                 analyzer.ssa_done(func, ssa_ctx);
 
-                // console.log(ssa_ctx.toString());
                 Optimizer.run(ssa_ctx, config['opt']);
 
                 // console.log(ssa_ctx.toString());
-                // ssa_ctx.validate();
+                ssa_ctx.validate();
 
                 // ssa.transform_out();
 
@@ -248,7 +259,7 @@ function r2dec_main(args) {
                 // + find restored locations
                 // + adjust returns
                 //
-                // - resolve fcall parameters
+                // + resolve fcall parameters
                 //
                 // o rename func regs arguments
                 // o rename func stack arguments
@@ -261,7 +272,7 @@ function r2dec_main(args) {
                 // o rename stack variables
                 // o tag stack variables
                 //
-                // o prune unused stack locations
+                // + prune unused stack locations
                 //
                 // o propagate registers
                 // o propagate fcall arguments

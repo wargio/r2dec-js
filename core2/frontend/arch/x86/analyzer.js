@@ -136,9 +136,7 @@
                 var base = new Expr.Reg(a.ref.base, size);
                 var disp = new Expr.Val(a.ref.offset, size);
 
-                if (arch.FRAME_REG.equals_no_idx(base)) {
-                    base.idx = 1;
-                }
+                base.idx = arch.FRAME_REG.equals_no_idx(base) ? 1: 0;
 
                 ref = new Expr.Add(base, disp);
                 arg = new Expr.AddrOf(arg);
@@ -159,17 +157,17 @@
         func.vars.forEach(function(v) {
             var assignment = _make_arg_var(v);
 
-            console.log('var:', assignment);
+            // console.log('var:', assignment);
             vars.push(assignment);
         });
-/*
+
         func.args.forEach(function(a) {
             var assignment = _make_arg_var(a);
 
-            console.log('arg:', assignment);
+            // console.log('arg:', assignment);
             vars.push(assignment);
         });
-*/
+
         var propagate = [];
 
         func.basic_blocks.forEach(function(bb) {
@@ -193,23 +191,63 @@
             });
         });
 
+        var _enclosing_def = function(expr) {
+            var def = null;
+
+            for (var e = expr; e && !def; e = e.parent) {
+                if (e.is_def) {
+                    def = e;
+                }
+            }
+
+            return def;
+        };
+
+        var _is_phi_assignment = function(expr) {
+            return (expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Phi);
+        };
+
+        var phis = [];
+
         propagate.forEach(function(pair) {
             var expr = pair[0];
             var replacement = pair[1];
-            var def = null;
 
-            if (expr.is_def) {
-                def = expr;
-            } else if (expr.parent.is_def) {
-                def = expr.parent;
-            }
+            // here existing expressions are being replaced with newly created arg objects.
+            // those arg objects have no ssa data and would be tagged by ssa later on in a
+            // dedicated ssa sweep. that ssa sweep will create additional phi expressions,
+            // if needed.
+            //
+            // to prevent the upcmoing ssa sweep from messing up, we need to make sure:
+            //  - a replaced definition is removed from defs list
+            //  - a replaced definition which is assigned a phi expression is removed
+
+            var def = _enclosing_def(expr);
 
             if (def) {
+                var passign = def.parent;
+
+                if (_is_phi_assignment(passign)) {
+                    // phi assignments cannot be removed on the spot: there may be additional
+                    // propagations into this expression, so removing it would end up in a
+                    // dangling expression. we will just remove them all afterwards
+
+                    phis.push(passign);
+                }
+
                 delete ctx.defs[def];
             }
 
+            // notes:
+            //  - replacing expr may invalidate its reference
+            //  - simplifying replacement may invalidate its reference
+
             expr.replace(replacement);
             Simplify.reduce_expr(replacement.parent);
+        });
+
+        phis.forEach(function(phi_assign) {
+            phi_assign.pluck(true);
         });
     };
 
