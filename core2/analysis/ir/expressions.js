@@ -552,7 +552,8 @@
     Call.prototype.constructor = Call;
 
     Call.prototype.clone = function(keep) {
-        var cloned = Object.getPrototypeOf(Object.getPrototypeOf(this)).clone.call(this, keep);
+        var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
+        var cloned = _super.clone.call(this, keep);
 
         // the `Expr.prototype.clone` method duplicates Expr objects by calling their constructor
         // with clones of their their `operands`. that implementation implies that their `operator`
@@ -709,6 +710,22 @@
     Assign.prototype = Object.create(BExpr.prototype);
     Assign.prototype.constructor = Assign;
 
+    /** @override */
+    Assign.prototype.replace_operand = function(old_op, new_op) {
+        var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
+
+        // left hand expression may be replaced due to simplification or propagation.
+        // this comes to maintain the 'is_def' property properly so ssa would be able
+        // to pick it up as a definition
+
+        if (old_op === this.operands[0]) {
+            new_op.is_def = true;
+        }
+
+        // proceed with the normal replacement flow
+        return _super.replace_operand.call(this, old_op, new_op);
+    };
+
     // ------------------------------------------------------------
 
     // memory dereference
@@ -732,7 +749,9 @@
 
     // ssa-suitable representation; this is the same as toString but without subscript
     Deref.prototype.repr = function() {
-        return Object.getPrototypeOf(Object.getPrototypeOf(this)).toString.call(this);
+        var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
+
+        return _super.toString.call(this);
     };
 
     /** @override */
