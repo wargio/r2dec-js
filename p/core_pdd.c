@@ -233,7 +233,7 @@ int r_cmd_pdd_init(void* user, const char* cmd)
 
 	r_config_lock (cfg, false);
 	// output settings
-	SETPREFS("pdd.out.guides", "true", "display scope guidelines");
+	SETPREFI("pdd.out.guides", 1, "scope guidelines [0: none, 1: solid, 2: dashed]");
 	SETPREFS("pdd.out.newline", "true", "add a new line before an opening curly bracket");
 	SETPREFI("pdd.out.tabsize", 4, "indent size");
 

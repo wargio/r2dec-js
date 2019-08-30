@@ -105,23 +105,29 @@ module.exports = (function() {
 
         this.tabsize = conf.tabsize;
         this.scope_newline = conf.newline;
-        this.guide = conf.guides ? '\uffe8' : ' ';
 
-        // TODO: scope guidelines [see: http://unicode-search.net/unicode-namesearch.pl?term=VERTICAL]
-        //
-        //  o          '\u00a6', '\u205e', '\u22ee'
-        //  o regular: '\u2506', '\u250a', '\u254e'
-        //  o bold:    '\u2507', '\u250b', '\u254f'
+        // see alternate guides here: http://unicode-search.net/unicode-namesearch.pl?term=VERTICAL
+        var guides = [
+            ' ',        // none
+            '\uffe8',   // solid line
+            '\uffe4'    // dashed line
+        ];
+
+        if (conf.guides >= guides.length) {
+            conf.guides = 0;
+        }
+
+        this.guide = guides[conf.guides];
     }
 
     // <DEBUG>
-    var array_toString = function(seq) {
-        var elems = seq.map(function(elem) {
-            return elem instanceof Array ? array_toString(elem) : elem && elem.toString();
-        }).join(', ');
-
-        return '[' + elems + ']';
-    };
+    // var array_toString = function(seq) {
+    //     var elems = seq.map(function(elem) {
+    //         return elem instanceof Array ? array_toString(elem) : elem && elem.toString();
+    //     }).join(', ');
+    //
+    //     return '[' + elems + ']';
+    // };
     // </DEBUG>
 
     CodeGen.prototype.emit = function(lines) {
