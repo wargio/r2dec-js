@@ -105,22 +105,28 @@
             var expanded = [];
 
             while (statements.length > 0) {
-                var s = statements.shift();
-                expanded.push(s);
+                var stmt = statements.shift();
+                expanded.push(stmt);
 
-                s.expressions.forEach(function(expr) {
+                stmt.expressions.forEach(function(expr) {
                     if (expr instanceof Expr.Assign) {
                         var lhand = expr.operands[0];
 
                         if (lhand instanceof Expr.Reg) {
-                            Array.prototype.push.apply(expanded, ovlgen.generate(lhand));
+                            // generate overlapping assignments and wrap them indevidually
+                            // in a statement of their own
+                            var generated = ovlgen.generate(lhand).map(function(g) {
+                                return Stmt.make_statement(stmt.address, g);
+                            });
+
+                            expanded = expanded.concat(generated);
                         }
                     }
                 });
             }
 
-            // have block's container replace its statement list with the newly created one,
-            // containing the generated overlaps
+            // the container is empty at this point; re-add all statements, but this time
+            // along with the generated overlaps
             expanded.forEach(container.push_stmt, container);
         });
     };
@@ -194,10 +200,12 @@
         var _enclosing_def = function(expr) {
             var def = null;
 
-            for (var e = expr; e && !def; e = e.parent) {
-                if (e.is_def) {
-                    def = e;
+            while (expr && !def) {
+                if (expr.is_def) {
+                    def = expr;
                 }
+
+                expr = expr.parent;
             }
 
             return def;
@@ -274,19 +282,11 @@
 
         func.basic_blocks.forEach(function(block) {
             block.container.statements.forEach(function(stmt) {
-                var expr = null;
-
-                if (stmt instanceof Stmt.Branch) {
-                    expr = stmt.cond;
-                } else if (stmt.expressions[0] instanceof Expr.Assign) {
-                    expr = stmt.expressions[0].operands[1]; // rhand of assignment
-                }
-
-                if (expr) {
+                stmt.expressions.forEach(function(expr) {
                     while (reduce_expr(expr)) {
                         Simplify.reduce_expr(expr);
                     }
-                }
+                });
             });
         });
     };
@@ -425,7 +425,7 @@
                 var rhand = p.operands[1];  // assigned expression
 
                 // TODO: should we avoid propagating phi assignments and into phi exprs?
-                if (arch.is_stack_reg(lhand) || arch.is_stack_var(lhand) /*|| arch.is_stack_var(rhand)*/) {
+                if (arch.is_stack_reg(lhand) || arch.is_stack_var(lhand) || arch.is_stack_var(rhand)) {
                     while (def.uses.length > 0) {
                         var u = def.uses[0];
                         var c = rhand.clone(['idx', 'def']);
@@ -513,12 +513,14 @@
     };
 
     Analyzer.prototype.ssa_step_regs = function(func, context) {
+        insert_arguments(func, context, this.arch);
+
         while (propagate_stack_reg(context, this.arch)) { /* empty */ }
         while (propagate_flags_reg(context, this.arch)) { /* empty */ }
     };
 
     Analyzer.prototype.ssa_step_derefs = function(func, context) {
-        insert_arguments(func, context, this.arch);
+        // empty (was: insert_arguments)
     };
 
     Analyzer.prototype.ssa_step_vars = function(func, context) {

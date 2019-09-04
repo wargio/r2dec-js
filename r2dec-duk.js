@@ -161,12 +161,16 @@ BasicBlock.prototype.toString = function() {
     return '[' + repr + ']';
 };
 
+/**
+ * Load an entire r2 evar namespace into a nested JS object for intuitive evars access.
+ * For example: 'pdd.out.tabsize' would be accessed as: `conf['pdd']['out']['tabsize']`
+ * @param {string} ns r2 namespace to load
+ * @returns {Object} A nested JS object whose fields are recursively set to evars
+ */
 var load_r2_evars = function(ns) {
     var evj = Global.r2cmdj('evj', ns);
     var conf = {};
 
-    // build a tree out of namespace crumbs for easy access
-    // e.g. 'pdd.out.tabsize' turns into: conf['pdd']['out']['tabsize']
     evj.forEach(function(vobj) {
         var crumbs = vobj.name.split('.');
         var key = crumbs.pop();
@@ -190,7 +194,27 @@ var load_r2_evars = function(ns) {
     return conf[ns];
 };
 
-/** Javascript entrypoint */
+/**
+ * TODO:
+ *   design:
+ *      o disassembled vs. decompiled function
+ *      o separate decoding, ssa, controlflow and codegen stages
+ *      o redesign ssa and ssa context
+ *      o redesign analyzer
+ *      o redesign optimizer
+ * 
+ *   functionality:
+ *      o implement loops
+ *      o show declarations of local variables
+ *      o trim empty scopes
+ *      o use an 'undefined' literal to cut def-use chain?
+ *      o treat mem derefs in fcalls as out parameters?
+ */
+
+/**
+ * Javascript entrypoint
+ * @param {Array} args Array of command line arguments provided to 'pdd'
+ */
 function r2dec_main(args) {
     try {
         var iIj = Global.r2cmdj('iIj');
@@ -200,8 +224,6 @@ function r2dec_main(args) {
             var afbj = Global.r2cmdj('afbj');
 
             if (afij && afbj) {
-                // TODO: separate decoding, ssa, controlflow and codegen stages
-
                 var config = load_r2_evars('pdd');
 
                 var decoder = new Decoder(iIj);
@@ -223,9 +245,11 @@ function r2dec_main(args) {
 
                 // <DEBUG>
                 // func.basic_blocks.forEach(function(bb) {
+                //     console.log(bb.container.toString(), '{');
                 //     bb.container.statements.forEach(function(stmt) {
-                //         console.log(stmt);
+                //         console.log('  ', stmt.toString());
                 //     });
+                //     console.log('}');
                 // });
                 // </DEBUG>
 
@@ -236,52 +260,26 @@ function r2dec_main(args) {
                 ssa_ctx = ssa.rename_regs();
                 analyzer.ssa_step_regs(func, ssa_ctx);
 
+                // ssa tagging for local variables
+                ssa_ctx = ssa.rename_vars();
+                analyzer.ssa_step_vars(func, ssa_ctx);
+
+                // TODO: propagate vars with a single user into derefs, before tagging derefs
+
                 // ssa tagging for memory dereferences
                 ssa_ctx = ssa.rename_derefs();
                 analyzer.ssa_step_derefs(func, ssa_ctx);
 
                 ssa.preserved_locations();
 
-                // ssa tagging for local variables
-                ssa_ctx = ssa.rename_vars();
-                analyzer.ssa_step_vars(func, ssa_ctx);
-
                 analyzer.ssa_done(func, ssa_ctx);
 
                 Optimizer.run(ssa_ctx, config['opt']);
 
-                // console.log(ssa_ctx.toString());
+                console.log(ssa_ctx.toString());
                 ssa_ctx.validate();
 
                 // ssa.transform_out();
-
-                // TODO:
-                // + find restored locations
-                // + adjust returns
-                //
-                // + resolve fcall parameters
-                //
-                // o rename func regs arguments
-                // o rename func stack arguments
-                // o tag arguments
-                //
-                // + prune unused registers
-                // + prune restored locations
-                // o prune unused fcall rregs
-                //
-                // o rename stack variables
-                // o tag stack variables
-                //
-                // + prune unused stack locations
-                //
-                // o propagate registers
-                // o propagate fcall arguments
-                //
-                // o rename local variables?
-                //
-                // o remove ssa form
-                //
-                // o control flow
 
                 var cflow = new ControlFlow(func);
                 cflow.fallthroughs();

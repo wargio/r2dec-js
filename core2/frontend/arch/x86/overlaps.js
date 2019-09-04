@@ -18,7 +18,6 @@
 module.exports = (function() {
     const Long = require('libdec/long');
     const Expr = require('core2/analysis/ir/expressions');
-    const Stmt = require('core2/analysis/ir/statements');
 
     // all architectural intel registers that have assingment side effects
     const allregs = [
@@ -202,7 +201,7 @@ module.exports = (function() {
     /**
      * Generate assignments for the overlapping counterparts of `reg`
      * @param {Expr.Reg} reg Register instance
-     * @returns {Array.<Stmt.Statement>} An array of statements, each of which encapsules a single assignment expression
+     * @returns {Array.<Expr.Assign>} An array of assignment expressions
      */
     Overlaps.prototype.generate = function(reg) {
         var ovl_regs = this.archregs[this.lookup[reg.name]];
@@ -210,16 +209,14 @@ module.exports = (function() {
         if (ovl_regs) {
             var generator = this.handlers[ovl_regs.indexOf(reg.name)];
             var assingments = generator(reg, ovl_regs);
-            var addr = reg.parent_stmt().address;
 
-            // wrap each generated assignment with a statement
-            return assingments.map(function(expr) {
-                // overalpping assignments add artificial definitions. those definitions are tagged
-                // here to let later analysis distinct them from genuine ones
+            // overalpping assignments add artificial definitions; tagging them as
+            // 'weak' helps later analysis distinct them from genuine ones
+            assingments.forEach(function(expr) {
                 expr.operands[0].weak = true;
-
-                return Stmt.make_statement(addr, expr);
             });
+
+            return assingments;
         }
 
         return [];

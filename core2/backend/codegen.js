@@ -423,7 +423,7 @@ module.exports = (function() {
 
     /**
      * Emit a lexical scope with the appropriate indentation.
-     * @param {!Stmt.Container} cntr  Container object to emit
+     * @param {!Cntr.Container} cntr  Container object to emit
      * @param {boolean} stripped Strip off curly braces
      */
     CodeGen.prototype.emit_scope = function(cntr, stripped) {
@@ -461,43 +461,58 @@ module.exports = (function() {
     CodeGen.prototype.emit_func = function(func) {
         const SPACE = [TOK_WHTSPCE, ' '];
 
-        var fdecl = [];
+        var _emit_func_decl = function(func) {
+            var arglist = [];
 
-        fdecl.push([TOK_VARTYPE, func.rettype]);
-        fdecl.push(SPACE);
-        fdecl.push([TOK_FNNAME, func.name]);
+            if (func.args.length === 0) {
+                arglist = [[TOK_VARTYPE, 'void']];
+            } else {
+                var a = func.args[0];
+    
+                // handle first arg
+                arglist.push([TOK_VARTYPE, a.type]);
+                arglist.push(SPACE);
+                arglist.push([TOK_VARNAME, a.name]);
+    
+                // handle rest of the args
+                func.args.slice(1).forEach(function(a) {
+                    arglist.push([TOK_PUNCT, ',']);
+                    arglist.push(SPACE);
+                    arglist.push([TOK_VARTYPE, a.type]);
+                    arglist.push(SPACE);
+                    arglist.push([TOK_VARNAME, a.name]);
+                });
+            }
+  
+            var func_decl = Array.prototype.concat([
+                [TOK_VARTYPE, func.rettype],
+                SPACE,
+                [TOK_FNNAME, func.name],
+                [TOK_PAREN, '(']],
+                arglist,
+                [[TOK_PAREN, ')']]
+            );
 
-        fdecl.push([TOK_PAREN, '(']);
-        if (func.args.length === 0) {
-            fdecl.push([TOK_VARTYPE, 'void']);
-        } else {
-            var a = func.args[0];
+            return [
+                [[TOK_OFFSET, '0x' + func.address.toString(16)], func_decl]
+            ];
+        };
 
-            // handle first arg
-            fdecl.push([TOK_VARTYPE, a.type]);
-            fdecl.push(SPACE);
-            fdecl.push([TOK_VARNAME, a.name]);
-
-            // handle rest of the args
-            func.args.slice(1).forEach(function(a) {
-                fdecl.push([TOK_PUNCT, ',']);
-                fdecl.push(SPACE);
-                fdecl.push([TOK_VARTYPE, a.type]);
-                fdecl.push(SPACE);
-                fdecl.push([TOK_VARNAME, a.name]);
-            });
-        }
-        fdecl.push([TOK_PAREN, ')']);
+        var func_decl = _emit_func_decl(func);
 
         // emit containers recursively
         var func_body = this.emit_scope(func.entry_block.container);
 
+        // if no scope newline, pull opening bracket from function body to function decl
         if (!this.scope_newline) {
-            fdecl.push(SPACE);
-            fdecl.push(func_body.shift()[1][0]);
+            // pulling out first token of first body line
+            var obrace = func_body.shift()[1][0];
+
+            func_decl.push(SPACE);
+            func_decl.push(obrace);
         }
 
-        return this.emit([[[TOK_OFFSET, '0x' + func.address.toString(16)], fdecl]].concat(func_body));
+        return this.emit(func_decl.concat(func_body));
     };
 
     return CodeGen;

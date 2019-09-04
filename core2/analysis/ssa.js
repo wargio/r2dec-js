@@ -17,6 +17,7 @@
 
 module.exports = (function() {
     const Graph = require('core2/analysis/graph');
+    const Cntr = require('core2/analysis/ir/container');
     const Stmt = require('core2/analysis/ir/statements');
     const Expr = require('core2/analysis/ir/expressions');
 
@@ -32,7 +33,7 @@ module.exports = (function() {
         this.stack = {};
         this.defs = {};
 
-        this.uninit = new Stmt.Container(0, []);
+        this.uninit = new Cntr.Container(0, []);
     }
 
     // intialize 'count' and 'stack' to be used in the renaming process
@@ -323,11 +324,15 @@ module.exports = (function() {
 
         var header = ['\u250f', '', 'def-use chains:'].join(' ');
 
-        var table = Object.keys(this.defs).map(function(d) {
-            var _def = _get_stmt_addr(this.defs[d]);
-            var _use = this.defs[d].uses.map(_get_stmt_addr);
+        var maxlen = Object.keys(this.defs).reduce(function(m, current) {
+            return current.length > m ? current.length : m;
+        }, 0) + 3;
 
-            return ['\u2503', '  ', _padEnd(d, 32), '[' + _def + ']', ':', _use.join(', ')].join(' ');
+        var table = Object.keys(this.defs).map(function(d) {
+            var _def = _get_stmt_addr(this.defs[d]);            // address of definition
+            var _use = this.defs[d].uses.map(_get_stmt_addr);   // list of users addresses
+
+            return ['\u2503', '  ', _padEnd(d, maxlen), '[' + _def + ']', ':', _use.join(', ')].join(' ');
         }, this);
 
         var footer = ['\u2517'];
@@ -442,15 +447,20 @@ module.exports = (function() {
                         // ssa index of the cloned expression is preserved, since memory dereferences
                         // may be enclosing indexed expressions
                         for (var i = 0; i < args.length; i++) {
-                            args[i] = a.clone(['idx', 'def']);
+                            args[i] = a.clone(['idx', 'def', 'is_safe', 'weak']);
                         }
+
+                        var phi_var = a.clone(['idx', 'def', 'is_safe']);
+
+                        // phi variables are artificial and may be safely eliminated
+                        phi_var.weak = true;
 
                         // turn Node y into BasicBlock _y
                         var _y = node_to_block(this.func, y);
 
                         // insert the statement a = Phi(a, a, ..., a) at the top of block y, where the
                         // phi-function has as many arguments as y has predecessors
-                        var phi_assignment = new Expr.Assign(a.clone(['idx', 'def']), new Expr.Phi(args));
+                        var phi_assignment = new Expr.Assign(phi_var, new Expr.Phi(args));
                         var phi_stmt = Stmt.make_statement(_y.address, phi_assignment);
 
                         // insert phi at the beginning of the container
@@ -722,7 +732,7 @@ module.exports = (function() {
         var candidates = {};
         var local_defs = this.context.get_local_defs();
 
-        // console.log('preserved_locations:');
+        console.log('preserved_locations:');
         this.func.exit_blocks.forEach(function(block) {
             local_defs[block.container].forEach(function(def) {
                 var origin = _get_origin(def);
@@ -734,7 +744,7 @@ module.exports = (function() {
                         candidates[key] = [def, []];
                     }
 
-                    // console.log(' ', 'origin:', origin, '|', 'restored:', def);
+                    console.log(' ', 'origin:', origin, '|', 'restored:', def);
                     candidates[key][1].push(origin);
                 }
             });

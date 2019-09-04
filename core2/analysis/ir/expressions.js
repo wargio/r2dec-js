@@ -358,14 +358,10 @@
     function Expr(operator, operands) {
         this.operator = operator;
 
+        this.parent = undefined;
         this.operands = [];
 
         operands.forEach(this.push_operand, this);
-
-        this.is_def = false;    // ssa: is a definition?
-        this.idx = undefined;   // ssa: subscript index
-
-        this.parent = undefined;
     }
 
     /**
@@ -634,6 +630,9 @@
      */
     function UExpr(operator, operand1) {
         Expr.call(this, operator, [operand1]);
+
+        this.is_def = false;    // ssa: is a definition?
+        this.idx = undefined;   // ssa: subscript index
     }
 
     UExpr.prototype = Object.create(Expr.prototype);
@@ -714,9 +713,9 @@
     Assign.prototype.replace_operand = function(old_op, new_op) {
         var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
 
-        // left hand expression may be replaced due to simplification or propagation.
-        // this comes to maintain the 'is_def' property properly so ssa would be able
-        // to pick it up as a definition
+        // left hand expression may be replaced with a new one, due to simplification
+        // or propagation. this comes to maintain the 'is_def' property properly so ssa
+        // would be able to pick it up as a definition
 
         if (old_op === this.operands[0]) {
             new_op.is_def = true;
