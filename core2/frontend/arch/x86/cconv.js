@@ -101,11 +101,11 @@ module.exports = (function() {
 
                 if (this.arch.is_stack_reg(deref_op) || this.arch.is_stack_var(deref_op)) {
                     if (!top_of_stack) {
-                        top_of_stack = def.clone(['def', 'idx'], true);
+                        top_of_stack = def.clone(['idx', 'def'], true);
                     }
 
                     if (def.equals_no_idx(top_of_stack)) {
-                        var arg = def.clone(['idx']);
+                        var arg = def.clone(['idx', 'def']);
 
                         // register arg as a new user
                         arg.def = def;
