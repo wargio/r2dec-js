@@ -32,8 +32,6 @@
      *          Break
      *          Continue
      *          Return
-     *
-     *      Container       : container (scope) class
      */
 
     /**
@@ -49,7 +47,7 @@
         this.parent = null;
 
         this.expressions = [];
-        this.statements = [];
+        // this.statements = [];
         this.containers = [];
 
         exprs.forEach(this.push_expr, this);
@@ -208,6 +206,8 @@
     Goto.prototype = Object.create(Statement.prototype);
     Goto.prototype.constructor = Goto;
 
+    Goto.prototype.terminating = true;
+
     /** @override */
     Goto.prototype.toString = function() {
         var repr = [
@@ -241,6 +241,9 @@
     Branch.prototype = Object.create(Statement.prototype);
     Branch.prototype.constructor = Branch;
 
+    Branch.prototype.terminating = true;
+    Branch.prototype.conditional = true;
+
     /** @override */
     Branch.prototype.toString = function() {
         var repr = [
@@ -258,7 +261,7 @@
     /**
      * Conditional statement.
      * @param {!Long} addr Address of original assembly instruction
-     * @param {Expr._expr} cond Condition expression
+     * @param {Expr.Expr} cond Condition expression
      * @param {Container} then_cntr The 'then' container
      * @param {Container} else_cntr The 'else' container
      * @returns {If}
@@ -274,6 +277,9 @@
 
     If.prototype = Object.create(Statement.prototype);
     If.prototype.constructor = If;
+
+    If.prototype.terminating = true;
+    If.prototype.conditional = true;
 
     /** @override */
     If.prototype.toString = function() {
@@ -295,7 +301,7 @@
     /**
      * While-loop statement.
      * @param {!Long} addr Address of original assembly instruction
-     * @param {Expr._expr} cond Condition expression
+     * @param {Expr.Expr} cond Condition expression
      * @param {Container} body The loop body container
      * @returns {While}
      * @constructor
@@ -309,6 +315,8 @@
 
     While.prototype = Object.create(Statement.prototype);
     While.prototype.constructor = While;
+
+    While.prototype.conditional = true;
 
     /** @override */
     While.prototype.toString = function() {
@@ -326,7 +334,7 @@
     /**
      * Do While-loop statement.
      * @param {!Long} addr Address of original assembly instruction
-     * @param {Expr._expr} cond Condition expression
+     * @param {Expr.Expr} cond Condition expression
      * @param {Container} body The loop body container
      * @returns {DoWhile}
      * @constructor
@@ -340,6 +348,8 @@
 
     DoWhile.prototype = Object.create(Statement.prototype);
     DoWhile.prototype.constructor = DoWhile;
+
+    DoWhile.prototype.conditional = true;
 
     /** @override */
     DoWhile.prototype.toString = function() {
@@ -367,6 +377,8 @@
     Break.prototype = Object.create(Statement.prototype);
     Break.prototype.constructor = Break;
 
+    Break.prototype.terminating = true;
+
     /** @override */
     Break.prototype.toString = function() {
         return '[' + this.constructor.name + ']';
@@ -386,6 +398,8 @@
 
     Continue.prototype = Object.create(Statement.prototype);
     Continue.prototype.constructor = Continue;
+
+    Continue.prototype.terminating = true;
 
     /** @override */
     Continue.prototype.toString = function() {
@@ -410,6 +424,8 @@
     Return.prototype = Object.create(Statement.prototype);
     Return.prototype.constructor = Return;
 
+    Return.prototype.terminating = true;
+
     /** @override */
     Return.prototype.toString = function() {
         var repr = [
@@ -419,102 +435,6 @@
         if (this.retval) {
             repr.push(this.retval.toString());
         }
-
-        return '[' + repr.join(' ') + ']';
-    };
-
-    // ------------------------------------------------------------
-
-    /**
-     * Container class. Encloses a list of consecutive statements that serve as one
-     * logical block, e.g. a loop body or an 'if' body.
-     * @param {number|Long} addr Scope starting address
-     * @param {Array.<Statement>} stmts List of enclosed statements
-     * @returns {Container}
-     * @constructor
-     */
-    function Container(addr, stmts) {
-        this.address = addr;
-        this.parent = null;
-        this.fallthrough = null;
-        this.statements = [];   // child statements
-
-        // set this as the container of all statements enclosed in the block
-        stmts.forEach(this.push_stmt, this);
-    }
-
-    Container.prototype.push_stmt = function(stmt) {
-        stmt.parent = this;
-
-        this.statements.push(stmt);
-    };
-
-    Container.prototype.unshift_stmt = function(stmt) {
-        stmt.parent = this;
-
-        this.statements.unshift(stmt);
-    };
-
-    Container.prototype.set_fallthrough = function(cntr) {
-        if (cntr) {
-            cntr.parent = this;
-        }
-
-        this.fallthrough = cntr;
-    };
-
-    Container.prototype.terminator = function() {
-        var termtypes = [
-            Branch.prototype.constructor.name,
-            Goto.prototype.constructor.name,
-            Return.prototype.constructor.name
-        ];
-
-        // usually this is on the last statement of the block, but
-        // we cannot count on it.
-        for (var i = this.statements.length - 1; i >= 0; i--) {
-            var s = this.statements[i];
-
-            if (termtypes.indexOf(Object.getPrototypeOf(s).constructor.name) !== (-1)) {
-                return s;
-            }
-        }
-
-        return null;
-    };
-
-    Container.prototype.pluck = function(detach) {
-        var p = this.parent;
-        var i = p.containers.indexOf(this);
-
-        if (detach) {
-            this.statements.forEach(function(stmt) {
-                stmt.pluck(detach);
-            });
-        }
-
-        // statements refer their child containers (if there are any) by their position, so removing a container
-        // must preserve other containers' position.
-
-        return p.containers[i] = null;
-    };
-
-    // /**
-    //  * Generate a deep copy of this.
-    //  * @returns {!Container}
-    //  */
-    // Container.prototype.clone = function() {
-    //     var inst = Object.create(this.constructor.prototype);
-    //     var cloned = this.constructor.apply(inst, this.statements.map(function(stmt) { return stmt.clone(); }));
-    //
-    //     return ((cloned !== null) && (typeof cloned === 'object')) ? cloned : inst;
-    // };
-
-    Container.prototype.toString = function() {
-        var repr = [
-            this.constructor.name,
-            this.address.toString(16)
-        ];
 
         return '[' + repr.join(' ') + ']';
     };
@@ -541,8 +461,6 @@
         While:      While,
         DoWhile:    DoWhile,
         Break:      Break,
-        Continue:   Continue,
-
-        Container:  Container
+        Continue:   Continue
     };
 })();

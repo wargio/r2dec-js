@@ -16,6 +16,7 @@
  */
 
 module.exports = (function() {
+    const Cntr = require('core2/analysis/ir/container');
     const Stmt = require('core2/analysis/ir/statements');
     const Simplify = require('core2/analysis/ir/simplify');
 
@@ -49,7 +50,7 @@ module.exports = (function() {
      * Process instruction data in the form of 'aoj' r2 command output into a list of
      * generic statements.
      * @param {Object} aoj Parsed output of 'aoj' r2 command
-     * @returns {Stmt.Container} Container object including all generated Statements
+     * @returns {Cntr.Container} Container object including all generated Statements
      */
     Decoder.prototype.transform_ir = function(aoj) {
         var start = undefined;  // block starting address
@@ -74,7 +75,7 @@ module.exports = (function() {
         stmts.forEach(Simplify.reduce_stmt);
 
         // put all statements in a container and return it
-        return new Stmt.Container(start, stmts);
+        return new Cntr.Container(start, stmts);
     };
 
     return Decoder;
