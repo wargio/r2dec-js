@@ -83,16 +83,27 @@ module.exports = (function() {
 
     // eliminate dead assignments to memory
     var eliminate_dead_derefs = function(ctx, conf) {
+        // return `true` if `expr` is 
+        var _is_user = function(expr) {
+            return (expr.def !== undefined) && (expr.def.uses.length > 0);
+        };
+
         return ctx.iterate(function(def) {
             if (def.uses.length === 0) {
                 var p = def.parent;         // p is Expr.Assign
                 var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
-                if ((lhand instanceof Expr.Deref) && ((rhand instanceof Expr.Phi) || def.is_safe || conf.noalias)) {
-                    p.pluck(true);
+                if ((lhand instanceof Expr.Deref) && ((rhand instanceof Expr.Phi) || conf.noalias)) {
+                    var memloc = lhand.operands[0];
 
-                    return true;
+                    // in case the dereferenced memory location is calculated based on a used variable,
+                    // it is probably an aliased pointer. make sure this is not the case
+                    if (!(memloc.iter_operands().some(_is_user)) || def.is_safe) {
+                        p.pluck(true);
+
+                        return true;
+                    }
                 }
             }
 
@@ -168,7 +179,7 @@ module.exports = (function() {
                             var u = def.uses[0];
 
                             // do not propagate into phi (i.e. use is a phi argument)
-                            if (!(u.parent instanceof Expr.Phi)) {
+                            if (!(u.parent instanceof Expr.Phi) /*&& !(u.parent instanceof Expr.Deref)*/) {
                                 var c = rhand.clone(['idx', 'def']);
 
                                 u.replace(c);
@@ -196,13 +207,16 @@ module.exports = (function() {
                     var rhand = p.operands[1];  // assigned expression
 
                     if (rhand instanceof Expr.Val) {
-                        var phi_users = 0;
+                        var skipped = 0;
 
-                        while (def.uses.length > phi_users) {
-                            var u = def.uses[phi_users];
+                        while (def.uses.length > skipped) {
+                            var u = def.uses[skipped];
 
-                            if (u.parent instanceof Expr.Phi) {
-                                phi_users++;
+                            // do not propagate if user is:
+                            //  - a phi argument, to simplify transforming ssa back later on
+                            //  - an addressOf operand, because taking address of a constant value makes no sense
+                            if ((u.parent instanceof Expr.Phi) || (u.parent instanceof Expr.AddrOf)) {
+                                skipped++;
                             } else {
                                 var c = rhand.clone();
 
