@@ -275,9 +275,12 @@
 	}
 
 	function _get_type(value) {
+		if (!value) {
+			return value;
+		}
 		var pos = ['[Z', '[B', '[S', '[C', '[I', '[J', '[F', '[D', '[V'].indexOf(value.toUpperCase());
 		if (pos >= 0) {
-			return ['boolean', 'int8_t', 'int16_t', 'char', 'int32_t', 'int64_t', 'float', 'double', 'void'][pos];
+			return ['boolean', 'int8_t', 'int16_t', 'char', 'int32_t', 'int64_t', 'float', 'double', 'void', ][pos];
 		}
 		return value;
 	}
@@ -348,6 +351,16 @@
 				};
 				var dst = Variable.local(p.opd[0], instr.bits, true);
 				var src = Variable.object(p.opd[1]);
+				return Base.assign(dst, src);
+			},
+			'filled-new-array': function(instr, context, instructions) {
+				var size = Variable.number(instr.parsed.args.length);
+				var dst = Variable.local(instr.parsed.args[0], instr.bits, true);
+				var src = Variable.newarray(_get_type(instr.parsed.opd[0]), size, instr.parsed.args);
+				context.objects[instr.parsed.opd[0]] = {
+					instr: instr,
+					type: DalvikType.NewArray,
+				};
 				return Base.assign(dst, src);
 			},
 			'new-array': function(instr, context, instructions) {

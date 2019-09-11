@@ -19,11 +19,16 @@
 	var Extra = require('libdec/core/extra');
 
 	const _java = {
-		array: function(type, size, create) {
+		array: function(type, size, create, init) {
 			this.size = size || 0;
 			this.type = Extra.replace.object(type);
+			this.init = init;
 			this.toString = function() {
-				return [Global.printer.theme.flow('new'), Global.printer.theme.callname(this.type), '[' + this.size + ']'].join(' ');
+				var t = [Global.printer.theme.flow('new'), Global.printer.theme.callname(this.type), '[' + this.size + ']'];
+				if (this.init && this.init.length > 0) {
+					t.push('{' + this.init.join(', ')  +'}')
+				}
+				return t.join(' ');
 			};
 		},
 		object: function(type, args, create) {
@@ -46,12 +51,12 @@
 	};
 
 	return {
-		array: function(type, size, create, lang) {
+		array: function(type, size, create, lang, init) {
 			lang = lang || Global.evars.arch;
 			if (!_all_langs[lang]) {
 				throw new Error('Missing lang for array (objects.js)');
 			}
-			return new _all_langs[lang].array(type, size, create);
+			return new _all_langs[lang].array(type, size, create, init || []);
 		},
 		object: function(type, args, create, lang) {
 			lang = lang || Global.evars.arch;

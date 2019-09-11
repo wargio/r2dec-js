@@ -192,8 +192,8 @@
         newobject: function(type, args) {
             return Objects.object(type, args, true);
         },
-        newarray: function(type, size) {
-            return Objects.array(type, size, true);
+        newarray: function(type, size, init) {
+            return Objects.array(type, size, true, null, init);
         },
     };
 });
