@@ -26,7 +26,7 @@
 			this.toString = function() {
 				var t = [Global.printer.theme.flow('new'), Global.printer.theme.callname(this.type), '[' + this.size + ']'];
 				if (this.init && this.init.length > 0) {
-					t.push('{' + this.init.join(', ')  +'}')
+					t.push('{' + this.init.join(', ')  +'}');
 				}
 				return t.join(' ');
 			};
