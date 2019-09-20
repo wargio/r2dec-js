@@ -1,5 +1,5 @@
 PACKAGE=r2dec
-VERSION=3.6.0
+VERSION=3.9.0
 ARCH=amd64
 DEPENDS=radare2
 SECTION=user/shell
