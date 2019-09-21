@@ -1,0 +1,2 @@
+option('r2_libdir', type: 'string', value: '')
+option('r2_incdir', type: 'string', value: '')
