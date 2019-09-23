@@ -6,12 +6,12 @@ cc = meson.get_compiler('c')
 incs = []
 deps = []
 
-r2_libdir = get_option('r2_libdir')
-if r2_libdir == '' and r2.found()
-  r2_libdir = run_command(r2, '-H', 'INCDIR').stdout().strip()
+r2_incdir = get_option('r2_incdir')
+if r2_incdir == '' and r2.found()
+  r2_incdir = run_command(r2, '-H', 'INCDIR').stdout().strip()
 endif
 
-r2_incdir = get_option('r2_incdir')
+r2_libdir = get_option('r2_libdir')
 if r2_libdir == '' and r2.found()
   r2_libdir = run_command(r2, '-H', 'LIBDIR').stdout().strip()
 endif
