@@ -257,7 +257,6 @@ module.exports = (function() {
                 value: op.value,
 
                 mem: {
-                    size:  op.size,
                     base:  op.base,
                     index: op.index,
                     scale: op.scale,
@@ -295,7 +294,7 @@ module.exports = (function() {
 
         switch (op.type) {
         case 'reg':
-            expr = new Expr.Reg(op.value, this.archregs.get_reg_size(op.value));
+            expr = new Expr.Reg(op.value, op.size);
             break;
 
         case 'imm':
@@ -335,7 +334,7 @@ module.exports = (function() {
                 expr = disp;
             }
 
-            expr = new Expr.Deref(expr, op.mem.size);
+            expr = new Expr.Deref(expr, op.size);
             break;
 
         default:
