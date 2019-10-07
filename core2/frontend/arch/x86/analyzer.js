@@ -17,7 +17,6 @@
 
  module.exports = (function() {
     const Flags = require('core2/frontend/arch/x86/flags');
-    const Overlaps = require('core2/frontend/arch/x86/overlaps');
     const CallConv = require('core2/frontend/arch/x86/cconv');
 
     const Expr = require('core2/analysis/ir/expressions');
@@ -26,6 +25,7 @@
 
     // TODO: this file looks terrible; refactor this sh*t
 
+    // replace position independent references with actual addresses
     var resolve_pic = function(cntr, arch) {
         const pcreg = arch.PC_REG;
         var subst = [];
@@ -52,6 +52,7 @@
         });
     };
 
+    // analyze and assign function calls arguments
     var assign_fcall_args = function(func, ctx, arch) {
         var cconv = new CallConv(arch);
 
@@ -98,7 +99,22 @@
         });
     };
 
-    var gen_overlaps = function(func, ovlgen) {
+    // generate assignments for overlapping register counterparts to reflect assignments side effects
+    // so def-use correctness would be maintained.
+    //
+    // for example, the following assignment:
+    //   eax = ebx
+    //
+    // would need the following assingments to reflect its effect on its counterparts correctly:
+    //   rax = 0
+    //   ax = ebx & 0x0000ffff
+    //   al = ebx & 0x000000ff
+    //   ah = (ebx & 0x0000ff00) >> 16
+    //
+    // that generates a lot of redundant assignment statements that would be eventually eliminated if remained unused
+    var gen_overlaps = function(func, arch) {
+        var archregs = arch.archregs;
+
         func.basic_blocks.forEach(function(bb) {
             var container = bb.container;
             var statements = container.statements;
@@ -115,7 +131,7 @@
                         if (lhand instanceof Expr.Reg) {
                             // generate overlapping assignments and wrap them indevidually
                             // in a statement of their own
-                            var generated = ovlgen.generate(lhand).map(function(g) {
+                            var generated = archregs.generate(lhand).map(function(g) {
                                 return Stmt.make_statement(stmt.address, g);
                             });
 
@@ -131,46 +147,173 @@
         });
     };
 
-    var insert_arguments = function(func, ctx, arch) {
+    var _make_variable = function(vobj, arch) {
         var size = arch.bits;
+        var vexpr = new Expr.Var(vobj.name, size);
+        var loc;
 
-        var _make_arg_var = function(a) {
-            var arg = new Expr.Arg(a.name, size);
-            var ref;
+        if (typeof(vobj.ref) === 'object') {
+            var base = new Expr.Reg(vobj.ref.base, size);
+            var disp = new Expr.Val(vobj.ref.offset, size);
 
-            if (typeof(a.ref) === 'object') {
-                var base = new Expr.Reg(a.ref.base, size);
-                var disp = new Expr.Val(a.ref.offset, size);
+            base.idx = arch.is_frame_reg(base) ? 1: 0;
 
-                base.idx = arch.FRAME_REG.equals_no_idx(base) ? 1: 0;
+            loc = new Expr.Add(base, disp);
+            vexpr = new Expr.AddrOf(vexpr);
+        } else {
+            loc = new Expr.Reg(vobj.ref, size);
 
-                ref = new Expr.Add(base, disp);
-                arg = new Expr.AddrOf(arg);
-            } else {
-                ref = new Expr.Reg(a.ref, size);
+            loc.idx = 0;
+        }
 
-                ref.idx = 0;
+        var assignment = new Expr.Assign(loc, vexpr);
+        Simplify.reduce_expr(loc);
+
+        return assignment;
+    };
+
+    // turn bp-based variables and arguments references into Variable expressions
+    var rename_variables = function(func, ctx, arch) {
+        const size = arch.bits;
+
+        var _is_bp_based = function(vobj) {
+            if (typeof(vobj.ref) === 'object') {
+                var base = new Expr.Reg(vobj.ref.base, size);
+
+                return arch.is_frame_reg(base);
             }
 
-            var assignment = new Expr.Assign(ref, arg);
-            Simplify.reduce_expr(ref);
-
-            return assignment;
+            return false;
         };
 
+        var _vobj_to_vitem = function(vobj) {
+            return {
+                name: vobj.name,
+                disp: Math.abs(vobj.ref.offset.toInt()),
+                type: vobj.type,
+                maxsize: undefined
+            };
+        };
+
+        // keep only bp-based vars and args
+        var vitems = func.vars.filter(_is_bp_based).map(_vobj_to_vitem);
+        var aitems = func.args.filter(_is_bp_based).map(_vobj_to_vitem);
+
+        var _by_ref_offset = function(vitem0, vitem1) {
+            return vitem0.disp - vitem1.disp;
+        };
+
+        // sort bp-based variables by their distance from bp
+        vitems.sort(_by_ref_offset);
+
+        // measure local variables size in bytes, though it is inaccurate since it may
+        // include stack alignment. this is relevant mostly for locally allocated arrays
+        vitems.reduce(function(prev_disp, vitem) {
+            vitem.maxsize = vitem.disp - prev_disp;
+
+            return vitem.disp;
+        }, 0);
+
+        var _guess_type = function(vitem) {
+            const sizes = {
+                'char'      : 1,
+                'short'     : 2,
+                ''          : 4,
+                'int'       : 4,
+                'long'      : (size / 8),
+                'long long' : 64
+            };
+
+            var match = vitem.type.match(/(?:(unsigned)\s+)?(?:signed\s+)?(\w+(?: \w+)*)\s*(\*+)/);
+            var is_signed = match[1] === undefined;
+            var basetype = match[2];
+            var is_ptr = match[3] !== undefined;
+            var is_array = is_ptr && (vitem.maxsize > (size / 8));
+            var nitems = is_array ? vitem.maxsize / sizes[basetype] : 0;
+
+            // type
+            //  basetype
+            //  signed
+            //  size
+
+            // ptr
+            //  type
+
+            // array
+            //  type
+            //  nitems
+        };
+
+        var freg = arch.FRAME_REG.clone();
+        freg.idx = 1;
+
+        if (freg in ctx.defs) {
+            // locate all uses of frame register and get their parent expressions
+            var frame_refs = ctx.defs[freg].uses.map(function(u) {
+                return u.parent;
+            });
+
+            frame_refs.forEach(function(expr) {
+                var vlist = null;
+
+                if (arch.is_frame_var(expr)) {
+                    vlist = vitems;
+                }
+
+                else if (arch.is_frame_arg(expr)) {
+                    vlist = aitems;
+                }
+
+                if (vlist) {
+                    var edisp = expr.operands[1].value.toInt();
+
+                    for (var i = 0; i < vlist.length; i++) {
+                        var vitem = vlist[i];
+                        var vdisp = vitem.disp;
+
+                        // the array ordering is determined by the variable's displacement (i.e. its distance
+                        // from bp). an expression that refers to bp but has no exact displacement match (i.e.
+                        // where the displacement is between two defined variables), means it is a reference
+                        // to an offset from the one closer to bp: either an array index or a field offset. in
+                        // that case, we use the variable's name, but add the relative offset inside it.
+                        // note: relevant for local variables only; arguments are expected to get exact match
+
+                        if (vdisp >= edisp) {
+                            var vexpr = new Expr.AddrOf(new Expr.Var(vitem.name, size));
+
+                            // TODO: this is an experimental method to identify arrays on stack and
+                            // make their references show appropriately
+                            if ((vitem.type.endsWith('*')) && (vlist === vitems)) {
+                                // this memory deref comes solely to match the address of, hence
+                                // the undefined size - which is irrelevant
+                                vexpr = new Expr.Deref(vexpr, undefined);
+                            }
+
+                            if (vdisp > edisp) {
+                                vexpr = new Expr.Add(vexpr, new Expr.Val(vdisp - edisp, size));
+                            }
+
+                            // propagate and simplify
+                            expr.replace(vexpr);
+                            Simplify.reduce_expr(vexpr.parent);
+
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+
+        func.vars = vitems;
+        func.args = aitems;
+    };
+
+    var insert_arguments = function(func, ctx, arch) {
         var vars = [];
 
-        func.vars.forEach(function(v) {
-            var assignment = _make_arg_var(v);
-
-            // console.log('var:', assignment);
-            vars.push(assignment);
-        });
-
         func.args.forEach(function(a) {
-            var assignment = _make_arg_var(a);
+            var assignment = _make_variable(a, arch);
 
-            // console.log('arg:', assignment);
             vars.push(assignment);
         });
 
@@ -259,7 +402,7 @@
         });
     };
 
-    // TODO: extract simplify_flags and move it to a post-controlflow simplifying loop
+    // TODO: extract and move it somewhere else
     var transform_flags = function(func) {
 
         var reduce_expr = function(expr) {
@@ -291,6 +434,8 @@
         });
     };
 
+    // identify tailcalls that show as Goto statements and turn them into proper function
+    // calls whose return value is returned by current function
     var transform_tailcalls = function(func) {
         func.exit_blocks.forEach(function(block) {
             var terminator = block.container.terminator();
@@ -313,38 +458,6 @@
                 //     // TODO: to be implemented
                 // }
             }
-        });
-    };
-
-    // note: this has to take place before propagating sp0
-    var cleanup_fcall_args = function(ctx, arch) {
-        var is_stack_loc = function(expr) {
-            return (expr instanceof Expr.Deref) && arch.is_stack_var(expr.operands[0]);
-        };
-
-        // remove all function call arguments that refer to a dead stack location. in other
-        // words: iterate through all definitions and if it is an uninitialized stack location,
-        // remove all its function call arguments users
-        return ctx.iterate(function(def) {
-            if ((def.idx === 0) && is_stack_loc(def)) {
-                // filters def users for fcall arguments
-                var fcall_args = def.uses.filter(function(u) {
-                    return (u.parent instanceof Expr.Call);
-                });
-
-                fcall_args.forEach(function(u) {
-                    u.pluck(true);
-                });
-
-                // if no users left for that stack location, remove it altogether
-                if (def.uses.length === 0) {
-                    def.pluck(true);
-
-                    return true;
-                }
-            }
-
-            return false;
         });
     };
 
@@ -416,7 +529,8 @@
         });
     };
 
-    // propagate stack register definitions to their uses
+    // propagate stack register definitions to their uses and simplify in-place. that should
+    // normalize all stack references to use a single stack pointer definition
     var propagate_stack_reg = function(ctx, arch) {
         return ctx.iterate(function(def) {
             if (def.idx !== 0) {
@@ -432,13 +546,6 @@
 
                         u.replace(c);
                         Simplify.reduce_stmt(c.parent_stmt());
-
-                        // unless something really hacky is going on in the binary,
-                        // stack locations are assumed to be safe for propagations
-                        // (i.e. they will not be aliased)
-                        if (c.parent instanceof Expr.Deref) {
-                            c.parent.is_safe = true;
-                        }
                     }
 
                     // unused stack dereferences cannot be removed just yet, as they may
@@ -455,11 +562,32 @@
         });
     };
 
+    // unless something really hacky is going on in the binary, stack locations
+    // are assumed to be safe for propagations (i.e. they will not be aliased).
+    // this pass iterates over all memory deref definitions to tag them as safe
+    var tag_stack_derefs = function(ctx, arch) {
+        return ctx.iterate(function(def) {
+            if (def instanceof Expr.Deref) {
+                var memloc = def.operands[0];
+
+                if (arch.is_stack_reg(memloc) || arch.is_stack_var(memloc)) {
+                    def.is_safe = true;
+                }
+            }
+
+            return false;
+        });
+    };
+
+    // there are some indications that may suggest that the function does not return
+    // a value (i.e. returns void). if found, adjust all return statements in the function
+    // accordingly
     var adjust_returns = function(func, arch) {
-        const rreg = arch.RESULT_REG;
+        var rreg = arch.RESULT_REG;
+        rreg.idx = 0;
 
         var _is_uninit_rreg = function(expr) {
-            return rreg.equals_no_idx(expr) && (expr.idx === 0);
+            return rreg.equals(expr);
         };
 
         var returns = [];
@@ -486,6 +614,8 @@
         });
 
         if (return_void) {
+            // TODO: this may become problematic in case of a tailcall.
+            // in that case retval expr is a function call, and should not be plucked
             returns.forEach(function(ret) {
                 ret.retval.pluck(true);
             });
@@ -494,49 +624,40 @@
 
     function Analyzer(arch) {
         this.arch = arch;
-        this.ovlgen = new Overlaps(arch.bits);
     }
 
     Analyzer.prototype.transform_step = function(container) {
-        // replace position independent references with actual addresses
         resolve_pic(container, this.arch);
     };
 
     Analyzer.prototype.transform_done = function(func) {
+        // insert_arguments(func, context, this.arch);
 
-        // generate assignments for overlapping register counterparts to maintain def-use correctness.
-        // that generates a lot of redundant statements that eventually eliminated if remained unused
-        gen_overlaps(func, this.ovlgen);
+        gen_overlaps(func, this.arch);
 
         // transform exit blocks' gotos into function calls
         transform_tailcalls(func);
     };
 
     Analyzer.prototype.ssa_step_regs = function(func, context) {
-        insert_arguments(func, context, this.arch);
+        rename_variables(func, context, this.arch);
 
         while (propagate_stack_reg(context, this.arch)) { /* empty */ }
         while (propagate_flags_reg(context, this.arch)) { /* empty */ }
-    };
-
-    Analyzer.prototype.ssa_step_derefs = function(func, context) {
-        // empty (was: insert_arguments)
     };
 
     Analyzer.prototype.ssa_step_vars = function(func, context) {
         // empty
     };
 
+    Analyzer.prototype.ssa_step_derefs = function(func, context) {
+        tag_stack_derefs(context, this.arch);
+    };
+
     Analyzer.prototype.ssa_done = function(func, context) {
         remove_preserved_loc(context);
-
-        // analyze and assign function calls arguments
         assign_fcall_args(func, context, this.arch);
-
-        // TODO: this should happen after propagating registers, since phi(rreg0,...) is not propagated to return just yet
         adjust_returns(func, this.arch);
-
-        // cleanup_fcall_args(context, this.arch);
         transform_flags(func);
     };
 

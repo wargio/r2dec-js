@@ -181,7 +181,7 @@ module.exports = (function() {
     };
 
     var _constant_folding = function(expr) {
-        var operations = {
+        const operations = {
             'Add': Long.prototype.add,
             'Sub': Long.prototype.sub,
             'Mul': Long.prototype.mul,
@@ -189,17 +189,37 @@ module.exports = (function() {
             'Mod': Long.prototype.mod,
             'And': Long.prototype.and,
             'Or' : Long.prototype.or,
-            'Xor': Long.prototype.xor
+            'Xor': Long.prototype.xor,
+            'Shl': Long.prototype.shl,
+            'Shr': Long.prototype.shr
         };
 
-        if ((expr instanceof Expr.BExpr) && (expr.constructor.name in operations)) {
+        var _has_msb_set = function(val) {
+            const msb = 1 << (val.size - 1);
+
+            return val.value.and(msb) != 0;
+        };
+
+        // an operation is considered sign-safe if either the operation is sign-insensitive,
+        // or the left value cannot be considered as negative
+        var _sign_safe = function(opname, val) {
+            var signed_ops = ['Shr'];
+
+            return signed_ops.indexOf(opname) === (-1) || !_has_msb_set(val);
+        };
+
+        var opname = expr.constructor.name;
+
+        if (opname in operations) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
             if ((lhand instanceof Expr.Val) && (rhand instanceof Expr.Val)) {
-                var op = operations[expr.constructor.name];
+                if (_sign_safe(opname, lhand)) {
+                    var op = operations[opname];
 
-                return new Expr.Val(op.call(lhand.value, rhand.value), lhand.size);
+                    return new Expr.Val(op.call(lhand.value, rhand.value), lhand.size);
+                }
             }
         }
 
@@ -207,28 +227,26 @@ module.exports = (function() {
     };
 
     var _correct_arith = function(expr) {
-        if (expr instanceof Expr.BExpr) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+        var lhand = expr.operands[0];
+        var rhand = expr.operands[1];
 
-            if ((expr instanceof Expr.Add) || (expr instanceof Expr.Sub)) {
-                const ZERO = new Expr.Val(Long.UZERO, rhand.size);
+        if ((expr instanceof Expr.Add) || (expr instanceof Expr.Sub)) {
+            const ZERO = new Expr.Val(0, rhand.size);
 
-                // x + 0
-                // x - 0
-                if (rhand.equals(ZERO)) {
-                    return lhand.clone(wssa);
-                }
+            // x + 0
+            // x - 0
+            if (rhand.equals(ZERO)) {
+                return lhand.clone(wssa);
             }
+        }
 
-            else if ((expr instanceof Expr.Mul) || (expr instanceof Expr.Div)) {
-                const ONE = new Expr.Val(Long.UONE, rhand.size);
+        else if ((expr instanceof Expr.Mul) || (expr instanceof Expr.Div)) {
+            const ONE = new Expr.Val(1, rhand.size);
 
-                // x * 1
-                // x / 1
-                if (rhand.equals(ONE)) {
-                    return lhand.clone(wssa);
-                }
+            // x * 1
+            // x / 1
+            if (rhand.equals(ONE)) {
+                return lhand.clone(wssa);
             }
         }
 
@@ -287,138 +305,154 @@ module.exports = (function() {
     };
 
     var _correct_sign = function(expr) {
-        if (expr instanceof Expr.BExpr) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+        var lhand = expr.operands[0];
+        var rhand = expr.operands[1];
 
-            var isNegativeValue = function(e) {
-                return (e instanceof Expr.Val) && (e.value.isNegative());
-            };
+        var isNegativeValue = function(e) {
+            return (e instanceof Expr.Val) && (e.value.isNegative());
+        };
 
-            // x + -y
-            if ((expr instanceof Expr.Add) && isNegativeValue(rhand)) {
-                rhand.value = rhand.value.negate();
+        // x + -y
+        if ((expr instanceof Expr.Add) && isNegativeValue(rhand)) {
+            rhand.value = rhand.value.negate();
 
-                return new Expr.Sub(lhand.clone(wssa), rhand.clone(wssa));
-            }
+            return new Expr.Sub(lhand.clone(wssa), rhand.clone(wssa));
+        }
 
-            // x - -y
-            else if ((expr instanceof Expr.Sub) && isNegativeValue(rhand)) {
-                rhand.value = rhand.value.negate();
+        // x - -y
+        else if ((expr instanceof Expr.Sub) && isNegativeValue(rhand)) {
+            rhand.value = rhand.value.negate();
 
-                return new Expr.Add(lhand.clone(wssa), rhand.clone(wssa));
-            }
+            return new Expr.Add(lhand.clone(wssa), rhand.clone(wssa));
         }
 
         return null;
     };
 
     var _correct_ref = function(expr) {
-        if (expr instanceof Expr.UExpr) {
-            var op = expr.operands[0];
+        var op = expr.operands[0];
 
-            // &*x
-            if ((expr instanceof Expr.AddrOf) && (op instanceof Expr.Deref)) {
-                return op.operands[0].clone(wssa);
-            }
+        // &*x
+        if ((expr instanceof Expr.AddrOf) && (op instanceof Expr.Deref)) {
+            return op.operands[0].clone(wssa);
+        }
 
-            // *&x
-            else if ((expr instanceof Expr.Deref) && (op instanceof Expr.AddrOf)) {
-                return op.operands[0].clone(wssa);
-            }
+        // *&x
+        else if ((expr instanceof Expr.Deref) && (op instanceof Expr.AddrOf)) {
+            return op.operands[0].clone(wssa);
         }
 
         return null;
     };
 
     var _correct_bitwise = function(expr) {
-        if (expr instanceof Expr.BExpr) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+        var lhand = expr.operands[0];
+        var rhand = expr.operands[1];
 
-            // create an FF's mask that matches lhand size
-            const ffmask = Long.UONE.shl(lhand.size).sub(Long.UONE);
+        // create an FF's mask that matches lhand size
+        const ffmask = Long.UONE.shl(lhand.size).sub(Long.UONE);
 
-            const ZERO = new Expr.Val(Long.UZERO, lhand.size);
-            const FF = new Expr.Val(ffmask, lhand.size);
+        const ZERO = new Expr.Val(0, lhand.size);
+        const FF = new Expr.Val(ffmask, lhand.size);
 
-            if (expr instanceof Expr.Xor) {
-                // 0 ^ x
-                if (lhand.equals(ZERO)) {
-                    return rhand.clone(wssa);
-                }
-
-                // x ^ 0
-                if (rhand.equals(ZERO)) {
-                    return lhand.clone(wssa);
-                }
-
-                // x ^ x
-                if (rhand.equals(lhand)) {
-                    return ZERO;
-                }
-
-                // x ^ 0xff...
-                if (rhand.equals(FF)) {
-                    return new Expr.Not(lhand.clone(wssa));
-                }
+        if (expr instanceof Expr.Xor) {
+            // 0 ^ x
+            if (lhand.equals(ZERO)) {
+                return rhand.clone(wssa);
             }
 
-            else if (expr instanceof Expr.Or) {
-                // 0 | x
-                if (lhand.equals(ZERO)) {
-                    return rhand.clone(wssa);
-                }
-
-                // x | 0
-                if (rhand.equals(ZERO)) {
-                    return lhand.clone(wssa);
-                }
-
-                // x | x
-                if (rhand.equals(lhand)) {
-                    return lhand.clone(wssa);
-                }
-
-                // x | 0xff...
-                if (rhand.equals(FF)) {
-                    return FF;
-                }
+            // x ^ 0
+            if (rhand.equals(ZERO)) {
+                return lhand.clone(wssa);
             }
 
-            else if (expr instanceof Expr.And) {
-                // 0 & x
-                if (lhand.equals(ZERO)) {
-                    return ZERO;
-                }
+            // x ^ x
+            if (rhand.equals(lhand)) {
+                return ZERO;
+            }
 
-                // x & 0
-                if (rhand.equals(ZERO)) {
-                    return ZERO;
-                }
+            // x ^ 0xff...
+            if (rhand.equals(FF)) {
+                return new Expr.Not(lhand.clone(wssa));
+            }
+        }
 
-                // x & x
-                if (rhand.equals(lhand)) {
-                    return rhand.clone(wssa);
-                }
+        else if (expr instanceof Expr.Or) {
+            // 0 | x
+            if (lhand.equals(ZERO)) {
+                return rhand.clone(wssa);
+            }
 
-                // x & 0xff...
-                if (rhand.equals(FF)) {
-                    return lhand.clone(wssa);
-                }
+            // x | 0
+            if (rhand.equals(ZERO)) {
+                return lhand.clone(wssa);
+            }
+
+            // x | x
+            if (rhand.equals(lhand)) {
+                return lhand.clone(wssa);
+            }
+
+            // x | 0xff...
+            if (rhand.equals(FF)) {
+                return FF;
+            }
+        }
+
+        else if (expr instanceof Expr.And) {
+            // 0 & x
+            if (lhand.equals(ZERO)) {
+                return ZERO;
+            }
+
+            // x & 0
+            if (rhand.equals(ZERO)) {
+                return ZERO;
+            }
+
+            // x & x
+            if (rhand.equals(lhand)) {
+                return rhand.clone(wssa);
+            }
+
+            // x & 0xff...
+            if (rhand.equals(FF)) {
+                return lhand.clone(wssa);
+            }
+        }
+
+        else if (expr instanceof Expr.Shr) {
+            // 0 >> x
+            if (lhand.equals(ZERO)) {
+                return ZERO;
+            }
+
+            // x >> 0
+            if (rhand.equals(ZERO)) {
+                return lhand.clone(wssa);
+            }
+        }
+
+        else if (expr instanceof Expr.Shl) {
+            // 0 << x
+            if (lhand.equals(ZERO)) {
+                return ZERO;
+            }
+
+            // x << 0
+            if (rhand.equals(ZERO)) {
+                return lhand.clone(wssa);
             }
 
             // ((x >> c) << c) becomes: (x & ~((1 << c) - 1))
-            else if (expr instanceof Expr.Shl) {
-                if ((lhand instanceof Expr.Shr) && (rhand instanceof Expr.Val)) {
-                    var inner_lhand = lhand.operands[0];
-                    var inner_rhand = lhand.operands[1];
+            if ((lhand instanceof Expr.Shr) && (rhand instanceof Expr.Val)) {
+                var inner_lhand = lhand.operands[0];
+                var inner_rhand = lhand.operands[1];
 
-                    if (inner_rhand instanceof Expr.Val && inner_rhand.equals(rhand)) {
-                        var mask = new Expr.Val(Long.UONE.shl(rhand.value).sub(Long.UONE).not(), rhand.size);
+                if (inner_rhand instanceof Expr.Val && inner_rhand.equals(rhand)) {
+                    var mask = new Expr.Val(Long.UONE.shl(rhand.value).sub(Long.UONE).not(), rhand.size);
 
-                        return new Expr.And(inner_lhand.clone(wssa), mask);
-                    }
+                    return new Expr.And(inner_lhand.clone(wssa), mask);
                 }
             }
         }
@@ -562,20 +596,78 @@ module.exports = (function() {
         return null;
     };
 
+    var _cond_folding = function(expr) {
+        if (expr instanceof Expr.TCond) {
+            var cond = expr.operands[0];
+
+            // x = C ? true_expr : false_expr
+            if (cond instanceof Expr.Val) {
+                const ZERO = new Expr.Val(0, cond.size);
+
+                if (cond.equals(ZERO)) {
+                    // false expr
+                    return expr.operands[2].clone(wssa);
+                } else {
+                    // true expr
+                    return expr.operands[1].clone(wssa);
+                }
+            }
+        }
+
+        return null;
+    };
+
     // --------------------
 
-    var rules = [
+    // rules that apply to unary exprs
+    const _uexpr_rules = [
+        _correct_ref,
+        _negate,
+        _converged_cond
+    ];
+
+    // rules that apply to binary exprs
+    const _bexpr_rules = [
         _correct_arith,
         _correct_sign,
-        _correct_ref,
         _correct_bitwise,
         _equality,
-        _negate,
         _converged_cond,
         _constant_folding,
         _ctx_fold_assoc,
         _ctx_fold_arith
     ];
+
+    // rules that apply to ternary exprs
+    const _texpr_rules = [
+        _cond_folding
+    ];
+
+    const _rules_selectors = [
+        { cons: Expr.UExpr, set: _uexpr_rules },
+        { cons: Expr.BExpr, set: _bexpr_rules },
+        { cons: Expr.TExpr, set: _texpr_rules },
+    ];
+
+    // <POLYFILL>
+    _rules_selectors.find = function(predicate) {
+        for (var i = 0; i < this.length; i++) {
+            if (predicate(this[i])) {
+                return this[i];
+            }
+        }
+
+        return undefined;
+    };
+    // </POLYFILL>
+
+    var _select_rules_set = function(expr) {
+        var obj = _rules_selectors.find(function(obj) {
+            return (expr instanceof obj.cons);
+        });
+
+        return obj ? obj.set : [];
+    };
 
     /**
      * Simplify a given expression in-place, but break as soon as it is modified
@@ -585,12 +677,16 @@ module.exports = (function() {
     var _reduce_expr_once = function(expr) {
         var reduced = null;
 
-        for (var i = 0; !reduced && (i < rules.length); i++) {
-            reduced = rules[i](expr);
-        }
+        if (expr instanceof Expr.Expr) {
+            var rulesset = _select_rules_set(expr);
 
-        if (reduced) {
-            expr.replace(reduced);
+            for (var i = 0; !reduced && (i < rulesset.length); i++) {
+                reduced = rulesset[i](expr);
+            }
+
+            if (reduced) {
+                expr.replace(reduced);
+            }
         }
 
         return reduced;

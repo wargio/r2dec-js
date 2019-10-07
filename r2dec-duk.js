@@ -17,6 +17,7 @@
 
 const Graph = require('core2/analysis/graph');
 
+const Polyfill = require('core2/polyfill');
 const JSONr2 = require('libdec/json64');
 const Decoder = require('core2/frontend/decoder');
 const Analyzer = require('core2/frontend/arch/x86/analyzer'); // TODO: does not belong here
@@ -49,34 +50,25 @@ var Global = {
 function Function(afij, afbj) {
     this.address = afij.offset;
     this.name = afij.name;
-    this.calltype = afij.calltype;
 
     var vars = Array.prototype.concat(afij.bpvars, afij.spvars, afij.regvars);
 
+    // function arguments
     this.args = vars.filter(function(v) {
         return (v.kind === 'arg') || (v.kind === 'reg');
     });
 
+    // function locals
     this.vars = vars.filter(function(v) {
         return (v.kind === 'var');
     });
 
     // read and process function's basic blocks
     this.basic_blocks = afbj.map(function(bb) {
-        return new BasicBlock(this, bb);
-    }, this);
+        return new BasicBlock(bb);
+    });
 
-    // <POLYFILL>
-    this.basic_blocks.find = function(predicate) {
-        for (var i = 0; i < this.length; i++) {
-            if (predicate(this[i])) {
-                return this[i];
-            }
-        }
-
-        return undefined;
-    };
-    // </POLYFILL>
+    this.basic_blocks.find = Polyfill.find.bind(this.basic_blocks);
 
     // the block that serves as the function head. except of some rare cases, there should be exactly
     // one entry block. in case of multiple entry blocks, the first would be arbitraily selected.
@@ -90,9 +82,9 @@ function Function(afij, afbj) {
     // block as well
     this.exit_blocks = this.basic_blocks.filter(function(bb) { return bb.is_exit; });
 
-    // function's lower and upper bounds
     var va_base = afij.offset.sub(afij.minbound);
 
+    // function's lower and upper bounds
     this.lbound = afij.minbound.add(va_base);
     this.ubound = afij.maxbound.add(va_base);
 
@@ -126,18 +118,15 @@ Function.prototype.cfg = function() {
     return new Graph.Directed(nodes, edges, nodes[0]);
 };
 
-function BasicBlock(parent, bb) {
-    // parent function object
-    this.parent = parent;
+function BasicBlock(bb) {
+    // block starting address
+    this.address = bb.addr;
 
     // is a function starting block
     this.is_entry = bb.inputs.eq(0);
 
     // is a function ending block
     this.is_exit = bb.outputs.eq(0);
-
-    // block starting address
-    this.address = bb.addr;
 
     // 'jump' stands for unconditional jump destination, or conditional 'taken' destination; may be undefined
     // in case the basic block ends with a return statement rather than a goto or branch
@@ -195,6 +184,10 @@ var load_r2_evars = function(ns) {
 };
 
 /**
+ *  o reg arguments
+ *  o show args and vars
+ *  o resolve pic
+ * 
  * TODO:
  *   design:
  *      o disassembled vs. decompiled function
@@ -228,7 +221,7 @@ function r2dec_main(args) {
 
                 var decoder = new Decoder(iIj);
                 var analyzer = new Analyzer(decoder.arch);  // TODO: this is a design workaround!
-                var resolver = new Resolver(afij);
+                var resolver = new Resolver();
                 var func = new Function(afij, afbj);
 
                 // transform assembly instructions into internal representation
@@ -260,11 +253,13 @@ function r2dec_main(args) {
                 ssa_ctx = ssa.rename_regs();
                 analyzer.ssa_step_regs(func, ssa_ctx);
 
+                Optimizer.propagate(ssa_ctx, config['opt']);
+
                 // ssa tagging for local variables
                 ssa_ctx = ssa.rename_vars();
                 analyzer.ssa_step_vars(func, ssa_ctx);
 
-                // TODO: propagate vars with a single user into derefs, before tagging derefs
+                Optimizer.propagate(ssa_ctx, config['opt']);
 
                 // ssa tagging for memory dereferences
                 ssa_ctx = ssa.rename_derefs();

@@ -18,19 +18,28 @@
 module.exports = (function() {
     const Expr = require('core2/analysis/ir/expressions');
 
-    var Flag = function(f) {
-        var flags = {
-            'CF': 'eflags.cf',
-            'PF': 'eflags.pf',
-            'AF': 'eflags.af',
-            'ZF': 'eflags.zf',
-            'SF': 'eflags.sf',
-            'DF': 'eflags.df',
-            'OF': 'eflags.of'
-        };
+    var _flag_names = {
+        'CF': 'eflags.cf',
+        'PF': 'eflags.pf',
+        'AF': 'eflags.af',
+        'ZF': 'eflags.zf',
+        'SF': 'eflags.sf',
+        'DF': 'eflags.df',
+        'OF': 'eflags.of'
+    };
 
-        // create a new instance of a 1-bit register
-        return new Expr.Reg(flags[f], 1);
+    var _flag_operations = {
+        'CF': Carry,
+        'PF': Parity,
+        'AF': Adjust,
+        'ZF': Zero,
+        'SF': Sign,
+        'OF': Overflow
+    };
+
+    // create a new instance of a 1-bit register
+    var Flag = function(f) {
+        return new Expr.Reg(_flag_names[f], 1);
     };
 
     function Carry    (op) { Expr.UExpr.call(this, '<carry>', op); }
@@ -62,16 +71,7 @@ module.exports = (function() {
      * @returns {Expr.Expr}
      */
     var FlagOp = function(f, expr) {
-        var ops = {
-            'CF': Carry,
-            'PF': Parity,
-            'AF': Adjust,
-            'ZF': Zero,
-            'SF': Sign,
-            'OF': Overflow
-        };
-
-        return new ops[f](expr);
+        return new _flag_operations[f](expr);
     };
 
     var cmp_from_flags = function(expr) {

@@ -16,10 +16,45 @@
  */
 
 module.exports = (function() {
+	const Polyfill = require('core2/polyfill');
     const Graph = require('core2/analysis/graph');
     const Cntr = require('core2/analysis/ir/container');
     const Stmt = require('core2/analysis/ir/statements');
     const Expr = require('core2/analysis/ir/expressions');
+
+    /*
+    var _collect_defs = function(container, selector) {
+        var defs = [];
+
+        container.statements.forEach(function(stmt) {
+            stmt.expressions.forEach(function(expr) {
+                var operands = expr.operands || [];
+
+                var selected = operands.filter(function(op) {
+                    return selector(op) && op.is_def;
+                });
+
+                defs = defs.concat(selected);
+            });
+        });
+
+        return defs;
+    };
+
+    function SsaContext(func, selector) {
+        this.local_defs = {};
+
+        func.basic_blocks.forEach(function(bb) {
+            var container = bb.container;
+
+            this.local_defs[container] = _collect_defs(container, selector);
+        }, this);
+    }
+
+    function Tagger(func, selector) {
+
+    }
+    */
 
     /**
      * Management object for SSA context.
@@ -33,7 +68,9 @@ module.exports = (function() {
         this.stack = {};
         this.defs = {};
 
-        this.uninit = new Cntr.Container(0, []);
+        var entry_addr = this.func.entry_block.container.address;
+
+        this.uninit = new Cntr.Container(entry_addr, []);
     }
 
     // intialize 'count' and 'stack' to be used in the renaming process
@@ -41,8 +78,8 @@ module.exports = (function() {
         var count = {};
         var stack = {};
 
-        func.basic_blocks.forEach(function(blk) {
-            blk.container.statements.forEach(function(stmt) {
+        func.basic_blocks.forEach(function(bb) {
+            bb.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands().forEach(function(op) {
                         if (selector(op)) {
@@ -137,6 +174,9 @@ module.exports = (function() {
         return local_defs;
     };
 
+    // get definition (if any) that is assigned to the enclosing expression.
+    // for example, get `def` for the specified `expr`:
+    //      def = Expr(..., Expr(..., Expr(..., expr)))
     var _parent_def = function(expr) {
         for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
             if (p instanceof Expr.Assign) {
@@ -175,7 +215,7 @@ module.exports = (function() {
             return live.map(function(def) {
                 // keep uses that are in the same block as the definition that they kill, and not weak (in case ignoring weak).
                 // weak uses are normally a result of artificial assignemtns generated to represent side effects (e.g. overlapping
-                // registers in x86 arch)
+                // registers in intel architecture)
                 var killing = def.uses.filter(function(use) {
                     var use_container = use.parent_stmt().parent;
 
@@ -268,7 +308,7 @@ module.exports = (function() {
                     expr.iter_operands().forEach(function(op) {
                         if ((op instanceof Expr.Reg) ||
                             (op instanceof Expr.Deref) ||
-                            (op instanceof Expr.Arg)) {
+                            (op instanceof Expr.Var)) {
                             if (op.is_def) {
                                 if (!(op in this.defs)) {
                                     console.log('[!] missing def for:', op);
@@ -312,32 +352,68 @@ module.exports = (function() {
     Context.prototype.toString = function() {
         var _get_stmt_addr = function(expr) {
             var p = expr.parent_stmt();
-    
+
             return p ? p.address.toString(16) : '?';
         };
 
-        var _padEnd = function(s, n) {
+        var __pad = function(s, n) {
             var padlen = n - s.length;
 
-            return s + (padlen > 0 ? ' '.repeat(padlen) : '');
+            return (padlen > 0 ? ' '.repeat(padlen) : '');
         };
 
-        var header = ['\u250f', '', 'def-use chains:'].join(' ');
+        var _padStart = function(s, n) {
+            return __pad(s, n) + s;
+        };
 
-        var maxlen = Object.keys(this.defs).reduce(function(m, current) {
-            return current.length > m ? current.length : m;
-        }, 0) + 3;
+        var _padEnd = function(s, n) {
+            return s + __pad(s, n);
+        };
+
+        var _maxlen = function(arr) {
+            return arr.reduce(function(max, current) {
+                return current.length > max ? current.length : max;
+            }, 0);
+        };
+
+        var _toStringArray = function(arr) {
+            return '[' + arr.join(', ') + ']';
+        };
 
         var table = Object.keys(this.defs).map(function(d) {
-            var _def = _get_stmt_addr(this.defs[d]);            // address of definition
-            var _use = this.defs[d].uses.map(_get_stmt_addr);   // list of users addresses
+            var def = this.defs[d];
+            var def_loc = _get_stmt_addr(def);              // address of definition
+            var use_locs = def.uses.map(_get_stmt_addr);    // list of users addresses
 
-            return ['\u2503', '  ', _padEnd(d, maxlen), '[' + _def + ']', ':', _use.join(', ')].join(' ');
+            var emblems = [
+                def.is_safe ? '+' : '',
+                def.weak ? '-' : ''
+            ].join('');
+
+            return {
+                name    : d,
+                emblems : emblems,
+                defined : def_loc,
+                used    : use_locs
+            };
         }, this);
 
-        var footer = ['\u2517'];
+        var names_maxlen = _maxlen(table.map(function(obj) { return obj.name; })) + 3;
+        var addrs_maxlen = _maxlen(table.map(function(obj) { return obj.defined; }));
 
-        return Array.prototype.concat(header, table, footer).join('\n');
+        var header = ['def-use chains:'];
+
+        var lines = table.map(function(obj) {
+            return [
+                ' ',
+                _padEnd(obj.name + obj.emblems, names_maxlen),
+                _padStart(obj.defined, addrs_maxlen),
+                ':',
+                _toStringArray(obj.used)
+            ].join(' ');
+        });
+
+        return Array.prototype.concat(header, lines).join('\n');
     };
 
     function SSA(func) {
@@ -351,17 +427,7 @@ module.exports = (function() {
     var _find_local_defs = function(selector, block) {
         var defs = [];
 
-        // <POLYFILL>
-        defs.findIndex = function(predicate) {
-            for (var i = 0; i < this.length; i++) {
-                if (predicate(this[i])) {
-                    return i;
-                }
-            }
-
-            return (-1);
-        };
-        // </POLYFILL>
+        defs.findIndex = Polyfill.findIndex.bind(defs);
 
         block.container.statements.forEach(function(stmt) {
             stmt.expressions.forEach(function(expr) {
@@ -617,7 +683,7 @@ module.exports = (function() {
 
     SSA.prototype.rename_vars = function() {
         var select_vars = function(expr) {
-            return (expr instanceof Expr.Arg);
+            return (expr instanceof Expr.Var);
         };
 
         return this._rename_wrapper(select_vars);
@@ -735,17 +801,19 @@ module.exports = (function() {
         console.log('preserved_locations:');
         this.func.exit_blocks.forEach(function(block) {
             local_defs[block.container].forEach(function(def) {
-                var origin = _get_origin(def);
+                if (def.idx !== 0) {
+                    var origin = _get_origin(def);
 
-                if (origin && def.equals_no_idx(origin)) {
-                    var key = def.repr();
+                    if (origin && def.equals_no_idx(origin)) {
+                        var key = def.repr();
 
-                    if (!(key in candidates)) {
-                        candidates[key] = [def, []];
+                        if (!(key in candidates)) {
+                            candidates[key] = [def, []];
+                        }
+
+                        console.log(' ', 'origin:', origin, '|', 'restored:', def);
+                        candidates[key][1].push(origin);
                     }
-
-                    console.log(' ', 'origin:', origin, '|', 'restored:', def);
-                    candidates[key][1].push(origin);
                 }
             });
         });

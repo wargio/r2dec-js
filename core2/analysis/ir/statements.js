@@ -85,8 +85,18 @@
      */
     Statement.prototype.push_expr = function(expr) {
         expr.parent = this;
-    
+
         this.expressions.push(expr);
+    };
+
+    Statement.prototype.push_expr_after = function(expr, existing) {
+        var idx = this.expressions.indexOf(existing);
+
+        if (idx !== (-1)) {
+            expr.parent = this;
+
+            this.expressions.splice(idx, 0, expr);
+        }
     };
 
     /**
@@ -451,8 +461,6 @@
         make_statement: function(addr, expr) {
             return expr instanceof Statement ? expr : new Statement(addr, [expr], []);
         },
-
-        Statement:  Statement,
 
         Return:     Return,
         Goto:       Goto,

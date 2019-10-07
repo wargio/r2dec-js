@@ -34,7 +34,7 @@ module.exports = (function() {
     function Decoder(iIj) {
         var a = _archs[iIj.arch];
 
-        this.arch = new a(iIj.bits, iIj.bintype, iIj.endian);
+        this.arch = new a(iIj);
     }
 
     /**
