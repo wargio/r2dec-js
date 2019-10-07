@@ -763,6 +763,15 @@
         return (this.equals_no_idx(other) && (this.idx === other.idx));
     };
 
+    Deref.prototype.clone = function(keep, attach) {
+        var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
+        var cloned = _super.clone.call(this, keep, attach);
+
+        cloned.size = this.size;
+
+        return cloned;
+    };
+
     // ssa-suitable representation; this is the same as toString but without subscript
     Deref.prototype.repr = function() {
         var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
