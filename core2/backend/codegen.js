@@ -312,8 +312,9 @@ module.exports = (function() {
                 fname = fname.operands[0];
             }
 
-            // attempt to resolve function name; fallback to called expression
-            fname = this.xrefs.resolve_fname(fname) || expr.operator;
+            if (fname instanceof Expr.Val) {
+                fname = this.xrefs.resolve_fname(fname);
+            }
 
             return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_expr_list.call(this, args));
         }
@@ -327,6 +328,7 @@ module.exports = (function() {
      */
     CodeGen.prototype.emit_statement = function(stmt) {
         const SPACE = [TOK_WHTSPCE, ' '];
+        const SEMIC = [TOK_PUNCT, ';'];
 
         var addr_str = '0x' + stmt.address.toString(16);
 
@@ -342,15 +344,15 @@ module.exports = (function() {
                 this.emit_expression(stmt.taken),
                 [SPACE, [TOK_PUNCT, ':'], SPACE],
                 this.emit_expression(stmt.not_taken),
-                [[TOK_PUNCT, ';']]));
+                [SEMIC]));
         }
 
         else if (stmt instanceof Stmt.Break) {
-            lines.push([[TOK_KEYWORD, 'break'], [TOK_PUNCT, ';']]);
+            lines.push([[TOK_KEYWORD, 'break'], SEMIC]);
         }
 
         else if (stmt instanceof Stmt.Continue) {
-            lines.push([[TOK_KEYWORD, 'continue'], [TOK_PUNCT, ';']]);
+            lines.push([[TOK_KEYWORD, 'continue'], SEMIC]);
         }
 
         else if (stmt instanceof Stmt.DoWhile) {
@@ -359,13 +361,13 @@ module.exports = (function() {
 
             lines.push([[TOK_KEYWORD, 'do']].concat(this.scope_newline ? [] : [SPACE, do_body.shift()[1][0]]));
             Array.prototype.push.apply(lines, do_body);
-            lines.push([[TOK_KEYWORD, 'while'], SPACE].concat(parenthesize(do_cond)).concat([[TOK_PUNCT, ';']]));
+            lines.push([[TOK_KEYWORD, 'while'], SPACE].concat(parenthesize(do_cond)).concat([SEMIC]));
         }
 
         else if (stmt instanceof Stmt.Goto) {
             var goto_dest = this.emit_expression(stmt.dest);
 
-            lines.push([[TOK_KEYWORD, 'goto'], SPACE].concat(goto_dest).concat([[TOK_PUNCT, ';']]));
+            lines.push([[TOK_KEYWORD, 'goto'], SPACE].concat(goto_dest).concat([SEMIC]));
         }
 
         else if (stmt instanceof Stmt.If) {
@@ -398,7 +400,7 @@ module.exports = (function() {
         else if (stmt instanceof Stmt.Return) {
             var retval = stmt.retval ? [SPACE].concat(auto_paren(this.emit_expression(stmt.retval))) : [];
 
-            lines.push([[TOK_KEYWORD, 'return']].concat(retval).concat([[TOK_PUNCT, ';']]));
+            lines.push([[TOK_KEYWORD, 'return']].concat(retval).concat([SEMIC]));
         }
 
         else if (stmt instanceof Stmt.While) {
@@ -412,7 +414,7 @@ module.exports = (function() {
         // generic statement
         else {
             lines = stmt.expressions.map(function(expr) {
-                return this.emit_expression(expr).concat([[TOK_PUNCT, ';']]);
+                return this.emit_expression(expr).concat([SEMIC]);
             }, this);
         }
 
@@ -431,19 +433,36 @@ module.exports = (function() {
         // console.assert(cntr);
 
         const INDENT = [TOK_OFFSET, this.guide + ' '.repeat(this.tabsize - 1)];
+        const addr_str = '0x' + cntr.address.toString(16);
 
         var lines = [];
 
         if (!stripped) {
-            lines.push([[TOK_OFFSET, '0x' + cntr.address.toString(16)], [[TOK_PAREN, '{']]]);
+            lines.push([[TOK_OFFSET, addr_str], [[TOK_PAREN, '{']]]);
         }
 
-        cntr.statements.map(function(s) {
+        Array.prototype.push.apply(lines, cntr.locals.map(function(vitem) {
+            return [
+                [TOK_OFFSET, ' '.repeat(addr_str.length)],
+                [
+                    INDENT,
+                    [TOK_VARTYPE, vitem.type],
+                    [TOK_WHTSPCE, ' '],
+                    [TOK_VARNAME, vitem.name],
+                    [TOK_PUNCT, ';']
+                ]
+            ];
+        }));
+
+        cntr.statements.forEach(function(s) {
             var stmt_lines = this.emit_statement(s);
 
+            // indent child statements
             stmt_lines.forEach(function(l) {
-                lines.push([l[0], [INDENT].concat(l[1])]);
+                l[1].unshift(INDENT);
             });
+
+            Array.prototype.push.apply(lines, stmt_lines);
         }, this);
 
         // emit fall-through container
@@ -452,7 +471,7 @@ module.exports = (function() {
         }
 
         if (!stripped) {
-            lines.push([[TOK_OFFSET, ' '.repeat(('0x' + cntr.address.toString(16)).length)], [[TOK_PAREN, '}']]]);
+            lines.push([[TOK_OFFSET, ' '.repeat(addr_str.length)], [[TOK_PAREN, '}']]]);
         }
 
         return lines;
@@ -468,7 +487,7 @@ module.exports = (function() {
                 arglist = [[TOK_VARTYPE, 'void']];
             } else {
                 var a = func.args[0];
-    
+
                 // handle first arg
                 arglist.push([TOK_VARTYPE, a.type]);
                 arglist.push(SPACE);
@@ -500,11 +519,13 @@ module.exports = (function() {
 
         var func_decl = _emit_func_decl(func);
 
+        func.entry_block.container.locals = func.vars;
+
         // emit containers recursively
         var func_body = this.emit_scope(func.entry_block.container);
 
         // if no scope newline, pull opening bracket from function body to function decl
-        if (!this.scope_newline) {
+        if (!(this.scope_newline)) {
             // pulling out first token of first body line
             var obrace = func_body.shift()[1][0];
 
@@ -512,7 +533,7 @@ module.exports = (function() {
             func_decl.push(obrace);
         }
 
-        return this.emit(func_decl.concat(func_body));
+        return this.emit(Array.prototype.concat(func_decl, func_body));
     };
 
     return CodeGen;

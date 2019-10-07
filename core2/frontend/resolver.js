@@ -59,6 +59,26 @@ module.exports = (function() {
 
         // strings cache
         this.data = {};
+
+/*
+        // prefetch all data and call references from function
+        var axffj = Global.r2cmdj('axffj') || [];
+
+        axffj.forEach(function(xref) {
+            var key = xref.ref;
+            var val = xref.name;
+
+            if (xref.type === 'CALL') {
+                this.fcalls[key] = this.demangle(val);
+            }
+
+            else if (xref.type === 'DATA') {
+                val = _r2_get_string(val);
+
+                this.data[key] = this.demangle(val);
+            }
+        }, this);
+*/
     }
 
     Resolver.prototype.demangle = function(name) {

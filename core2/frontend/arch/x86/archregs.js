@@ -19,7 +19,8 @@ module.exports = (function() {
     const Long = require('libdec/long');
     const Expr = require('core2/analysis/ir/expressions');
 
-    // all architectural intel registers that have assingment side effects
+    // intel architecture registers.
+    // overlapping registers are stored in the same line, ordered by their size in bits.
     const allregs = [
         ['rax', 'eax', 'ax', 'al', 'ah'],
         ['rbx', 'ebx', 'bx', 'bl', 'bh'],
@@ -31,6 +32,8 @@ module.exports = (function() {
         ['rsi', 'esi', 'si', 'sil'],
         ['rdi', 'edi', 'di', 'dil'],
 
+        ['rip', 'eip', 'ip'],
+
         ['r8',  'r8d',  'r8w',  'r8b' ],
         ['r9',  'r9d',  'r9w',  'r9b' ],
         ['r10', 'r10d', 'r10w', 'r10b'],
@@ -41,7 +44,12 @@ module.exports = (function() {
         ['r15', 'r15d', 'r15w', 'r15b']
     ];
 
-    // 'allregs' columns
+    const IDX_RESULT_REG = 0;
+    const IDX_STACK_REG = 4;
+    const IDX_FRAME_REG = 5;
+    const IDX_PC_REG = 8;
+
+    // size index: 'allregs' columns
     const IDX_REG64 = 0;
     const IDX_REG32 = 1;
     const IDX_REG16 = 2;
@@ -124,6 +132,24 @@ module.exports = (function() {
         ].filter(Boolean);
     };
 
+    // lookup generators by size index
+    var handlers = [
+        set64,  // IDX_REG64
+        set32,  // IDX_REG32
+        set16,  // IDX_REG16
+        set8l,  // IDX_REG8L
+        set8h   // IDX_REG8H
+    ];
+
+    // lookup register size by size index
+    var sizes = [
+        64,     // IDX_REG64
+        32,     // IDX_REG32
+        16,     // IDX_REG16
+         8,     // IDX_REG8L
+         8      // IDX_REG8H
+    ];
+
     /**
      * Some architectural registers in the x86 architecture overlap each other,
      * which means that assigning a value to a register directly affects its
@@ -137,7 +163,7 @@ module.exports = (function() {
      * @param {number} bits 
      * @constructor
      */
-    function Overlaps(bits) {
+    function ArchRegs(bits) {
 
         // we will never need all entries from 'allregs'; a different subset is needed
         // depending on arch bits. this module is designed to rely on predefined indexes,
@@ -145,9 +171,9 @@ module.exports = (function() {
         // entries are copied but irrelevant ones are masked out
 
         var subset = {
-            64: [[0, 15], [0, 3]],  // rows: 0-15, cols: 0-3
-            32: [[0,  7], [1, 4]],  // rows: 0-7,  cols: 1-4
-            16: [[0,  7], [2, 4]]   // rows: 0-7,  cols: 2-4
+            64: [[0, 16], [0, 3]],  // rows: 0-16, cols: 0-3
+            32: [[0,  8], [1, 4]],  // rows: 0-8,  cols: 1-4
+            16: [[0,  8], [2, 4]]   // rows: 0-8,  cols: 2-4
         }[bits];
 
         var min_row = subset[0][0];
@@ -188,27 +214,30 @@ module.exports = (function() {
 
         /** @const {Object.<string,number>} */
         this.lookup = lookup;
-
-        this.handlers = [
-            set64,  // IDX_REG64
-            set32,  // IDX_REG32
-            set16,  // IDX_REG16
-            set8l,  // IDX_REG8L
-            set8h   // IDX_REG8H
-        ];
     }
+
+    /**
+     * Retrieve register size by its name.
+     * @param {string} name Register name
+     * @returns {number} Register size in bits, or 0 if register name is unknown
+     */
+    ArchRegs.prototype.get_reg_size = function(name) {
+        var rgroup = this.archregs[this.lookup[name]];
+
+        return rgroup ? sizes[rgroup.indexOf(name)] || 0 : 0;
+    };
 
     /**
      * Generate assignments for the overlapping counterparts of `reg`
      * @param {Expr.Reg} reg Register instance
      * @returns {Array.<Expr.Assign>} An array of assignment expressions
      */
-    Overlaps.prototype.generate = function(reg) {
-        var ovl_regs = this.archregs[this.lookup[reg.name]];
+    ArchRegs.prototype.generate = function(reg) {
+        var rgroup = this.archregs[this.lookup[reg.name]];
 
-        if (ovl_regs) {
-            var generator = this.handlers[ovl_regs.indexOf(reg.name)];
-            var assingments = generator(reg, ovl_regs);
+        if (rgroup) {
+            var generator = handlers[rgroup.indexOf(reg.name)];
+            var assingments = generator(reg, rgroup);
 
             // overalpping assignments add artificial definitions; tagging them as
             // 'weak' helps later analysis distinct them from genuine ones
@@ -222,5 +251,5 @@ module.exports = (function() {
         return [];
     };
 
-    return Overlaps;
+    return ArchRegs;
 })();

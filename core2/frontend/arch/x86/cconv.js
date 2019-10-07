@@ -101,7 +101,7 @@ module.exports = (function() {
 
                 if (this.arch.is_stack_reg(deref_op) || this.arch.is_stack_var(deref_op)) {
                     if (!top_of_stack) {
-                        top_of_stack = def.clone(['idx', 'def'], true);
+                        top_of_stack = def.clone(['idx', 'def'], false);
                     }
 
                     if (def.equals_no_idx(top_of_stack)) {
@@ -113,7 +113,7 @@ module.exports = (function() {
 
                         args.push(arg);
 
-                        top_of_stack = new Expr.Deref(new Expr.Add(top_of_stack.operands[0], this.arch.ASIZE_VAL.clone()));
+                        top_of_stack = new Expr.Deref(new Expr.Add(top_of_stack.operands[0], this.arch.ASIZE_VAL.clone()), this.arch.bits);
                         Simplify.reduce_expr(top_of_stack);
                     } else {
                         // no more args

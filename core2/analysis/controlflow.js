@@ -1,5 +1,22 @@
+/* 
+ * Copyright (C) 2019 elicn
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 module.exports = (function() {
+	const Polyfill = require('core2/polyfill');
 	const Graph = require('core2/analysis/graph');
     const Expr = require('core2/analysis/ir/expressions');
     const Stmt = require('core2/analysis/ir/statements');
@@ -31,33 +48,23 @@ module.exports = (function() {
         return f.getBlock(node.key) || null;
     };
 
-    var get_destination = function(terminator) {
-        var dest = undefined;
-
-        if (terminator instanceof Stmt.Branch) {
-            dest = terminator.taken.value;
-        } else if (terminator instanceof Stmt.Goto) {
-            dest = terminator.dest.value;
-        }
-
-        return dest;
-    };
-
     // <DEBUG>
-    // var ArrayToString = function(a, opt) {
-    //     return '[' + a.map(function(d) {
-    //         return d.toString(opt);
-    //     }).join(', ') + ']';
-    // };
-    //
-    // var ObjAddrToString = function(o, opt) {
-    //     return o ? o.address.toString(opt) : o;
-    // };
+    var ArrayToString = function(a, opt) {
+        return '[' + a.map(function(d) {
+            return d.toString(opt);
+        }).join(', ') + ']';
+    };
+    
+    var ObjAddrToString = function(o, opt) {
+        return o ? o.address.toString(opt) : o;
+    };
     // </DEBUG>
 
-    ControlFlow.prototype.construct_loop = function(node) {
+    ControlFlow.prototype.construct_loop = function(N) {
+        var key = N.key;
+        
         // head of the loop
-        var head = this.dom.getNode(node);
+        var head = this.dom.getNode(key);
 
         // the loop body consists of all the nodes that can reach back the
         // loop head. to know whether there is a path from some node S to another
@@ -77,8 +84,8 @@ module.exports = (function() {
 
         // build a reversed cfg starting from loop head; prune the edge
         // pointing the head immediate dominator, which is outside the loop
-        var rcfg = this.cfg.reversed(node);
-        rcfg.delEdge([node, head.idom.key]);
+        var rcfg = this.cfg.reversed(key);
+        rcfg.delEdge([key, head.idom.key]);
 
         // TODO: it looks like the idom trick won't work if there are multiple edges
         // coming into the loop head; do we need to split the edges to get a pre-loop?
@@ -142,12 +149,20 @@ module.exports = (function() {
             // console.log('  imm dom:', this.dom.getNode(N.key).idom ? this.dom.getNode(N.key).idom.toString(16) : 'none');
             // console.log('  +dominates:', ArrayToString(imm_dominated, 16));
 
-            var dest = get_destination(S) || node_to_block(this.func, N).jump;
+            var _is_loop_head = function(node) {
+                var _succ = this.dom.getNode(node.key);
+                var _curr = this.dom.getNode(N.key);
+
+                return this.dom.dominates(_succ, _curr);
+            };
+
+            var loop_heads = this.cfg.successors(N).filter(_is_loop_head, this);
 
             // is this a back edge?
-            if (dest && this.dom.dominates(this.dom.getNode(dest), this.dom.getNode(N.key))) {
-                this.construct_loop(dest);
-                
+            if (loop_heads.length > 0) {
+                this.construct_loop(loop_heads[0]);
+
+                // WORKAROUND: skip all the rest
                 S = null;
             }
 
@@ -156,17 +171,7 @@ module.exports = (function() {
                 var C2; // container for 'else' clause
                 var target;
 
-                // <POLYFILL>
-                imm_dominated.findIndex = function(predicate) {
-                    for (var i = 0; i < this.length; i++) {
-                        if (predicate(this[i])) {
-                            return i;
-                        }
-                    }
-
-                    return (-1);
-                };
-                // </POLYFILL>
+                imm_dominated.findIndex = Polyfill.findIndex.bind(imm_dominated);
 
                 // block is immediately dominated by N
                 var valid_if_block = function(address) {
@@ -198,7 +203,12 @@ module.exports = (function() {
                     cond = new Expr.BoolNot(cond);
                 } else {
                     C1 = C2;
-                    C2 = undefined;
+                    C2 = null;
+                }
+
+                // elinimate empty 'else' clause
+                if (C2 && (C2.statements.length === 0)) {
+                    C2 = null;
                 }
 
                 S.replace(new Stmt.If(S.address, cond, C1, C2));

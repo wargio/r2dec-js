@@ -25,8 +25,11 @@
      * dedicated expressions as well.
      *
      * Class hierarchy:
-     *      Value               : a number literal
-     *      Register            : a register literal
+     *      Literal             : generic literal base class
+     *          Value
+     *          Register
+     *          Variable
+     *
      *      Expr                : generic expression base class
      *          Asm
      *          Call
@@ -108,6 +111,79 @@
         return n.toString().split('').map(str_digit_to_uc_digit).join('');
     };
 
+    var detach_user = function(u) {
+        if (u.def !== undefined) {
+            var ulist = u.def.uses;
+
+            // remove user from definition's users list
+            ulist.splice(ulist.indexOf(u), 1);
+
+            // detach user from definition
+            u.def = undefined;
+        }
+    };
+
+    // ------------------------------------------------------------
+
+	function Literal() {
+        // empty constructor
+	}
+
+    /** 
+     * By definition, literals have no operands.
+     * @returns {Array} An array containing a single item, which is `this`
+     */
+    Literal.prototype.iter_operands = function() {
+        return [this];
+    };
+
+    /**
+     * Have parent replace `this` literal with `other`
+     * @param {(!Expr|!Literal)} other Replacement literal
+     * @returns {!Literal} Replaced literal
+     */
+    Literal.prototype.replace = function(other) {
+        var p = this.parent;
+        var func = p.replace_operand || p.replace_expr;
+        var args = [this, other];
+
+        detach_user(this);
+
+        return func.apply(p, args);
+    };
+
+    /**
+     * Have parent pluck `this` literal. The plucked literal could be
+     * then inserted to another parent, or simply discarded.
+     * @param {boolean} detach Whether to detach `this` from users list
+     * @returns {!Literal} `this`
+     */
+    Literal.prototype.pluck = function(detach) {
+        var p = this.parent;
+        var func = p.remove_operand || p.remove_expr;
+        var args = [this];
+
+        if (detach) {
+			detach_user(this);
+        }
+
+        return func.apply(p, args);
+    };
+
+    /**
+     * Ascend the parents tree to locate the enclosing Statement.
+     * @returns {!Statement} Parent statement instance
+     */
+    Literal.prototype.parent_stmt = function() {
+        var o = this.parent;
+
+        while (o instanceof Expr) {
+            o = o.parent;
+        }
+
+        return o;
+    };
+
     // ------------------------------------------------------------
 
     /**
@@ -117,6 +193,8 @@
      * @constructor
      */
     function Register(name, size) {
+        Literal.call(this);
+
         /** @type {!string} */
         this.name = name;
 
@@ -133,61 +211,8 @@
         this.def = undefined;
     }
 
-    /** @returns {Array} */
-    Register.prototype.iter_operands = function() {
-        return [this];
-    };
-
-    /**
-     * Have parent replace `this` expression with `other`
-     * @param {(!Expr|!Register|!Value)} other Replacement expression
-     */
-    Register.prototype.replace = function(other) {
-        var p = this.parent;
-        var func = p.replace_operand || p.replace_expr;
-        var args = [this, other];
-
-        detach_user(this);
-
-        return func.apply(p, args);
-    };
-
-    /**
-     * Have parent pluck `this` expression. The plucked expression could be
-     * then inserted to another parent, or simply discarded.
-     * @param {boolean} detach Whether to detach `this` from users list
-     * @returns {!Expr} `this`
-     */
-    Register.prototype.pluck = function(detach) {
-        var p = this.parent;
-        var func = p.remove_operand || p.remove_expr;
-        var args = [this];
-
-        if (detach) {
-            this.iter_operands(true).forEach(detach_user);
-        }
-
-        return func.apply(p, args);
-    };
-
-    /**
-     * Ascend the parents tree to locate `this` enclosing Statement.
-     * @returns {!Statement}
-     */
-    Register.prototype.parent_stmt = function() {
-        var o = this.parent;
-
-        while (o instanceof Expr) {
-            o = o.parent;
-        }
-
-        return o;
-    };
-
-    /** @returns {boolean} */
-    Register.prototype.equals = function(other) {
-        return (this.equals_no_idx(other) && (this.idx === other.idx));
-    };
+    Register.prototype = Object.create(Literal.prototype);
+    Register.prototype.constructor = Register;
 
     /** @returns {boolean} */
     Register.prototype.equals_no_idx = function(other) {
@@ -196,27 +221,44 @@
             (this.size === other.size));
     };
 
+    /** @returns {boolean} */
+    Register.prototype.equals = function(other) {
+        return (this.equals_no_idx(other) && (this.idx === other.idx));
+    };
+
     /**
      * Generate a deep copy of `this`.
      * @param {?Array.<string>} keep A list of object properties to preserve [optional]
+     * @param {?boolean} attach Whether to track the newly cloned object in def-use chain
      * @returns {!Register}
      */
-    Register.prototype.clone = function(keep, omit_use) {
+    Register.prototype.clone = function(keep, attach) {
+        // TODO: once Register will not be an inheritable object (i.e. when Variable
+        // will no longer extend Register), the first two lines could simply become:
+        //      var clone = new Register(this.name, this.size);
+
         // create a shallow copy of this object
         var clone = Object.create(this.constructor.prototype);
 
         // calling this object's constructor with cloned operands, ssa-related data is reset as a side effect
         this.constructor.apply(clone, [this.name, this.size]);
 
-        // allow preserving specific properties 
+        // allow preserving specific properties
         if (keep) {
+            var orig = this;
+
             keep.forEach(function(prop) {
-                clone[prop] = this[prop];
-            }, this);
+                clone[prop] = orig[prop];
+            });
+        }
+
+        // cloned instances are attached by default
+        if (attach === undefined) {
+            attach = true;
         }
 
         // register clone as a new use for its def
-        if (!omit_use && clone.def) {
+        if (attach && clone.def) {
             clone.def.uses.push(clone);
         }
 
@@ -237,12 +279,12 @@
 
     // ------------------------------------------------------------
 
-    function Argument(name, size) {
+    function Variable(name, size) {
         Register.call(this, name, size);
     }
 
-    Argument.prototype = Object.create(Register.prototype);
-    Argument.prototype.constructor = Argument;
+    Variable.prototype = Object.create(Register.prototype);
+    Variable.prototype.constructor = Variable;
 
     // ------------------------------------------------------------
 
@@ -262,28 +304,8 @@
         this.size = size || 0;
     }
 
-    /** @returns {Array} */
-    Value.prototype.iter_operands = function() {
-        return [this];
-    };
-
-    /**
-     * Ascend the parents tree to locate `this` enclosing Statement.
-     * @returns {!Statement}
-     */
-    Value.prototype.parent_stmt = function() {
-        var o = this.parent;
-
-        while (o instanceof Expr) {
-            o = o.parent;
-        }
-
-        return o;
-    };
-
-    Value.prototype.replace = function(other) {
-        return this.parent.replace_operand(this, other);
-    };
+    Value.prototype = Object.create(Literal.prototype);
+    Value.prototype.constructor = Value;
 
     /** @returns {boolean} */
     Value.prototype.equals = function(other) {
@@ -346,6 +368,7 @@
     Value.MAX_VAL16 = new Value(Long.fromBits(0x0000ffff, 0x00000000, true), 16);
     Value.MAX_VAL32 = new Value(Long.fromBits(0xffffffff, 0x00000000, true), 32);
     Value.MAX_VAL64 = new Value(Long.fromBits(0xffffffff, 0xffffffff, true), 64);
+
     // ------------------------------------------------------------
 
     /**
@@ -399,10 +422,6 @@
         this.operands.splice(this.operands.indexOf(op), 1);
         op.parent = undefined;
 
-        // if (this.operands.length === 0) {
-        //     this.pluck();
-        // }
-
         return op;
     };
 
@@ -413,18 +432,6 @@
         this.operands[this.operands.indexOf(old_op)] = new_op;
 
         return old_op;
-    };
-
-    var detach_user = function(u) {
-        if (u.def !== undefined) {
-            var ulist = u.def.uses;
-
-            // remove user from definition's users list
-            ulist.splice(ulist.indexOf(u), 1);
-
-            // detach user from definition
-            u.def = undefined;
-        }
     };
 
     /**
@@ -481,12 +488,12 @@
      * @returns {boolean} `true` iff this and other are equal in operators and operands, `false` otherwise
      */
     Expr.prototype.equals = function(other) {
-        var eq = ((other instanceof Expr) &&
+        var eq = (Object.getPrototypeOf(this) === Object.getPrototypeOf(other)) &&
             (this.operator === other.operator) &&
-            (this.operands.length === other.operands.length));
+            (this.operands.length === other.operands.length);
 
         for (var i = 0; eq && (i < this.operands.length); i++) {
-            eq &= (this.operands[i].equals(other.operands[i]));
+            eq &= this.operands[i].equals(other.operands[i]);
         }
 
         return eq;
@@ -495,25 +502,32 @@
     /**
      * Generate a deep copy of `this`.
      * @param {?Array.<string>} keep A list of object properties to preserve [optional]
-     * @param {boolean} omit_use Whether the cloned instance should not be registered as a user of its def
+     * @param {?boolean} attach Whether to track the newly cloned object in def-use chain
      * @returns {!Expr}
      */
-    Expr.prototype.clone = function(keep, omit_use) {
+    Expr.prototype.clone = function(keep, attach) {
         // create a shallow copy of this object; omitting the operands
         var clone = Object.create(this.constructor.prototype, { operands: { value: [], writable: true }});
 
         // calling this object's constructor with cloned operands, ssa-related data is reset as a side effect
-        this.constructor.apply(clone, this.operands.map(function(op) { return op.clone(keep, omit_use); }));
+        this.constructor.apply(clone, this.operands.map(function(op) { return op.clone(keep, attach); }));
 
-        // allow to preserve specific properties
+        // allow preserving specific properties
         if (keep) {
+            var orig = this;
+
             keep.forEach(function(prop) {
-                clone[prop] = this[prop];
-            }, this);
+                clone[prop] = orig[prop];
+            });
+        }
+
+        // cloned instances are attached by default
+        if (attach === undefined) {
+            attach = true;
         }
 
         // register clone as a new use for its def (if any)
-        if (!omit_use && clone.def) {
+        if (attach && clone.def) {
             clone.def.uses.push(clone);
         }
 
@@ -547,9 +561,9 @@
     Call.prototype = Object.create(Expr.prototype);
     Call.prototype.constructor = Call;
 
-    Call.prototype.clone = function(keep) {
+    Call.prototype.clone = function(keep, attach) {
         var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
-        var cloned = _super.clone.call(this, keep);
+        var cloned = _super.clone.call(this, keep, attach);
 
         // the `Expr.prototype.clone` method duplicates Expr objects by calling their constructor
         // with clones of their their `operands`. that implementation implies that their `operator`
@@ -562,7 +576,7 @@
         // target or name could be used for that purpose, but they are not consistent over all
         // Expr.Call instances -- rather they are unique to a specific call.
 
-        cloned.operator = this.operator.clone(keep);
+        cloned.operator = this.operator.clone(keep, attach);
 
         return cloned;
     };
@@ -728,22 +742,25 @@
     // ------------------------------------------------------------
 
     // memory dereference
-    function Deref(op) {
+    function Deref(op, size) {
         UExpr.call(this, '*', op);
+
+        this.size = size;
     }
 
     Deref.prototype = Object.create(UExpr.prototype);
     Deref.prototype.constructor = Deref;
 
     /** @returns {boolean} */
-    Deref.prototype.equals = function(other) {
-        return (this.equals_no_idx(other) && (this.idx === other.idx));
+    Deref.prototype.equals_no_idx = function(other) {
+        return ((other instanceof Deref)
+            && (this.size === other.size)
+            && (this.operands[0].equals(other.operands[0])));
     };
 
     /** @returns {boolean} */
-    Deref.prototype.equals_no_idx = function(other) {
-        return ((other instanceof Deref) &&
-            (this.operands[0].equals(other.operands[0])));
+    Deref.prototype.equals = function(other) {
+        return (this.equals_no_idx(other) && (this.idx === other.idx));
     };
 
     // ssa-suitable representation; this is the same as toString but without subscript
@@ -871,7 +888,7 @@
 
         // common expressions
         Reg:        Register,
-        Arg:        Argument,
+        Var:        Variable,
         Val:        Value,
         Deref:      Deref,
         AddrOf:     AddressOf,

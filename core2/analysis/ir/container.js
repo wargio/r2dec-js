@@ -26,9 +26,10 @@ module.exports = (function() {
      */
     function Container(addr, stmts) {
         this.address = addr;
-        this.parent = null;
-        this.fallthrough = null;
-        this.statements = [];   // child statements
+        this.parent = null;         // parent statement this container is assigned to
+        this.fallthrough = null;    // another container which this container falls-through to
+        this.locals = [];           // a list of local variables declared in this scope
+        this.statements = [];       // contained statements
 
         // set this as the container of all statements enclosed in the block
         stmts.forEach(this.push_stmt, this);
@@ -107,6 +108,6 @@ module.exports = (function() {
     // ------------------------------------------------------------
 
     return {
-        Container:  Container
+        Container: Container
     };
 })();

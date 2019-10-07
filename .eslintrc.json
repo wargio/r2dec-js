@@ -7,9 +7,7 @@
     "extends": "eslint:recommended",
     "rules": {
         "semi": [2, "always"],
-        "no-console": ["error", {
-            "allow": ["log"]
-        }],
+        "no-console": "off",
         "no-empty": ["error", {
             "allowEmptyCatch": true
         }],
