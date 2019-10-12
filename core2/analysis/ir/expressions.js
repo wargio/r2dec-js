@@ -77,35 +77,32 @@
     };
 
     /**
-     * Wraps a string with parenthesis only if needed.
-     * @param {string} s A string to wrap
-     * @return {string} `s` wrapped by parenthesis if `s` is a complex string and
-     * does not have parenthesis already; otherwise returns `s`
+     * Wraps a string with quotation marks.
+     * @param {!string} s A string to wrap
+     * @returns {!string} `s` wrapped by quotation marks
      */
-    var auto_paren = function(s) {
-        var complex = s.indexOf(' ') !== (-1);
-        var has_paren = s.startsWith('(') && s.endsWith(')');
-
-        return (complex && !has_paren) ? parenthesize(s) : s;
+    var quote = function(s) {
+        return '"' + s + '"';
     };
+
+    // unicode subscript digits
+    const _uc_digits = [
+        '\u2080',
+        '\u2081',
+        '\u2082',
+        '\u2083',
+        '\u2084',
+        '\u2085',
+        '\u2086',
+        '\u2087',
+        '\u2088',
+        '\u2089'
+    ];
 
     // returns the unicode subscript representation of a number
     var subscript = function(n) {
-        const uc_digits = [
-            '\u2080',
-            '\u2081',
-            '\u2082',
-            '\u2083',
-            '\u2084',
-            '\u2085',
-            '\u2086',
-            '\u2087',
-            '\u2088',
-            '\u2089'
-        ];
-
         var str_digit_to_uc_digit = function(d) {
-            return uc_digits[d - 0];
+            return _uc_digits[d - 0];
         };
 
         return n.toString().split('').map(str_digit_to_uc_digit).join('');
@@ -272,9 +269,13 @@
 
     /** @returns {string} */
     Register.prototype.toString = function(opt) {
-        var sub = this.idx === undefined ? '' : subscript(this.idx);
+        var str = this.name.toString();
 
-        return this.name.toString() + sub;
+        if (this.idx !== undefined) {
+            str += subscript(this.idx);
+        }
+
+        return str;
     };
 
     // ------------------------------------------------------------
@@ -295,6 +296,8 @@
      * @constructor
      */
     function Value(value, size) {
+        Literal.call(this);
+
         /** @type {!Long} */
         this.value = Long.isLong(value)
             ? value
@@ -374,13 +377,10 @@
     /**
      * Expression base class.
      * This class is abstract and meant to be only inherited, not instantiated.
-     * @param {string} operator An operator token
      * @param {Array.<(Expr|Register|Value)>} operands An array of expressions instances
      * @constructor
      */
-    function Expr(operator, operands) {
-        this.operator = operator;
-
+    function Expr(operands) {
         this.parent = undefined;
         this.operands = [];
 
@@ -489,7 +489,6 @@
      */
     Expr.prototype.equals = function(other) {
         var eq = (Object.getPrototypeOf(this) === Object.getPrototypeOf(other)) &&
-            (this.operator === other.operator) &&
             (this.operands.length === other.operands.length);
 
         for (var i = 0; eq && (i < this.operands.length); i++) {
@@ -535,27 +534,33 @@
     };
 
     Expr.prototype.toString = function(opt) {
+        var op = Object.getPrototypeOf(this).constructor.name;
+
         var args = this.operands.map(function(a) {
             return a.toString(opt);
         });
 
-        return this.operator + parenthesize(args.join(', '));
+        return op + parenthesize(args.join(', '));
     };
 
     // ------------------------------------------------------------
 
     /**
      * Function call.
-     * @param {Expr} fname Callee target address
+     * @param {Expr} callee Callee target address
      * @param {Array.<Expr>} args Array of function call arguments
      * @constructor
      */
-    function Call(fname, args) {
+    function Call(callee, args) {
+        // in case a Call instance is cloned, its operands list is passed flat.
+        // the following is to regroup the operands back into a list:
         if (!(args instanceof Array)) {
-            args = Array.prototype.slice.call(arguments);
+            args = Array.prototype.slice.call(arguments).slice(1);
         }
 
-        Expr.call(this, fname, args);
+        Expr.call(this, args);
+
+        this.callee = callee;
     }
 
     Call.prototype = Object.create(Expr.prototype);
@@ -565,18 +570,7 @@
         var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
         var cloned = _super.clone.call(this, keep, attach);
 
-        // the `Expr.prototype.clone` method duplicates Expr objects by calling their constructor
-        // with clones of their their `operands`. that implementation implies that their `operator`
-        // is already known and there is no need to pass it on. Expr classes are defined in a way
-        // they do not require the `operator`, because each Expr subclass has its own consistent
-        // operator. e.g. when duplicating an Expr.Add instance, the operator '+' is not passed,
-        // because Expr.Add is known to have this operator.
-        //
-        // the case of Expr.Call is different, since it has no consistent operator: the function
-        // target or name could be used for that purpose, but they are not consistent over all
-        // Expr.Call instances -- rather they are unique to a specific call.
-
-        cloned.operator = this.operator.clone(keep, attach);
+        cloned.callee = this.callee.clone(keep, attach);
 
         return cloned;
     };
@@ -596,7 +590,7 @@
             exprs = Array.prototype.slice.call(arguments);
         }
 
-        Expr.call(this, '\u03a6', exprs);
+        Expr.call(this, exprs);
     }
 
     Phi.prototype = Object.create(Expr.prototype);
@@ -621,7 +615,7 @@
      * @constructor
      */
     function Asm(line) {
-        Expr.call(this, '__asm', []);
+        Expr.call(this, []);
 
         this.line = line;
     }
@@ -630,92 +624,72 @@
     Asm.prototype.constructor = Asm;
 
     /** @override */
+    Asm.prototype.clone = function(keep, attach) {
+        var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
+        var cloned = _super.clone.call(this, keep, attach);
+
+        cloned.line = this.line;
+
+        return cloned;
+    };
+
+    /** @override */
     Asm.prototype.toString = function() {
-        return this.operator + parenthesize('"' + this.line + '"');
+        var op = Object.getPrototypeOf(this).constructor.name;
+
+        return op + parenthesize(quote(this.line));
     };
 
     // ------------------------------------------------------------
 
     /**
      * Unary expression base class.
-     * @param {string} operator An operator token
      * @param {(Expr|Register|Value)} operand1 1st operand expression
      * @constructor
      */
-    function UExpr(operator, operand1) {
-        Expr.call(this, operator, [operand1]);
-
-        this.is_def = false;    // ssa: is a definition?
-        this.idx = undefined;   // ssa: subscript index
+    function UExpr(operand1) {
+        Expr.call(this, [operand1]);
     }
 
     UExpr.prototype = Object.create(Expr.prototype);
     UExpr.prototype.constructor = UExpr;
 
-    /** @override */
-    UExpr.prototype.toString = function(opt) {
-        return this.operator + auto_paren(this.operands[0].toString(opt));
-    };
-
     // ------------------------------------------------------------
 
     /**
      * Binary expression base class.
-     * @param {string} operator An operator token
      * @param {(Expr|Register|Value)} operand1 1st operand expression
      * @param {(Expr|Register|Value)} operand2 2nd operand expression
      * @constructor
      */
-    function BExpr(operator, operand1, operand2) {
-        Expr.call(this, operator, [operand1, operand2]);
+    function BExpr(operand1, operand2) {
+        Expr.call(this, [operand1, operand2]);
     }
 
     BExpr.prototype = Object.create(Expr.prototype);
     BExpr.prototype.constructor = BExpr;
 
-    /** @override */
-    BExpr.prototype.toString = function(opt) {
-        return [
-            this.operands[0].toString(opt),
-            this.operator,
-            this.operands[1].toString(opt)
-        ].join(' ');
-    };
-
     // ------------------------------------------------------------
 
     /**
      * Ternary expression base class.
-     * @param {string} operator1 1st operator token
-     * @param {string} operator2 2nd operator token
      * @param {(Expr|Register|Value)} operand1 1st operand expression
      * @param {(Expr|Register|Value)} operand2 2nd operand expression
      * @param {(Expr|Register|Value)} operand3 3rd operand expression
      * @constructor
      */
-    function TExpr(operator1, operator2, operand1, operand2, operand3) {
-        Expr.call(this, [operator1, operator2], [operand1, operand2, operand3]);
+    function TExpr(operand1, operand2, operand3) {
+        Expr.call(this, [operand1, operand2, operand3]);
     }
 
     TExpr.prototype = Object.create(Expr.prototype);
     TExpr.prototype.constructor = TExpr;
 
-    /** @override */
-    TExpr.prototype.toString = function(opt) {
-        return [
-            this.operands[0].toString(opt),
-            this.operator[0],
-            this.operands[1].toString(opt),
-            this.operator[1],
-            this.operands[2].toString(opt)
-        ].join(' ');
-    };
-
     // ------------------------------------------------------------
 
     // assignment
     function Assign(lhand, rhand) {
-        BExpr.call(this, '=', lhand, rhand);
+        BExpr.call(this, lhand, rhand);
 
         lhand.is_def = true;
     }
@@ -743,9 +717,11 @@
 
     // memory dereference
     function Deref(op, size) {
-        UExpr.call(this, '*', op);
+        UExpr.call(this, op);
 
-        this.size = size;
+        this.size = size || 0;
+        this.is_def = false;    // ssa: is a definition?
+        this.idx = undefined;   // ssa: subscript index
     }
 
     Deref.prototype = Object.create(UExpr.prototype);
@@ -781,27 +757,22 @@
 
     /** @override */
     Deref.prototype.toString = function(opt) {
-        var operand = this.operands[0].toString(opt);
+        var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
+        var str = _super.toString.call(this);
 
-        // a Deref object may use a Register as its operand; that operand will
-        // most likely have its own subscript. here we surround the Deref object
-        // with parenthesis in order to tell inner (Reg's) subscript from outer
-        // (Deref's) subscript
-        if (this.idx === undefined) {
-            operand = auto_paren(operand);
-        } else {
-            operand = parenthesize(operand) + subscript(this.idx);
+        if (this.idx !== undefined) {
+            str += subscript(this.idx);
         }
 
-        return this.operator + operand;
+        return str;
     };
 
     // ------------------------------------------------------------
 
     // unary expressions
-    function Not       (op) { UExpr.call(this, '~', op); }
-    function Neg       (op) { UExpr.call(this, '-', op); }
-    function AddressOf (op) { UExpr.call(this, '&', op); }
+    function Not       (op) { UExpr.call(this, op); }
+    function Neg       (op) { UExpr.call(this, op); }
+    function AddressOf (op) { UExpr.call(this, op); }
 
     Not.prototype       = Object.create(UExpr.prototype);
     Neg.prototype       = Object.create(UExpr.prototype);
@@ -812,16 +783,16 @@
     AddressOf.prototype.constructor = AddressOf;
 
     // binary expressions
-    function Add (op1, op2) { BExpr.call(this, '+',  op1, op2); }
-    function Sub (op1, op2) { BExpr.call(this, '-',  op1, op2); }
-    function Mul (op1, op2) { BExpr.call(this, '*',  op1, op2); }
-    function Div (op1, op2) { BExpr.call(this, '/',  op1, op2); }
-    function Mod (op1, op2) { BExpr.call(this, '%',  op1, op2); }
-    function And (op1, op2) { BExpr.call(this, '&',  op1, op2); }
-    function Or  (op1, op2) { BExpr.call(this, '|',  op1, op2); }
-    function Xor (op1, op2) { BExpr.call(this, '^',  op1, op2); }
-    function Shl (op1, op2) { BExpr.call(this, '<<', op1, op2); }
-    function Shr (op1, op2) { BExpr.call(this, '>>', op1, op2); }
+    function Add (op1, op2) { BExpr.call(this, op1, op2); }
+    function Sub (op1, op2) { BExpr.call(this, op1, op2); }
+    function Mul (op1, op2) { BExpr.call(this, op1, op2); }
+    function Div (op1, op2) { BExpr.call(this, op1, op2); }
+    function Mod (op1, op2) { BExpr.call(this, op1, op2); }
+    function And (op1, op2) { BExpr.call(this, op1, op2); }
+    function Or  (op1, op2) { BExpr.call(this, op1, op2); }
+    function Xor (op1, op2) { BExpr.call(this, op1, op2); }
+    function Shl (op1, op2) { BExpr.call(this, op1, op2); }
+    function Shr (op1, op2) { BExpr.call(this, op1, op2); }
 
     Add.prototype = Object.create(BExpr.prototype);
     Sub.prototype = Object.create(BExpr.prototype);
@@ -846,14 +817,14 @@
     Shr.prototype.constructor = Shr;
 
     // ternary expressions
-    function TCond (op1, op2, op3) { TExpr.call(this, '?', ':', op1, op2, op3); }
+    function TCond (op1, op2, op3) { TExpr.call(this, op1, op2, op3); }
 
     TCond.prototype = Object.create(TExpr.prototype);
 
     // boolean expressions
-    function BoolAnd (expr1, expr2) { BExpr.call(this, '&&', expr1, expr2); }
-    function BoolOr  (expr1, expr2) { BExpr.call(this, '||', expr1, expr2); }
-    function BoolNot (expr) { UExpr.call(this, '!', expr); }
+    function BoolAnd (expr1, expr2) { BExpr.call(this, expr1, expr2); }
+    function BoolOr  (expr1, expr2) { BExpr.call(this, expr1, expr2); }
+    function BoolNot (expr) { UExpr.call(this, expr); }
 
     BoolAnd.prototype = Object.create(BExpr.prototype);
     BoolOr.prototype  = Object.create(BExpr.prototype);
@@ -864,12 +835,12 @@
     BoolNot.prototype.constructor = BoolNot;
 
     // comparisons
-    function EQ (expr1, expr2) { BExpr.call(this, '==', expr1, expr2); }
-    function NE (expr1, expr2) { BExpr.call(this, '!=', expr1, expr2); }
-    function GT (expr1, expr2) { BExpr.call(this, '>',  expr1, expr2); }
-    function LT (expr1, expr2) { BExpr.call(this, '<',  expr1, expr2); }
-    function GE (expr1, expr2) { BExpr.call(this, '>=', expr1, expr2); }
-    function LE (expr1, expr2) { BExpr.call(this, '<=', expr1, expr2); }
+    function EQ (expr1, expr2) { BExpr.call(this, expr1, expr2); }
+    function NE (expr1, expr2) { BExpr.call(this, expr1, expr2); }
+    function GT (expr1, expr2) { BExpr.call(this, expr1, expr2); }
+    function LT (expr1, expr2) { BExpr.call(this, expr1, expr2); }
+    function GE (expr1, expr2) { BExpr.call(this, expr1, expr2); }
+    function LE (expr1, expr2) { BExpr.call(this, expr1, expr2); }
 
     EQ.prototype = Object.create(BExpr.prototype);
     NE.prototype = Object.create(BExpr.prototype);

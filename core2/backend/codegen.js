@@ -98,6 +98,29 @@ module.exports = (function() {
         return (complex && !has_paren) ? parenthesize(s) : s;
     };
 
+    // <DEBUG>
+    var subscript = function(n) {
+        const uc_digits = [
+            '\u2080',
+            '\u2081',
+            '\u2082',
+            '\u2083',
+            '\u2084',
+            '\u2085',
+            '\u2086',
+            '\u2087',
+            '\u2088',
+            '\u2089'
+        ];
+
+        var str_digit_to_uc_digit = function(d) {
+            return uc_digits[d - 0];
+        };
+
+        return n.toString().split('').map(str_digit_to_uc_digit).join('');
+    };
+    // </DEBUG>
+
     function CodeGen(ecj, resolver, conf) {
         // TODO: do not use colors if 'scr.color' is set to 0
         this.palette = new ThemePalette(ecj);
@@ -155,6 +178,16 @@ module.exports = (function() {
 
         // emit a generic unary expression
         var _emit_uexpr = function(uexpr, op) {
+            // <DEBUG>
+            if (uexpr instanceof Expr.Deref) {
+                return Array.prototype.concat(
+                    [op],
+                    parenthesize(this.emit_expression(uexpr.operands[0])),
+                    [[TOK_PUNCT, subscript(uexpr.idx)]]
+                );
+            }
+            // </DEBUG>
+
             return Array.prototype.concat(
                 [op],
                 auto_paren(this.emit_expression(uexpr.operands[0]))
@@ -216,18 +249,12 @@ module.exports = (function() {
 
         else if (expr instanceof Expr.UExpr) {
             var _uexpr_op = {
-                'Deref'  : [TOK_PUNCT, '*'],
-                'AddrOf' : [TOK_PUNCT, '&'],
-                'Not'    : [TOK_BITWISE, '~'],
-                'Neg'    : [TOK_BITWISE, '-'],
-                'BoolNot': [TOK_COMPARE, '!']
+                'Deref'     : [TOK_PUNCT, '*'],
+                'AddressOf' : [TOK_PUNCT, '&'],
+                'Not'       : [TOK_BITWISE, '~'],
+                'Neg'       : [TOK_BITWISE, '-'],
+                'BoolNot'   : [TOK_COMPARE, '!']
             }[tname] || [TOK_INVALID, expr.operator];
-
-            // <DEBUG>
-            if (expr instanceof Expr.Deref) {
-                return [[TOK_PUNCT, expr.toString()]];
-            }
-            // </DEBUG>
 
             return _emit_uexpr.call(this, expr, _uexpr_op);
         }
@@ -261,9 +288,9 @@ module.exports = (function() {
                 var rhand = expr.operands[1];
     
                 // there are three special cases where assignments should be displayed diffreently:
-                //  x = x op y  -> x op= y
-                //  x = x + 1   -> x++
-                //  x = x - 1   -> x--
+                //   1. x = x op y  -> x op= y
+                //   2. x = x + 1   -> x++
+                //   3. x = x - 1   -> x--
     
                 if (rhand instanceof Expr.BExpr) {
                     var inner_lhand = rhand.operands[0];
@@ -271,20 +298,35 @@ module.exports = (function() {
     
                     // "x = x op y"
                     if (lhand.equals(inner_lhand)) {
+                        var inner_tname = Object.getPrototypeOf(expr).constructor.name;
+
+                        var _inner_op = {
+                            'Add' : '+',
+                            'Sub' : '-',
+                            'Mul' : '*',
+                            'Div' : '/',
+                            'Mod' : '%',
+                            'And' : '&',
+                            'Or'  : '|',
+                            'Xor' : '^',
+                            'Shl' : '<<',
+                            'Shr' : '>>'
+                        }[inner_tname];
+
                         // x = x +/- 1
                         if (((rhand instanceof Expr.Add) || (rhand instanceof Expr.Sub)) && inner_rhand.equals(new Expr.Val(1, lhand.size))) {
                             // "x++" / "x--"
                             return Array.prototype.concat(
                                 this.emit_expression(lhand),
-                                [[TOK_ARITH, rhand.operator.repeat(2)]]
+                                [[TOK_ARITH, _inner_op.repeat(2)]]
                             );
                         }
     
                         // "x op= y"
                         return Array.prototype.concat(
                             this.emit_expression(lhand),
-                            [SPACE, [TOK_ASSIGN, rhand.operator + '='], SPACE],
-                            this.emit_expression(rhand.operands[1])
+                            [SPACE, [TOK_ASSIGN, _inner_op + '='], SPACE],
+                            this.emit_expression(inner_rhand)
                         );
                     }
                 }
@@ -304,8 +346,7 @@ module.exports = (function() {
         }
 
         else if (expr instanceof Expr.Call) {
-            var args = expr.operands;
-            var fname = expr.operator;
+            var fname = expr.callee;
 
             // calling indirectly or through relocation table
             if (fname instanceof Expr.Deref) {
@@ -316,8 +357,14 @@ module.exports = (function() {
                 fname = this.xrefs.resolve_fname(fname);
             }
 
-            return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_expr_list.call(this, args));
+            return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_expr_list.call(this, expr.operands));
         }
+
+        // <DEBUG>
+        else if (expr instanceof Expr.Phi) {
+            return Array.prototype.concat([[TOK_INVALID, '\u03a6']], _emit_expr_list.call(this, expr.operands));
+        }
+        // </DEBUG>
 
         return [[TOK_INVALID, expr ? expr.toString() : expr]];
     };

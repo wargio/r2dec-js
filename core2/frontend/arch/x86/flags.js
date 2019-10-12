@@ -42,12 +42,12 @@ module.exports = (function() {
         return new Expr.Reg(_flag_names[f], 1);
     };
 
-    function Carry    (op) { Expr.UExpr.call(this, '<carry>', op); }
-    function Parity   (op) { Expr.UExpr.call(this, '<parity>', op); }
-    function Adjust   (op) { Expr.UExpr.call(this, '<adjust>', op); }
-    function Zero     (op) { Expr.UExpr.call(this, '<zero>', op); }
-    function Sign     (op) { Expr.UExpr.call(this, '<sign>', op); }
-    function Overflow (op) { Expr.UExpr.call(this, '<overflow>', op); }
+    function Carry    (op) { Expr.UExpr.call(this, op); }
+    function Parity   (op) { Expr.UExpr.call(this, op); }
+    function Adjust   (op) { Expr.UExpr.call(this, op); }
+    function Zero     (op) { Expr.UExpr.call(this, op); }
+    function Sign     (op) { Expr.UExpr.call(this, op); }
+    function Overflow (op) { Expr.UExpr.call(this, op); }
 
     Carry.prototype    = Object.create(Expr.UExpr.prototype);
     Parity.prototype   = Object.create(Expr.UExpr.prototype);
