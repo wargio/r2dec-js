@@ -93,6 +93,17 @@ module.exports = (function() {
 
         var live_by_fcall = _get_live_defs_by(live_ranges, fcall);
 
+        // scan live defs backwards starting from fcall to locate top of stack
+        for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
+            var def = live_by_fcall[i];
+
+            if (this.arch.is_stack_reg(def)) {
+                top_of_stack = def.parent.operands[1].clone(['idx', 'def'], false);
+
+                break;
+            }
+        }
+
         for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
             var def = live_by_fcall[i];
 
@@ -100,11 +111,7 @@ module.exports = (function() {
                 var deref_op = def.operands[0];
 
                 if (this.arch.is_stack_reg(deref_op) || this.arch.is_stack_var(deref_op)) {
-                    if (!top_of_stack) {
-                        top_of_stack = def.clone(['idx', 'def'], false);
-                    }
-
-                    if (def.equals_no_idx(top_of_stack)) {
+                    if (deref_op.equals(top_of_stack)) {
                         var arg = def.clone(['idx', 'def']);
 
                         // register arg as a new user
@@ -113,8 +120,16 @@ module.exports = (function() {
 
                         args.push(arg);
 
-                        top_of_stack = new Expr.Deref(new Expr.Add(top_of_stack.operands[0], this.arch.ASIZE_VAL.clone()), this.arch.bits);
+                        // calculate next top of stack to look for
+                        top_of_stack = new Expr.Add(top_of_stack, this.arch.ASIZE_VAL.clone());
+
+                        // encapsulate it with a Deref expr only to make sure it can be reduced successfully
+                        // (a reduced expr has to have a parent to handle the replacement)
+                        top_of_stack = new Expr.Deref(top_of_stack, undefined);
                         Simplify.reduce_expr(top_of_stack);
+
+                        // now un-encapsulate it back
+                        top_of_stack = top_of_stack.operands[0];
                     } else {
                         // no more args
                         break;

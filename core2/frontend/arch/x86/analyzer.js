@@ -548,13 +548,10 @@
                         Simplify.reduce_stmt(c.parent_stmt());
                     }
 
-                    // unused stack dereferences cannot be removed just yet, as they may
-                    // serve as function call arguments
-                    if (!(def instanceof Expr.Deref)) {
-                        p.pluck(true);
-
-                        return true;
-                    }
+                    // even though def got no uses left by now, we do not pluck anything just yet.
+                    // stack adjustments will be used to determine the top of stack when analysing stack
+                    // possible function call arguments locations, while stack dereferences may serve as
+                    // function call arguments
                 }
             }
 
