@@ -244,7 +244,10 @@ module.exports = (function() {
         }
 
         else if (expr instanceof Expr.Reg) {
-            return [[TOK_VARNAME, expr.toString()]];
+            return [
+                [TOK_VARNAME, expr.name.toString()],
+                [TOK_PUNCT, subscript(expr.idx)]    // TODO: remove this when ssa is transformed back
+            ];
         }
 
         else if (expr instanceof Expr.UExpr) {
@@ -286,16 +289,16 @@ module.exports = (function() {
             if (expr instanceof Expr.Assign) {
                 var lhand = expr.operands[0];
                 var rhand = expr.operands[1];
-    
+
                 // there are three special cases where assignments should be displayed diffreently:
                 //   1. x = x op y  -> x op= y
                 //   2. x = x + 1   -> x++
                 //   3. x = x - 1   -> x--
-    
+
                 if (rhand instanceof Expr.BExpr) {
                     var inner_lhand = rhand.operands[0];
                     var inner_rhand = rhand.operands[1];
-    
+
                     // "x = x op y"
                     if (lhand.equals(inner_lhand)) {
                         var inner_tname = Object.getPrototypeOf(expr).constructor.name;
@@ -346,7 +349,8 @@ module.exports = (function() {
         }
 
         else if (expr instanceof Expr.Call) {
-            var fname = expr.callee;
+            var fname = expr.operands[0];
+            var args = expr.operands.slice(1);
 
             // calling indirectly or through relocation table
             if (fname instanceof Expr.Deref) {
@@ -357,7 +361,7 @@ module.exports = (function() {
                 fname = this.xrefs.resolve_fname(fname);
             }
 
-            return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_expr_list.call(this, expr.operands));
+            return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_expr_list.call(this, args));
         }
 
         // <DEBUG>

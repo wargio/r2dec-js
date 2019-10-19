@@ -289,6 +289,10 @@
 
     // ------------------------------------------------------------
 
+    var _toLong = function(n) {
+        return Long.isLong(n) ? n : Long.fromInt(n || 0, false);
+    };
+
     /**
      * Literal value.
      * @param {!number|!Long} value Numeric value
@@ -299,9 +303,7 @@
         Literal.call(this);
 
         /** @type {!Long} */
-        this.value = Long.isLong(value)
-            ? value
-            : Long.fromInt(value, false/*true*/);
+        this.value = _toLong(value);
 
         /** @type {!number} */
         this.size = size || 0;
@@ -396,14 +398,13 @@
         // note: sadly Duktape does not support the function* and yield* keywords so
         // this is not a true generator, rather it is just a list.
 
-        var depth = this.operands.map(function(o) {
-            return o.iter_operands(depth_first);
-        });
+        var depth = this.operands.reduce(function(agg, op) {
+            return agg.concat(op.iter_operands(depth_first));
+        }, []);
 
-        return Array.prototype.concat.apply([],
-            depth_first
+        return depth_first
             ? depth.concat([this])
-            : [this].concat(depth));
+            : [this].concat(depth);
     };
 
     // add an operand at the end of the operands list
@@ -552,28 +553,29 @@
      * @constructor
      */
     function Call(callee, args) {
-        // in case a Call instance is cloned, its operands list is passed flat.
-        // the following is to regroup the operands back into a list:
-        if (!(args instanceof Array)) {
-            args = Array.prototype.slice.call(arguments).slice(1);
+        // this constructor may be called in two ways:
+        //   o when instantiating a new fcall expr
+        //   o when cloning an existing fcall expr
+        //
+        // on the former, callee is an expr and args is an exprs list
+        // on the latter, fcall args list is passed flat where callee appears the first
+        //
+        // this code comes to make sure both methods are handled and normalized to one list of
+        // arguments, where the callee expr is in the first index. including the callee expr in
+        // the operands list is only to enable the optimizers count it in when iterating through
+        // expressions and their operands
+
+        if (args instanceof Array) {
+            args.unshift(callee);
+        } else {
+            args = Array.prototype.slice.call(arguments);
         }
 
         Expr.call(this, args);
-
-        this.callee = callee;
     }
 
     Call.prototype = Object.create(Expr.prototype);
     Call.prototype.constructor = Call;
-
-    Call.prototype.clone = function(keep, attach) {
-        var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
-        var cloned = _super.clone.call(this, keep, attach);
-
-        cloned.callee = this.callee.clone(keep, attach);
-
-        return cloned;
-    };
 
     // ------------------------------------------------------------
 

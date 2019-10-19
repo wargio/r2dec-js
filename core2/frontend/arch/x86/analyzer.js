@@ -69,7 +69,7 @@
 
                     if (expr instanceof Expr.Call) {
                         var fcall = expr;
-                        var callee = fcall.callee;
+                        var callee = fcall.operands[0];
 
                         // most probably an imported function
                         if (callee instanceof Expr.Deref) {
