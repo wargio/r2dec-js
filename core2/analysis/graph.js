@@ -168,7 +168,49 @@ module.exports = (function() {
 
         return new Directed(nodes, edges, rev_root);
     };
-    
+
+    /**
+     * Generate a sequence of r2 commands to represent the graph via r2
+     * custom graph. Please note that executing the commands sequence
+     * will discard a previous custom graph, if exists.
+     *
+     * @returns {Array.<string>} A list of commands to display the graph in r2
+     */
+    Directed.prototype.r2graph = function() {
+        var clear_graph = ['ag-'];
+        var add_nodes = [];
+        var add_edges = [];
+        var show_graph = ['agg'];
+
+        var _node_key_toString = function(n) {
+            return '0x' + n.key.toString(16);
+        };
+
+        this.iterNodes().forEach(function(n) {
+            add_nodes.push([
+                'agn',
+                _node_key_toString(n)
+            ].join(' '));
+
+            var edges = this.successors(n).map(function(succ) {
+                return [
+                    'age',
+                    _node_key_toString(n),
+                    _node_key_toString(succ)
+                ].join(' ');
+            });
+
+            Array.prototype.push.apply(add_edges, edges);
+        }, this);
+
+        return Array.prototype.concat(
+            clear_graph,
+            add_nodes,
+            add_edges,
+            show_graph
+        );
+    };
+
     // --------------------------------------------------
 
     // construct a depth-first spanning tree of graph g
