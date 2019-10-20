@@ -69,11 +69,11 @@ module.exports = (function() {
         _Pruner.prototype = Object.create(Pruner.prototype);
         _Pruner.prototype.constructor = _Pruner;
 
-        // note: function calls cannot be eliminated as they may have side effects
         _Pruner.prototype.should_prune = function(def, val) {
             return (def.uses.length === 0)
-                && (def instanceof Expr.Reg)
-                && !(val instanceof Expr.Call);
+                && (def instanceof Expr.Reg)    // eliminate dead reg definitions
+                && !(def instanceof Expr.Var)   // exclude variables tagged by user
+                && !(val instanceof Expr.Call); // exclude dead function calls results as fcalls may have side effects
         };
 
         return new _Pruner();
