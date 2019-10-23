@@ -16,7 +16,6 @@
  */
 
 module.exports = (function() {
-	const Polyfill = require('core2/polyfill');
 
     /**
      * Construct a graph node.
@@ -28,9 +27,6 @@ module.exports = (function() {
         this.key = key;
         this.inbound = [];
         this.outbound = [];
-
-        this.inbound.findIndex = Polyfill.findIndex.bind(this.inbound);
-        this.outbound.findIndex = Polyfill.findIndex.bind(this.outbound);
     }
 
     Node.prototype.toString = function(opt) {

@@ -16,7 +16,6 @@
  */
 
 module.exports = (function() {
-	const Polyfill = require('core2/polyfill');
     const Graph = require('core2/analysis/graph');
     const Cntr = require('core2/analysis/ir/container');
     const Stmt = require('core2/analysis/ir/statements');
@@ -356,20 +355,6 @@ module.exports = (function() {
             return p ? p.address.toString(16) : '?';
         };
 
-        var __pad = function(s, n) {
-            var padlen = n - s.length;
-
-            return (padlen > 0 ? ' '.repeat(padlen) : '');
-        };
-
-        var _padStart = function(s, n) {
-            return __pad(s, n) + s;
-        };
-
-        var _padEnd = function(s, n) {
-            return s + __pad(s, n);
-        };
-
         var _maxlen = function(arr) {
             return arr.reduce(function(max, current) {
                 return current.length > max ? current.length : max;
@@ -404,12 +389,16 @@ module.exports = (function() {
         var header = ['def-use chains:'];
 
         var lines = table.map(function(obj) {
+            var name = obj.name + obj.emblems;  // definition name
+            var defined = obj.defined;          // where defined
+            var used = obj.used;                // where used (list)
+
             return [
                 ' ',
-                _padEnd(obj.name + obj.emblems, names_maxlen),
-                _padStart(obj.defined, addrs_maxlen),
+                name.padEnd(names_maxlen),
+                defined.padStart(addrs_maxlen),
                 ':',
-                _toStringArray(obj.used)
+                _toStringArray(used)
             ].join(' ');
         });
 
@@ -426,8 +415,6 @@ module.exports = (function() {
     // iterate all statements in block and collect only defined names
     var _find_local_defs = function(selector, block) {
         var defs = [];
-
-        defs.findIndex = Polyfill.findIndex.bind(defs);
 
         block.container.statements.forEach(function(stmt) {
             stmt.expressions.forEach(function(expr) {

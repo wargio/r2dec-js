@@ -15,9 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const Graph = require('core2/analysis/graph');
-
+ // a few polyfills to make life easier; do not remove and keep it first
 const Polyfill = require('core2/polyfill');
+
+const Graph = require('core2/analysis/graph');
 const JSONr2 = require('libdec/json64');
 const Decoder = require('core2/frontend/decoder');
 const Analyzer = require('core2/frontend/arch/x86/analyzer'); // TODO: does not belong here
@@ -33,15 +34,25 @@ const CodeGen = require('core2/backend/codegen');
  */
 var Global = {
 
-    /** Pipes a command to r2 and returns its output as a string */
+    /**
+     * Pipes a command to r2 and returns its output as a string.
+     * @param {...string} args A sequence of command line elements
+     * @returns {string} Result string received from r2
+     */
     r2cmd: function() {
-        return r2cmd(Array.prototype.slice.call(arguments).join(' ')).trim();
+        var cmdline = Array.prototype.slice.call(arguments).join(' ');
+
+        return r2cmd(cmdline).trimEnd();
     },
 
-    /** Pipes a command to r2 and returns its output as a parsed JSON object */
-    r2cmdj: function() {
-        // ES6 version: function(...args) { var output = r2cmd(args.join(' ')).trim(); /* ... */ }
-        var output = r2cmd(Array.prototype.slice.call(arguments).join(' ')).trim();
+    /**
+     * Pipes a command to r2 and returns its output as a parsed JSON object.
+     * @param {...string} args A sequence of command line elements
+     * @returns {*} Result object received from r2, or `undefiend` if error has occured
+     */
+   r2cmdj: function() {
+        var cmdline = Array.prototype.slice.call(arguments).join(' ');
+        var output = r2cmd(cmdline).trimEnd();
 
         return output ? JSONr2.parse(output) : undefined;
     }
@@ -67,8 +78,6 @@ function Function(afij, afbj) {
     this.basic_blocks = afbj.map(function(bb) {
         return new BasicBlock(bb);
     });
-
-    this.basic_blocks.find = Polyfill.find.bind(this.basic_blocks);
 
     // the block that serves as the function head. except of some rare cases, there should be exactly
     // one entry block. in case of multiple entry blocks, the first would be arbitraily selected.
@@ -271,7 +280,7 @@ function r2dec_main(args) {
 
                 Optimizer.run(ssa_ctx, config['opt']);
 
-                console.log(ssa_ctx.toString());
+                // console.log(ssa_ctx.toString());
                 ssa_ctx.validate();
 
                 // ssa.transform_out();
