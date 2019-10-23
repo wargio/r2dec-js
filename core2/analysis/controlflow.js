@@ -16,7 +16,6 @@
  */
 
 module.exports = (function() {
-	const Polyfill = require('core2/polyfill');
 	const Graph = require('core2/analysis/graph');
     const Expr = require('core2/analysis/ir/expressions');
     const Stmt = require('core2/analysis/ir/statements');
@@ -170,8 +169,6 @@ module.exports = (function() {
                 var C1; // container for 'then' clause
                 var C2; // container for 'else' clause
                 var target;
-
-                imm_dominated.findIndex = Polyfill.findIndex.bind(imm_dominated);
 
                 // block is immediately dominated by N
                 var valid_if_block = function(address) {

@@ -36,8 +36,56 @@ module.exports = (function() {
         return undefined;
     };
 
-    return {
-        findIndex : _Array_findIndex,
-        find      : _Array_find
+    var __pad = function(s, n, p) {
+        p = p || ' ';
+
+        var padlen = n - s.length;
+        var padblk = p.repeat(padlen / p.length);
+        var padrem = p.substr(0, padlen % p.length);
+
+        return (padlen > 0 ? padblk + padrem : '');
     };
+
+    var _String_padStart = function(n, p) {
+        var s = this.toString();
+
+        return __pad(s, n, p) + s;
+    };
+
+    var _String_padEnd = function(n, p) {
+        var s = this.toString();
+
+        return s + __pad(s, n, p);
+    };
+
+    var _String_trimStart = function() {
+        var s = this.toString();
+
+        return s.replace(/\s*/, '');
+    };
+
+    var _String_trimEnd = function() {
+        var s = this.toString();
+
+        return s.replace(/\s*$/, '');
+    };
+
+    // --------------------------------------------------
+
+    var polyfills = [
+        { proto: Array.prototype,   name: 'findIndex',  func: _Array_findIndex  },
+        { proto: Array.prototype,   name: 'find',       func: _Array_find       },
+        { proto: String.prototype,  name: 'padStart',   func: _String_padStart  },
+        { proto: String.prototype,  name: 'padEnd',     func: _String_padEnd    },
+        { proto: String.prototype,  name: 'trimStart',  func: _String_trimStart },
+        { proto: String.prototype,  name: 'trimEnd',    func: _String_trimEnd   }
+    ];
+
+    polyfills.forEach(function(pobj) {
+        if (!(Object.hasOwnProperty(pobj.proto, pobj.name))) {
+            Object.defineProperty(pobj.proto, pobj.name, { value: pobj.func, enumerable: false });
+        }
+    });
+
+    return true;
 })();
