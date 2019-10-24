@@ -26,6 +26,13 @@ module.exports = (function() {
         this.cfg = this.func.cfg();
         this.dfs = new Graph.DFSpanningTree(this.cfg);
         this.dom = new Graph.DominatorTree(this.cfg);
+
+        // <DEBUG>
+        // var r2commands = this.dom.r2graph();
+        // var graph_str = Global.r2cmd(r2commands.join(' ; '));
+        //
+        // console.log(graph_str);
+        // </DEBUG>
     }
 
     ControlFlow.prototype.fallthroughs = function() {

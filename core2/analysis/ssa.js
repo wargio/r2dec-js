@@ -785,7 +785,6 @@ module.exports = (function() {
         var candidates = {};
         var local_defs = this.context.get_local_defs();
 
-        console.log('preserved_locations:');
         this.func.exit_blocks.forEach(function(block) {
             local_defs[block.container].forEach(function(def) {
                 if (def.idx !== 0) {
@@ -798,7 +797,6 @@ module.exports = (function() {
                             candidates[key] = [def, []];
                         }
 
-                        console.log(' ', 'origin:', origin, '|', 'restored:', def);
                         candidates[key][1].push(origin);
                     }
                 }
@@ -819,6 +817,13 @@ module.exports = (function() {
                 preserved.push([def, origins[0]]);
             }
         }
+
+        // <DEBUG>
+        // console.log('preserved_locations:');
+        // preserved.forEach(function(p) {
+        //     console.log(' ', p[1], '->', p[0]);
+        // });
+        // </DEBUG>
 
         return this.context.preserved = preserved;
     };
