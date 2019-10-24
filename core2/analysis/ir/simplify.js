@@ -649,18 +649,6 @@ module.exports = (function() {
         { cons: Expr.TExpr, set: _texpr_rules },
     ];
 
-    // <POLYFILL>
-    _rules_selectors.find = function(predicate) {
-        for (var i = 0; i < this.length; i++) {
-            if (predicate(this[i])) {
-                return this[i];
-            }
-        }
-
-        return undefined;
-    };
-    // </POLYFILL>
-
     var _select_rules_set = function(expr) {
         var obj = _rules_selectors.find(function(obj) {
             return (expr instanceof obj.cons);
