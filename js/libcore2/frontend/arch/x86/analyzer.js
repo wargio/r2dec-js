@@ -214,36 +214,6 @@
             return vitem.disp;
         }, 0);
 
-        var _guess_type = function(vitem) {
-            const sizes = {
-                'char'      : 1,
-                'short'     : 2,
-                ''          : 4,
-                'int'       : 4,
-                'long'      : (size / 8),
-                'long long' : 64
-            };
-
-            var match = vitem.type.match(/(?:(unsigned)\s+)?(?:signed\s+)?(\w+(?: \w+)*)\s*(\*+)/);
-            var is_signed = match[1] === undefined;
-            var basetype = match[2];
-            var is_ptr = match[3] !== undefined;
-            var is_array = is_ptr && (vitem.maxsize > (size / 8));
-            var nitems = is_array ? vitem.maxsize / sizes[basetype] : 0;
-
-            // type
-            //  basetype
-            //  signed
-            //  size
-
-            // ptr
-            //  type
-
-            // array
-            //  type
-            //  nitems
-        };
-
         var freg = arch.FRAME_REG.clone();
         freg.idx = 1;
 

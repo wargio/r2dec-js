@@ -212,12 +212,12 @@ module.exports = (function() {
      * @enum {number}
      * @readonly
      */
-    const INSN_PREFIX = {
-        NONE:       0,
-        PREF_REP:   2,
-        PREF_REPNZ: 4,
-        PREF_LOCK:  8
-    };
+    // const INSN_PREFIX = {
+    //     NONE:       0,
+    //     PREF_REP:   2,
+    //     PREF_REPNZ: 4,
+    //     PREF_LOCK:  8
+    // };
 
     x86.prototype.r2decode = function(aoj) {
         var process_ops = function(op) {
