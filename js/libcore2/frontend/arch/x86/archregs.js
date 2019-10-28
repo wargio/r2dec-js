@@ -44,10 +44,10 @@ module.exports = (function() {
         ['r15', 'r15d', 'r15w', 'r15b']
     ];
 
-    const IDX_RESULT_REG = 0;
-    const IDX_STACK_REG = 4;
-    const IDX_FRAME_REG = 5;
-    const IDX_PC_REG = 8;
+    // const IDX_RESULT_REG = 0;
+    // const IDX_STACK_REG = 4;
+    // const IDX_FRAME_REG = 5;
+    // const IDX_PC_REG = 8;
 
     // size index: 'allregs' columns
     const IDX_REG64 = 0;
