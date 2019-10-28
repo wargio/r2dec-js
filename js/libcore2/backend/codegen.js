@@ -580,8 +580,8 @@ module.exports = (function() {
             // pulling out first token of first body line
             var obrace = func_body.shift()[1][0];
 
-            func_decl.push(SPACE);
-            func_decl.push(obrace);
+            func_decl[0][1].push(SPACE);
+            func_decl[0][1].push(obrace);
         }
 
         return this.emit(Array.prototype.concat(func_decl, func_body));
