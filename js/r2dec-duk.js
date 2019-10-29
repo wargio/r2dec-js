@@ -24,7 +24,9 @@ const Decoder = require('js/libcore2/frontend/decoder');
 const Analyzer = require('js/libcore2/frontend/arch/x86/analyzer'); // TODO: does not belong here
 const Resolver = require('js/libcore2/frontend/resolver');
 const SSA = require('js/libcore2/analysis/ssa');
-const Optimizer = require('js/libcore2/analysis/opt');
+const Optimizer = require('js/libcore2/analysis/optimizer');
+const Propagator = require('js/libcore2/analysis/propagator');
+const Pruner = require('js/libcore2/analysis/pruner');
 const ControlFlow = require('js/libcore2/analysis/controlflow');
 const CodeGen = require('js/libcore2/backend/codegen');
 
@@ -262,13 +264,19 @@ function r2dec_main(args) {
                 ssa_ctx = ssa.rename_regs();
                 analyzer.ssa_step_regs(func, ssa_ctx);
 
-                Optimizer.propagate(ssa_ctx, config['opt']);
+                Optimizer.run([
+                    Propagator.propagate_constants,
+                    Propagator.propagate_dereferenced
+                ], ssa_ctx, config['opt']);
 
                 // ssa tagging for local variables
                 ssa_ctx = ssa.rename_vars();
                 analyzer.ssa_step_vars(func, ssa_ctx);
 
-                Optimizer.propagate(ssa_ctx, config['opt']);
+                Optimizer.run([
+                    Propagator.propagate_constants,
+                    Propagator.propagate_dereferenced
+                ], ssa_ctx, config['opt']);
 
                 // ssa tagging for memory dereferences
                 ssa_ctx = ssa.rename_derefs();
@@ -278,7 +286,14 @@ function r2dec_main(args) {
 
                 analyzer.ssa_done(func, ssa_ctx);
 
-                Optimizer.run(ssa_ctx, config['opt']);
+                Optimizer.run([
+                    Pruner.eliminate_dead_regs,
+                    Pruner.eliminate_dead_derefs,
+                    Pruner.eliminate_dead_results,
+                    Propagator.propagate_def_single_use,
+                    Propagator.propagate_constants,
+                    Pruner.eliminate_def_single_phi
+                ], ssa_ctx, config['opt']);
 
                 // console.log(ssa_ctx.toString());
                 ssa_ctx.validate();
