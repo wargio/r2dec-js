@@ -1,9 +1,9 @@
-[![Build Status](https://travis-ci.org/wargio/r2dec-js.svg?branch=master)](https://travis-ci.org/wargio/r2dec-js)
-[![CodeFactor](https://www.codefactor.io/repository/github/wargio/r2dec-js/badge)](https://www.codefactor.io/repository/github/wargio/r2dec-js)
-[![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/wargio/r2dec-js.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/wargio/r2dec-js/context:javascript)
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/wargio/r2dec-js.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/wargio/r2dec-js/alerts/)
+[![Build Status](https://travis-ci.org/radareorg/r2dec-js.svg?branch=master)](https://travis-ci.org/radareorg/r2dec-js)
+[![CodeFactor](https://www.codefactor.io/repository/github/radareorg/r2dec-js/badge)](https://www.codefactor.io/repository/github/radareorg/r2dec-js)
+[![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/radareorg/r2dec-js.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/radareorg/r2dec-js/context:javascript)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/radareorg/r2dec-js.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/radareorg/r2dec-js/alerts/)
 
-![r2dec](https://raw.githubusercontent.com/wargio/r2dec-js/image/r2dec200.png)
+![r2dec](https://raw.githubusercontent.com/radareorg/r2dec-js/image/r2dec200.png)
 
 Converts asm to pseudo-C code.
 
