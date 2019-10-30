@@ -645,8 +645,8 @@ module.exports = (function() {
         var context = this._rename(selector);
 
         // phi relaxation
-        propagate_single_phi(context);
-        propagate_self_ref_phi(context);
+        simplify_single_phi(context);
+        simplify_self_ref_phi(context);
         propagate_chained_phi(context);
 
         return context;
@@ -680,7 +680,7 @@ module.exports = (function() {
     // if a phi expression has only one argument, propagate it into defined variable
     //
     // x7 = Phi(x4) --> x7 = x4
-    var propagate_single_phi = function(ctx) {
+    var simplify_single_phi = function(ctx) {
         return ctx.iterate(function(def) {
             var p = def.parent;         // p is Expr.Assign
             var lhand = p.operands[0];  // def
@@ -701,7 +701,7 @@ module.exports = (function() {
     // propagate self-referencing phis.
     //
     //   x5 = Phi(x2, x5)  -->  x5 = x2
-    var propagate_self_ref_phi = function(ctx) {
+    var simplify_self_ref_phi = function(ctx) {
         return ctx.iterate(function(def) {
             var p = def.parent;         // p is Expr.Assign
             var lhand = p.operands[0];  // def
@@ -767,6 +767,12 @@ module.exports = (function() {
     };
 
     SSA.prototype.preserved_locations = function() {
+        /**
+         * Recursively trace a definition back to its origin definition.
+         * @param {Expr} def Defined expression to trace
+         * @returns {Expr} Returns the origin definition, or `undefiend` if
+         * origin could not be traced back directly from specified definition
+         */
         var _get_origin = function(def) {
             if ((def === undefined) || (def.idx === 0)) {
                 return def;
