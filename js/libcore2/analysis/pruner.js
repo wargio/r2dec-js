@@ -30,7 +30,7 @@ module.exports = (function() {
     /**
      * Pruning pass base class.
      * @param {Selector} selector Function to determine which definitions should
-     * be considered for pruning
+     * be considered for pruning. May contain side-effects.
      */
     function Pruner(selector) {
         this.selector = selector;

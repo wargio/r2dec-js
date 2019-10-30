@@ -15,8 +15,8 @@ mv core_test.so ~/.config/radare2/plugins
 #include "r_cons.h"
 #include "r_anal.h"
 
-#include "duktape.h"
-#include "duk_console.h"
+#include "duktape/duktape.h"
+#include "duktape/duk_console.h"
 
 #undef R_API
 #define R_API static
@@ -184,8 +184,8 @@ static void usage(const RCore* const core)
 		"pdd",	"",	"decompile current function",
 		"pdda",	"",	"decompile current function with side assembly",
 		"pddb",	"",	"decompile current function but show only scopes",
-		"pddu",	"",	"upgrade r2dec via r2pm",
 		"pddi",	"",	"generate issue data",
+		"pddu",	"",	"upgrade r2dec via r2pm",
 		NULL
 	};
 

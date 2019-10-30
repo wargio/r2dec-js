@@ -200,13 +200,16 @@ var load_r2_evars = function(ns) {
  *  o resolve pic
  * 
  * TODO:
+ *   features:
+ *      o let user specify parameters values
+ *
  *   design:
+ *      o create an entry (uninit) and exit virtual blocks for cfg
  *      o disassembled vs. decompiled function
  *      o separate decoding, ssa, controlflow and codegen stages
  *      o redesign ssa and ssa context
  *      o redesign analyzer
- *      o redesign optimizer
- * 
+ *
  *   functionality:
  *      o implement loops
  *      o show declarations of local variables
