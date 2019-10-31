@@ -54,7 +54,7 @@
 
     // analyze and assign function calls arguments
     var assign_fcall_args = function(func, ctx, arch) {
-        var cconv = new CallConv(arch);
+        var cconvs = new CallConv(arch);
 
         func.basic_blocks.forEach(function(block) {
             block.container.statements.forEach(function(stmt) {
@@ -80,16 +80,17 @@
                         // info for indirect targets
                         if (callee instanceof Expr.Val) {
                             var ccname = Global.r2cmd('afc', '@', callee.value.toString());
+                            var cchandler = cconvs[ccname];
 
-                            if (!cconv.has(ccname)) {
+                            if (cchandler === undefined) {
                                 throw new Error('unsupported calling convention');
                             }
 
                             // live ranges should be refreshed as args are added to fcalls (i.e. defs are killed)
-                            // TODO: this is quite time consuming; and makes a good candidate for optimization
+                            // TODO: current design is inefficient and makes a good candidate for optimization
                             var live_ranges = ctx.get_live_ranges(block, true);
 
-                            cconv.get(ccname).get_args_expr(fcall, live_ranges).forEach(function(arg) {
+                            cchandler.get_args_expr(fcall, live_ranges).forEach(function(arg) {
                                 fcall.push_operand(arg);
                             });
                         }
