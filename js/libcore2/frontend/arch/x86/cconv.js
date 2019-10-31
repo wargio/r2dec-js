@@ -19,31 +19,6 @@ module.exports = (function() {
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
-    function CallConv(arch) {
-        this.cconvs = {
-            'cdecl': CConvCdecl,    // args passed through stack
-        //  'ms'   : CConvMs,       // args passed through: rcx, rdx, r8, r9 | xmm0-3 + stack
-            'amd64': CConvAmd64     // args passed through: rdi, rsi, rdx, rcx, r8, r9, xmm0-7
-        };
-
-        this.cached = {};
-        this.arch = arch;
-    }
-
-    CallConv.prototype.has = function(ccname) {
-        return ccname in this.cconvs;
-    };
-
-    CallConv.prototype.get = function(ccname) {
-        if (!(ccname in this.cached)) {
-            this.cached[ccname] = new this.cconvs[ccname](this.arch);
-        }
-
-        return this.cached[ccname];
-    };
-
-    // --------------------------------------------------
-
     function CConvCdecl(arch) {
         this.arch = arch;
     }
@@ -53,9 +28,9 @@ module.exports = (function() {
         var def_pstmt = def.parent_stmt();
         var exp_pstmt = expr.parent_stmt();
 
-        // live ranges are collected recursively along cfg walk. for that reason, all definitions defined in
-        // another block are guaranteed to precede expr. definition that is defined in the same block, must
-        // be checked to be defined earlier
+        // live ranges are collected recursively along backward cfg walk. for that reason, all
+        // definitions defined in another block are guaranteed to precede expr. definition that
+        // is defined in the same block, must be checked to be defined earlier
         return (def_pstmt.parent !== exp_pstmt.parent) || def_pstmt.address.lt(exp_pstmt.address);
     };
 
@@ -143,31 +118,42 @@ module.exports = (function() {
 
     // --------------------------------------------------
 
+    const _arg_regs64 = [
+        new Expr.Reg('rdi', 64),
+        new Expr.Reg('rsi', 64),
+        new Expr.Reg('rdx', 64),
+        new Expr.Reg('rcx', 64),
+        new Expr.Reg('r8',  64),
+        new Expr.Reg('r9',  64)
+    ];
+
+    const _arg_regs32 = [
+        new Expr.Reg('edi', 32),
+        new Expr.Reg('esi', 32),
+        new Expr.Reg('edx', 32),
+        new Expr.Reg('ecx', 32),
+        new Expr.Reg('r8d', 32),
+        new Expr.Reg('r9d', 32)
+    ];
+
+    // const _arg_regs128 = [
+    //     new Expr.Reg('xmm0', 128),
+    //     new Expr.Reg('xmm1', 128),
+    //     new Expr.Reg('xmm2', 128),
+    //     new Expr.Reg('xmm3', 128),
+    //     new Expr.Reg('xmm4', 128),
+    //     new Expr.Reg('xmm5', 128),
+    //     new Expr.Reg('xmm6', 128),
+    //     new Expr.Reg('xmm7', 128),
+    // ];
+
     function CConvAmd64() {
-        // TODO: xmm0-7
-
-        this.arg_regs64 = [
-            new Expr.Reg('rdi', 64),
-            new Expr.Reg('rsi', 64),
-            new Expr.Reg('rdx', 64),
-            new Expr.Reg('rcx', 64),
-            new Expr.Reg('r8',  64),
-            new Expr.Reg('r9',  64)
-        ];
-
-        this.arg_regs32 = [
-            new Expr.Reg('edi', 32),
-            new Expr.Reg('esi', 32),
-            new Expr.Reg('edx', 32),
-            new Expr.Reg('ecx', 32),
-            new Expr.Reg('r8d', 32),
-            new Expr.Reg('r9d', 32)
-        ];
+        // empty
     }
 
     CConvAmd64.prototype.get_args_expr = function(fcall, live_ranges) {
         var nargs = 0;
-        var args = this.arg_regs64.slice();
+        var args = _arg_regs64.slice();
 
         var live_by_fcall = _get_live_defs_by(live_ranges, fcall);
 
@@ -199,9 +185,9 @@ module.exports = (function() {
         for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
             var def = live_by_fcall[i];
 
-            for (var j = 0; j < this.arg_regs64.length; j++) {
-                if (def.equals_no_idx(this.arg_regs64[j]) ||
-                    def.equals_no_idx(this.arg_regs32[j])) {
+            for (var j = 0; j < _arg_regs64.length; j++) {
+                if (def.equals_no_idx(_arg_regs64[j]) ||
+                    def.equals_no_idx(_arg_regs32[j])) {
 
                     // make sure that slot was not already taken
                     if (args[j].def === undefined) {
@@ -222,5 +208,11 @@ module.exports = (function() {
         return args.slice(0, nargs + 1);
     };
 
-    return CallConv;
+    return function(arch) {
+        return {
+            'cdecl': new CConvCdecl(arch),  // args passed through stack
+        //  'ms'   : new CConvMs(),         // args passed through: rcx, rdx, r8, r9 | xmm0-3 + stack
+            'amd64': new CConvAmd64()       // args passed through: rdi, rsi, rdx, rcx, r8, r9, xmm0-7
+        };
+    };
 })();
