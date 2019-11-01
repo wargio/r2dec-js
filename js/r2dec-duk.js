@@ -301,7 +301,7 @@ function r2dec_main(args) {
                 // console.log(ssa_ctx.toString());
                 ssa_ctx.validate();
 
-                // ssa.transform_out();
+                ssa.transform_out(ssa_ctx);
 
                 var cflow = new ControlFlow(func);
                 cflow.fallthroughs();
