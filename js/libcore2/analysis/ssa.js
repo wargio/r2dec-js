@@ -686,24 +686,15 @@ module.exports = (function() {
         return this.context;
     };
 
-    /** @private */
-    SSA.prototype._rename_wrapper = function(selector) {
-        var context = this._rename(selector);
-
-        // phi relaxation
-        simplify_single_phi(context);
-        simplify_self_ref_phi(context);
-        propagate_chained_phi(context);
-
-        return context;
-    };
-
     SSA.prototype.rename_regs = function() {
         var select_regs = function(expr) {
             return (expr instanceof Expr.Reg);
         };
 
-        return this._rename_wrapper(select_regs);
+        var context = this._rename(select_regs);
+        _relax_phis(context);
+
+        return context;
     };
 
     SSA.prototype.rename_derefs = function() {
@@ -711,7 +702,10 @@ module.exports = (function() {
             return (expr instanceof Expr.Deref);
         };
 
-        return this._rename_wrapper(select_derefs);
+        var context = this._rename(select_derefs);
+        _relax_phis(context);
+
+        return context;
     };
 
     SSA.prototype.rename_vars = function() {
@@ -719,7 +713,16 @@ module.exports = (function() {
             return (expr instanceof Expr.Var);
         };
 
-        return this._rename_wrapper(select_vars);
+        var context = this._rename(select_vars);
+        _relax_phis(context);
+
+        return context;
+    };
+
+    var _relax_phis = function(ctx) {
+        simplify_single_phi(ctx);
+        simplify_self_ref_phi(ctx);
+        propagate_chained_phi(ctx);
     };
 
     // propagate phi groups that have only one item in them.
@@ -880,20 +883,34 @@ module.exports = (function() {
         return this.context.preserved = preserved;
     };
 
-    SSA.prototype.transform_out = function() {
-        // TODO: handle phi statements
-        // TODO: this should be done by iterating over ssa context, and not function blocks
+    SSA.prototype.transform_out = function(ctx) {
+        ctx.iterate(function(def) {
+            var p = def.parent;         // p is Expr.Assign
+            var lhand = p.operands[0];  // def
+            var rhand = p.operands[1];  // assigned expression
 
-        this.func.basic_blocks.forEach(function(bb) {
-            bb.container.statements.forEach(function(stmt) {
-                stmt.expressions.forEach(function(expr) {
-                    expr.iter_operands().forEach(function(op) {
-                        if (op.idx !== undefined) {
-                            op.idx = undefined;
-                        }
-                    });
+            if (rhand instanceof Expr.Phi) {
+                // TODO: iterate over rhand operands to see which ones get interfered by
+                // another live def. these operands should be renamed before their subscript
+                // is removed - otherwise results would be wrong
+
+                // remove phi altogether
+                p.pluck(true);
+
+                return true;
+            } else {
+                // remove subscripts from users
+                lhand.uses.forEach(function(u) {
+                    if (u.idx !== undefined) {
+                        u.idx = undefined;
+                    }
                 });
-            });
+
+                // remove subscripts from definition
+                lhand.idx = undefined;
+            }
+
+            return false;
         });
     };
 

@@ -99,26 +99,26 @@ module.exports = (function() {
     };
 
     // <DEBUG>
-    var subscript = function(n) {
-        const uc_digits = [
-            '\u2080',
-            '\u2081',
-            '\u2082',
-            '\u2083',
-            '\u2084',
-            '\u2085',
-            '\u2086',
-            '\u2087',
-            '\u2088',
-            '\u2089'
-        ];
-
-        var str_digit_to_uc_digit = function(d) {
-            return uc_digits[d - 0];
-        };
-
-        return n.toString().split('').map(str_digit_to_uc_digit).join('');
-    };
+    // var subscript = function(n) {
+    //     const uc_digits = [
+    //         '\u2080',
+    //         '\u2081',
+    //         '\u2082',
+    //         '\u2083',
+    //         '\u2084',
+    //         '\u2085',
+    //         '\u2086',
+    //         '\u2087',
+    //         '\u2088',
+    //         '\u2089'
+    //     ];
+    //
+    //     var str_digit_to_uc_digit = function(d) {
+    //         return uc_digits[d - 0];
+    //     };
+    //
+    //     return n.toString().split('').map(str_digit_to_uc_digit).join('');
+    // };
     // </DEBUG>
 
     function CodeGen(ecj, resolver, conf) {
@@ -179,13 +179,13 @@ module.exports = (function() {
         // emit a generic unary expression
         var _emit_uexpr = function(uexpr, op) {
             // <DEBUG>
-            if (uexpr instanceof Expr.Deref) {
-                return Array.prototype.concat(
-                    [op],
-                    parenthesize(this.emit_expression(uexpr.operands[0])),
-                    [[TOK_PUNCT, subscript(uexpr.idx)]]
-                );
-            }
+            // if (uexpr instanceof Expr.Deref) {
+            //     return Array.prototype.concat(
+            //         [op],
+            //         parenthesize(this.emit_expression(uexpr.operands[0])),
+            //         [[TOK_PUNCT, subscript(uexpr.idx)]]
+            //     );
+            // }
             // </DEBUG>
 
             return Array.prototype.concat(
@@ -244,10 +244,15 @@ module.exports = (function() {
         }
 
         else if (expr instanceof Expr.Reg) {
-            return [
-                [TOK_VARNAME, expr.name.toString()],
-                [TOK_PUNCT, subscript(expr.idx)]    // TODO: remove this when ssa is transformed back
-            ];
+            // <DEBUG>
+            // // TODO: remove this when ssa is transformed back
+            // return [
+            //     [TOK_VARNAME, expr.name.toString()],
+            //     [TOK_PUNCT, subscript(expr.idx)]
+            // ];
+            // </DEBUG>
+
+            return [[TOK_VARNAME, expr.name.toString()]];
         }
 
         else if (expr instanceof Expr.UExpr) {
@@ -301,7 +306,7 @@ module.exports = (function() {
 
                     // "x = x op y"
                     if (lhand.equals(inner_lhand)) {
-                        var inner_tname = Object.getPrototypeOf(expr).constructor.name;
+                        var inner_tname = Object.getPrototypeOf(rhand).constructor.name;
 
                         var _inner_op = {
                             'Add' : '+',
