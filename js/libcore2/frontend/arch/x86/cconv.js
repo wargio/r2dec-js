@@ -23,42 +23,16 @@ module.exports = (function() {
         this.arch = arch;
     }
 
-    // check whether a definition precedes a specified expression in cfg
-    var _is_defined_by = function(def, expr) {
-        var def_pstmt = def.parent_stmt();
-        var exp_pstmt = expr.parent_stmt();
-
-        // live ranges are collected recursively along backward cfg walk. for that reason, all
-        // definitions defined in another block are guaranteed to precede expr. definition that
-        // is defined in the same block, must be checked to be defined earlier
-        return (def_pstmt.parent !== exp_pstmt.parent) || def_pstmt.address.lt(exp_pstmt.address);
-    };
-
-    // check whether a definition is alive by specified expression
-    var _is_alive_by = function(use, expr) {
-        if (use === null) {
-            return true;
-        }
-
-        var use_pstmt = use.parent_stmt();
-        var exp_pstmt = expr.parent_stmt();
-
-        return (use_pstmt.parent !== exp_pstmt.parent) || use_pstmt.address.ge(exp_pstmt.address);
-    };
-
     var _get_live_defs_by = function(ranges, expr) {
         // select ranges of deinitions that are either defined by specified expr, or
         // still alive by its address
         var live_by = ranges.filter(function(rng) {
-            var def = rng[0];   // defined variable
-            var use = rng[1];   // killing user
-
-            return _is_defined_by(def, expr) && _is_alive_by(use, expr);
+            return rng.is_defined_by(expr) && rng.is_alive_by(expr);
         });
 
         // extract definitions out of ranges
         return live_by.map(function(rng) {
-            return rng[0];
+            return rng.def;
         });
     };
 

@@ -173,27 +173,60 @@ module.exports = (function() {
         return local_defs;
     };
 
-    // get definition (if any) that is assigned to the enclosing expression.
-    // for example, get `def` for the specified `expr`:
-    //      def = Expr(..., Expr(..., Expr(..., expr)))
-    var _parent_def = function(expr) {
-        for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
-            if (p instanceof Expr.Assign) {
-                return p.operands[0];
-            }
-        }
+    // TODO: liveness is not calculated from def to use, rather from def to def of the same location.
+    function LiveRange(def, use) {
+        this.def = def; // definition
+        this.use = use; // definition's earliest use (killer) in current cfg path
+    }
 
-        return null;
+    // check whether the definition precedes a specified expression in cfg
+    LiveRange.prototype.is_defined_by = function(expr) {
+        var def_pstmt = this.def.parent_stmt();
+        var exp_pstmt = expr.parent_stmt();
+
+        // live ranges are collected recursively along backward cfg walk. for that reason, all
+        // definitions defined in another block are guaranteed to precede expr. definition that
+        // is defined in the same block, must be checked to be defined earlier
+        return (def_pstmt.parent !== exp_pstmt.parent) || def_pstmt.address.lt(exp_pstmt.address);
     };
 
-    var _is_weak_use = function(expr) {
-        var def = _parent_def(expr);
+    // check whether the definition is alive by specified expression
+    LiveRange.prototype.is_alive_by = function(expr) {
+        if (!this.is_killed()) {
+            return true;
+        }
 
-        return def && (def instanceof Expr.Reg) && (def.weak);
+        var use_pstmt = this.use.parent_stmt();
+        var exp_pstmt = expr.parent_stmt();
+
+        return (use_pstmt.parent !== exp_pstmt.parent) || use_pstmt.address.ge(exp_pstmt.address);
+    };
+
+    LiveRange.prototype.is_killed = function() {
+        return (this.use !== null);
     };
 
     Context.prototype.get_live_ranges = function(block, ignore_weak) {
         var local_defs = this.get_local_defs();
+
+        // get definition (if any) that is assigned to the enclosing expression.
+        // for example, get `def` for the specified `expr`:
+        //      def = Expr(..., Expr(..., Expr(..., expr)))
+        var _parent_def = function(expr) {
+            for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
+                if (p instanceof Expr.Assign) {
+                    return p.operands[0];
+                }
+            }
+
+            return null;
+        };
+
+        var _is_weak_use = function(expr) {
+            var def = _parent_def(expr);
+
+            return def && (def instanceof Expr.Reg) && (def.weak);
+        };
 
         var _get_block_live_ranges = function(block, live_at_entry) {
             var curr_container = block.container;
@@ -213,7 +246,7 @@ module.exports = (function() {
 
             return live.map(function(def) {
                 // keep uses that are in the same block as the definition that they kill, and not weak (in case ignoring weak).
-                // weak uses are normally a result of artificial assignemtns generated to represent side effects (e.g. overlapping
+                // weak uses are normally a result of artificial assignemnts generated to represent side effects (e.g. overlapping
                 // registers in intel architecture)
                 var killing = def.uses.filter(function(use) {
                     var use_container = use.parent_stmt().parent;
@@ -235,7 +268,7 @@ module.exports = (function() {
 
                 // definition and its earliest user; if no such user (null), it means this
                 // definition is still alive
-                return [def, earliest];
+                return new LiveRange(def, earliest);
             });
         };
 
@@ -266,13 +299,13 @@ module.exports = (function() {
                 });
             } else {
                 var live_only = function(rng) {
-                    return (rng[1] === null);
+                    return !rng.is_killed();
                 };
 
                 // get definitions that have no killing users, i.e. are still alive
                 live_at_entry = _concat_no_dups(this.cfg.predecessors(curr).map(function(pred) {
                     return _ascend_cfg.call(this, pred).filter(live_only).map(function(rng) {
-                        return rng[0];
+                        return rng.def;
                     });
                 }, this));
             }
@@ -285,8 +318,8 @@ module.exports = (function() {
         // <DEBUG>
         // console.log('live ranges for:', block.address.toString(16));
         // live_ranges.forEach(function(rng) {
-        //     var s = rng[0].toString();
-        //     var info = rng[1] === null ? 'live' : 'killed at: ' + rng[1].parent_stmt().address.toString(16);
+        //     var s = rng.def.toString();
+        //     var info = rng.is_killed() ? 'killed at: ' + rng.use.parent_stmt().address.toString(16) : 'live';
         //
         //     console.log(' ', s + ' '.repeat(32 - s.length), '[', info, ']');
         // });
@@ -296,6 +329,13 @@ module.exports = (function() {
     };
 
     Context.prototype.validate = function() {
+
+        var _is_assignable = function(expr) {
+            return (expr instanceof Expr.Reg) || (expr instanceof Expr.Deref) || (expr instanceof Expr.Var);
+        };
+
+        var defs = this.defs;
+
         // console.log('validating ssa context');
 
         // iterate through all expressions in function:
@@ -304,12 +344,18 @@ module.exports = (function() {
         this.func.basic_blocks.forEach(function(blk) {
             blk.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
+                    if (expr instanceof Expr.Assign) {
+                        var lhand = expr.operands[0];
+
+                        if (!_is_assignable(lhand)) {
+                            console.log('[!] assigning to a non-assignable expression:', expr);
+                        }
+                    }
+
                     expr.iter_operands().forEach(function(op) {
-                        if ((op instanceof Expr.Reg) ||
-                            (op instanceof Expr.Deref) ||
-                            (op instanceof Expr.Var)) {
+                        if (_is_assignable(op)) {
                             if (op.is_def) {
-                                if (!(op in this.defs)) {
+                                if (!(op in defs)) {
                                     console.log('[!] missing def for:', op);
                                     console.log('    parent statement:', op.parent_stmt());
                                 }
@@ -325,16 +371,16 @@ module.exports = (function() {
                                 }
                             }
                         }
-                    }, this);
-                }, this);
-            }, this);
-        }, this);
+                    });
+                });
+            });
+        });
 
         // iterate through all definitions registered in context defs:
         // - make sure there are no orphand definitions (i.e. pruned from function but not from context)
         // - make sure all uses are attached appropriately to their definition
-        for (var d in this.defs) {
-            var v = this.defs[d];
+        for (var d in defs) {
+            var v = defs[d];
 
             if (v.parent_stmt() === undefined) {
                 console.log('[!] stale def:', v);
