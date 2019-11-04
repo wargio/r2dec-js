@@ -21,40 +21,6 @@ module.exports = (function() {
     const Stmt = require('js/libcore2/analysis/ir/statements');
     const Expr = require('js/libcore2/analysis/ir/expressions');
 
-    /*
-    var _collect_defs = function(container, selector) {
-        var defs = [];
-
-        container.statements.forEach(function(stmt) {
-            stmt.expressions.forEach(function(expr) {
-                var operands = expr.operands || [];
-
-                var selected = operands.filter(function(op) {
-                    return selector(op) && op.is_def;
-                });
-
-                defs = defs.concat(selected);
-            });
-        });
-
-        return defs;
-    };
-
-    function SsaContext(func, selector) {
-        this.local_defs = {};
-
-        func.basic_blocks.forEach(function(bb) {
-            var container = bb.container;
-
-            this.local_defs[container] = _collect_defs(container, selector);
-        }, this);
-    }
-
-    function Tagger(func, selector) {
-
-    }
-    */
-
     /**
      * Management object for SSA context.
      * @constructor
@@ -73,11 +39,11 @@ module.exports = (function() {
     }
 
     // intialize 'count' and 'stack' to be used in the renaming process
-    Context.prototype.initialize = function(func, selector) {
+    Context.prototype.initialize = function(selector) {
         var count = {};
         var stack = {};
 
-        func.basic_blocks.forEach(function(bb) {
+        this.func.basic_blocks.forEach(function(bb) {
             bb.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands().forEach(function(op) {
@@ -156,27 +122,9 @@ module.exports = (function() {
         return eliminate.length > 0;
     };
 
-    Context.prototype.get_local_defs = function() {
-        var local_defs = {};
-
-        for (var d in this.defs) {
-            var def = this.defs[d];
-            var def_container = def.parent_stmt().parent;
-
-            if (!(def_container in local_defs)) {
-                local_defs[def_container] = [];
-            }
-
-            local_defs[def_container].push(def);
-        }
-
-        return local_defs;
-    };
-
-    // TODO: liveness is not calculated from def to use, rather from def to def of the same location.
-    function LiveRange(def, use) {
-        this.def = def; // definition
-        this.use = use; // definition's earliest use (killer) in current cfg path
+    function LiveRange(def, killing) {
+        this.def = def;         // a definition
+        this.killing = killing; // the definition that kills it on current cfg path
     }
 
     // check whether the definition precedes a specified expression in cfg
@@ -190,142 +138,192 @@ module.exports = (function() {
         return (def_pstmt.parent !== exp_pstmt.parent) || def_pstmt.address.lt(exp_pstmt.address);
     };
 
-    // check whether the definition is alive by specified expression
+    // check whether the definition is still alive when reaching specified expression
     LiveRange.prototype.is_alive_by = function(expr) {
-        if (!this.is_killed()) {
-            return true;
+        if (this.is_killed()) {
+            var kill_pstmt = this.killing.parent_stmt();
+            var exp_pstmt = expr.parent_stmt();
+
+            return (kill_pstmt.parent !== exp_pstmt.parent) || kill_pstmt.address.ge(exp_pstmt.address);
         }
 
-        var use_pstmt = this.use.parent_stmt();
-        var exp_pstmt = expr.parent_stmt();
-
-        return (use_pstmt.parent !== exp_pstmt.parent) || use_pstmt.address.ge(exp_pstmt.address);
+        return true;
     };
 
     LiveRange.prototype.is_killed = function() {
-        return (this.use !== null);
+        return (this.killing !== null);
     };
 
-    Context.prototype.get_live_ranges = function(block, ignore_weak) {
-        var local_defs = this.get_local_defs();
+    LiveRange.prototype.toString = function() {
+        var repr = [
+            this.constructor.name,
+            this.def.toString(),
+            this.killing === null ? 'null' : this.killing.toString()
+        ];
 
-        // get definition (if any) that is assigned to the enclosing expression.
-        // for example, get `def` for the specified `expr`:
-        //      def = Expr(..., Expr(..., Expr(..., expr)))
-        var _parent_def = function(expr) {
-            for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
-                if (p instanceof Expr.Assign) {
-                    return p.operands[0];
-                }
-            }
+        return '[' + repr.join(' ') + ']';
+    };
 
-            return null;
-        };
+    SSA.prototype.get_local_contexts = function(ignore_weak) {
+        var func = this.func;
+        var cfg = this.cfg;
+        var uninit = this.context.uninit;
 
-        var _is_weak_use = function(expr) {
-            var def = _parent_def(expr);
+        var contexts = {};
 
-            return def && (def instanceof Expr.Reg) && (def.weak);
-        };
-
-        var _get_block_live_ranges = function(block, live_at_entry) {
-            var curr_container = block.container;
-
-            var locals = local_defs[curr_container] || [];
-
-            // sort local definitions by their address, so later definitions appear
-            // later on the list
-            locals.sort(function(d0, d1) {
-                var addr0 = d0.parent_stmt().address;
-                var addr1 = d1.parent_stmt().address;
-
-                return addr0.sub(addr1);
-            });
-
-            var live = Array.prototype.concat(live_at_entry, locals);
-
-            return live.map(function(def) {
-                // keep uses that are in the same block as the definition that they kill, and not weak (in case ignoring weak).
-                // weak uses are normally a result of artificial assignemnts generated to represent side effects (e.g. overlapping
-                // registers in intel architecture)
-                var killing = def.uses.filter(function(use) {
-                    var use_container = use.parent_stmt().parent;
-
-                    return (use_container === curr_container) && !(ignore_weak && _is_weak_use(use));
+        var _get_locals = function(block) {
+            var locals = block.container.statements.map(function(stmt) {
+                var assigns = stmt.expressions.filter(function(expr) {
+                    return (expr instanceof Expr.Assign);
                 });
 
-                var earliest = null;
-
-                // find the earliest expression that kills def (if any)
-                if (killing.length > 0) {
-                    earliest = killing.reduce(function(a, b) {
-                        var a_address = a.parent_stmt().address;
-                        var b_address = b.parent_stmt().address;
-
-                        return b_address.lt(a_address) ? b : a;
-                    }, killing[0]);
-                }
-
-                // definition and its earliest user; if no such user (null), it means this
-                // definition is still alive
-                return new LiveRange(def, earliest);
+                // extract lhand expression from assignment
+                return assigns.map(function(assign) {
+                    return assign.operands[0];
+                });
             });
+    
+            return Array.prototype.concat.apply([], locals);
         };
 
-        var _concat_no_dups = function(arrays) {
-            var unique = function(elem, i, arr) {
-                return arr.indexOf(elem) === i;
-            };
+        var _get_entry = function(block) {
+            var node = block_to_node(cfg, block);
+            var preds = cfg.predecessors(node);
 
-            return Array.prototype.concat.apply([], arrays).filter(unique);
-        };
+            // collect incoming definitions; i.e. exit contexts of predecessors
+            var incoming = preds.map(function(pred) {
+                return contexts[node_to_block(func, pred)].exit;
+            });
 
-        var visited_blocks = [];
-
-        var _ascend_cfg = function(curr) {
-            if (visited_blocks.indexOf(curr) !== (-1)) {
-                return [];
-            }
-
-            visited_blocks.push(curr);
-
-            // ascend cfg recursively: get predecessors' lives on exit
-            var live_at_entry;
-            var curr_block = node_to_block(this.func, curr);
-
-            if (curr_block === this.func.entry_block) {
-                live_at_entry = this.uninit.statements.map(function(stmt) {
+            // node is the function entry block; inherit definitions from uninit
+            if (preds.length === 0) {
+                var uninit_defs = uninit.statements.map(function(stmt) {
                     return stmt.expressions[0].operands[0];
                 });
-            } else {
-                var live_only = function(rng) {
-                    return !rng.is_killed();
-                };
 
-                // get definitions that have no killing users, i.e. are still alive
-                live_at_entry = _concat_no_dups(this.cfg.predecessors(curr).map(function(pred) {
-                    return _ascend_cfg.call(this, pred).filter(live_only).map(function(rng) {
-                        return rng.def;
-                    });
-                }, this));
+                return uninit_defs;
             }
 
-            return _get_block_live_ranges(curr_block, live_at_entry);
+            // node has only one predecessor; inherit its definition
+            else if (preds.length === 1) {
+                return incoming[0];
+            }
+
+            // node has multiple predecessors; inherit definitions that exist in
+            // the intersection of all predecessors' exit contexts
+            else {
+                var __shortest_list = function(shortest, current) {
+                    return current.length < shortest.length ? current : shortest;
+                };
+
+                // iterate over the shortest exit context to find intersecting defs
+                // across all incoming exit contexts
+                return incoming.reduce(__shortest_list).filter(function(def) {
+                    return incoming.every(function(list) {
+                        return (list.indexOf(def) !== (-1));
+                    });
+                });
+            }
         };
 
-        var live_ranges = _ascend_cfg.call(this, block_to_node(this.cfg, block));
+        var _get_live_ranges = function(block) {
+            var ctx = contexts[block];
+            var locals = ctx.locals;
+            var local_names = locals.map(function(def) {
+                return (ignore_weak && def.weak ? null : def.repr());
+            });
 
-        // <DEBUG>
-        // console.log('live ranges for:', block.address.toString(16));
-        // live_ranges.forEach(function(rng) {
-        //     var s = rng.def.toString();
-        //     var info = rng.is_killed() ? 'killed at: ' + rng.use.parent_stmt().address.toString(16) : 'live';
-        //
-        //     console.log(' ', s + ' '.repeat(32 - s.length), '[', info, ']');
-        // });
-        // </DEBUG>
+            var ranges_entry = ctx.entry.map(function(def) {
+                const idx = local_names.indexOf(def.repr());
 
-        return live_ranges;
+                return new LiveRange(def, idx === (-1) ? null : locals[idx]);
+            });
+
+            var ranges_locals = locals.map(function(def, i) {
+                const idx = local_names.slice(i + 1).indexOf(def.repr());
+
+                return new LiveRange(def, idx === (-1) ? null : locals[idx + i + 1]);
+            });
+
+            return ranges_entry.concat(ranges_locals);
+        };
+
+        var _get_exit = function(block) {
+            var ctx = contexts[block];
+            var locals = ctx.locals;
+            var local_names = locals.map(function(def) {
+                return (ignore_weak && def.weak) ? null : def.repr();
+            });
+    
+            // filter out definitions whose name is shadowed by a
+            // locally defined name; keep those who are not
+            var entry_alive = ctx.entry.filter(function(def) {
+                return (local_names.indexOf(def.repr()) === (-1));
+            });
+
+            // filter out local definitions that are shadowed by other
+            // ones that are defined later in the same block
+            var locals_alive = locals.filter(function(def, i) {
+                return (local_names.slice(i + 1).indexOf(def.repr()) === (-1));
+            });
+
+            return entry_alive.concat(locals_alive);
+        };
+    
+        func.basic_blocks.forEach(function(block) {
+            // local context of current block
+            var ctx = {};
+
+            // a utility function that generates a getter function. the getter
+            // function first looks for cached data to return. if such dataexists,
+            // the getter function return it. if not, it calls the handler function,
+            // caches the result and then returns it
+            var _cached_property_getter = function(cached, handler) {
+                return function() {
+                    // console.log('ctx' + block.toString() + '.' + cached, '=', '{');
+
+                    if (!(cached in ctx)) {
+                        // console.log('  ', '//', 'not cached');
+                        ctx[cached] = handler(block);
+                    }
+
+                    // ctx[cached].forEach(function(d) {
+                    //     console.log('  ', d.toString());
+                    // });
+                    //
+                    // console.log('}');
+                    // console.log();
+
+                    return ctx[cached];
+                };
+            };
+
+            Object.defineProperties(ctx, {
+                // an array of expressions defined locally
+                'locals' : {
+                    get : _cached_property_getter('__locals', _get_locals)
+                },
+
+                // an array of definitions that are live on block's entry (aggregated)
+                'entry' : {
+                    get : _cached_property_getter('__entry', _get_entry)
+                },
+
+                // an array of live ranges
+                'live_ranges' : {
+                    get : _cached_property_getter('__live_ranges', _get_live_ranges)
+                },
+
+                // an array of definitions that are live on block's exit (aggregated)
+                'exit' : {
+                    get : _cached_property_getter('__exit', _get_exit)
+                }
+            });
+
+            contexts[block] = ctx;
+        });
+
+        return contexts;
     };
 
     Context.prototype.validate = function() {
@@ -575,7 +573,6 @@ module.exports = (function() {
         }
     };
 
-    /** @private */
     SSA.prototype._rename = function(selector) {
 
         // predicate to determine whether an expression is a phi definition
@@ -679,7 +676,7 @@ module.exports = (function() {
 
         var entry_block = node_to_block(this.func, this.dom.getRoot());
 
-        this.context.initialize(this.func, selector);
+        this.context.initialize(selector);
         insert_phi_exprs.call(this, selector);
         rename_rec.call(this, this.context, entry_block);
 
@@ -717,12 +714,6 @@ module.exports = (function() {
         _relax_phis(context);
 
         return context;
-    };
-
-    var _relax_phis = function(ctx) {
-        simplify_single_phi(ctx);
-        simplify_self_ref_phi(ctx);
-        propagate_chained_phi(ctx);
     };
 
     // propagate phi groups that have only one item in them.
@@ -815,7 +806,13 @@ module.exports = (function() {
 
     };
 
-    SSA.prototype.preserved_locations = function() {
+    var _relax_phis = function(ctx) {
+        simplify_single_phi(ctx);
+        simplify_self_ref_phi(ctx);
+        propagate_chained_phi(ctx);
+    };
+
+    SSA.prototype.preserved_locations = function(contexts) {
         /**
          * Recursively trace a definition back to its origin definition.
          * @param {Expr} def Defined expression to trace
@@ -838,10 +835,11 @@ module.exports = (function() {
         };
 
         var candidates = {};
-        var local_defs = this.context.get_local_defs();
 
-        this.func.exit_blocks.forEach(function(block) {
-            local_defs[block.container].forEach(function(def) {
+        for (var c in contexts) {
+            var locals = contexts[c].locals;
+
+            locals.forEach(function(def) {
                 if (def.idx !== 0) {
                     var origin = _get_origin(def);
 
@@ -856,7 +854,7 @@ module.exports = (function() {
                     }
                 }
             });
-        });
+        }
 
         var preserved = [];
 
@@ -880,7 +878,7 @@ module.exports = (function() {
         // });
         // </DEBUG>
 
-        return this.context.preserved = preserved;
+        return preserved;
     };
 
     SSA.prototype.transform_out = function(ctx) {

@@ -53,10 +53,12 @@
     };
 
     // analyze and assign function calls arguments
-    var assign_fcall_args = function(func, ctx, arch) {
-        var cconvs = new CallConv(arch);
+    var assign_fcall_args = function(func, contexts, arch) {
+        var cconvs = CallConv(arch);
 
         func.basic_blocks.forEach(function(block) {
+            var local_context = contexts[block];
+
             block.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
 
@@ -86,11 +88,7 @@
                                 throw new Error('unsupported calling convention');
                             }
 
-                            // live ranges should be refreshed as args are added to fcalls (i.e. defs are killed)
-                            // TODO: current design is inefficient and makes a good candidate for optimization
-                            var live_ranges = ctx.get_live_ranges(block, true);
-
-                            cchandler.get_args_expr(fcall, live_ranges).forEach(function(arg) {
+                            cchandler.get_args_expr(fcall, local_context).forEach(function(arg) {
                                 fcall.push_operand(arg);
                             });
                         }
@@ -432,9 +430,8 @@
         });
     };
 
-    var remove_preserved_loc = function(ctx) {
-
-        ctx.preserved.forEach(function(pair) {
+    var remove_preserved_loc = function(ctx, preserved) {
+        preserved.forEach(function(pair) {
             var restored = pair[0];
             var saved = pair[1];
 
@@ -445,8 +442,6 @@
                 restored = p.operands[1].def;
             }
         });
-
-        ctx.preserved = [];
 
         return ctx.iterate(function(def) {
             if (def.marked) {
@@ -622,9 +617,15 @@
         tag_stack_derefs(context, this.arch);
     };
 
-    Analyzer.prototype.ssa_done = function(func, context) {
-        remove_preserved_loc(context);
-        assign_fcall_args(func, context, this.arch);
+    Analyzer.prototype.ssa_done = function(func, ssa, ctx) {
+        var contexts = ssa.get_local_contexts(false);
+        var preserved = ssa.preserved_locations(contexts);
+
+        remove_preserved_loc(ctx, preserved);
+
+        contexts = ssa.get_local_contexts(false);
+        assign_fcall_args(func, contexts, this.arch);
+
         adjust_returns(func, this.arch);
         transform_flags(func);
     };
