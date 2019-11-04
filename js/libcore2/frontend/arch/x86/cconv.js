@@ -23,11 +23,36 @@ module.exports = (function() {
         this.arch = arch;
     }
 
-    var _get_live_defs_by = function(ranges, expr) {
-        // select ranges of deinitions that are either defined by specified expr, or
-        // still alive by its address
-        var live_by = ranges.filter(function(rng) {
-            return rng.is_defined_by(expr) && rng.is_alive_by(expr);
+    // get definition (if any) that is assigned to the enclosing expression.
+    // for example, get `def` for the specified `expr`:
+    //      def = Expr(..., Expr(..., Expr(..., expr)))
+    var _parent_def = function(expr) {
+        for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
+            if (p instanceof Expr.Assign) {
+                return p.operands[0];
+            }
+        }
+
+        return null;
+    };
+
+    // used in an expression that is assigned to a weak def
+    var _is_weak_use = function(expr) {
+        var def = _parent_def(expr);
+
+        // WORKAROUND: actually this should check for wither weak use, or whether the use occures after expr in cfg.
+        // this can be done by recording the cfg path along the way when building context, and see whether the use
+        // appears there (occures ealier) or not (occures afterwards).
+        // as a workaround, we check for phi uses, which are the common case for late use, but not all - hence this is
+        // not acurate and may result in funny output
+        return def && (((def instanceof Expr.Reg) && (def.weak)) || (def.parent.operands[1] instanceof Expr.Phi));
+    };
+
+    var _get_live_unused_by = function(context, expr) {
+        var live_by = context.live_ranges.filter(function(rng) {
+            return rng.is_defined_by(expr)              // defined before expr is reached on that cfg path
+                && rng.is_alive_by(expr)                // definition is still alive by expr is reached
+                && rng.def.uses.every(_is_weak_use);    // definition is either unused or used only by weak users
         });
 
         // extract definitions out of ranges
@@ -36,11 +61,23 @@ module.exports = (function() {
         });
     };
 
-    CConvCdecl.prototype.get_args_expr = function(fcall, live_ranges) {
+    CConvCdecl.prototype.get_args_expr = function(fcall, context) {
         var top_of_stack = null;
         var args = [];
 
-        var live_by_fcall = _get_live_defs_by(live_ranges, fcall);
+        var live_by_fcall = _get_live_unused_by(context, fcall);
+
+        // <DEBUG>
+        // console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
+        // live_by_fcall.forEach(function(d) {
+        //     console.log('  |', 'def:', d.parent.toString());
+        //
+        //     d.uses.forEach(function(u) {
+        //         console.log('  |', '  |', _is_weak_use(u) ? '[w]' : '[ ]', u.parent_stmt().toString());
+        //     });
+        // });
+        // console.log();
+        // </DEBUG>
 
         // scan live defs backwards starting from fcall to locate top of stack
         for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
@@ -125,11 +162,11 @@ module.exports = (function() {
         // empty
     }
 
-    CConvAmd64.prototype.get_args_expr = function(fcall, live_ranges) {
+    CConvAmd64.prototype.get_args_expr = function(fcall, context) {
         var nargs = 0;
         var args = _arg_regs64.slice();
 
-        var live_by_fcall = _get_live_defs_by(live_ranges, fcall);
+        var live_by_fcall = _get_live_unused_by(context, fcall);
 
         // drop all weak definitions
         live_by_fcall = live_by_fcall.filter(function(def) {

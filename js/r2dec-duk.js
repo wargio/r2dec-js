@@ -285,9 +285,7 @@ function r2dec_main(args) {
                 ssa_ctx = ssa.rename_derefs();
                 analyzer.ssa_step_derefs(func, ssa_ctx);
 
-                ssa.preserved_locations();
-
-                analyzer.ssa_done(func, ssa_ctx);
+                analyzer.ssa_done(func, ssa, ssa_ctx);
 
                 Optimizer.run([
                     Pruner.eliminate_dead_regs,
