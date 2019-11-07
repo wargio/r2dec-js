@@ -498,14 +498,20 @@
     // propagate stack register definitions to their uses and simplify in-place. that should
     // normalize all stack references to use a single stack pointer definition
     var propagate_stack_reg = function(ctx, arch) {
+        var _is_stack_location = function(lhand, rhand) {
+            return arch.is_stack_reg(lhand)
+                || arch.is_stack_var(lhand)
+                || arch.is_stack_var(rhand);
+        };
+
         return ctx.iterate(function(def) {
             if (def.idx !== 0) {
                 var p = def.parent;         // p is Expr.Assign
                 var lhand = p.operands[0];  // def
                 var rhand = p.operands[1];  // assigned expression
 
-                // TODO: should we avoid propagating phi assignments and into phi exprs?
-                if (arch.is_stack_reg(lhand) || arch.is_stack_var(lhand) || arch.is_stack_var(rhand)) {
+                // propagate stack locations, but exclude those which are assigned phis
+                if (!(rhand instanceof Expr.Phi) && _is_stack_location(lhand, rhand)) {
                     while (def.uses.length > 0) {
                         var u = def.uses[0];
                         var c = rhand.clone(['idx', 'def']);
