@@ -190,6 +190,10 @@ module.exports = (function() {
             var node = block_to_node(cfg, block);
             var preds = cfg.predecessors(node);
 
+            // prevent endless recursion: set current block's entry to empty list
+            // so subsequent calls would not re-enter this function
+            contexts[block].__entry = [];
+
             // collect incoming definitions; i.e. exit contexts of predecessors
             var incoming = preds.map(function(pred) {
                 return contexts[node_to_block(func, pred)].exit;
