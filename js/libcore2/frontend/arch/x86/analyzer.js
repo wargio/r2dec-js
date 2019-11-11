@@ -511,13 +511,21 @@
                 var rhand = p.operands[1];  // assigned expression
 
                 // propagate stack locations, but exclude those which are assigned phis
-                if (!(rhand instanceof Expr.Phi) && _is_stack_location(lhand, rhand)) {
-                    while (def.uses.length > 0) {
-                        var u = def.uses[0];
-                        var c = rhand.clone(['idx', 'def']);
+                if ((!(rhand instanceof Expr.Phi)) && _is_stack_location(lhand, rhand)) {
+                    var skipped = 0;
 
-                        u.replace(c);
-                        Simplify.reduce_stmt(c.parent_stmt());
+                    while (def.uses.length > skipped) {
+                        var u = def.uses[skipped];
+
+                        // do not propagate into phi (i.e. user is a phi arg)
+                        if (!(u.parent instanceof Expr.Phi)) {
+                            var c = rhand.clone(['idx', 'def']);
+
+                            u.replace(c);
+                            Simplify.reduce_stmt(c.parent_stmt());
+                        } else {
+                            skipped++;
+                        }
                     }
 
                     // even though def got no uses left by now, we do not pluck anything just yet.

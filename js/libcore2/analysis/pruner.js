@@ -108,7 +108,7 @@ module.exports = (function() {
     };
 
     // eliminate a variable that has only one use, which is a phi assignment to self
-    // e.g. x2 has only one use, and: x2 = Phi(..., x2, ...)
+    // e.g. x₂ has only one use, and: x₂ = Φ(..., x₂, ...)
     var _select_def_single_phi = function(def, val, conf) {
         if (def.uses.length === 1) {
             var u = def.uses[0];
@@ -120,12 +120,28 @@ module.exports = (function() {
         return false;
     };
 
+    // eliniminate a variable that has only one use, which is a phi that ends up assigned to self.
+    // e.g. x₃ has only one use, which is a phi arg in a phi that is assigned to x₂:
+    //
+    //   x₂ = Φ(..., x₃, ...)
+    //   ...
+    //   x₃ = x₂
+    var _select_def_single_phi_circ = function(def, val, conf) {
+        if (def.uses.length === 1) {
+            var u = def.uses[0];
+
+            // the only use is a phi arg, which assigned to a circular def
+            return (u.parent instanceof Expr.Phi) && (u.parent.parent.operands[0].equals(val));
+        }
+    };
+
     // --------------------------------------------------
 
     return {
-        eliminate_dead_regs      : new Pruner(_select_dead_regs),
-        eliminate_dead_derefs    : new Pruner(_select_dead_derefs),
-        eliminate_dead_results   : new Pruner(_select_dead_results),
-        eliminate_def_single_phi : new Pruner(_select_def_single_phi),
+        eliminate_dead_regs           : new Pruner(_select_dead_regs),
+        eliminate_dead_derefs         : new Pruner(_select_dead_derefs),
+        eliminate_dead_results        : new Pruner(_select_dead_results),
+        eliminate_def_single_phi      : new Pruner(_select_def_single_phi),
+        eliminate_def_single_phi_circ : new Pruner(_select_def_single_phi_circ)
     };
 })();
