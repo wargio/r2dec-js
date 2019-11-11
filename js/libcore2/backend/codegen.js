@@ -370,9 +370,9 @@ module.exports = (function() {
         }
 
         // <DEBUG>
-        else if (expr instanceof Expr.Phi) {
-            return Array.prototype.concat([[TOK_INVALID, '\u03a6']], _emit_expr_list.call(this, expr.operands));
-        }
+        // else if (expr instanceof Expr.Phi) {
+        //     return Array.prototype.concat([[TOK_INVALID, '\u03a6']], _emit_expr_list.call(this, expr.operands));
+        // }
         // </DEBUG>
 
         return [[TOK_INVALID, expr ? expr.toString() : expr]];

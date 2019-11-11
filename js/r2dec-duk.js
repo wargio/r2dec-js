@@ -293,12 +293,13 @@ function r2dec_main(args) {
                     Pruner.eliminate_dead_results,
                     Propagator.propagate_def_single_use,
                     Propagator.propagate_constants,
-                    Pruner.eliminate_def_single_phi
+                    Pruner.eliminate_def_single_phi,
+                    Pruner.eliminate_def_single_phi_circ
                 ], ssa_ctx, config['opt']);
 
                 // console.log(ssa_ctx.toString());
                 ssa_ctx.validate();
-
+                
                 ssa.transform_out(ssa_ctx);
 
                 var cflow = new ControlFlow(func);
