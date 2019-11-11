@@ -330,72 +330,6 @@ module.exports = (function() {
         return contexts;
     };
 
-    Context.prototype.validate = function() {
-
-        var _is_assignable = function(expr) {
-            return (expr instanceof Expr.Reg) || (expr instanceof Expr.Deref) || (expr instanceof Expr.Var);
-        };
-
-        var defs = this.defs;
-
-        // console.log('validating ssa context');
-
-        // iterate through all expressions in function:
-        // - if a definition: make sure it is registered in context defs
-        // - if a use: make sure it is attached to a valid definition, which in turn has it on its uses list
-        this.func.basic_blocks.forEach(function(blk) {
-            blk.container.statements.forEach(function(stmt) {
-                stmt.expressions.forEach(function(expr) {
-                    if (expr instanceof Expr.Assign) {
-                        var lhand = expr.operands[0];
-
-                        if (!_is_assignable(lhand)) {
-                            console.log('[!] assigning to a non-assignable expression:', expr);
-                        }
-                    }
-
-                    expr.iter_operands().forEach(function(op) {
-                        if (_is_assignable(op)) {
-                            if (op.is_def) {
-                                if (!(op in defs)) {
-                                    console.log('[!] missing def for:', op);
-                                    console.log('    parent statement:', op.parent_stmt());
-                                }
-                            } else {
-                                if (op.def === undefined) {
-                                    console.log('[!] use without an assigned def:', op);
-                                    console.log('    parent statement:', op.parent_stmt());
-                                } else {
-                                    if (op.def.uses.indexOf(op) === (-1)) {
-                                        console.log('[!] unregistered use:', op);
-                                        console.log('    parent statement:', op.parent_stmt());
-                                    }
-                                }
-                            }
-                        }
-                    });
-                });
-            });
-        });
-
-        // iterate through all definitions registered in context defs:
-        // - make sure there are no orphand definitions (i.e. pruned from function but not from context)
-        // - make sure all uses are attached appropriately to their definition
-        for (var d in defs) {
-            var v = defs[d];
-
-            if (v.parent_stmt() === undefined) {
-                console.log('[!] stale def:', v);
-            }
-
-            v.uses.forEach(function(u, i) {
-                if (!(u.def.equals(v))) {
-                    console.log('[!] stale use:', v, '[' + i + ']');
-                }
-            });
-        }
-    };
-
     Context.prototype.toString = function() {
         var _get_stmt_addr = function(expr) {
             var p = expr.parent_stmt();
@@ -883,6 +817,75 @@ module.exports = (function() {
         // </DEBUG>
 
         return preserved;
+    };
+
+    SSA.prototype.validate = function(ctx) {
+        var _is_assignable = function(expr) {
+            return (expr instanceof Expr.Reg) || (expr instanceof Expr.Deref) || (expr instanceof Expr.Var);
+        };
+
+        var defs = ctx.defs;
+
+        // console.log('validating ssa context');
+
+        // iterate through all expressions in function:
+        // - if a definition: make sure it is registered in context defs
+        // - if a use: make sure it is attached to a valid definition, which in turn has it on its uses list
+        this.func.basic_blocks.forEach(function(blk) {
+            blk.container.statements.forEach(function(stmt) {
+                stmt.expressions.forEach(function(expr) {
+                    if (expr instanceof Expr.Assign) {
+                        var lhand = expr.operands[0];
+
+                        if (_is_assignable(lhand)) {
+                            if (!lhand.is_def) {
+                                console.log('[!] assigned expression not marked as def:', expr);
+                            }
+                        } else {
+                            console.log('[!] assigning to a non-assignable expression:', expr);
+                        }
+                    }
+
+                    expr.iter_operands().forEach(function(op) {
+                        if (_is_assignable(op)) {
+                            if (op.is_def) {
+                                if (!(op in defs)) {
+                                    console.log('[!] missing def for:', op);
+                                    console.log('    parent statement:', op.parent_stmt());
+                                }
+                            } else {
+                                if (op.def === undefined) {
+                                    console.log('[!] use without an assigned def:', op);
+                                    console.log('    parent statement:', op.parent_stmt());
+                                } else {
+                                    if (op.def.uses.indexOf(op) === (-1)) {
+                                        console.log('[!] unregistered use:', op);
+                                        console.log('    parent statement:', op.parent_stmt());
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+            });
+        });
+
+        // iterate through all definitions registered in context defs:
+        // - make sure there are no orphand definitions (i.e. pruned from function but not from context)
+        // - make sure all uses are attached appropriately to their definition
+        for (var d in defs) {
+            var v = defs[d];
+
+            if (v.parent_stmt() === undefined) {
+                console.log('[!] stale def:', v);
+            }
+
+            v.uses.forEach(function(u, i) {
+                if (!(u.def.equals(v))) {
+                    console.log('[!] stale use:', v, '[' + i + ']');
+                }
+            });
+        }
     };
 
     SSA.prototype.transform_out = function(ctx) {
