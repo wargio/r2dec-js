@@ -741,7 +741,7 @@ module.exports = (function() {
 
     var _shr = function(p) { return _common_bop.call(this, p, Expr.Shr); };    // TODO: evaluate flags for shr
     var _shl = function(p) { return _common_bop.call(this, p, Expr.Shl); };    // TODO: evaluate flags for shl
-    var _sar = function(p) { return _common_bop.call(this, p, Expr.Sar); };    // TODO: evaluate flags for sar
+    var _sar = function(p) { return _common_bop.call(this, p, Expr.Shr); };    // TODO: evaluate flags for sar
 
     var _neg = function(p) { return _common_uop.call(this, p, Expr.Neg); };    // cf = (opnd is non-zero)
     var _not = function(p) { return _common_uop.call(this, p, Expr.Not); };
