@@ -218,6 +218,358 @@ module.exports = (function() {
         return '[' + repr.join(' ') + ']';
     };
 
+    function SSA(func) {
+        this.func = func;
+        this.cfg = func.cfg();
+        this.dom = new Graph.DominatorTree(this.cfg);
+        this.context = new Context(func);
+    }
+
+    // iterate all statements in block and collect only defined names
+    var _find_local_defs = function(selector, block) {
+        var defs = [];
+
+        block.container.statements.forEach(function(stmt) {
+            stmt.expressions.forEach(function(expr) {
+                expr.iter_operands().forEach(function(op) {
+                    if (selector(op) && op.is_def) {
+                        // see if op was already defined
+                        var idx = defs.findIndex(function(d) {
+                            return d.equals_no_idx(op);
+                        });
+
+                        // if already defined, remove old def and use the new one instead
+                        if (idx !== (-1)) {
+                            defs.splice(idx, 1);
+                        }
+
+                        defs.push(op);
+                    }
+                });
+            });
+        });
+
+        return defs;
+    };
+
+    // get a function basic block from a graph node
+    var node_to_block = function(f, node) {
+        return f.getBlock(node.key) || null;
+    };
+
+    // get a graph node from a function basic block
+    var block_to_node = function(g, block) {
+        return g.getNode(block.address) || null;
+    };
+
+    var insert_phi_exprs = function(selector) {
+        var func = this.func;
+        var cfg = this.cfg;
+        var dom = this.dom;
+
+        var defs = {};
+
+        // map a block to its list of definitions
+        func.basic_blocks.forEach(function(blk) {
+            defs[blk] = _find_local_defs(selector, blk);
+        });
+
+        // JS causes defsites keys to be stored as strings. since we need the definitions
+        // expressions themselves, we need to maintain a dedicated array for that.
+        var defsites = {
+            vals : {},
+            keys : []
+        };
+
+        // map a variable to blocks where it is defined
+        func.basic_blocks.forEach(function(blk) {
+            var block_defs = defs[blk];
+
+            block_defs.forEach(function(d) {
+                if (!(d in defsites.vals)) {
+                    defsites.keys.push(d);
+                    defsites.vals[d] = [];
+                }
+
+                defsites.vals[d].push(blk);
+            });
+        });
+
+        var phis = {};
+
+        for (var a in defsites.keys) {
+            a = defsites.keys[a];       // a: definition expression
+            var W = defsites.vals[a];   // W: an array of blocks where 'a' is defined
+
+            while (W.length > 0) {
+                // defsites value list elements are basic blocks, while domTree accepts nodes
+                var n = block_to_node(dom, W.pop());
+
+                dom.dominanceFrontier(n).forEach(function(y) {
+                    if (!(y in phis)) {
+                        phis[y] = [];
+                    }
+
+                    // if 'a' has no phi statement in current block, create one
+                    if (phis[y].indexOf(a) === (-1)) {
+                        var args = new Array(cfg.predecessors(y).length);
+
+                        // duplicate 'a' as many times as 'y' has predecessors. note that the
+                        // ssa index of the cloned expression is preserved, since memory dereferences
+                        // may be enclosing indexed expressions
+                        for (var i = 0; i < args.length; i++) {
+                            args[i] = a.clone(['idx', 'def', 'is_safe', 'weak']);
+                        }
+
+                        var phi_var = a.clone(['idx', 'def', 'is_safe']);
+
+                        // phi variables are artificial and may be safely eliminated
+                        phi_var.weak = true;
+
+                        // turn Node y into BasicBlock _y
+                        var _y = node_to_block(func, y);
+
+                        // insert the statement a = Phi(a, a, ..., a) at the top of block y, where the
+                        // phi-function has as many arguments as y has predecessors
+                        var phi_assignment = new Expr.Assign(phi_var, new Expr.Phi(args));
+                        var phi_stmt = Stmt.make_statement(_y.address, phi_assignment);
+
+                        // insert phi at the beginning of the container
+                        _y.container.unshift_stmt(phi_stmt);
+
+                        phis[y].push(a);
+                        if (defs[_y].indexOf(a) === (-1)) {
+                            W.push(_y);
+                        }
+                    }
+                });
+            }
+        }
+    };
+
+    var rename = function(selector) {
+
+        // predicate to determine whether an expression is a phi definition
+        var is_phi_assignment = function(expr) {
+            return (expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Phi);
+        };
+
+        // get the top element of an array
+        var top = function(arr) {
+            return arr[arr.length - 1];
+        };
+
+        var func = this.func;
+        var cfg = this.cfg;
+        var dom = this.dom;
+        var ctx = this.context;
+
+        var rename_rec = function(n) {
+            n.container.statements.forEach(function(stmt) {
+                // pick up uses to assign ssa index
+                stmt.expressions.forEach(function(expr) {
+                    if (!is_phi_assignment(expr)) {
+                        expr.iter_operands(true).forEach(function(op) {
+                            if (selector(op) && !op.is_def) {
+                                var repr = op.repr();
+
+                                op.idx = top(ctx.stack[repr]);
+                                ctx.add_use(op);
+                            }
+                        });
+                    }
+                });
+
+                // pick up definitions to assign ssa index
+                stmt.expressions.forEach(function(expr) {
+                    expr.iter_operands(true).forEach(function(op) {
+                        if (selector(op) && op.is_def) {
+                            var repr = op.repr();
+
+                            ctx.count[repr]++;
+                            ctx.stack[repr].push(ctx.count[repr]);
+
+                            op.idx = top(ctx.stack[repr]);
+                            ctx.add_def(op);
+                        }
+                    });
+                });
+            });
+
+            cfg.successors(block_to_node(cfg, n)).forEach(function(Y) {
+                var j = cfg.predecessors(Y).indexOf(block_to_node(cfg, n));
+
+                // iterate over all phi functions in Y
+                node_to_block(func, Y).container.statements.forEach(function(stmt) {
+                    stmt.expressions.forEach(function(expr) {
+                        if (is_phi_assignment(expr)) {
+                            var v = expr.operands[0];
+
+                            if (selector(v)) {
+                                var phi = expr.operands[1];
+                                var op = phi.operands[j];
+
+                                op.idx = top(ctx.stack[op.repr()]);
+                                ctx.add_use(op);
+                            }
+                        }
+                    });
+                });
+            });
+
+            // descend the dominator tree recursively
+            dom.successors(block_to_node(dom, n)).forEach(function(X) {
+                rename_rec(node_to_block(func, X));
+            });
+
+            // cleanup context stack of current block's definitions
+            n.container.statements.forEach(function(stmt) {
+                stmt.expressions.forEach(function(expr) {
+                    expr.iter_operands(true).forEach(function(op) {
+                        if (selector(op) && op.is_def) {
+                            ctx.stack[op.repr()].pop();
+                        }
+                    });
+                });
+            });
+        };
+
+        var entry_block = node_to_block(func, dom.getRoot());
+
+        ctx.initialize(selector);
+        insert_phi_exprs.call(this, selector);
+        rename_rec(entry_block);
+
+        return ctx;
+    };
+
+    SSA.prototype.rename_regs = function() {
+        var select_regs = function(expr) {
+            return (expr instanceof Expr.Reg);
+        };
+
+        var context = rename.call(this, select_regs);
+        relax_phis(context);
+
+        return context;
+    };
+
+    SSA.prototype.rename_derefs = function() {
+        var select_derefs = function(expr) {
+            return (expr instanceof Expr.Deref);
+        };
+
+        var context = rename.call(this, select_derefs);
+        relax_phis(context);
+
+        return context;
+    };
+
+    SSA.prototype.rename_vars = function() {
+        var select_vars = function(expr) {
+            return (expr instanceof Expr.Var);
+        };
+
+        var context = rename.call(this, select_vars);
+        relax_phis(context);
+
+        return context;
+    };
+
+    // propagate phi groups that have only one item in them.
+    // if a phi expression has only one argument, propagate it into defined variable
+    //
+    // x7 = Phi(x4) --> x7 = x4
+    var simplify_single_phi = function(ctx) {
+        return ctx.iterate(function(def) {
+            var p = def.parent;         // p is Expr.Assign
+            var lhand = p.operands[0];  // def
+            var rhand = p.operands[1];  // assigned expression
+
+            if ((rhand instanceof Expr.Phi) && (rhand.operands.length === 1)) {
+                var phi_arg = rhand.operands[0];
+
+                rhand.replace(phi_arg.pluck());
+            }
+
+            // this function always return false because it never plucks the
+            // entire assignment, rather it just updates it
+            return false;
+        });
+    };
+
+    // propagate self-referencing phis with two arguments; this is common in loops
+    // e.g. x₃ = Φ(x₂, x₃)   --> x₃ = x₂
+    var simplify_self_ref_phi = function(ctx) {
+        return ctx.iterate(function(def) {
+            var p = def.parent;         // p is Expr.Assign
+            var lhand = p.operands[0];  // def
+            var rhand = p.operands[1];  // assigned expression
+
+            if ((rhand instanceof Expr.Phi) && (rhand.operands.length === 2)) {
+                var other = null;
+
+                // check which of the phi operands (if any) equals to the assigned variable
+                if (rhand.operands[0].equals(lhand)) {
+                    other = rhand.operands[1];
+                } else if (rhand.operands[1].equals(lhand)) {
+                    other = rhand.operands[0];
+                }
+
+                if (other) {
+                    rhand.replace(other.pluck());
+                }
+            }
+
+            // this function always return false because it never plucks the
+            // entire assignment, rather it just updates it
+            return false;
+        });
+    };
+
+    // propagate a phi with only one use that happens to be also a phi
+    var propagate_chained_phi = function(ctx) {
+        return ctx.iterate(function(def) {
+            var p = def.parent;         // p is Expr.Assign
+            var lhand = p.operands[0];  // def
+            var rhand = p.operands[1];  // assigned expression
+
+            if ((rhand instanceof Expr.Phi) && (def.uses.length === 1)) {
+                var u = def.uses[0];
+
+                if (u.parent instanceof Expr.Phi) {
+                    var target_phi = u.parent;
+
+                    // remove propagted phi as it is going to be replaced with its operands
+                    u.pluck(true);
+
+                    for (var i = 0; i < rhand.operands.length; i++) {
+                        var o = rhand.operands[i];
+
+                        // propagate phi operands into its phi user, avoiding duplications
+                        // TODO: not sure if we can safely discard duplicates or not
+                        if (!target_phi.has(o)) {
+                            target_phi.push_operand(o.clone(['idx', 'def']));
+                        }
+                    }
+
+                    // detach propagated phi along of its operands
+                    p.pluck(true);
+
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    };
+
+    var relax_phis = function(ctx) {
+        simplify_single_phi(ctx);
+        simplify_self_ref_phi(ctx);
+        propagate_chained_phi(ctx);
+    };
+
     SSA.prototype.get_local_contexts = function(ignore_weak) {
         var func = this.func;
         var cfg = this.cfg;
@@ -386,373 +738,6 @@ module.exports = (function() {
         });
 
         return contexts;
-    };
-
-    function SSA(func) {
-        this.func = func;
-        this.cfg = func.cfg();
-        this.dom = new Graph.DominatorTree(this.cfg);
-        this.context = new Context(func);
-    }
-
-    // iterate all statements in block and collect only defined names
-    var _find_local_defs = function(selector, block) {
-        var defs = [];
-
-        block.container.statements.forEach(function(stmt) {
-            stmt.expressions.forEach(function(expr) {
-                expr.iter_operands().forEach(function(op) {
-                    if (selector(op) && op.is_def) {
-                        // see if op was already defined
-                        var idx = defs.findIndex(function(d) {
-                            return d.equals_no_idx(op);
-                        });
-
-                        // if already defined, remove old def and use the new one instead
-                        if (idx !== (-1)) {
-                            defs.splice(idx, 1);
-                        }
-
-                        defs.push(op);
-                    }
-                });
-            });
-        });
-
-        return defs;
-    };
-
-    // get a function basic block from a graph node
-    var node_to_block = function(f, node) {
-        return f.getBlock(node.key) || null;
-    };
-
-    // get a graph node from a function basic block
-    var block_to_node = function(g, block) {
-        return g.getNode(block.address) || null;
-    };
-
-    var insert_phi_exprs = function(selector) {
-        var defs = {};
-        var blocks = this.func.basic_blocks;
-
-        // map a block to its list of definitions
-        blocks.forEach(function(blk) {
-            defs[blk] = _find_local_defs(selector, blk);
-        });
-
-        // JS causes defsites keys to be stored as strings. since we need the definitions
-        // expressions themselves, we need to maintain a dedicated array for that.
-        var defsites_vals = {};
-        var defsites_keys = [];
-
-        // map a variable to blocks where it is defined
-        blocks.forEach(function(blk) {
-            var block_defs = defs[blk];
-
-            block_defs.forEach(function(d) {
-                if (!(d in defsites_vals)) {
-                    defsites_keys.push(d);
-                    defsites_vals[d] = [];
-                }
-
-                defsites_vals[d].push(blk);
-            });
-        });
-
-        var phis = {};
-
-        for (var a in defsites_keys) {
-            a = defsites_keys[a];       // a: definition expression
-            var W = defsites_vals[a];   // W: an array of blocks where 'a' is defined
-
-            while (W.length > 0) {
-                // defsites value list elements are basic blocks, while domTree accepts nodes
-                var n = block_to_node(this.dom, W.pop());
-
-                this.dom.dominanceFrontier(n).forEach(function(y) {
-                    if (!(y in phis)) {
-                        phis[y] = [];
-                    }
-
-                    // if 'a' has no phi statement in current block, create one
-                    if (phis[y].indexOf(a) === (-1)) {
-                        var args = new Array(this.cfg.predecessors(y).length);
-
-                        // duplicate 'a' as many times as 'y' has predecessors. note that the
-                        // ssa index of the cloned expression is preserved, since memory dereferences
-                        // may be enclosing indexed expressions
-                        for (var i = 0; i < args.length; i++) {
-                            args[i] = a.clone(['idx', 'def', 'is_safe', 'weak']);
-                        }
-
-                        var phi_var = a.clone(['idx', 'def', 'is_safe']);
-
-                        // phi variables are artificial and may be safely eliminated
-                        phi_var.weak = true;
-
-                        // turn Node y into BasicBlock _y
-                        var _y = node_to_block(this.func, y);
-
-                        // insert the statement a = Phi(a, a, ..., a) at the top of block y, where the
-                        // phi-function has as many arguments as y has predecessors
-                        var phi_assignment = new Expr.Assign(phi_var, new Expr.Phi(args));
-                        var phi_stmt = Stmt.make_statement(_y.address, phi_assignment);
-
-                        // insert phi at the beginning of the container
-                        _y.container.unshift_stmt(phi_stmt);
-
-                        phis[y].push(a);
-                        if (defs[_y].indexOf(a) === (-1)) {
-                            W.push(_y);
-                        }
-                    }
-                }, this);
-            }
-        }
-    };
-
-    SSA.prototype._rename = function(selector) {
-
-        // predicate to determine whether an expression is a phi definition
-        var is_phi_assignment = function(expr) {
-            return (expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Phi);
-        };
-
-        // get the top element of an array
-        var top = function(arr) {
-            return arr[arr.length - 1];
-        };
-
-        var func = this.func;
-        var cfg = this.cfg;
-        var dom = this.dom;
-
-        var rename_rec = function(context, n) {
-            n.container.statements.forEach(function(stmt) {
-                // pick up uses to assign ssa index
-                stmt.expressions.forEach(function(expr) {
-                    if (!is_phi_assignment(expr)) {
-                        expr.iter_operands(true).forEach(function(op) {
-                            if (selector(op) && !op.is_def) {
-                                var repr = op.repr();
- 
-                                // nesting derefs are picked up in stack initialization without inner
-                                // subscripts, since subscripts are not assigned yet. here they are
-                                // referred after inner subscripts are assigned, so they do not appear
-                                // in vars stack. for example:
-                                //
-                                // nesting derefs such as:
-                                //      *(*(ebp₁ + 8)₀ + *(ebp₁ - 4)₁)
-                                //
-                                // do not appear in the stack, because they were picked up as:
-                                //      *(*(ebp₁ + 8) + *(ebp₁ - 4))
-                                //
-                                // <WORKAROUND>
-                                if (!(repr in context.stack)) {
-                                    console.warn('[!] ssa: could not find stack for', '"' + repr + '"');
-                                    context.stack[repr] = [0];
-                                    context.count[repr] = 0;
-                                }
-                                // </WORKAROUND>
-
-                                op.idx = top(context.stack[repr]);
-                                context.add_use(op);
-                            }
-                        });
-                    }
-                });
-
-                // pick up definitions to assign ssa index
-                stmt.expressions.forEach(function(expr) {
-                    expr.iter_operands(true).forEach(function(op) {
-                        if (selector(op) && op.is_def) {
-                            var repr = op.repr();
-
-                            context.count[repr]++;
-                            context.stack[repr].push(context.count[repr]);
-
-                            op.idx = top(context.stack[repr]);
-                            context.add_def(op);
-                        }
-                    });
-                });
-            });
-
-            cfg.successors(block_to_node(cfg, n)).forEach(function(Y) {
-                var j = cfg.predecessors(Y).indexOf(block_to_node(cfg, n));
-
-                // iterate over all phi functions in Y
-                node_to_block(func, Y).container.statements.forEach(function(stmt) {
-                    stmt.expressions.forEach(function(expr) {
-                        if (is_phi_assignment(expr)) {
-                            var v = expr.operands[0];
-
-                            if (selector(v)) {
-                                var phi = expr.operands[1];
-                                var op = phi.operands[j];
-
-                                op.idx = top(context.stack[op.repr()]);
-                                context.add_use(op);
-                            }
-                        }
-                    });
-                });
-            });
-
-            // descend the dominator tree recursively
-            dom.successors(block_to_node(dom, n)).forEach(function(X) {
-                rename_rec(context, node_to_block(func, X));
-            });
-
-            // cleanup context stack of current block's definitions
-            n.container.statements.forEach(function(stmt) {
-                stmt.expressions.forEach(function(expr) {
-                    expr.iter_operands(true).forEach(function(op) {
-                        if (selector(op) && op.is_def) {
-                            context.stack[op.repr()].pop();
-                        }
-                    });
-                });
-            });
-        };
-
-        var entry_block = node_to_block(func, dom.getRoot());
-
-        this.context.initialize(selector);
-        insert_phi_exprs.call(this, selector);
-        rename_rec(this.context, entry_block);
-
-        return this.context;
-    };
-
-    SSA.prototype.rename_regs = function() {
-        var select_regs = function(expr) {
-            return (expr instanceof Expr.Reg);
-        };
-
-        var context = this._rename(select_regs);
-        _relax_phis(context);
-
-        return context;
-    };
-
-    SSA.prototype.rename_derefs = function() {
-        var select_derefs = function(expr) {
-            return (expr instanceof Expr.Deref);
-        };
-
-        var context = this._rename(select_derefs);
-        _relax_phis(context);
-
-        return context;
-    };
-
-    SSA.prototype.rename_vars = function() {
-        var select_vars = function(expr) {
-            return (expr instanceof Expr.Var);
-        };
-
-        var context = this._rename(select_vars);
-        _relax_phis(context);
-
-        return context;
-    };
-
-    // propagate phi groups that have only one item in them.
-    // if a phi expression has only one argument, propagate it into defined variable
-    //
-    // x7 = Phi(x4) --> x7 = x4
-    var simplify_single_phi = function(ctx) {
-        return ctx.iterate(function(def) {
-            var p = def.parent;         // p is Expr.Assign
-            var lhand = p.operands[0];  // def
-            var rhand = p.operands[1];  // assigned expression
-
-            if ((rhand instanceof Expr.Phi) && (rhand.operands.length === 1)) {
-                var phi_arg = rhand.operands[0];
-
-                rhand.replace(phi_arg.pluck());
-            }
-
-            // this function always return false because it never plucks the
-            // entire assignment, rather it just updates it
-            return false;
-        });
-    };
-
-    // propagate self-referencing phis.
-    //
-    //   x5 = Phi(x2, x5)  -->  x5 = x2
-    var simplify_self_ref_phi = function(ctx) {
-        return ctx.iterate(function(def) {
-            var p = def.parent;         // p is Expr.Assign
-            var lhand = p.operands[0];  // def
-            var rhand = p.operands[1];  // assigned expression
-
-            if ((rhand instanceof Expr.Phi) && (rhand.operands.length === 2)) {
-                var other = null;
-
-                // check which of the phi operands (if any) equals to the assigned variable
-                if (rhand.operands[0].equals(lhand)) {
-                    other = rhand.operands[1];
-                } else if (rhand.operands[1].equals(lhand)) {
-                    other = rhand.operands[0];
-                }
-
-                if (other) {
-                    rhand.replace(other.pluck());
-                }
-            }
-
-            // this function always return false because it never plucks the
-            // entire assignment, rather it just updates it
-            return false;
-        });
-    };
-
-    // propagate a phi with only one use that happens to be also a phi
-    var propagate_chained_phi = function(ctx) {
-        return ctx.iterate(function(def) {
-            var p = def.parent;         // p is Expr.Assign
-            var lhand = p.operands[0];  // def
-            var rhand = p.operands[1];  // assigned expression
-
-            if ((rhand instanceof Expr.Phi) && (def.uses.length === 1)) {
-                var u = def.uses[0];
-
-                if (u.parent instanceof Expr.Phi) {
-                    var target_phi = u.parent;
-
-                    // remove propagted phi as it is going to be replaced with its operands
-                    u.pluck(true);
-
-                    for (var i = 0; i < rhand.operands.length; i++) {
-                        var o = rhand.operands[i];
-
-                        // propagate phi operands into its phi user, avoiding duplications
-                        // TODO: not sure if we can safely discard duplicates or not
-                        if (!target_phi.has(o)) {
-                            target_phi.push_operand(o.clone(['idx', 'def']));
-                        }
-                    }
-
-                    // detach propagated phi along of its operands
-                    p.pluck(true);
-
-                    return true;
-                }
-            }
-
-            return false;
-        });
-
-    };
-
-    var _relax_phis = function(ctx) {
-        simplify_single_phi(ctx);
-        simplify_self_ref_phi(ctx);
-        propagate_chained_phi(ctx);
     };
 
     SSA.prototype.preserved_locations = function(contexts) {
