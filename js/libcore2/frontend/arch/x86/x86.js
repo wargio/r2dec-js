@@ -175,6 +175,10 @@ module.exports = (function() {
             'movsxd': _mov.bind(this),  // TODO: dest is signed
             'movzx' : _mov.bind(this),  // TODO: dest is unsigned
 
+            // sse
+            'movaps': _mov.bind(this),
+            'xorps' : _xor.bind(this),
+
             // rare stuff
             'movbe' : _movbe.bind(this),
             'popcnt': _popcnt.bind(this),
