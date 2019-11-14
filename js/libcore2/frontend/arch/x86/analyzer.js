@@ -38,16 +38,19 @@
                         // the easy way to calculate that is to take the next statement's
                         // address; however this hack doesn't work 100% of the times.
                         // need to find a better solution for that; perhaps: aoj @ `s+1`
-                        subst.push([o, stmts[i + 1].address]);
+
+                        if (i < (stmts.length - 1)) {
+                            subst.push([o, stmts[i + 1].address]);
+                        }
                     }
                 });
             });
         });
-    
+
         subst.forEach(function(pair) {
             var op = pair[0];
             var addr_next = pair[1];
-    
+
             op.replace(new Expr.Val(addr_next, pcreg.size));
         });
     };

@@ -196,7 +196,6 @@ var load_r2_evars = function(ns) {
 
 /**
  *  o reg arguments
- *  o show args and vars
  *  o resolve pic
  * 
  * TODO:
