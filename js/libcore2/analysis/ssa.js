@@ -25,15 +25,14 @@ module.exports = (function() {
      * Management object for SSA context.
      * @constructor
      */
-    function Context(ssa) {
-        this.func = ssa.func;
-        this.cfg = ssa.cfg;
+    function Context(func) {
+        this.func = func;
 
         this.count = {};
         this.stack = {};
         this.defs = {};
 
-        this.uninit = new Cntr.Container(ssa.func.entry_block.container.address, []);
+        this.uninit = new Cntr.Container(func.entry_block.container.address, []);
     }
 
     // intialize 'count' and 'stack' to be used in the renaming process
@@ -118,6 +117,63 @@ module.exports = (function() {
         }, this);
 
         return eliminate.length > 0;
+    };
+
+    Context.prototype.toString = function() {
+        var _get_stmt_addr = function(expr) {
+            var p = expr.parent_stmt();
+
+            return p ? p.address.toString(16) : '?';
+        };
+
+        var _maxlen = function(arr) {
+            return arr.reduce(function(max, current) {
+                return current.length > max ? current.length : max;
+            }, 0);
+        };
+
+        var _toStringArray = function(arr) {
+            return '[' + arr.join(', ') + ']';
+        };
+
+        var table = Object.keys(this.defs).map(function(d) {
+            var def = this.defs[d];
+            var def_loc = _get_stmt_addr(def);              // address of definition
+            var use_locs = def.uses.map(_get_stmt_addr);    // list of users addresses
+
+            var emblems = [
+                def.is_safe ? '+' : '',
+                def.weak ? '-' : ''
+            ].join('');
+
+            return {
+                name    : d,
+                emblems : emblems,
+                defined : def_loc,
+                used    : use_locs
+            };
+        }, this);
+
+        var names_maxlen = _maxlen(table.map(function(obj) { return obj.name; })) + 3;
+        var addrs_maxlen = _maxlen(table.map(function(obj) { return obj.defined; }));
+
+        var header = ['def-use chains:'];
+
+        var lines = table.map(function(obj) {
+            var name = obj.name + obj.emblems;  // definition name
+            var defined = obj.defined;          // where defined
+            var used = obj.used;                // where used (list)
+
+            return [
+                ' ',
+                name.padEnd(names_maxlen),
+                defined.padStart(addrs_maxlen),
+                ':',
+                _toStringArray(used)
+            ].join(' ');
+        });
+
+        return Array.prototype.concat(header, lines).join('\n');
     };
 
     function LiveRange(def, killing) {
@@ -332,68 +388,11 @@ module.exports = (function() {
         return contexts;
     };
 
-    Context.prototype.toString = function() {
-        var _get_stmt_addr = function(expr) {
-            var p = expr.parent_stmt();
-
-            return p ? p.address.toString(16) : '?';
-        };
-
-        var _maxlen = function(arr) {
-            return arr.reduce(function(max, current) {
-                return current.length > max ? current.length : max;
-            }, 0);
-        };
-
-        var _toStringArray = function(arr) {
-            return '[' + arr.join(', ') + ']';
-        };
-
-        var table = Object.keys(this.defs).map(function(d) {
-            var def = this.defs[d];
-            var def_loc = _get_stmt_addr(def);              // address of definition
-            var use_locs = def.uses.map(_get_stmt_addr);    // list of users addresses
-
-            var emblems = [
-                def.is_safe ? '+' : '',
-                def.weak ? '-' : ''
-            ].join('');
-
-            return {
-                name    : d,
-                emblems : emblems,
-                defined : def_loc,
-                used    : use_locs
-            };
-        }, this);
-
-        var names_maxlen = _maxlen(table.map(function(obj) { return obj.name; })) + 3;
-        var addrs_maxlen = _maxlen(table.map(function(obj) { return obj.defined; }));
-
-        var header = ['def-use chains:'];
-
-        var lines = table.map(function(obj) {
-            var name = obj.name + obj.emblems;  // definition name
-            var defined = obj.defined;          // where defined
-            var used = obj.used;                // where used (list)
-
-            return [
-                ' ',
-                name.padEnd(names_maxlen),
-                defined.padStart(addrs_maxlen),
-                ':',
-                _toStringArray(used)
-            ].join(' ');
-        });
-
-        return Array.prototype.concat(header, lines).join('\n');
-    };
-
     function SSA(func) {
         this.func = func;
         this.cfg = func.cfg();
         this.dom = new Graph.DominatorTree(this.cfg);
-        this.context = new Context(this);
+        this.context = new Context(func);
     }
 
     // iterate all statements in block and collect only defined names
