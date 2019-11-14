@@ -93,6 +93,7 @@ module.exports = (function() {
         return (def.idx !== 0)
             && (def.uses.length === 1)
             && (!(def instanceof Expr.Deref) || def.is_safe || conf.noalias)
+         // && (!(val instanceof Expr.Deref) || val.is_safe || conf.noalias)
             && !(val instanceof Expr.Phi)   // do not propagate phi expressions
             && !(val instanceof Expr.Val);  // do not propagate value literals, sicne they are handled separately
     };
@@ -109,11 +110,9 @@ module.exports = (function() {
     // propagate definitions that are set to constant values
     var _select_constants = function(def, val, conf) {
         return (def.idx !== 0)
-            && ((val instanceof Expr.Val) ||
-                (val instanceof Expr.Reg) ||
-                (val instanceof Expr.Var))
-            && (((def instanceof Expr.Reg) && !(def instanceof Expr.Var)) ||
-                ((def instanceof Expr.Deref) && (def.is_safe || conf.noalias)));
+            && (!(def instanceof Expr.Deref) || (def.is_safe || conf.noalias))
+            && !(def instanceof Expr.Var)
+            && (val instanceof Expr.Literal);
     };
 
     var _get_constants = function(use, val) {

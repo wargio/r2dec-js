@@ -116,14 +116,12 @@ module.exports = (function() {
      * @param {Expr.Val} val Value expression of data address
      * @returns {string|undefined}
      */
-    Resolver.prototype.resolve_data = function(val) {
+    Resolver.prototype.resolve_data = function(val, resolve_flags) {
         var key = val.value.toString();
 
         // if not cached, retrieve it from r2
         if (!(key in this.data)) {
-            // TODO: falling to flag causes low values to appear funny; need a better solution
-            // or filter what uses this resolving method
-            this.data[key] = this.demangle(_r2_get_string(key) /*|| _r2_get_flag(key)*/);
+            this.data[key] = this.demangle(_r2_get_string(key) || (resolve_flags && _r2_get_flag(key)));
         }
 
         return this.data[key];

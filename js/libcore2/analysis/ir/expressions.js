@@ -860,13 +860,14 @@
 
     return {
         // abstract base classes: use only to define arch-specific exprs
-        UExpr:  UExpr,
-        BExpr:  BExpr,
-        TExpr:  TExpr,
-        Expr:   Expr,
+        Literal:    Literal,
+        UExpr:      UExpr,
+        BExpr:      BExpr,
+        TExpr:      TExpr,
+        Expr:       Expr,
 
         // ssa phi expression
-        Phi:    Phi,
+        Phi:        Phi,
 
         // common expressions
         Reg:        Register,
