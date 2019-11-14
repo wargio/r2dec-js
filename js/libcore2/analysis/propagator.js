@@ -109,9 +109,11 @@ module.exports = (function() {
     // propagate definitions that are set to constant values
     var _select_constants = function(def, val, conf) {
         return (def.idx !== 0)
-            && ((val instanceof Expr.Val) /*|| (val instanceof Expr.AddrOf)*/)
-            && (((def instanceof Expr.Reg) && !(def instanceof Expr.Var))
-                || ((def instanceof Expr.Deref) && (def.is_safe || conf.noalias)));
+            && ((val instanceof Expr.Val) ||
+                (val instanceof Expr.Reg) ||
+                (val instanceof Expr.Var))
+            && (((def instanceof Expr.Reg) && !(def instanceof Expr.Var)) ||
+                ((def instanceof Expr.Deref) && (def.is_safe || conf.noalias)));
     };
 
     var _get_constants = function(use, val) {
@@ -122,7 +124,7 @@ module.exports = (function() {
             return null;
         }
 
-        return val.clone(/*['idx', 'def']*/);
+        return val.clone(['idx', 'def']);
     };
 
     var __is_ptr_calc = function(expr) {
