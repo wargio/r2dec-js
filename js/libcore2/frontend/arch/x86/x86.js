@@ -360,6 +360,8 @@ module.exports = (function() {
     };
 
     x86.prototype.is_stack_var = function(expr) {
+        // Expr.Sub: expr is an sp-based variable
+        // Expr.Add: expr is an sp-based argument
         if ((expr instanceof Expr.Sub) || (expr instanceof Expr.Add)) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
@@ -375,19 +377,9 @@ module.exports = (function() {
     };
 
     x86.prototype.is_frame_var = function(expr) {
-        if (expr instanceof Expr.Sub) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
-
-            return (rhand instanceof Expr.Val) && (this.is_frame_reg(lhand));
-        }
-
-        return false;
-    };
-
-    // is `expr` a bp-based argument?
-    x86.prototype.is_frame_arg = function(expr) {
-        if (expr instanceof Expr.Add) {
+        // Expr.Sub: expr is a bp-based variable
+        // Expr.Add: expr is a bp-based argument
+        if ((expr instanceof Expr.Sub) || (expr instanceof Expr.Add)) {
             var lhand = expr.operands[0];
             var rhand = expr.operands[1];
 
