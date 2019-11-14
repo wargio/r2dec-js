@@ -200,8 +200,7 @@ module.exports = (function() {
                     C2.prev = C0;
                 }
 
-                // TODO: do we have ssa at this point?
-                var cond = S.cond.clone(['idx', 'def']);
+                var cond = S.cond.clone();
 
                 if (C1) {
                     cond = new Expr.BoolNot(cond);
@@ -252,6 +251,22 @@ module.exports = (function() {
 
             // console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
             // console.log();
+        }, this);
+
+        // simple convergance
+        this.dfs.iterNodes().forEach(function(N) {
+            var C0 = node_to_block(this.func, N).container;
+            var outter = C0.terminator();
+
+            if ((outter instanceof Stmt.If) && (outter.then_cntr && !outter.else_cntr)) {
+                var inner = outter.then_cntr.statements[0];
+
+                if ((inner instanceof Stmt.If) && (inner.then_cntr && !inner.else_cntr)) {
+                    var conv_cond = new Expr.BoolAnd(outter.cond, inner.cond);
+
+                    outter.replace(new Stmt.If(outter.address, conv_cond, inner.then_cntr, null));
+                }
+            }
         }, this);
 
         // prune Goto statements

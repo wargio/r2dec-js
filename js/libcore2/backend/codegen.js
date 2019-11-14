@@ -196,11 +196,13 @@ module.exports = (function() {
 
         // emit a generic binary expression
         var _emit_bexpr = function(bexpr, op) {
-            return Array.prototype.concat(
+            var elements = Array.prototype.concat(
                 this.emit_expression(bexpr.operands[0]),
                 [SPACE, op, SPACE],
                 this.emit_expression(bexpr.operands[1])
             );
+
+            return (bexpr.parent instanceof Expr.Expr) && !(bexpr.parent instanceof Expr.Assign) ? auto_paren(elements) : elements;
         };
 
         // emit a generic ternary expression
