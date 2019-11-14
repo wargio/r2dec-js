@@ -146,6 +146,7 @@
         });
     };
 
+    /*
     var _make_variable = function(vobj, arch) {
         var size = arch.bits;
         var vexpr = new Expr.Var(vobj.name, size);
@@ -170,9 +171,91 @@
 
         return assignment;
     };
+    */
+
+    // TODO: too similar to rename_bp_vars; consider unifying them
+    var rename_sp_vars = function(func, ctx, arch) {
+        const size = arch.bits;
+
+        var _is_sp_based = function(vobj) {
+            if (typeof(vobj.ref) === 'object') {
+                var base = new Expr.Reg(vobj.ref.base, size);
+
+                return arch.is_stack_reg(base);
+            }
+
+            return false;
+        };
+
+        var _vobj_to_vitem = function(vobj) {
+            return {
+                name: vobj.name,
+                disp: /*Math.abs*/(vobj.ref.offset.toInt()),
+                type: vobj.type
+            };
+        };
+
+        // keep only sp-based vars and args
+        var vitems = func.vars.filter(_is_sp_based).map(_vobj_to_vitem);
+        var aitems = func.args.filter(_is_sp_based).map(_vobj_to_vitem);
+
+        var sreg = arch.STACK_REG.clone();
+        sreg.idx = 0;
+
+        if (sreg in ctx.defs) {
+            // locate all uses of frame register and get their parent expressions
+            var stack_refs = ctx.defs[sreg].uses.map(function(u) {
+                return u.parent;
+            });
+
+            stack_refs.forEach(function(expr) {
+                var vlist = null;
+
+                if (arch.is_stack_var(expr)) {
+                    if (expr instanceof Expr.Sub) {
+                        vlist = vitems;
+                    } else if (expr instanceof Expr.Add) {
+                        vlist = aitems;
+                    }
+                }
+
+                if (vlist) {
+                    var edisp = expr.operands[1].value.toInt();
+
+                    for (var i = 0; i < vlist.length; i++) {
+                        var vitem = vlist[i];
+                        var vdisp = vitem.disp;
+
+                        if (vdisp === edisp) {
+                            var vexpr = new Expr.AddrOf(new Expr.Var(vitem.name, size));
+
+                            // TODO: this is an experimental method to identify arrays on stack and
+                            // make their references show appropriately
+                            if ((vitem.type.endsWith('*')) && (vlist === vitems)) {
+                                // this memory deref comes solely to match the address of, hence
+                                // the undefined size - which is irrelevant
+                                vexpr = new Expr.Deref(vexpr, undefined);
+                            }
+
+                            // propagate and simplify
+                            expr.replace(vexpr);
+                            Simplify.reduce_expr(vexpr.parent);
+
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+
+        return {
+            vars: vitems,
+            args: aitems
+        };
+    };
 
     // turn bp-based variables and arguments references into Variable expressions
-    var rename_variables = function(func, ctx, arch) {
+    var rename_bp_vars = function(func, ctx, arch) {
         const size = arch.bits;
 
         var _is_bp_based = function(vobj) {
@@ -226,11 +309,11 @@
                 var vlist = null;
 
                 if (arch.is_frame_var(expr)) {
-                    vlist = vitems;
-                }
-
-                else if (arch.is_frame_arg(expr)) {
-                    vlist = aitems;
+                    if (expr instanceof Expr.Sub) {
+                        vlist = vitems;
+                    } else if (expr instanceof Expr.Add) {
+                        vlist = aitems;
+                    }
                 }
 
                 if (vlist) {
@@ -273,102 +356,10 @@
             });
         }
 
-        func.vars = vitems;
-        func.args = aitems;
-    };
-
-    var insert_arguments = function(func, ctx, arch) {
-        var vars = [];
-
-        func.args.forEach(function(a) {
-            var assignment = _make_variable(a, arch);
-
-            vars.push(assignment);
-        });
-
-        var propagate = [];
-
-        func.basic_blocks.forEach(function(bb) {
-            bb.container.statements.forEach(function(stmt) {
-                stmt.expressions.forEach(function(expr) {
-                    expr.iter_operands(true).forEach(function(op) {
-                        for (var i = 0; i < vars.length; i++) {
-                            var vloc = vars[i].operands[0];
-
-                            if (vloc.equals(op)) {
-                                var vname = vars[i].operands[1];
-
-                                // we cannot replace operands while iterating; that would invalidate
-                                // the iterator. save pairs of [original, replacement] for later processing
-                                propagate.push([op, vname.clone()]);
-                                break;
-                            }
-                        }
-                    });
-                });
-            });
-        });
-
-        var _enclosing_def = function(expr) {
-            var def = null;
-
-            while (expr && !def) {
-                if (expr.is_def) {
-                    def = expr;
-                }
-
-                expr = expr.parent;
-            }
-
-            return def;
+        return {
+            vars: vitems,
+            args: aitems
         };
-
-        var _is_phi_assignment = function(expr) {
-            return (expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Phi);
-        };
-
-        var phis = [];
-
-        propagate.forEach(function(pair) {
-            var expr = pair[0];
-            var replacement = pair[1];
-
-            // here existing expressions are being replaced with newly created arg objects.
-            // those arg objects have no ssa data and would be tagged by ssa later on in a
-            // dedicated ssa sweep. that ssa sweep will create additional phi expressions,
-            // if needed.
-            //
-            // to prevent the upcmoing ssa sweep from messing up, we need to make sure:
-            //  - a replaced definition is removed from defs list
-            //  - a replaced definition which is assigned a phi expression is removed
-
-            var def = _enclosing_def(expr);
-
-            if (def) {
-                var passign = def.parent;
-
-                if (_is_phi_assignment(passign)) {
-                    // phi assignments cannot be removed on the spot: there may be additional
-                    // propagations into this expression, so removing it would end up in a
-                    // dangling expression. we will just remove them all afterwards
-
-                    phis.push(passign);
-                }
-
-                delete ctx.defs[def];
-            }
-
-            // notes:
-            //  - replacing expr may invalidate its reference
-            //  - simplifying replacement may invalidate its reference
-
-            expr.replace(replacement);
-            Simplify.reduce_expr(replacement.parent);
-        });
-
-        phis.forEach(function(phi_assign) {
-            phi_assign.pluck(true);
-        });
     };
 
     // TODO: extract and move it somewhere else
@@ -608,8 +599,6 @@
     };
 
     Analyzer.prototype.transform_done = function(func) {
-        // insert_arguments(func, context, this.arch);
-
         gen_overlaps(func, this.arch);
 
         // transform exit blocks' gotos into function calls
@@ -617,7 +606,11 @@
     };
 
     Analyzer.prototype.ssa_step_regs = function(func, context) {
-        rename_variables(func, context, this.arch);
+        var sp = rename_sp_vars(func, context, this.arch);
+        var bp = rename_bp_vars(func, context, this.arch);
+
+        func.vars = sp.vars.concat(bp.vars);
+        func.args = sp.args.concat(bp.args);
 
         while (propagate_stack_reg(context, this.arch)) { /* empty */ }
         while (propagate_flags_reg(context, this.arch)) { /* empty */ }
