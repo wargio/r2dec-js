@@ -197,7 +197,7 @@ module.exports = (function() {
         var _has_msb_set = function(val) {
             const msb = 1 << (val.size - 1);
 
-            return val.value.and(msb) != 0;
+            return !(val.value.and(msb).isZero());
         };
 
         // an operation is considered sign-safe if either the operation is sign-insensitive,

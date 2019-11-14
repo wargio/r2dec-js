@@ -293,6 +293,7 @@ function r2dec_main(args) {
                     Pruner.eliminate_dead_results,
                     Propagator.propagate_def_single_use,
                     Propagator.propagate_constants,
+                    Propagator.propagate_dereferenced,
                     Pruner.eliminate_def_single_phi,
                     Pruner.eliminate_def_single_phi_circ
                 ], ssa_ctx, config['opt']);

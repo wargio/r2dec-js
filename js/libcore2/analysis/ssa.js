@@ -33,9 +33,7 @@ module.exports = (function() {
         this.stack = {};
         this.defs = {};
 
-        var entry_addr = this.func.entry_block.container.address;
-
-        this.uninit = new Cntr.Container(entry_addr, []);
+        this.uninit = new Cntr.Container(ssa.func.entry_block.container.address, []);
     }
 
     // intialize 'count' and 'stack' to be used in the renaming process
@@ -216,6 +214,7 @@ module.exports = (function() {
             // node has multiple predecessors; inherit definitions that exist in
             // the intersection of all predecessors' exit contexts
             else {
+                // find the shortest list in a list of lists
                 var __shortest_list = function(shortest, current) {
                     return current.length < shortest.length ? current : shortest;
                 };
@@ -233,6 +232,7 @@ module.exports = (function() {
         var _get_live_ranges = function(block) {
             var ctx = contexts[block];
             var locals = ctx.locals;
+
             var local_names = locals.map(function(def) {
                 return (ignore_weak && def.weak ? null : def.repr());
             });
@@ -255,6 +255,9 @@ module.exports = (function() {
         var _get_exit = function(block) {
             var ctx = contexts[block];
             var locals = ctx.locals;
+
+            // collect locally defined names; filter out weak definitions
+            // if requried
             var local_names = locals.map(function(def) {
                 return (ignore_weak && def.weak) ? null : def.repr();
             });
@@ -287,7 +290,6 @@ module.exports = (function() {
                     // console.log('ctx' + block.toString() + '.' + cached, '=', '{');
 
                     if (!(cached in ctx)) {
-                        // console.log('  ', '//', 'not cached');
                         ctx[cached] = handler(block);
                     }
 
@@ -523,6 +525,10 @@ module.exports = (function() {
             return arr[arr.length - 1];
         };
 
+        var func = this.func;
+        var cfg = this.cfg;
+        var dom = this.dom;
+
         var rename_rec = function(context, n) {
             n.container.statements.forEach(function(stmt) {
                 // pick up uses to assign ssa index
@@ -574,11 +580,11 @@ module.exports = (function() {
                 });
             });
 
-            this.cfg.successors(block_to_node(this.cfg, n)).forEach(function(Y) {
-                var j = this.cfg.predecessors(Y).indexOf(block_to_node(this.cfg, n));
+            cfg.successors(block_to_node(cfg, n)).forEach(function(Y) {
+                var j = cfg.predecessors(Y).indexOf(block_to_node(cfg, n));
 
                 // iterate over all phi functions in Y
-                node_to_block(this.func, Y).container.statements.forEach(function(stmt) {
+                node_to_block(func, Y).container.statements.forEach(function(stmt) {
                     stmt.expressions.forEach(function(expr) {
                         if (is_phi_assignment(expr)) {
                             var v = expr.operands[0];
@@ -593,12 +599,12 @@ module.exports = (function() {
                         }
                     });
                 });
-            }, this);
+            });
 
             // descend the dominator tree recursively
-            this.dom.successors(block_to_node(this.dom, n)).forEach(function(X) {
-                rename_rec.call(this, context, node_to_block(this.func, X));
-            }, this);
+            dom.successors(block_to_node(dom, n)).forEach(function(X) {
+                rename_rec(context, node_to_block(func, X));
+            });
 
             // cleanup context stack of current block's definitions
             n.container.statements.forEach(function(stmt) {
@@ -612,11 +618,11 @@ module.exports = (function() {
             });
         };
 
-        var entry_block = node_to_block(this.func, this.dom.getRoot());
+        var entry_block = node_to_block(func, dom.getRoot());
 
         this.context.initialize(selector);
         insert_phi_exprs.call(this, selector);
-        rename_rec.call(this, this.context, entry_block);
+        rename_rec(this.context, entry_block);
 
         return this.context;
     };
@@ -894,25 +900,21 @@ module.exports = (function() {
             var lhand = p.operands[0];  // def
             var rhand = p.operands[1];  // assigned expression
 
-            if (rhand instanceof Expr.Phi) {
-                // TODO: iterate over rhand operands to see which ones get interfered by
-                // another live def. these operands should be renamed before their subscript
-                // is removed - otherwise results would be wrong
+            // remove subscripts from users
+            lhand.uses.forEach(function(u) {
+                if (u.idx !== undefined) {
+                    u.idx = undefined;
+                }
+            });
 
-                // remove phi altogether
+            // remove subscripts from definition
+            lhand.idx = undefined;
+
+            // remove phis
+            if (rhand instanceof Expr.Phi) {
                 p.pluck(true);
 
                 return true;
-            } else {
-                // remove subscripts from users
-                lhand.uses.forEach(function(u) {
-                    if (u.idx !== undefined) {
-                        u.idx = undefined;
-                    }
-                });
-
-                // remove subscripts from definition
-                lhand.idx = undefined;
             }
 
             return false;
