@@ -39,7 +39,7 @@ module.exports = (function() {
     var _r2_get_libs_names = function() {
         var ilj = Global.r2cmdj('ilj');
 
-        // XXX for some reason r2 does not keep the name in its original case
+        // for some reason r2 does not keep the name in its original case
         // so we have to canonicalize it for later
         return ilj.map(function(lname) {
             return lname.toLowerCase() + '_';
