@@ -171,22 +171,17 @@ module.exports = (function() {
         return colorized.join('\n');
     };
 
-    CodeGen.prototype.emit_expression = function(expr) {
+    CodeGen.prototype.emit_expression = function(expr, opt) {
         const SPACE = [TOK_WHTSPCE, ' '];
 
         var tname = Object.getPrototypeOf(expr).constructor.name;
 
+        opt = opt || {};
+
         // emit a generic unary expression
         var _emit_uexpr = function(uexpr, op) {
-            // <DEBUG>
-            // if (uexpr instanceof Expr.Deref) {
-            //     return Array.prototype.concat(
-            //         [op],
-            //         parenthesize(this.emit_expression(uexpr.operands[0])),
-            //         [[TOK_PUNCT, subscript(uexpr.idx)]]
-            //     );
-            // }
-            // </DEBUG>
+            // TODO: if Expr.Deref of Expr.Add or Expr.Sub, show as indexed access to an array
+            // this should take array element size into account
 
             return Array.prototype.concat(
                 [op],
@@ -196,13 +191,29 @@ module.exports = (function() {
 
         // emit a generic binary expression
         var _emit_bexpr = function(bexpr, op) {
+            var p = bexpr.parent;
+            var lhand = bexpr.operands[0];
+            var rhand = bexpr.operands[1];
+
+            var lhand_opt = {};
+            var rhand_opt = {};
+
+            // most likely a bitmask, show right argument as hex
+            if (['And', 'Or', 'Xor'].indexOf(tname) !== (-1)) {
+                rhand_opt.radix = 16;
+            }
+
             var elements = Array.prototype.concat(
-                this.emit_expression(bexpr.operands[0]),
+                this.emit_expression(lhand, lhand_opt),
                 [SPACE, op, SPACE],
-                this.emit_expression(bexpr.operands[1])
+                this.emit_expression(rhand, rhand_opt)
             );
 
-            return (bexpr.parent instanceof Expr.Expr) && !(bexpr.parent instanceof Expr.Assign) ? auto_paren(elements) : elements;
+            if ((p instanceof Expr.Expr) && !(p instanceof Expr.Assign)) {
+                elements = auto_paren(elements);
+            }
+
+            return elements;
         };
 
         // emit a generic ternary expression
@@ -242,7 +253,7 @@ module.exports = (function() {
             }
 
             // TODO: emit value in the appropriate format: dec, hex, signed, unsigned, ...
-            return [[TOK_NUMBER, expr.toString()]];
+            return [[TOK_NUMBER, expr.toString(opt)]];
         }
 
         else if (expr instanceof Expr.Reg) {
