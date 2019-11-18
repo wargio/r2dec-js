@@ -359,13 +359,12 @@
     // };
 
     /** @returns {string} */
-    Value.prototype.toString = function() {
-        // TODO: this implementation serves as a temporary workaround. value
-        // should be emitted according to the context it appears in
-
-        var radix = (this.value.gt(-32) && this.value.lt(32)) ? 10 : 16;
+    Value.prototype.toString = function(opt) {
+        var radix = opt ? opt.radix : undefined;
         var is_neg = this.value.isNegative();
         var val = is_neg ? this.value.neg() : this.value;
+
+        radix = radix || ((this.value.gt(-32) && this.value.lt(32)) ? 10 : 16);
 
         return (is_neg ? '-' : '') + (radix === 16 ? '0x' : '') + val.toString(radix);
     };
