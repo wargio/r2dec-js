@@ -303,6 +303,7 @@ function r2dec_main(args) {
 
                 var cflow = new ControlFlow(func);
                 cflow.fallthroughs();
+                cflow.identify_loops();
                 cflow.conditions();
 
                 var ecj = Global.r2cmdj('ecj');
