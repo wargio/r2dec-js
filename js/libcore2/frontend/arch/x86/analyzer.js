@@ -47,11 +47,15 @@
             });
         });
 
+        // TODO: re-implement this with insertion of weak pcreg assignments
+        // rather than direct propagation
         subst.forEach(function(pair) {
             var op = pair[0];
             var addr_next = pair[1];
+            var expr = new Expr.Val(addr_next, pcreg.size);
 
-            op.replace(new Expr.Val(addr_next, pcreg.size));
+            op.replace(expr);
+            Simplify.reduce_stmt(expr.parent_stmt());            
         });
     };
 
