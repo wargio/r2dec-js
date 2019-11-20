@@ -35,42 +35,23 @@ module.exports = (function() {
         // </DEBUG>
     }
 
-    ControlFlow.prototype.fallthroughs = function() {
-        this.func.basic_blocks.forEach(function(bb) {
-            // N --> M
-            var n_block = bb;
-            var m_block = ((n_block.fail && this.func.getBlock(n_block.fail))
-                || (n_block.jump && this.func.getBlock(n_block.jump)));
-
-            if (m_block) {
-                n_block.container.set_fallthrough(m_block.container);
-            }
-        }, this);
-    };
-
-    // TODO: duplicated code from ssa.js
-    // get a function basic block from a graph node
-    var node_to_block = function(f, node) {
-        return f.getBlock(node.key) || null;
-    };
-
     // <DEBUG>
-    var ArrayToString = function(a, opt) {
-        return '[' + a.map(function(d) {
-            return d.toString(opt);
-        }).join(', ') + ']';
-    };
-    
-    var ObjAddrToString = function(o, opt) {
-        return o ? o.address.toString(opt) : o;
-    };
+    // var ArrayToString = function(a, opt) {
+    //     return '[' + a.map(function(d) {
+    //         return d.toString(opt);
+    //     }).join(', ') + ']';
+    // };
+    //
+    // var ObjAddrToString = function(o, opt) {
+    //     return o ? o.address.toString(opt) : o;
+    // };
     // </DEBUG>
 
-    ControlFlow.prototype.construct_loop = function(N) {
+    var _construct_loop = function(N, cfg, dom) {
         var key = N.key;
         
         // head of the loop
-        var head = this.dom.getNode(key);
+        var head = dom.getNode(key);
 
         // the loop body consists of all the nodes that can reach back the
         // loop head. to know whether there is a path from some node S to another
@@ -90,7 +71,7 @@ module.exports = (function() {
 
         // build a reversed cfg starting from loop head; prune the edge
         // pointing the head immediate dominator, which is outside the loop
-        var rcfg = this.cfg.reversed(key);
+        var rcfg = cfg.reversed(key);
         rcfg.delEdge([key, head.idom.key]);
 
         // TODO: it looks like the idom trick won't work if there are multiple edges
@@ -103,7 +84,7 @@ module.exports = (function() {
 
         // the set of nodes dominated by the loop head includes loop body nodes and
         // exit nodes. we now "xoring" those sets together to find exit nodes
-        var exits = this.dom.all_dominated(head).filter(function(n) {
+        var exits = dom.all_dominated(head).filter(function(n) {
             var found = false;
 
             for (var i = 0; !found && (i < body.length); i++) {
@@ -117,6 +98,107 @@ module.exports = (function() {
         // console.log('', '', 'head node :', head.toString(16));
         // console.log('', '', 'body nodes:', ArrayToString(body, 16));
         // console.log('', '', 'exit nodes:', ArrayToString(exits, 16));
+
+        return {
+            head:   head,
+            body:   body,
+            exits:  exits
+        };
+    };
+
+    ControlFlow.prototype.identify_loops = function() {
+        var func = this.func;
+        var cfg = this.cfg;
+        var dom = this.dom;
+
+        var loops = [];
+
+        this.dfs.iterNodes().forEach(function(N) {
+            var _is_loop_head = function(node) {
+                var _succ = dom.getNode(node.key);
+                var _curr = dom.getNode(N.key);
+
+                return dom.dominates(_succ, _curr);
+            };
+
+            var loop_heads = cfg.successors(N).filter(_is_loop_head);
+
+            // is this a back edge?
+            if (loop_heads.length > 0) {
+                loops.push(_construct_loop(loop_heads[0], cfg, dom));
+            }
+        });
+
+        loops.forEach(function(loop) {
+            var C0 = node_to_block(func, loop.head).container;
+            var S = C0.terminator();
+
+            if (S instanceof Stmt.Branch) {
+                var _taken_key = function(node) {
+                    return node.key.eq(S.taken.value);
+                };
+
+                var _not_taken_key = function(node) {
+                    return node.key.eq(S.not_taken.value);
+                };
+
+                var cond = S.cond;
+                var body = S.taken.value;
+                var next = S.not_taken.value;
+
+                if (loop.body.find(_taken_key)) {
+                    // nothing to do
+                }
+
+                else if (loop.body.find(_not_taken_key))
+                {
+                    cond = new Expr.BoolNot(cond);
+                    body = S.not_taken.value;
+                    next = S.taken.value;
+                }
+
+                var C1 = func.getBlock(body).container;
+                var C2 = func.getBlock(next).container;
+
+                S.replace(new Stmt.While(S.address, cond, C1));
+                Simplify.reduce_expr(cond);
+
+                C0.set_fallthrough(C2);
+                C2.prev = C0;
+            }
+        });
+
+        this.loops = loops;
+    };
+
+
+
+
+
+
+
+
+
+
+
+
+    ControlFlow.prototype.fallthroughs = function() {
+        this.func.basic_blocks.forEach(function(bb) {
+            // N --> M
+            var n_block = bb;
+            var m_block = ((n_block.fail && this.func.getBlock(n_block.fail))
+                || (n_block.jump && this.func.getBlock(n_block.jump)));
+
+            if (m_block) {
+                n_block.container.set_fallthrough(m_block.container);
+            }
+        }, this);
+    };
+
+    // TODO: duplicated code from ssa.js
+    // get a function basic block from a graph node
+    var node_to_block = function(f, node) {
+        return f.getBlock(node.key) || null;
     };
 
     ControlFlow.prototype.conditions = function() {
@@ -155,102 +237,88 @@ module.exports = (function() {
             // console.log('  imm dom:', this.dom.getNode(N.key).idom ? this.dom.getNode(N.key).idom.toString(16) : 'none');
             // console.log('  +dominates:', ArrayToString(imm_dominated, 16));
 
-            var _is_loop_head = function(node) {
-                var _succ = this.dom.getNode(node.key);
-                var _curr = this.dom.getNode(N.key);
+            // proceed only if S is not a loop branch
+            if (!(this.loops.find(function(loop) { return loop.head.key.eq(N.key); }))) {
+                if (S instanceof Stmt.Branch) {
+                    var C1; // container for 'then' clause
+                    var C2; // container for 'else' clause
+                    var target;
 
-                return this.dom.dominates(_succ, _curr);
-            };
+                    // block is immediately dominated by N
+                    var valid_if_block = function(address) {
+                        var i = imm_dominated.findIndex(function(D) {
+                            return D.key.eq(address);
+                        });
 
-            var loop_heads = this.cfg.successors(N).filter(_is_loop_head, this);
+                        return i === (-1) ? undefined : imm_dominated.splice(i, 1).pop();
+                    };
 
-            // is this a back edge?
-            if (loop_heads.length > 0) {
-                this.construct_loop(loop_heads[0]);
+                    // 'then' clause: should be immediately dominated by N
+                    target = S.not_taken.value;
+                    if ((this.cfg.indegree(this.cfg.getNode(target)) === 1) && valid_if_block(target)) {
+                        C1 = this.func.getBlock(target).container;
+                        C1.prev = C0;
+                    }
 
-                // WORKAROUND: skip all the rest
-                S = null;
-            }
+                    // 'else' clause: should be immediately dominates by N and have only one predecessor
+                    target = S.taken.value;
+                    if ((this.cfg.indegree(this.cfg.getNode(target)) === 1) && valid_if_block(target)) {
+                        C2 = this.func.getBlock(target).container;
+                        C2.prev = C0;
+                    }
 
-            if (S instanceof Stmt.Branch) {
-                var C1; // container for 'then' clause
-                var C2; // container for 'else' clause
-                var target;
+                    var cond = S.cond.clone();
 
-                // block is immediately dominated by N
-                var valid_if_block = function(address) {
-                    var i = imm_dominated.findIndex(function(D) {
-                        return D.key.eq(address);
-                    });
+                    if (C1) {
+                        cond = new Expr.BoolNot(cond);
+                    } else {
+                        C1 = C2;
+                        C2 = null;
+                    }
 
-                    return i === (-1) ? undefined : imm_dominated.splice(i, 1).pop();
-                };
+                    // elinimate empty 'else' clause
+                    if (C2 && (C2.statements.length === 0)) {
+                        C2 = null;
+                    }
 
-                // 'then' clause: should be immediately dominated by N
-                target = S.not_taken.value;
-                if ((this.cfg.indegree(this.cfg.getNode(target)) === 1) && valid_if_block(target)) {
-                    C1 = this.func.getBlock(target).container;
-                    C1.prev = C0;
+                    S.replace(new Stmt.If(S.address, cond, C1, C2));
+                    Simplify.reduce_expr(cond);
+                    
+                    // console.log('  branch:', '[', ObjAddrToString(C1, 16), '|', ObjAddrToString(C2, 16), ']');
+                    // console.log('  -dominates:', ArrayToString(imm_dominated, 16));
                 }
 
-                // 'else' clause: should be immediately dominates by N and have only one predecessor
-                target = S.taken.value;
-                if ((this.cfg.indegree(this.cfg.getNode(target)) === 1) && valid_if_block(target)) {
-                    C2 = this.func.getBlock(target).container;
-                    C2.prev = C0;
+                // condition sink should be the only node left on the domniation list.
+                // if there is none, the sink is undefined
+                var sink = imm_dominated[0];
+
+                // in case there is no sink and we are carrying one from previous
+                // branches, use it now
+                if (!sink) {
+                    sink = carried;
+                    carried = null;
                 }
 
-                var cond = S.cond.clone();
-
-                if (C1) {
-                    cond = new Expr.BoolNot(cond);
-                } else {
-                    C1 = C2;
-                    C2 = null;
+                // in some rare cases there would be more than one item left on the
+                // domination list, which means there is more than one sink. since we cannot
+                // display more than one sink, we would need to carry it down the DFS road
+                // and use it as a sink as soon as possible
+                if (!carried) {
+                    carried = imm_dominated[1];
                 }
 
-                // elinimate empty 'else' clause
-                if (C2 && (C2.statements.length === 0)) {
-                    C2 = null;
-                }
+                // console.log('  carried:', carried ? carried.toString(16) : carried);
+                //
+                // if (C0.fallthrough) {
+                //     console.log('  -fthrough:', ObjAddrToString(C0.fallthrough, 16));
+                // }
 
-                S.replace(new Stmt.If(S.address, cond, C1, C2));
-                Simplify.reduce_expr(cond);
-                
-                // console.log('  branch:', '[', ObjAddrToString(C1, 16), '|', ObjAddrToString(C2, 16), ']');
-                // console.log('  -dominates:', ArrayToString(imm_dominated, 16));
+                // set fall-through container, if exists
+                C0.set_fallthrough(sink && node_to_block(this.func, sink).container);
+
+                // console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
+                // console.log();
             }
-
-            // condition sink should be the only node left on the domniation list.
-            // if there is none, the sink is undefined
-            var sink = imm_dominated[0];
-
-            // in case there is no sink and we are carrying one from previous
-            // branches, use it now
-            if (!sink) {
-                sink = carried;
-                carried = null;
-            }
-
-            // in some rare cases there would be more than one item left on the
-            // domination list, which means there is more than one sink. since we cannot
-            // display more than one sink, we would need to carry it down the DFS road
-            // and use it as a sink as soon as possible
-            if (!carried) {
-                carried = imm_dominated[1];
-            }
-
-            // console.log('  carried:', carried ? carried.toString(16) : carried);
-            //
-            // if (C0.fallthrough) {
-            //     console.log('  -fthrough:', ObjAddrToString(C0.fallthrough, 16));
-            // }
-
-            // set fall-through container, if exists
-            C0.set_fallthrough(sink && node_to_block(this.func, sink).container);
-
-            // console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
-            // console.log();
         }, this);
 
         // simple convergance

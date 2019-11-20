@@ -306,6 +306,7 @@ function r2dec_main(args) {
 
                 var cflow = new ControlFlow(func);
                 cflow.fallthroughs();
+                cflow.identify_loops();
                 cflow.conditions();
 
                 console.log(new CodeGen(resolver, config['out']).emit_func(func));
