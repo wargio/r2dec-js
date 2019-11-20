@@ -149,32 +149,46 @@
         });
     };
 
-    /*
-    var _make_variable = function(vobj, arch) {
-        var size = arch.bits;
-        var vexpr = new Expr.Var(vobj.name, size);
-        var loc;
+    var insert_reg_args = function(func, arch) {
+        const size = arch.bits;
 
-        if (typeof(vobj.ref) === 'object') {
-            var base = new Expr.Reg(vobj.ref.base, size);
-            var disp = new Expr.Val(vobj.ref.offset, size);
+        var entry = func.entry_block.container;
+        var addr = entry.address;
 
-            base.idx = arch.is_frame_reg(base) ? 1: 0;
+        var _is_reg = function(vobj) {
+            return (typeof(vobj.ref) !== 'object');
+        };
 
-            loc = new Expr.Add(base, disp);
-            vexpr = new Expr.AddrOf(vexpr);
-        } else {
-            loc = new Expr.Reg(vobj.ref, size);
+        var _vobj_to_vitem = function(vobj) {
+            return {
+                name: vobj.name,
+                base: vobj.ref,
+                type: vobj.type
+            };
+        };
 
-            loc.idx = 0;
-        }
+        // keep only reg args
+        var aitems = func.args.filter(_is_reg).map(_vobj_to_vitem);
 
-        var assignment = new Expr.Assign(loc, vexpr);
-        Simplify.reduce_expr(loc);
+        aitems.forEach(function(vitem) {
+            // TODO: assuming here all reg arguments are of full size. in case this is
+            // not true, we would need arch.archregs.get_reg_size(vitem.base) instead
+            var assign = new Expr.Assign(
+                new Expr.Reg(vitem.base, size),
+                new Expr.Var(vitem.name, size)
+            );
 
-        return assignment;
+            // this is an artificial assignment; mark def as weak
+            assign.operands[0].weak = true;
+
+            entry.unshift_stmt(Stmt.make_statement(addr, assign));
+        });
+
+        return {
+            vars: [],
+            args: aitems
+        };
     };
-    */
 
     // TODO: too similar to rename_bp_vars; consider unifying them
     var rename_sp_vars = function(func, ctx, arch) {
@@ -336,13 +350,14 @@
                         if (vdisp >= edisp) {
                             var vexpr = new Expr.AddrOf(new Expr.Var(vitem.name, size));
 
-                            // TODO: this is an experimental method to identify arrays on stack and
-                            // make their references show appropriately
-                            if ((vitem.type.endsWith('*')) && (vlist === vitems)) {
-                                // this memory deref comes solely to match the address of, hence
-                                // the undefined size - which is irrelevant
-                                vexpr = new Expr.Deref(vexpr, undefined);
-                            }
+                            // // TODO: this is an experimental method to identify arrays on stack and
+                            // // make their references show appropriately
+                            // if ((vitem.type.endsWith('*')) && (vlist === vitems)) {
+                            //     // this memory deref comes solely to match the address of, hence
+                            //     // the undefined size - which is irrelevant
+                            //
+                            //     vexpr = new Expr.Deref(vexpr, undefined);
+                            // }
 
                             if (vdisp > edisp) {
                                 vexpr = new Expr.Add(vexpr, new Expr.Val(vdisp - edisp, size));
@@ -595,6 +610,9 @@
 
     function Analyzer(arch) {
         this.arch = arch;
+
+        this.func_args = [];
+        this.func_vars = [];
     }
 
     Analyzer.prototype.transform_step = function(container) {
@@ -602,6 +620,11 @@
     };
 
     Analyzer.prototype.transform_done = function(func) {
+        var regs = insert_reg_args(func, this.arch);
+
+        this.func_vars = regs.vars;
+        this.func_args = regs.args;
+
         gen_overlaps(func, this.arch);
 
         // transform exit blocks' gotos into function calls
@@ -612,8 +635,8 @@
         var sp = rename_sp_vars(func, context, this.arch);
         var bp = rename_bp_vars(func, context, this.arch);
 
-        func.vars = sp.vars.concat(bp.vars);
-        func.args = sp.args.concat(bp.args);
+        this.func_vars = this.func_vars.concat(sp.vars, bp.vars);
+        this.func_args = this.func_args.concat(sp.args, bp.args);
 
         while (propagate_stack_reg(context, this.arch)) { /* empty */ }
         while (propagate_flags_reg(context, this.arch)) { /* empty */ }
