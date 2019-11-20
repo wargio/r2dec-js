@@ -262,7 +262,9 @@ module.exports = (function() {
         if (expr instanceof Expr.Val) {
             // TODO: this causes even pointer displacements to be attempted for resolving.
             // need to find a better way to filter what needs to be resolved (derefs and fcall args..?)
-            var str = this.xrefs.resolve_data(expr, (expr.parent instanceof Expr.Deref));
+            var str = this.xrefs.resolve_data(expr,
+                (expr.parent instanceof Expr.Deref) ||
+                (expr.parent instanceof Expr.Call));
 
             if (str) {
                 return [[TOK_STRING, str]];
