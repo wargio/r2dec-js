@@ -244,7 +244,10 @@
                         var vdisp = vitem.disp;
 
                         if (vdisp === edisp) {
-                            var vexpr = new Expr.AddrOf(new Expr.Var(vitem.name, size));
+                            var p = expr.parent;
+                            var vsize = (p instanceof Expr.Deref) ? p.size : size;
+
+                            var vexpr = new Expr.AddrOf(new Expr.Var(vitem.name, vsize));
 
                             // TODO: this is an experimental method to identify arrays on stack and
                             // make their references show appropriately
@@ -348,7 +351,10 @@
                         // note: relevant for local variables only; arguments are expected to get exact match
 
                         if (vdisp >= edisp) {
-                            var vexpr = new Expr.AddrOf(new Expr.Var(vitem.name, size));
+                            var p = expr.parent;
+                            var vsize = (p instanceof Expr.Deref) ? p.size : size;
+
+                            var vexpr = new Expr.AddrOf(new Expr.Var(vitem.name, vsize));
 
                             // // TODO: this is an experimental method to identify arrays on stack and
                             // // make their references show appropriately
