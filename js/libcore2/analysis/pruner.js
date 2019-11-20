@@ -44,7 +44,7 @@ module.exports = (function() {
             var def = p.operands[0];        // defined variable
             var val = p.operands[1];        // assigned expression
 
-            if (this.selector(def, val, config)) {
+            if ((def.prune) || this.selector(def, val, config)) {
                 p.pluck(true);
 
                 pruned.push(d);
@@ -65,7 +65,7 @@ module.exports = (function() {
         // note: function calls cannot be eliminated as they may have side effects
         return (def.uses.length === 0)
             && (def instanceof Expr.Reg)    // eliminate dead reg definitions
-        //  && !(def instanceof Expr.Var)   // exclude variables tagged by user
+            && !(def instanceof Expr.Var)   // exclude variables tagged by user
             && !(val instanceof Expr.Call); // exclude dead fcalls results as fcalls may have side effects
     };
 

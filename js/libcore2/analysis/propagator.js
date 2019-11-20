@@ -71,6 +71,11 @@ module.exports = (function() {
                         skipped++;
                     }
                 }
+
+                // no uses left after propagation; mark for pruning
+                if (def.uses.length === 0) {
+                    def.prune = true;
+                }
             }
         }
 
@@ -100,9 +105,7 @@ module.exports = (function() {
 
     var _get_def_single_use = function(use, val) {
         // do not propagate into phi (i.e. use is a phi argument)
-        // use 'pluck' to prevent fcall duplications when their assigned reg remains with no uses after
-        // this propagation. this is ok since we know there is only one use
-        return (use.parent instanceof Expr.Phi) ? null : val.pluck(); // val.clone(['idx', 'def']);
+        return (use.parent instanceof Expr.Phi) ? null : val.clone(['idx', 'def']);
     };
 
     // TODO: stop propagation when encountering AddrOf, since we can't predict possible side effects
