@@ -84,14 +84,8 @@ module.exports = (function() {
 
         // the set of nodes dominated by the loop head includes loop body nodes and
         // exit nodes. we now "xoring" those sets together to find exit nodes
-        var exits = dom.all_dominated(head).filter(function(n) {
-            var found = false;
-
-            for (var i = 0; !found && (i < body.length); i++) {
-                found = (n.key == body[i].key);
-            }
-
-            return !found;
+        var exits = dom.all_dominated(head).filter(function(n0) {
+            return !(body.find(function(n1) { return n0.key.eq(n1.key); }));
         });
 
         // console.log('', 'loop:');
@@ -142,17 +136,19 @@ module.exports = (function() {
                     return node.key.eq(S.not_taken.value);
                 };
 
-                var cond = S.cond;
-                var body = S.taken.value;
-                var next = S.not_taken.value;
+                var cond;
+                var body;
+                var next;
 
                 if (loop.body.find(_taken_key)) {
-                    // nothing to do
+                    cond = S.cond;
+                    body = S.taken.value;
+                    next = S.not_taken.value;
                 }
 
                 else if (loop.body.find(_not_taken_key))
                 {
-                    cond = new Expr.BoolNot(cond);
+                    cond = new Expr.BoolNot(S.cond);
                     body = S.not_taken.value;
                     next = S.taken.value;
                 }
@@ -168,19 +164,35 @@ module.exports = (function() {
             }
         });
 
+        loops.forEach(function(loop) {
+            var loop_nodes = Array.prototype.concat(loop.body, loop.exits);
+
+            loop_nodes.forEach(function(n) {
+                var C0 = node_to_block(func, n).container;
+                var S = C0.terminator();
+    
+                if (S instanceof Stmt.Goto) {
+                    console.log(S.toString());
+                    
+                    var _dest_key = function(node) {
+                        return node.key.eq(S.dest.value);
+                    };
+    
+                    // jumping to an exit node?
+                    if (loop.exits.find(_dest_key)) {
+                        S.replace(new Stmt.Break(S.address));
+                    }
+
+                    // jumping to loop's head?
+                    else if (_dest_key(loop.head)) {
+                        S.replace(new Stmt.Continue(S.address));
+                    }
+                }
+            });
+        });
+
         this.loops = loops;
     };
-
-
-
-
-
-
-
-
-
-
-
 
     ControlFlow.prototype.fallthroughs = function() {
         this.func.basic_blocks.forEach(function(bb) {
