@@ -173,13 +173,6 @@ module.exports = (function() {
             return !(def.weak);
         });
 
-        // <DEBUG>
-        // console.log('live definitions by:', _parent_stmt_address(fcall).toString(16));
-        // live_by_fcall.forEach(function(def) {
-        //     console.log(' ', def);
-        // });
-        // </DEBUG>
-
         // as opposed to arguments passed on the stack, arguments passed on registers are
         // not necessarily assigned in their natural order; in some cases, they may not be
         // assigned at all [e.g. when passing caller's arguments directly].

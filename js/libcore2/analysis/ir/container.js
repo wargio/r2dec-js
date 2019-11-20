@@ -44,6 +44,8 @@ module.exports = (function() {
     Container.prototype.unshift_stmt = function(stmt) {
         stmt.parent = this;
 
+        // TODO: also update statement address to container address?
+
         this.statements.unshift(stmt);
     };
 

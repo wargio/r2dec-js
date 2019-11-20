@@ -21,7 +21,7 @@ module.exports = (function() {
 
     // intel architecture registers.
     // overlapping registers are stored in the same line, ordered by their size in bits.
-    const allregs = [
+    const ALL_REGS = [
         ['rax', 'eax', 'ax', 'al', 'ah'],
         ['rbx', 'ebx', 'bx', 'bl', 'bh'],
         ['rcx', 'ecx', 'cx', 'cl', 'ch'],
@@ -49,7 +49,7 @@ module.exports = (function() {
     // const IDX_FRAME_REG = 5;
     // const IDX_PC_REG = 8;
 
-    // size index: 'allregs' columns
+    // size index: ALL_REGS columns
     const IDX_REG64 = 0;
     const IDX_REG32 = 1;
     const IDX_REG16 = 2;
@@ -165,7 +165,7 @@ module.exports = (function() {
      */
     function ArchRegs(bits) {
 
-        // we will never need all entries from 'allregs'; a different subset is needed
+        // we will never need all entries from ALL_REGS; a different subset is needed
         // depending on arch bits. this module is designed to rely on predefined indexes,
         // so instead of copying the relevant entries and discarding all the rest, all
         // entries are copied but irrelevant ones are masked out
@@ -183,7 +183,7 @@ module.exports = (function() {
 
         // copy only relevant rows. in each row, copy all elements but mask out
         // the irrelevant ones
-        var archregs = allregs.slice(min_row, max_row + 1).map(function(row) {
+        var archregs = ALL_REGS.slice(min_row, max_row + 1).map(function(row) {
             var masked = Array(row.length);
             var relevant = row.slice(min_col, max_col + 1);
 
