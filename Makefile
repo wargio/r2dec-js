@@ -9,9 +9,9 @@ PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
 
 VERBOSE=@
 ECHO=echo
-RM=rm --force
-CP=cp --force
-MKDIR=mkdir --parents
+RM=rm -f
+CP=cp -f
+MKDIR=mkdir -p
 
 SRCS=duktape/duktape.c duktape/duk_console.c core_pdd.c
 OBJS=$(SRCS:.c=.o)
@@ -23,7 +23,7 @@ build: $(BIN)
 
 $(BIN): $(OBJS)
 	$(VERBOSE)$(ECHO) "LD $@"
-	$(VERBOSE)$(LD) $(LDFLAGS) $(LDFLAGS_PKG) -shared $^ -o $@
+	$(VERBOSE)$(CC) $(LDFLAGS) $(LDFLAGS_PKG) -shared $^ -o $@
 
 %.o: %.c
 	$(VERBOSE)$(ECHO) "CC $@"
