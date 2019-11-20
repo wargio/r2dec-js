@@ -16,6 +16,26 @@
  */
 
 module.exports = (function() {
+    var _Array_fill = function(value, start, end) {
+        if (start == undefined) {
+            start = 0;
+        } else if (start < 0) {
+            start += this.length;
+        }
+
+        if (end === undefined) {
+            end = this.length;
+        } else if (end < 0) {
+            end += this.length;
+        }
+
+        for (var i = start; (i < end) && (i < this.length); i++) {
+            this[i] = value;
+        }
+
+        return this;
+    };
+
     var _Array_findIndex = function(predicate) {
         for (var i = 0; i < this.length; i++) {
             if (predicate(this[i])) {
@@ -73,6 +93,7 @@ module.exports = (function() {
     // --------------------------------------------------
 
     var polyfills = [
+        { proto: Array.prototype,   name: 'fill',       func: _Array_fill       },
         { proto: Array.prototype,   name: 'findIndex',  func: _Array_findIndex  },
         { proto: Array.prototype,   name: 'find',       func: _Array_find       },
         { proto: String.prototype,  name: 'padStart',   func: _String_padStart  },
