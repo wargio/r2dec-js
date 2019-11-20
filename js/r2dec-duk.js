@@ -297,7 +297,10 @@ function r2dec_main(args) {
                     Pruner.eliminate_def_single_phi_circ
                 ], ssa_ctx, config['opt']);
 
+                // <DEBUG desc="emit def-use chains before ssa is transformed out">
                 // console.log(ssa_ctx.toString());
+                // </DEBUG>
+
                 ssa.validate(ssa_ctx);
                 ssa.transform_out(ssa_ctx);
 
@@ -305,9 +308,7 @@ function r2dec_main(args) {
                 cflow.fallthroughs();
                 cflow.conditions();
 
-                var ecj = Global.r2cmdj('ecj');
-
-                console.log(new CodeGen(ecj, resolver, config['out']).emit_func(func));
+                console.log(new CodeGen(resolver, config['out']).emit_func(func));
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }

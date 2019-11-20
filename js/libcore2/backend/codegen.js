@@ -24,7 +24,7 @@ module.exports = (function() {
     const TOK_INVALID = 17; // unknown
 
     var _wrap = function(esccode) {
-        return '\033[' + esccode + 'm';
+        return esccode ? '\033[' + esccode + 'm' : '';
     };
 
     var _rgb_to_esccode = function(rgb) {
@@ -52,6 +52,7 @@ module.exports = (function() {
         return this.colormap[tag] + txt + this.colormap[TOK_RESET];
     };
 
+    // highlight syntax according to r2 theme
     function ThemePalette(ecj) {
         // map TOK indices to r2 theme color keys and then turn them
         // into their corresponding rgb entries
@@ -82,6 +83,17 @@ module.exports = (function() {
 
     ThemePalette.prototype = Object.create(Palette.prototype);
     ThemePalette.prototype.constructor = ThemePalette;
+
+    // a monochrome palette that does no syntax highlighting
+    // useful when stdout is not a tty (i.e. a pipe to file or process)
+    function MonoPalette() {
+        var colormap = Object.freeze(Array(18).fill(''));
+
+        Palette.call(this, colormap);
+    }
+
+    MonoPalette.prototype = Object.create(Palette.prototype);
+    MonoPalette.prototype.constructor = MonoPalette;
 
     var parenthesize = function(s) {
         return Array.prototype.concat([[TOK_PAREN, '(']], s, [[TOK_PAREN, ')']]);
@@ -121,11 +133,15 @@ module.exports = (function() {
     // };
     // </DEBUG>
 
-    function CodeGen(ecj, resolver, conf) {
-        // TODO: do not use colors if 'scr.color' is set to 0
-        this.palette = new ThemePalette(ecj);
-        this.xrefs = resolver;
+    function CodeGen(resolver, conf) {
+        var colorful = 0 | Global.r2cmd('e', 'scr.color');
 
+        // let r2 to decide whether there would be syntax highlighting
+        this.palette = colorful ?
+            new ThemePalette(Global.r2cmdj('ecj')) :
+            new MonoPalette();
+
+        this.xrefs = resolver;
         this.tabsize = conf.tabsize;
         this.scope_newline = conf.newline;
 
