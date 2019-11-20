@@ -44,7 +44,7 @@ module.exports = (function() {
             var def = p.operands[0];        // defined variable
             var val = p.operands[1];        // assigned expression
 
-            if ((def.prune) || this.selector(def, val, config)) {
+            if (this.selector(def, val, config)) {
                 p.pluck(true);
 
                 pruned.push(d);
@@ -62,11 +62,13 @@ module.exports = (function() {
 
     // eliminate dead assignments to registers
     var _select_dead_regs = function(def, val, conf) {
-        // note: function calls cannot be eliminated as they may have side effects
+        // elinimate dead assignments to reg, however:
+        // - return value regs assigned to fcalls cannot be eliminated, as fcalls may have side effects
+        // - assigned variables, ever though not used, better stay there for clarity
+        // - however, if either of these exceptions was a def that was fully propagated, then prune
         return (def.uses.length === 0)
-            && (def instanceof Expr.Reg)    // eliminate dead reg definitions
-            && !(def instanceof Expr.Var)   // exclude variables tagged by user
-            && !(val instanceof Expr.Call); // exclude dead fcalls results as fcalls may have side effects
+            && (def instanceof Expr.Reg)
+            && (!((def instanceof Expr.Var) || (val instanceof Expr.Call)) || (def.prune));
     };
 
     // eliminate dead assignments to memory
