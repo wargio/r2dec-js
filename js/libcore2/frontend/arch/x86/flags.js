@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function(){
     const Expr = require('js/libcore2/analysis/ir/expressions');
 
     var _flag_names = {
@@ -130,4 +130,4 @@ module.exports = (function() {
         Sign     : Sign,
         Overflow : Overflow
     };
-})();
+});

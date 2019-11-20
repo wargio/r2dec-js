@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
- module.exports = (function() {
+(function(){
     const Flags = require('js/libcore2/frontend/arch/x86/flags');
     const CallConv = require('js/libcore2/frontend/arch/x86/cconv');
 
@@ -84,16 +84,19 @@
                         // process only direct calls with known destinations; we cannot get calling convention
                         // info for indirect targets
                         if (callee instanceof Expr.Val) {
-                            var ccname = Global.r2cmd('afc', '@', callee.value.toString());
-                            var cchandler = cconvs[ccname];
+                            var ccname = Global.r2cmd('afc', '@', callee.toString());
 
-                            if (cchandler === undefined) {
-                                throw new Error('unsupported calling convention');
+                            if (ccname) {
+                                var cchandler = cconvs[ccname];
+
+                                if (cchandler === undefined) {
+                                    throw new Error('unsupported calling convention at ' + callee.toString());
+                                }
+
+                                cchandler.get_args_expr(fcall, local_context).forEach(function(arg) {
+                                    fcall.push_operand(arg);
+                                });
                             }
-
-                            cchandler.get_args_expr(fcall, local_context).forEach(function(arg) {
-                                fcall.push_operand(arg);
-                            });
                         }
                     }
                 });
@@ -670,4 +673,4 @@
     };
 
     return Analyzer;
-})();
+});

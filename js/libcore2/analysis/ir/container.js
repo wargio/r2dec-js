@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function(){
     /**
      * Container class. Encloses a list of consecutive statements that serve as one
      * logical block, e.g. a loop body or an 'if' body.
@@ -112,4 +112,4 @@ module.exports = (function() {
     return {
         Container: Container
     };
-})();
+});

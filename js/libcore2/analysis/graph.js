@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function(){
 
     /**
      * Construct a graph node.
@@ -391,8 +391,11 @@ module.exports = (function() {
     };
 
     DominatorTree.prototype.dominanceFrontier = function(n) {
+        if (!n) {
+            return [];
+        }
         // for every node, the dominance frontier set is computed once and then cached
-        if (n.DF === undefined) {
+        if (!n.DF) {
             var S = [];
 
             // compute DF local
@@ -428,4 +431,4 @@ module.exports = (function() {
         DFSpanningTree  : DFSpanningTree,
         DominatorTree   : DominatorTree
     };
-})();
+});

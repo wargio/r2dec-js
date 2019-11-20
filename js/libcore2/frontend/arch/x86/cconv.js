@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function(){
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
@@ -52,6 +52,7 @@ module.exports = (function() {
         var live_by = context.live_ranges.filter(function(rng) {
             return rng.is_defined_by(expr)              // defined before expr is reached on that cfg path
                 && rng.is_alive_by(expr)                // definition is still alive by expr is reached
+                && rng.def.uses
                 && rng.def.uses.every(_is_weak_use);    // definition is either unused or used only by weak users
         });
 
@@ -219,4 +220,4 @@ module.exports = (function() {
             'amd64': new CConvAmd64()       // args passed through: rdi, rsi, rdx, rcx, r8, r9, xmm0-7
         };
     };
-})();
+});

@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function(){
     var _Array_fill = function(value, start, end) {
         if (start == undefined) {
             start = 0;
@@ -90,6 +90,12 @@ module.exports = (function() {
         return s.replace(/\s*$/, '');
     };
 
+    var _String_toInt = function() {
+        var s = this.toString();
+
+        return parseInt(s);
+    };
+
     // --------------------------------------------------
 
     var polyfills = [
@@ -99,7 +105,9 @@ module.exports = (function() {
         { proto: String.prototype,  name: 'padStart',   func: _String_padStart  },
         { proto: String.prototype,  name: 'padEnd',     func: _String_padEnd    },
         { proto: String.prototype,  name: 'trimStart',  func: _String_trimStart },
-        { proto: String.prototype,  name: 'trimEnd',    func: _String_trimEnd   }
+        { proto: String.prototype,  name: 'trimEnd',    func: _String_trimEnd   },
+        { proto: String.prototype,  name: 'toInt',      func: _String_toInt     }
+
     ];
 
     polyfills.forEach(function(pobj) {
@@ -107,6 +115,5 @@ module.exports = (function() {
             Object.defineProperty(pobj.proto, pobj.name, { value: pobj.func, enumerable: false });
         }
     });
-
-    return true;
-})();
+    return function(){}
+});

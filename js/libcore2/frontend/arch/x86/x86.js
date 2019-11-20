@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function(){
     const ArchRegs = require('js/libcore2/frontend/arch/x86/archregs');
     const Flags = require('js/libcore2/frontend/arch/x86/flags');
     const Expr = require('js/libcore2/analysis/ir/expressions');
@@ -985,4 +985,4 @@ module.exports = (function() {
     // popa
 
     return x86;
-})();
+});

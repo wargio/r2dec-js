@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function(){
     const Expr = require('js/libcore2/analysis/ir/expressions');
 
     /**
@@ -144,4 +144,4 @@ module.exports = (function() {
         eliminate_def_single_phi      : new Pruner(_select_def_single_phi),
         eliminate_def_single_phi_circ : new Pruner(_select_def_single_phi_circ)
     };
-})();
+});

@@ -1,8 +1,8 @@
 /nbproject/
 /.vscode/
-p/*.so
-p/*.o
-p/duktape/*.o
-p/r2dec-test
+*.so
+*.o
+duktape/*.o
+r2dec-test
 graph-test.js
 steps.txt

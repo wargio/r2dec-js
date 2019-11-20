@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function(){
     /** @type {number} */
     const NOT_FOUND = -1;
 
@@ -157,4 +157,4 @@ module.exports = (function() {
     };
 
     return Map;
-})();
+});

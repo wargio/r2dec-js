@@ -1,5 +1,4 @@
-
-module.exports = (function() {
+(function(){
     var Expr = require('js/libcore2/analysis/ir/expressions');
     var Stmt = require('js/libcore2/analysis/ir/statements');
 
@@ -395,6 +394,10 @@ module.exports = (function() {
                 fname = this.xrefs.resolve_fname(fname);
             }
 
+            if (!fname) {
+                fname = expr.operands[0];
+            }
+
             return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_expr_list.call(this, args));
         }
 
@@ -622,4 +625,4 @@ module.exports = (function() {
     };
 
     return CodeGen;
-})();
+});
