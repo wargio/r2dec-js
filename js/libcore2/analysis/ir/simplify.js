@@ -576,20 +576,20 @@
         }
 
         else if (expr instanceof Expr.BoolOr) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+            var lhand_bo = expr.operands[0];
+            var rhand_bo = expr.operands[1];
 
-            if (__is_compare_expr(lhand) && __is_compare_expr(rhand)) {
-                return __handle_or(lhand, rhand);
+            if (__is_compare_expr(lhand_bo) && __is_compare_expr(rhand_bo)) {
+                return __handle_or(lhand_bo, rhand_bo);
             }
         }
 
         else if (expr instanceof Expr.BoolAnd) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+            var lhand_ba = expr.operands[0];
+            var rhand_ba = expr.operands[1];
 
-            if (__is_compare_expr(lhand) && __is_compare_expr(rhand)) {
-                return __handle_and(lhand, rhand);
+            if (__is_compare_expr(lhand_ba) && __is_compare_expr(rhand_ba)) {
+                return __handle_and(lhand_ba, rhand_ba);
             }
         }
 

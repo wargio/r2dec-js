@@ -329,14 +329,14 @@
         }
 
         var edges = [];
-        for (var i = 1; i < nodes.length; i++) {
-            var n = nodes[i];
+        for (var j = 1; j < nodes.length; j++) {
+            var node = nodes[j];
 
-            if (n.samedom) {
-                n.idom = n.samedom.idom;
+            if (node.samedom) {
+                node.idom = node.samedom.idom;
             }
 
-            edges.push([n.idom.key, n.key]);
+            edges.push([node.idom.key, node.key]);
         }
 
         var keys = nodes.map(function(n) { return n.key; });

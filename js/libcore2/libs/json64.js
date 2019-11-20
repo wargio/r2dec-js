@@ -1,7 +1,7 @@
 (function() { // lgtm [js/useless-expression]
+    const Long = require('js/libcore2/libs/long');
     var json_parse = function(options) {
         "use strict";
-        const Long = require('js/libcore2/libs/long');
         // This is a function that can parse a JSON text, producing a JavaScript
         // data structure. It is a simple, recursive descent parser. It does not use
         // eval or regular expressions, so it can be used as a model for implementing

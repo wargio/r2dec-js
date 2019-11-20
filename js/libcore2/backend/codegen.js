@@ -18,7 +18,7 @@
     const TOK_FNNAME  = 12; // function name [func prototype]
     const TOK_VARTYPE = 13; // data type
     const TOK_VARNAME = 14; // variable name
-    const TOK_COMMENT = 15; // comment
+    //const TOK_COMMENT = 15; // comment // ESLINT unused var, just commenting
     const TOK_OFFSET  = 16; // offset
     const TOK_INVALID = 17; // unknown
 

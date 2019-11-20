@@ -44,3 +44,6 @@ clean:
 
 testbin r2dec-test:
 	$(VERBOSE)$(CC) $(CFLAGS) -DUSE_RCONS=0 -c duktape/duktape.c duktape/duk_console.c r2dec-test.c -o r2dec-test $(LDFLAGS)
+
+lint:
+	$(VERBOSE)find . -type f -name "*.js" | xargs eslint

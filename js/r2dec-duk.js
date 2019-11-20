@@ -16,7 +16,7 @@
  */
 
  // a few polyfills to make life easier; do not remove and keep it first
-const Polyfill = require('js/libcore2/polyfill');
+require('js/libcore2/polyfill'); // no need to define a var for this.
 
 const Graph = require('js/libcore2/analysis/graph');
 const JSONr2 = require('js/libcore2/libs/json64');
