@@ -226,6 +226,7 @@ module.exports = (function() {
     }
 
     // iterate all statements in block and collect only defined names
+    // TODO: consider replacing by local_contexts functionality
     var _find_local_defs = function(selector, block) {
         var defs = [];
 
@@ -262,7 +263,7 @@ module.exports = (function() {
         return g.getNode(block.address) || null;
     };
 
-    var insert_phi_exprs = function(selector) {
+    var insert_phis = function(selector) {
         var func = this.func;
         var cfg = this.cfg;
         var dom = this.dom;
@@ -437,21 +438,21 @@ module.exports = (function() {
         var entry_block = node_to_block(func, dom.getRoot());
 
         ctx.initialize(selector);
-        insert_phi_exprs.call(this, selector);
+        insert_phis.call(this, selector);
         rename_rec(entry_block);
+        relax_phis(ctx);
 
         return ctx;
     };
 
     SSA.prototype.rename_regs = function() {
         var select_regs = function(expr) {
-            return (expr instanceof Expr.Reg);
+            // pick up only registers and avoid variables (currently Var inherits Reg)
+            // Var exprs may exist at that point if function has reg arguments
+            return (expr instanceof Expr.Reg) && !(expr instanceof Expr.Var);
         };
 
-        var context = rename.call(this, select_regs);
-        relax_phis(context);
-
-        return context;
+        return rename.call(this, select_regs);
     };
 
     SSA.prototype.rename_derefs = function() {
@@ -459,10 +460,7 @@ module.exports = (function() {
             return (expr instanceof Expr.Deref);
         };
 
-        var context = rename.call(this, select_derefs);
-        relax_phis(context);
-
-        return context;
+        return rename.call(this, select_derefs);
     };
 
     SSA.prototype.rename_vars = function() {
@@ -470,10 +468,7 @@ module.exports = (function() {
             return (expr instanceof Expr.Var);
         };
 
-        var context = rename.call(this, select_vars);
-        relax_phis(context);
-
-        return context;
+        return rename.call(this, select_vars);
     };
 
     // propagate phi groups that have only one item in them.
