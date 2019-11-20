@@ -87,7 +87,7 @@
                 } else {
                     if (string.indexOf('.') < 0) {
                         try {
-                            return Long.fromString(string, true);
+                            return Long.fromString(string, false);
                         } catch (e) {
                             console.log(e.stack);
                             return string;
