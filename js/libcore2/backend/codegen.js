@@ -1,5 +1,5 @@
 
-module.exports = (function() {
+(function() {
     var Expr = require('js/libcore2/analysis/ir/expressions');
     var Stmt = require('js/libcore2/analysis/ir/statements');
 
@@ -624,4 +624,4 @@ module.exports = (function() {
     };
 
     return CodeGen;
-})();
+});

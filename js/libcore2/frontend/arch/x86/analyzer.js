@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
- module.exports = (function() {
+ (function() {
     const Flags = require('js/libcore2/frontend/arch/x86/flags');
     const CallConv = require('js/libcore2/frontend/arch/x86/cconv');
 
@@ -674,4 +674,4 @@
     };
 
     return Analyzer;
-})();
+});

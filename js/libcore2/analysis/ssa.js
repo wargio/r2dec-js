@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     const Graph = require('js/libcore2/analysis/graph');
     const Cntr = require('js/libcore2/analysis/ir/container');
     const Stmt = require('js/libcore2/analysis/ir/statements');
@@ -901,4 +901,4 @@ module.exports = (function() {
     };
 
     return SSA;
-}());
+});

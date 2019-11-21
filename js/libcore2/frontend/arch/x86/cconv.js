@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
@@ -219,4 +219,4 @@ module.exports = (function() {
             'amd64': new CConvAmd64()       // args passed through: rdi, rsi, rdx, rcx, r8, r9, xmm0-7
         };
     };
-})();
+});

@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
@@ -158,4 +158,4 @@ module.exports = (function() {
         propagate_constants      : new Propagator(_select_constants, _get_constants),
         propagate_dereferenced   : new Propagator(_select_dereferenced, _get_dereferenced)
     };
-})();
+});

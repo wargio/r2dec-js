@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     const Long = require('js/libcore2/libs/long');
     const Expr = require('js/libcore2/analysis/ir/expressions');
 
@@ -724,4 +724,4 @@ module.exports = (function() {
         reduce_expr: _reduce_expr,
         reduce_stmt: _reduce_stmt
     };
-})();
+});

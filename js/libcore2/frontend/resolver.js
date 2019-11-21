@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
 
     var _r2_get_fname = function(addr) {
         return Global.r2cmd('afn', '@', addr);
@@ -128,4 +128,4 @@ module.exports = (function() {
     };
 
     return Resolver;
-})();
+});

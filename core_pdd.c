@@ -17,6 +17,7 @@ mv core_test.so ~/.config/radare2/plugins
 
 #include "duktape/duktape.h"
 #include "duktape/duk_console.h"
+#include "duktape/duk_missing.h"
 
 #undef R_API
 #define R_API static
@@ -107,7 +108,8 @@ static duk_ret_t duk_internal_require(duk_context *ctx)
 
 		if (text)
 		{
-			duk_push_string (ctx, text);
+			duk_push_lstring (ctx, fullname, strlen (fullname));
+			duk_eval_file (ctx, text);
 			free(text);
 
 			return 1;
@@ -133,7 +135,7 @@ static void duk_r2_init(duk_context* ctx)
 	duk_put_global_string(ctx, "r2cmd");
 }
 
-static void duk_eval_file(duk_context* ctx, const char* file)
+static void eval_file(duk_context* ctx, const char* file)
 {
 	char* text = r2dec_read_file(file);
 
@@ -161,8 +163,8 @@ static void duk_r2dec(RCore* core, const char* input)
 	duk_console_init(ctx, 0);
 	duk_r2_init(ctx);
 
-	duk_eval_file(ctx, "js/require.js");
-	duk_eval_file(ctx, "js/r2dec-duk.js");
+	eval_file(ctx, "js/require.js");
+	eval_file(ctx, "js/r2dec-duk.js");
 
 	snprintf(args, sizeof(args),
 		"if (typeof r2dec_main === 'function') {"
@@ -180,12 +182,9 @@ static void duk_r2dec(RCore* core, const char* input)
 static void usage(const RCore* const core)
 {
 	const char* help[] = {
-		"Usage: pdd[abui]", "",	"# Decompile current function",
+		"Usage: pdd[g]", "",	"# Decompile current function",
 		"pdd",	"",	"decompile current function",
-		"pdda",	"",	"decompile current function with side assembly",
-		"pddb",	"",	"decompile current function but show only scopes",
-		"pddi",	"",	"generate issue data",
-		"pddu",	"",	"upgrade r2dec via r2pm",
+		"pddg",	"",	"decompile and show as a graph",
 		NULL
 	};
 
@@ -196,14 +195,11 @@ static void _cmd_pdd(RCore* core, const char* input)
 {
 	switch (*input)
 	{
+	case ' ':
+		for (; *input == ' '; input++);
 	case '\0':
-	case 'a':
-	case 'b':
-	case 'i':
+	case 'g':
 		duk_r2dec(core, input);
-		break;
-	case 'u':
-		r_core_cmd0(core, "!r2pm -ci r2dec");
 		break;
 	case '?':
 	default:

@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
     const Cntr = require('js/libcore2/analysis/ir/container');
     const Stmt = require('js/libcore2/analysis/ir/statements');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
@@ -79,4 +79,4 @@ module.exports = (function() {
     };
 
     return Decoder;
-})();
+});

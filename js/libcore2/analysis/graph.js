@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module.exports = (function() {
+(function() {
 
     /**
      * Construct a graph node.
@@ -428,4 +428,4 @@ module.exports = (function() {
         DFSpanningTree  : DFSpanningTree,
         DominatorTree   : DominatorTree
     };
-})();
+});
