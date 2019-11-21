@@ -1512,6 +1512,15 @@
 
                 return Base.nop();
             },
+            bt: function(instr, context) {
+                var a = instr.parsed.opd[0].token;
+                var b = instr.parsed.opd[1].token;
+
+                context.cond.a = '((' + a + ' >> ' + b + ') & 1)';
+                context.cond.b = '0';
+
+                return Base.nop();
+            },
             ret: function(instr, context, instructions) {
                 var register = {
                     8: 'al',
