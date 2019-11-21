@@ -1,8 +1,8 @@
 #!/bin/bash
 echo "Branch: $TRAVIS_BRANCH"
-make --no-print-directory testbin -C p
+make --no-print-directory testbin
 ERRORED=$?
-if [[  "$ERRORED" == "1" ]]; then
+if [[ "$ERRORED" == "1" ]]; then
 	exit $ERRORED
 fi
 

@@ -172,8 +172,6 @@
                 var S = C0.terminator();
     
                 if (S instanceof Stmt.Goto) {
-                    console.log(S.toString());
-                    
                     var _dest_key = function(node) {
                         return node.key.eq(S.dest.value);
                     };
