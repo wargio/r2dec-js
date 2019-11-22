@@ -400,7 +400,13 @@
             return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_expr_list.call(this, args));
         }
 
-        // <DEBUG>
+        else if (expr instanceof Expr.Unknown) {
+            var asm_line = [TOK_STRING, '"' + expr.line + '"'];
+
+            return [[TOK_KEYWORD, '__asm'], SPACE].concat(parenthesize([asm_line]));
+        }
+
+        // <DEBUG desc="if ssa hasn't been tranfroemd out, nicely emit phi exprs">
         // else if (expr instanceof Expr.Phi) {
         //     return Array.prototype.concat([[TOK_INVALID, '\u03a6']], _emit_expr_list.call(this, expr.operands));
         // }
