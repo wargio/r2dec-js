@@ -204,6 +204,50 @@
         return true;
     };
 
+    // get definition (if any) that is assigned to the enclosing expression.
+    // for example, get `def` for the specified `expr`:
+    //      def = Expr(..., Expr(..., Expr(..., expr)))
+    var _parent_def = function(expr) {
+        for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
+            if (p instanceof Expr.Assign) {
+                return p.operands[0];
+            }
+        }
+
+        return null;
+    };
+
+    // used in an expression that is assigned to a weak def
+    var _is_weak_use = function(expr) {
+        var def = _parent_def(expr);
+
+        return def && (def instanceof Expr.Reg) && (def.weak);
+    };
+
+    LiveRange.prototype.is_unused_by = function(expr) {
+        var exp_pstmt = expr.parent_stmt();
+
+        return this.def.uses.every(function(u) {
+            var use_pstmt = u.parent_stmt();
+            var unused = false;
+
+            if (use_pstmt.parent === exp_pstmt.parent) {
+                unused = use_pstmt.address.ge(exp_pstmt.address);
+            } else {
+                // TODO: this is a partial implementation; if not in the same block, search recursively backwards.
+                // this should check whether all uses occur after expr in cfg. this can be done by recording the cfg
+                // path along the way when building context, and see whether the use appears there (occures ealier)
+                // or not (occures afterwards). since this is not implemented yet, we check for phi uses, which are
+                // the common case for late use.
+                var def = _parent_def(u);
+
+                unused = def && (def.parent.operands[1] instanceof Expr.Phi);
+            }
+
+            return unused || _is_weak_use(u);
+        });
+    };
+
     LiveRange.prototype.is_killed = function() {
         return (this.killing !== null);
     };

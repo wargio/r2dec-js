@@ -88,11 +88,11 @@
                         // process only direct calls with known destinations; we cannot get calling convention
                         // info for indirect targets
                         if (callee instanceof Expr.Val) {
-                            var ccname = Global.r2cmd('afc', '@', callee.value.toString());
+                            var ccname = Global.r2cmd('afc', '@', callee.value.toString(), '2>', '/dev/null');
                             var cchandler = cconvs[ccname];
 
                             if (cchandler === undefined) {
-                                throw new Error('unsupported calling convention');
+                                throw new Error('unsupported calling convention: ' + ccname);
                             }
 
                             cchandler.get_args_expr(fcall, local_context).forEach(function(arg) {

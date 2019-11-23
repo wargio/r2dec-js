@@ -19,40 +19,15 @@
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
-    function CConvCdecl(arch) {
+    function CCcdecl(arch) {
         this.arch = arch;
     }
 
-    // get definition (if any) that is assigned to the enclosing expression.
-    // for example, get `def` for the specified `expr`:
-    //      def = Expr(..., Expr(..., Expr(..., expr)))
-    var _parent_def = function(expr) {
-        for (var p = expr.parent; p instanceof Expr.Expr; p = p.parent) {
-            if (p instanceof Expr.Assign) {
-                return p.operands[0];
-            }
-        }
-
-        return null;
-    };
-
-    // used in an expression that is assigned to a weak def
-    var _is_weak_use = function(expr) {
-        var def = _parent_def(expr);
-
-        // WORKAROUND: actually this should check for wither weak use, or whether the use occures after expr in cfg.
-        // this can be done by recording the cfg path along the way when building context, and see whether the use
-        // appears there (occures ealier) or not (occures afterwards).
-        // as a workaround, we check for phi uses, which are the common case for late use, but not all - hence this is
-        // not acurate and may result in funny output
-        return def && (((def instanceof Expr.Reg) && (def.weak)) || (def.parent.operands[1] instanceof Expr.Phi));
-    };
-
     var _get_live_unused_by = function(context, expr) {
         var live_by = context.live_ranges.filter(function(rng) {
-            return rng.is_defined_by(expr)              // defined before expr is reached on that cfg path
-                && rng.is_alive_by(expr)                // definition is still alive by expr is reached
-                && rng.def.uses.every(_is_weak_use);    // definition is either unused or used only by weak users
+            return rng.is_defined_by(expr)  // defined before expr is reached on that cfg path
+                && rng.is_alive_by(expr)    // definition is still alive by expr is reached
+                && rng.is_unused_by(expr);  // definition is not used [or used only by weak users] by expr is reached
         });
 
         // extract definitions out of ranges
@@ -61,7 +36,7 @@
         });
     };
 
-    CConvCdecl.prototype.get_args_expr = function(fcall, context) {
+    CCcdecl.prototype.get_args_expr = function(fcall, context) {
         var top_of_stack = null;
         var args = [];
 
@@ -73,7 +48,7 @@
         //     console.log('  |', 'def:', d.parent.toString());
         //
         //     d.uses.forEach(function(u) {
-        //         console.log('  |', '  |', _is_weak_use(u) ? '[w]' : '[ ]', u.parent_stmt().toString());
+        //         console.log('  |', '  |', u.parent_stmt().toString());
         //     });
         // });
         // console.log();
@@ -127,6 +102,10 @@
         return args;
     };
 
+    CCcdecl.prototype.is_potential_arg = function(def) {
+        return this.arch.is_stack_reg(def);
+    };
+
     // --------------------------------------------------
 
     const _arg_regs64 = [
@@ -158,11 +137,11 @@
     //     new Expr.Reg('xmm7', 128),
     // ];
 
-    function CConvAmd64() {
+    function CCamd64() {
         // empty
     }
 
-    CConvAmd64.prototype.get_args_expr = function(fcall, context) {
+    CCamd64.prototype.get_args_expr = function(fcall, context) {
         var nargs = 0;
         var args = _arg_regs64.slice();
 
@@ -208,15 +187,62 @@
             }
         }
 
-        // XXX: some elements of 'args' may be the default ones, i.e. with no ssa data
+        // TODO: some elements of 'args' may be the default ones, i.e. with no ssa data
         return args.slice(0, nargs + 1);
     };
 
+    CCamd64.prototype.is_potential_arg = function(def) {
+        var found = false;
+
+        for (var j = 0; !found && (j < _arg_regs64.length); j++) {
+            found = def.equals_no_idx(_arg_regs64[j]) ||
+                    def.equals_no_idx(_arg_regs32[j]);
+        }
+
+        return found;
+    };
+
+    // --------------------------------------------------
+
+    function CCguess(cchandlers) {
+        this.cchandlers = cchandlers;
+    }
+
+    CCguess.prototype.get_args_expr = function(fcall, context) {
+        var live_by_fcall = _get_live_unused_by(context, fcall);
+
+        var CCobj = null;
+
+        // scan live defs backwards starting from fcall to locate potential args
+        for (var i = (live_by_fcall.length - 1); !CCobj && (i >= 0); i--) {
+            var def = live_by_fcall[i];
+
+            // find first cc handler that would consider def as a potential fcall argument
+            for (var j = 0; !CCobj && (j < this.cchandlers.length); j++) {
+                var cc = this.cchandlers[j];
+
+                if (cc.is_potential_arg(def)) {
+                    CCobj = cc;
+                }
+            }
+        }
+
+        if (CCobj) {
+            // console.log('assuming', fcall.parent_stmt().toString(), 'is called using', CCobj.constructor.name);
+
+            return CCobj.get_args_expr(fcall, context);
+        }
+    };
+
     return function(arch) {
+        var cc_cdecl = new CCcdecl(arch);
+        var cc_amd64 = new CCamd64();
+        var cc_guess = new CCguess([cc_cdecl, cc_amd64]);
+
         return {
-            'cdecl': new CConvCdecl(arch),  // args passed through stack
-        //  'ms'   : new CConvMs(),         // args passed through: rcx, rdx, r8, r9 | xmm0-3 + stack
-            'amd64': new CConvAmd64()       // args passed through: rdi, rsi, rdx, rcx, r8, r9, xmm0-7
+            ''     : cc_guess,  // unknown cc, try to guess it
+            'cdecl': cc_cdecl,  // args passed through stack
+            'amd64': cc_amd64   // args passed through: rdi, rsi, rdx, rcx, r8, r9, xmm0-7
         };
     };
 });
