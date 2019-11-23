@@ -536,8 +536,8 @@
         // quotient = dividend / divisor
         // remainder = dividend % divisor
         return [
-            new Expr.Assign(arg_quotient,  new Expr.Div(arg_dividend, divisor)),
-            new Expr.Assign(arg_remainder, new Expr.Mod(arg_dividend.clone(), divisor.clone()))
+            new Expr.Assign(arg_remainder, new Expr.Mod(arg_dividend.clone(), divisor.clone())),
+            new Expr.Assign(arg_quotient,  new Expr.Div(arg_dividend, divisor))
         ];
     };
 
