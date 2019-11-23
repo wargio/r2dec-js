@@ -299,6 +299,14 @@
                     return inner_op.clone(wssa);
                 }
             }
+
+            else if (op instanceof Expr.Val) {
+                var vfalse = new Expr.Val(0, 1);
+                var vtrue = new Expr.Val(1, 1);
+
+                // !0 becomes: 1, !nonzero becomes: 0
+                return op.value.isZero() ? vtrue : vfalse;
+            }
         }
 
         return null;
@@ -502,6 +510,28 @@
                     else if (lhand instanceof Expr.Add) {
                         return new expr.constructor(x.clone(wssa), new Expr.Neg(y.clone(wssa)));
                     }
+                }
+            }
+
+            // comparing two known values; that becomes tricky for signed comparisons of incompatible
+            // sizes, due to possible sign extention. handle only equality and inequality for now
+            else if ((lhand instanceof Expr.Val) && (rhand instanceof Expr.Val)) {
+                var vfalse = new Expr.Val(0, 1);
+                var vtrue = new Expr.Val(1, 1);
+                var are_equal = lhand.equals(rhand);
+
+                if (expr instanceof Expr.EQ) {
+                    return are_equal ? vtrue : vfalse;
+                }
+
+                // TODO: Expr.Val equality considers not only the value itself, but also the value size
+                // in bits. since datatypes are not fully supported yet, values may be equal but equality
+                // may be false if they differ in size. for that reason, in case they are not equal we
+                // rather leave it.
+                //
+                // [yes, we could check for sizes here, but that would be a pointless workaround]
+                else if (expr instanceof Expr.NE) {
+                    return are_equal ? vfalse : null;
                 }
             }
         }
