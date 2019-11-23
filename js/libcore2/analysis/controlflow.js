@@ -19,6 +19,7 @@
 	const Graph = require('js/libcore2/analysis/graph');
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Stmt = require('js/libcore2/analysis/ir/statements');
+    const Cntr = require('js/libcore2/analysis/ir/container');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
     function ControlFlow(func) {
@@ -88,10 +89,10 @@
             return !(body.find(function(n1) { return n0.key.eq(n1.key); }));
         });
 
-        // console.log('', 'loop:');
-        // console.log('', '', 'head node :', head.toString(16));
-        // console.log('', '', 'body nodes:', ArrayToString(body, 16));
-        // console.log('', '', 'exit nodes:', ArrayToString(exits, 16));
+        // console.log('loop:');
+        // console.log('', 'head node :', head.toString(16));
+        // console.log('', 'body nodes:', ArrayToString(body, 16));
+        // console.log('', 'exit nodes:', ArrayToString(exits, 16));
 
         return {
             head:   head,
@@ -155,6 +156,21 @@
 
                 var C1 = func.getBlock(body).container;
                 var C2 = func.getBlock(next).container;
+
+                // when a loop contains only one block (i.e. loop head is also the only body block), the
+                // loop body would point its own container and cause an endless recursion. to avoid that,
+                // we extract all the statements except the terminator, to form a new body container.
+                // the terminator remains the only statement in the original cotnainer, and marks the new
+                // one as its body container.
+                if (C0 === C1) {
+                    var plucked = C0.statements.filter(function(stmt) {
+                        return stmt !== S;
+                    }).map(function(stmt) {
+                        return stmt.pluck(false);
+                    });
+
+                    C1 = new Cntr.Container(C0.address, plucked);
+                }
 
                 S.replace(new Stmt.While(S.address, cond, C1));
                 Simplify.reduce_expr(cond);
@@ -353,16 +369,19 @@
             var S = C0.terminator();
 
             if (S instanceof Stmt.Goto) {
-                // recursively ascend nested 'if-else' structure to find out what is the
-                // sink address that both 'then' and 'else' parts are falling to. in case
-                // the terminator is a Goto statement that targets the sink - it is redundant
-                // and should be removed
-                while (C0 && !(C0.fallthrough)) {
-                    C0 = C0.prev;
-                }
+                // handle only gotos with a known destination (i.e. direct jumps)
+                if (S.dest instanceof Expr.Val) {
+                    // recursively ascend nested 'if-else' structure to find out what is the
+                    // sink address that both 'then' and 'else' parts are falling to. in case
+                    // the terminator is a Goto statement that targets the sink - it is redundant
+                    // and should be removed
+                    while (C0 && !(C0.fallthrough)) {
+                        C0 = C0.prev;
+                    }
 
-                if (C0 && S.dest.value.eq(C0.fallthrough.address)) {
-                    S.pluck(true);
+                    if (C0 && S.dest.value.eq(C0.fallthrough.address)) {
+                        S.pluck(true);
+                    }
                 }
             }
         }, this);

@@ -76,7 +76,7 @@
             });
         }
 
-        return p.statements.splice(i, 1);
+        return p.statements.splice(i, 1).pop();
     };
 
     /**
