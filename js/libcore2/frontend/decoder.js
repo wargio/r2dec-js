@@ -21,7 +21,7 @@
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
     /** available architectures */
-    var _archs = {
+    var archs = {
         'x86': require('js/libcore2/frontend/arch/x86/x86')
     };
 
@@ -32,19 +32,12 @@
      * @constructor
      */
     function Decoder(iIj) {
-        var a = _archs[iIj.arch];
+        var arch = archs[iIj.arch];
 
-        this.arch = new a(iIj);
+        this.arch = new arch(iIj);
     }
 
-    /**
-     * Check if a certain architecture is supported.
-     * @param {string} name Architecture name
-     * @returns {boolean}
-     */
-    Decoder.has = function(name) {
-        return name in _archs;
-    };
+    Decoder.archs = archs;
 
     /**
      * Process instruction data in the form of 'aoj' r2 command output into a list of

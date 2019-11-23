@@ -195,7 +195,6 @@ var load_r2_evars = function(ns) {
 };
 
 /**
- *  o reg arguments
  *  o resolve pic
  * 
  * TODO:
@@ -210,8 +209,6 @@ var load_r2_evars = function(ns) {
  *      o redesign analyzer
  *
  *   functionality:
- *      o implement loops
- *      o show declarations of local variables
  *      o trim empty scopes
  *      o use an 'undefined' literal to cut def-use chain?
  *      o treat mem derefs in fcalls as out parameters?
@@ -219,13 +216,13 @@ var load_r2_evars = function(ns) {
 
 /**
  * Javascript entrypoint
- * @param {Array} args Array of command line arguments provided to 'pdd'
+ * @param {Array.<string>} args Array of command line arguments provided to 'pdd'
  */
 function r2dec_main(args) {
     try {
         var iIj = Global.r2cmdj('iIj');
 
-        if (Decoder.has(iIj.arch)) {
+        if (iIj.arch in Decoder.archs) {
             var afij = Global.r2cmdj('afij').pop();
             var afbj = Global.r2cmdj('afbj');
 
@@ -234,7 +231,6 @@ function r2dec_main(args) {
 
                 var decoder = new Decoder(iIj);
                 var analyzer = new Analyzer(decoder.arch);  // TODO: this is a design workaround!
-                var resolver = new Resolver();
                 var func = new Function(afij, afbj);
 
                 // transform assembly instructions into internal representation
@@ -309,7 +305,10 @@ function r2dec_main(args) {
                 cflow.identify_loops();
                 cflow.conditions();
 
-                console.log(new CodeGen(resolver, config['out']).emit_func(func));
+                var resolver = new Resolver();
+                var codegen = new CodeGen(resolver, config['out']);
+
+                console.log(codegen.emit_func(func));
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }
