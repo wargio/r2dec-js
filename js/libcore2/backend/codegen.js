@@ -6,22 +6,19 @@
     // coloring tokens enumeration
     const TOK_RESET   =  0; // color reset
     const TOK_WHTSPCE =  1; // whitespace
-    const TOK_KEYWORD =  2; // language keyword
+    const TOK_KEYWORD =  2; // reserved keyword
     const TOK_PAREN   =  3; // parenthesis
     const TOK_PUNCT   =  4; // punctuation
-    const TOK_ARITH   =  5; // arithmetic operator
-    const TOK_BITWISE =  6; // bitwise operator
-    const TOK_COMPARE =  7; // comparison operator
-    const TOK_NUMBER  =  8; // number literal
-    const TOK_STRING  =  9; // string literal
-    const TOK_FNCALL  = 10; // function name [func call]
-    const TOK_ASSIGN  = 11; // assignment operator
-    const TOK_FNNAME  = 12; // function name [func prototype]
-    const TOK_VARTYPE = 13; // data type
-    const TOK_VARNAME = 14; // variable name
-    const TOK_COMMENT = 15; // comment
-    const TOK_OFFSET  = 16; // offset
-    const TOK_INVALID = 17; // unknown
+    const TOK_OPRTOR  =  5; // operator
+    const TOK_NUMBER  =  6; // number literal
+    const TOK_STRING  =  7; // string literal
+    const TOK_FNCALL  =  8; // function name [func call]
+    const TOK_FNNAME  =  9; // function name [func prototype]
+    const TOK_VARTYPE = 10; // data type
+    const TOK_VARNAME = 11; // variable name
+    const TOK_COMMENT = 12; // comment
+    const TOK_OFFSET  = 13; // instruction address
+    const TOK_INVALID = 14; // unknown
 
     var _wrap = function(esccode) {
         return esccode ? '\033[' + esccode + 'm' : '';
@@ -52,6 +49,32 @@
         return this.colormap[tag] + txt + this.colormap[TOK_RESET];
     };
 
+	// theme based on vscode dark+
+    function DarkPlusPalette() {
+        var colormap = [
+            null,               // TOK_RESET -- placeholder
+            '',                 // TOK_WHTSPCE
+            [197, 134, 192],    // TOK_KEYWORD	+ [this color is for cflow; other kwords: [ 86, 156, 214])
+            [212, 212, 212],    // TOK_PAREN
+            [212, 212, 212],    // TOK_PUNCT
+            [212, 212, 212],    // TOK_OPERATOR
+            [181, 206, 168],    // TOK_NUMBER	+
+            [206, 145, 120],    // TOK_STRING	+
+            [220, 220, 170],    // TOK_FNCALL
+            [220, 220, 170],    // TOK_FNNAME	+
+            [ 78, 201, 176],    // TOK_VARTYPE	+
+            [156, 220, 254],    // TOK_VARNAME	+ 
+            [106, 153,  85],    // TOK_COMMENT	+
+            [131, 148, 150],    // TOK_OFFSET
+            [244,  71,  71]     // TOK_INVALID	+
+        ].map(function(key) { return _wrap(_rgb_to_esccode(key)); });
+
+        Palette.call(this, colormap);
+    }
+
+    DarkPlusPalette.prototype = Object.create(Palette.prototype);
+    DarkPlusPalette.prototype.constructor = DarkPlusPalette;
+
     // highlight syntax according to r2 theme
     function ThemePalette(ecj) {
         // map TOK indices to r2 theme color keys and then turn them
@@ -63,13 +86,10 @@
             'ret',              // TOK_KEYWORD
             '',                 // TOK_PAREN
             '',                 // TOK_PUNCT
-            'math',             // TOK_ARITH
-            'math',             // TOK_BITWISE
-            'cmp',              // TOK_COMPARE
+            'math',             // TOK_OPERATOR
             'num',              // TOK_NUMBER
             'btext',            // TOK_STRING
             'call',             // TOK_FNCALL
-            'mov',              // TOK_ASSIGN
             'fname',            // TOK_FNNAME
             'func_var_type',    // TOK_VARTYPE
             'reg',              // TOK_VARNAME
@@ -87,7 +107,7 @@
     // a monochrome palette that does no syntax highlighting
     // useful when stdout is not a tty (i.e. a pipe to file or process)
     function MonoPalette() {
-        var colormap = Object.freeze(Array(18).fill(''));
+        var colormap = Object.freeze(Array(TOK_INVALID + 1).fill(''));
 
         Palette.call(this, colormap);
     }
@@ -138,7 +158,8 @@
 
         // let r2 to decide whether there would be syntax highlighting
         this.palette = colorful ?
-            new ThemePalette(Global.r2cmdj('ecj')) :
+            new DarkPlusPalette() :
+            // new ThemePalette(Global.r2cmdj('ecj')) :
             new MonoPalette();
 
         this.xrefs = resolver;
@@ -320,11 +341,11 @@
 
         else if (expr instanceof Expr.UExpr) {
             var _uexpr_op = {
-                'Deref'     : [TOK_PUNCT, '*'],
-                'AddressOf' : [TOK_PUNCT, '&'],
-                'Not'       : [TOK_BITWISE, '~'],
-                'Neg'       : [TOK_BITWISE, '-'],
-                'BoolNot'   : [TOK_COMPARE, '!']
+                'Deref'     : [TOK_OPRTOR, '*'],
+                'AddressOf' : [TOK_OPRTOR, '&'],
+                'Not'       : [TOK_OPRTOR, '~'],
+                'Neg'       : [TOK_OPRTOR, '-'],
+                'BoolNot'   : [TOK_OPRTOR, '!']
             }[tname] || [TOK_INVALID, expr.operator];
 
             return _emit_uexpr.call(this, expr, _uexpr_op);
@@ -332,25 +353,25 @@
 
         else if (expr instanceof Expr.BExpr) {
             var _bexpr_op = {
-                'Assign' : [TOK_ASSIGN, '='],
-                'Add'    : [TOK_ARITH, '+'],
-                'Sub'    : [TOK_ARITH, '-'],
-                'Mul'    : [TOK_ARITH, '*'],
-                'Div'    : [TOK_ARITH, '/'],
-                'Mod'    : [TOK_ARITH, '%'],
-                'And'    : [TOK_BITWISE, '&'],
-                'Or'     : [TOK_BITWISE, '|'],
-                'Xor'    : [TOK_BITWISE, '^'],
-                'Shl'    : [TOK_BITWISE, '<<'],
-                'Shr'    : [TOK_BITWISE, '>>'],
-                'EQ'     : [TOK_COMPARE, '=='],
-                'NE'     : [TOK_COMPARE, '!='],
-                'LT'     : [TOK_COMPARE, '<'],
-                'GT'     : [TOK_COMPARE, '>'],
-                'LE'     : [TOK_COMPARE, '<='],
-                'GE'     : [TOK_COMPARE, '>='],
-                'BoolAnd': [TOK_COMPARE, '&&'],
-                'BoolOr' : [TOK_COMPARE, '||']
+                'Assign' : [TOK_OPRTOR, '='],
+                'Add'    : [TOK_OPRTOR, '+'],
+                'Sub'    : [TOK_OPRTOR, '-'],
+                'Mul'    : [TOK_OPRTOR, '*'],
+                'Div'    : [TOK_OPRTOR, '/'],
+                'Mod'    : [TOK_OPRTOR, '%'],
+                'And'    : [TOK_OPRTOR, '&'],
+                'Or'     : [TOK_OPRTOR, '|'],
+                'Xor'    : [TOK_OPRTOR, '^'],
+                'Shl'    : [TOK_OPRTOR, '<<'],
+                'Shr'    : [TOK_OPRTOR, '>>'],
+                'EQ'     : [TOK_OPRTOR, '=='],
+                'NE'     : [TOK_OPRTOR, '!='],
+                'LT'     : [TOK_OPRTOR, '<'],
+                'GT'     : [TOK_OPRTOR, '>'],
+                'LE'     : [TOK_OPRTOR, '<='],
+                'GE'     : [TOK_OPRTOR, '>='],
+                'BoolAnd': [TOK_OPRTOR, '&&'],
+                'BoolOr' : [TOK_OPRTOR, '||']
             }[tname] || [TOK_INVALID, expr.operator];
 
             // check whether this is an assignment special case
@@ -389,14 +410,14 @@
                             // "x++" / "x--"
                             return Array.prototype.concat(
                                 this.emit_expression(lhand),
-                                [[TOK_ARITH, _inner_op.repeat(2)]]
+                                [[TOK_OPRTOR, _inner_op.repeat(2)]]
                             );
                         }
     
                         // "x op= y"
                         return Array.prototype.concat(
                             this.emit_expression(lhand),
-                            [SPACE, [TOK_ASSIGN, _inner_op + '='], SPACE],
+                            [SPACE, [TOK_OPRTOR, _inner_op + '='], SPACE],
                             this.emit_expression(inner_rhand)
                         );
                     }
@@ -410,7 +431,7 @@
 
         else if (expr instanceof Expr.TExpr) {
             var _texpr_ops = {
-                'TCond': [[TOK_PUNCT, '?'], [TOK_PUNCT, ':']]
+                'TCond': [[TOK_OPRTOR, '?'], [TOK_OPRTOR, ':']]
             }[tname] || [[TOK_INVALID, expr.operator[0]], [TOK_INVALID, expr.operator[1]]];
 
             return _emit_texpr.call(this, expr, _texpr_ops[0], _texpr_ops[1]);
@@ -463,7 +484,8 @@
         // a list of lists: each element in `lines` is a line of output made of list of tokens
         var lines = [];
 
-        // TODO: a Branch is meant to be replaced by an 'If'; it is here only for dev purpose
+        // note: all Branch stataments are supposed to be replaced by conditions and loops
+        // this is left here just in case
         if (stmt instanceof Stmt.Branch) {
             lines.push(Array.prototype.concat(
                 [[TOK_KEYWORD, 'branch'], SPACE],
