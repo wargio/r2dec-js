@@ -63,6 +63,8 @@
                     var expr = this.get_propagated_expr(use, val);
 
                     if (expr) {
+                        // console.log('propagating:', def.toString(), '->', expr.toString(), 'in', use.parent.toString());
+
                         use.replace(expr);
                         Simplify.reduce_stmt(expr.parent_stmt());
 

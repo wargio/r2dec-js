@@ -50,7 +50,7 @@ var Global = {
     /**
      * Pipes a command to r2 and returns its output as a parsed JSON object.
      * @param {...string} args A sequence of command line elements
-     * @returns {*} Result object received from r2, or `undefiend` if error has occured
+     * @returns {*} Result object received from r2, or `undefined` if error has occured
      */
    r2cmdj: function() {
         var cmdline = Array.prototype.slice.call(arguments).join(' ');
@@ -195,11 +195,13 @@ var load_r2_evars = function(ns) {
 };
 
 /**
- *  o resolve pic
- * 
  * TODO:
+ *   bugfixes:
+ *      o resolve pic
+ * 
  *   features:
  *      o let user specify parameters values
+ *      o type inference: infere datatypes, show casting and array indexing
  *
  *   design:
  *      o create an entry (uninit) and exit virtual blocks for cfg
