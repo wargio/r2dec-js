@@ -13,6 +13,9 @@ RM=rm -f
 CP=cp -f
 MKDIR=mkdir -p
 
+# a workaround for osx users
+LD=$(CC)
+
 SRCS=duktape/duktape.c duktape/duk_console.c core_pdd.c
 OBJS=$(SRCS:.c=.o)
 BIN=core_pdd.$(LIBEXT)

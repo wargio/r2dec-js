@@ -8,12 +8,7 @@ mv core_test.so ~/.config/radare2/plugins
 #include <stdlib.h>
 #include <string.h>
 
-#include "r_types.h"
-#include "r_lib.h"
-#include "r_cmd.h"
 #include "r_core.h"
-#include "r_cons.h"
-#include "r_anal.h"
 
 #include "duktape/duktape.h"
 #include "duktape/duk_console.h"
@@ -34,7 +29,7 @@ mv core_test.so ~/.config/radare2/plugins
 #	define R2_HOME_DATADIR R2_HOMEDIR
 #endif
 
-static RCore* core_link = 0;
+static RCore* core_link = (RCore*) NULL;
 
 static char* r2dec_read_file(const char* file)
 {
@@ -86,6 +81,7 @@ static duk_ret_t duk_internal_load(duk_context* ctx)
 		{
 			duk_push_string(ctx, text);
 			free(text);
+
 			return 1;
 		}
 		else
@@ -99,17 +95,16 @@ static duk_ret_t duk_internal_load(duk_context* ctx)
 
 static duk_ret_t duk_internal_require(duk_context *ctx)
 {
-	char fullname[256];
-
-	if (duk_is_string (ctx, 0))
+	if (duk_is_string(ctx, 0))
 	{
-		snprintf(fullname, sizeof(fullname), "%s.js", duk_safe_to_string (ctx, 0));
+		char fullname[256];
+		snprintf(fullname, sizeof(fullname), "%s.js", duk_safe_to_string(ctx, 0));
 		char* text = r2dec_read_file(fullname);
 
 		if (text)
 		{
-			duk_push_lstring (ctx, fullname, strlen (fullname));
-			duk_eval_file (ctx, text);
+			duk_push_string(ctx, fullname);
+			duk_eval_file(ctx, text);
 			free(text);
 
 			return 1;
@@ -155,7 +150,7 @@ static void r2dec_fatal_function (void* udata, const char* msg)
 
 static void duk_r2dec(RCore* core, const char* input)
 {
-	char args[1024] = {0};
+	char stub[1024] = {0};
 
 	core_link = core;
 	duk_context* ctx = duk_create_heap(NULL, NULL, NULL, NULL, r2dec_fatal_function);
@@ -166,14 +161,14 @@ static void duk_r2dec(RCore* core, const char* input)
 	eval_file(ctx, "js/require.js");
 	eval_file(ctx, "js/r2dec-duk.js");
 
-	snprintf(args, sizeof(args),
+	snprintf(stub, sizeof(stub),
 		"if (typeof r2dec_main === 'function') {"
-		"	r2dec_main(\"%s\".split(/\\s+/));"
+		"	r2dec_main(\"%s\".split(/\\s+/).filter(Boolean));"
 		"} else {"
 		"	console.log('Fatal error. Cannot use R2_HOME_DATADIR.');"
 		"}", input);
 
-	duk_eval_string_noresult(ctx, args);
+	duk_eval_string_noresult(ctx, stub);
 	duk_destroy_heap(ctx);
 
 	core_link = (RCore*) NULL;
@@ -229,7 +224,7 @@ int r_cmd_pdd_init(void* user, const char* cmd)
 
 	r_config_lock (cfg, false);
 	// workaround: r2 looks for this config entry for indication whether r2dec exists
-	SETPREFS("r2dec.asm", "true", "dummy var for workaround");
+	SETPREFS("r2dec.asm", "true", "r2dec indentification dummy var");
 
 	// output settings
 	SETPREFI("pdd.out.guides", 1, "scope guidelines [0: none, 1: solid, 2: dashed]");
@@ -240,20 +235,21 @@ int r_cmd_pdd_init(void* user, const char* cmd)
 	SETPREFS("pdd.opt.noalias", "false", "assume no pointer aliasing");
 	r_config_lock (cfg, true);
 
-	// autocomplete here..
+	// autocomplete here
 	(void) r_core_autocomplete_add(core->autocomplete, "pdd",  R_CORE_AUTOCMPLT_DFLT, true);
-	(void) r_core_autocomplete_add(core->autocomplete, "pdda", R_CORE_AUTOCMPLT_DFLT, true);
-	(void) r_core_autocomplete_add(core->autocomplete, "pddb", R_CORE_AUTOCMPLT_DFLT, true);
-	(void) r_core_autocomplete_add(core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
-	(void) r_core_autocomplete_add(core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
+
+	// (void) r_core_autocomplete_add(core->autocomplete, "pdda", R_CORE_AUTOCMPLT_DFLT, true);
+	// (void) r_core_autocomplete_add(core->autocomplete, "pddb", R_CORE_AUTOCMPLT_DFLT, true);
+	// (void) r_core_autocomplete_add(core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
+	// (void) r_core_autocomplete_add(core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
 
 	return true;
 }
 
 RCorePlugin r_core_plugin_test =
 {
-	.name = "r2dec",
-	.desc = "experimental pseudo-C decompiler for radare2",
+	.name = "r2dec2",
+	.desc = "an experimental decompiler for radare2 - reimplemented",
 	.license = "Apache",
 	.call = r_cmd_pdd,
 	.init = r_cmd_pdd_init
