@@ -294,6 +294,7 @@ function r2dec_main(args) {
                 analyzer.ssa_done(func, ssa, ssa_ctx);
 
                 Optimizer.run([
+                    Pruner.eliminate_weak,
                     Pruner.eliminate_dead_regs,
                     Pruner.eliminate_dead_derefs,
                     Pruner.eliminate_dead_results,

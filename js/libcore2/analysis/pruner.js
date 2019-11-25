@@ -60,6 +60,14 @@
 
     // --------------------------------------------------
 
+    var _select_weak = function(def, val, conf) {
+        var _is_phi_arg = function(u) {
+            return (u.parent instanceof Expr.Phi);
+        };
+
+        return def.weak && def.uses.every(_is_phi_arg);
+    };
+
     // eliminate dead assignments to registers
     var _select_dead_regs = function(def, val, conf) {
         // elinimate dead assignments to reg, however:
@@ -140,6 +148,7 @@
     // --------------------------------------------------
 
     return {
+        eliminate_weak                : new Pruner(_select_weak),
         eliminate_dead_regs           : new Pruner(_select_dead_regs),
         eliminate_dead_derefs         : new Pruner(_select_dead_derefs),
         eliminate_dead_results        : new Pruner(_select_dead_results),
