@@ -123,10 +123,16 @@ Function.prototype.cfg = function() {
         if (bb.fail) {
             edges.push([bb.address, bb.fail]);
         }
+
+        if (bb.cases) {
+            bb.cases.forEach(function(caddr) {
+                edges.push([bb.address, caddr]);
+            });
+        }
     });
 
     // set up control flow graph
-    return new Graph.Directed(nodes, edges, nodes[0]);
+    return new Graph.Directed(nodes, edges, this.entry_block.address);
 };
 
 function BasicBlock(bb) {
@@ -146,6 +152,9 @@ function BasicBlock(bb) {
     // 'fail' stands for block fall-through, or conditional 'not-taken' destination; may be undefined in case
     // the basic block ends with an unconditional jump or a return statement
     this.fail = bb.fail;
+
+    // list of switch targets, if a switch has been identified
+    this.cases = bb.switch_op && bb.switch_op.cases.map(function(c) { return c.addr; });
 
     // get instructions list
     this.instructions = Global.r2cmdj('aoj', bb.ninstr, '@', bb.addr);
