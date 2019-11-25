@@ -232,6 +232,9 @@
 
             return CCobj.get_args_expr(fcall, context);
         }
+
+        // could not find any suitable cc
+        return [];
     };
 
     return function(arch) {
