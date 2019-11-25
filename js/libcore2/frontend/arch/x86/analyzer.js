@@ -595,14 +595,21 @@
             if (terminator instanceof Stmt.Return) {
                 var retval = terminator.retval;
 
-                // return value is not initialized
-                if (_is_uninit_rreg(retval)) {
-                    return_void = true;
-                }
+                if (rreg.equals_no_idx(retval)) {
+                    // return value is not initialized
+                    if (_is_uninit_rreg(retval)) {
+                        return_void = true;
+                    }
 
-                // several possible return values, of which one is not initialized
-                else if ((retval instanceof Expr.Phi) && retval.operands.some(_is_uninit_rreg)) {
-                    return_void = true;
+                    // several possible return values, of which one is not initialized
+                    else {
+                        // a reg is returned; retrieve the value assigned to that reg
+                        var pval = retval.def.parent.operands[1];
+
+                        if ((pval instanceof Expr.Phi) && pval.operands.some(_is_uninit_rreg)) {
+                            return_void = true;
+                        }
+                    }
                 }
 
                 returns.push(terminator);
@@ -610,10 +617,18 @@
         });
 
         if (return_void) {
-            // TODO: this may become problematic in case of a tailcall.
-            // in that case retval expr is a function call, and should not be plucked
             returns.forEach(function(ret) {
-                ret.retval.pluck(true);
+                // if this is a tail call, replace the return statement with the fcall
+                if (ret.retval instanceof Expr.Call) {
+                    var fcall = Stmt.make_statement(ret.address, ret.retval);
+
+                    ret.replace(fcall);
+                }
+
+                // in any other case, just pluck the returned expression
+                else {
+                    ret.retval.pluck(true);
+                }
             });
         }
     };
