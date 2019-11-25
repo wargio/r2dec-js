@@ -22,11 +22,16 @@
     };
 
     var _r2_get_flag = function(addr) {
-        var fij = Global.r2cmdj('fij', '1', '@', addr);
         var flag = undefined;
 
-        if ((fij instanceof Array) && (fij.length > 0)) {
-            flag = fij.pop().name;
+        // do not get flag for 0; this would probably yield a register name that happens
+        // to be evaluated to this number
+        if ((0 | addr) !== 0) {
+            var fij = Global.r2cmdj('fij', '1', '@', addr);
+
+            if ((fij instanceof Array) && (fij.length > 0)) {
+                flag = fij.pop().name;
+            }
         }
 
         return flag;

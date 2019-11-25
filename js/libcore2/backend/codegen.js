@@ -196,8 +196,40 @@
 
         // emit a generic unary expression
         var _emit_uexpr = function(uexpr, op) {
-            // TODO: if Expr.Deref of Expr.Add or Expr.Sub, show as indexed access to an array
-            // this should take array element size into account
+            // // a temporary method to display pointers as indexed arrays
+            // if (uexpr instanceof Expr.Deref) {
+            //     var operand = uexpr.operands[0];
+            //
+            //     if (operand instanceof Expr.Add) {
+            //         var ptr = operand.operands[0];
+            //         var idx = operand.operands[1];
+            //
+            //         if (ptr instanceof Expr.Var) {
+            //             var cast = {
+            //                 8: 'char*',
+            //                16: 'short*',
+            //                32: 'int*',
+            //                64: 'long long*'
+            //             }[uexpr.size];
+            //
+            //             // omit casting if variable size matches the dereference size
+            //             var cast_tok = (ptr.size === uexpr.size) ?
+            //                 [] :
+            //                 [[TOK_PAREN, '('], [TOK_VARTYPE, cast], [TOK_PAREN, ')'], SPACE];
+            //
+            //             // adjust index according to pointer arithmetic
+            //             if (idx instanceof Expr.Val) {
+            //                 idx.value = idx.value.div(uexpr.size / 8);
+            //             }
+            //
+            //             return Array.prototype.concat(
+            //                 cast_tok,
+            //                 this.emit_expression(ptr),
+            //                 [[TOK_PAREN, '[']], this.emit_expression(idx), [[TOK_PAREN, ']']]
+            //             );
+            //         }
+            //     }
+            // }
 
             return Array.prototype.concat(
                 [op],
@@ -387,6 +419,7 @@
         else if (expr instanceof Expr.Call) {
             var fname = expr.operands[0];
             var args = expr.operands.slice(1);
+            var fcall;
 
             // calling indirectly or through relocation table
             if (fname instanceof Expr.Deref) {
@@ -395,9 +428,13 @@
 
             if (fname instanceof Expr.Val) {
                 fname = this.xrefs.resolve_fname(fname);
+
+                fcall = [[TOK_FNCALL, fname.toString()]];
+            } else {
+                fcall = this.emit_expression(fname);
             }
 
-            return Array.prototype.concat([[TOK_FNCALL, fname.toString()]], _emit_expr_list.call(this, args));
+            return Array.prototype.concat(fcall, _emit_expr_list.call(this, args));
         }
 
         else if (expr instanceof Expr.Unknown) {
@@ -406,11 +443,9 @@
             return [[TOK_KEYWORD, '__asm'], SPACE].concat(parenthesize([asm_line]));
         }
 
-        // <DEBUG desc="if ssa hasn't been tranfroemd out, nicely emit phi exprs">
         // else if (expr instanceof Expr.Phi) {
         //     return Array.prototype.concat([[TOK_INVALID, '\u03a6']], _emit_expr_list.call(this, expr.operands));
         // }
-        // </DEBUG>
 
         return [[TOK_INVALID, expr ? expr.toString() : expr]];
     };
