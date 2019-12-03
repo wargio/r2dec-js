@@ -26,38 +26,9 @@
      * @constructor
      */
     function Context(func) {
-        this.func = func;
-
-        this.count = {};
-        this.stack = {};
         this.defs = {};
-
         this.uninit = new Cntr.Container(func.entry_block.container.address, []);
     }
-
-    // intialize 'count' and 'stack' to be used in the renaming process
-    Context.prototype.initialize = function(selector) {
-        var count = {};
-        var stack = {};
-
-        this.func.basic_blocks.forEach(function(bb) {
-            bb.container.statements.forEach(function(stmt) {
-                stmt.expressions.forEach(function(expr) {
-                    expr.iter_operands().forEach(function(op) {
-                        if (selector(op)) {
-                            var repr = op.repr();
-
-                            count[repr] = 0;
-                            stack[repr] = [0];
-                        }
-                    });
-                });
-            });
-        });
-
-        this.count = count;
-        this.stack = stack;
-    };
 
     Context.prototype.add_def = function(v) {
         // string representation of definition, including ssa subscripts
@@ -91,7 +62,7 @@
             // all definitions should appear as assignments
             var assign = new Expr.Assign(lhand, rhand);
 
-            this.uninit.push_stmt(Stmt.make_statement(new Expr.Val(0).value, assign));
+            this.uninit.push_stmt(Stmt.make_statement(this.uninit.address, assign));
             this.add_def(lhand);
         }
 
@@ -409,6 +380,27 @@
         var dom = this.dom;
         var ctx = this.context;
 
+        var count = {};
+        var stack = {};
+
+        // intialize 'count' and 'stack' to be used in the renaming process
+        var rename_init = function() {
+            func.basic_blocks.forEach(function(bb) {
+                bb.container.statements.forEach(function(stmt) {
+                    stmt.expressions.forEach(function(expr) {
+                        expr.iter_operands(true).forEach(function(op) {
+                            if (selector(op)) {
+                                var repr = op.repr();
+    
+                                count[repr] = 0;
+                                stack[repr] = [0];
+                            }
+                        });
+                    });
+                });
+            });
+        };
+
         var rename_rec = function(n) {
             n.container.statements.forEach(function(stmt) {
                 // pick up uses to assign ssa index
@@ -418,7 +410,7 @@
                             if (selector(op) && !op.is_def) {
                                 var repr = op.repr();
 
-                                op.idx = top(ctx.stack[repr]);
+                                op.idx = top(stack[repr]);
                                 ctx.add_use(op);
                             }
                         });
@@ -431,10 +423,29 @@
                         if (selector(op) && op.is_def) {
                             var repr = op.repr();
 
-                            ctx.count[repr]++;
-                            ctx.stack[repr].push(ctx.count[repr]);
+                            // nesting derefs are picked up in stack initialization without inner
+                            // subscripts, since subscripts are not assigned yet. here they are
+                            // referred after inner subscripts are assigned, so they do not appear
+                            // in vars stack. for example:
+                            //
+                            // nesting derefs such as:
+                            //      *(*(ebp₁ + 8)₀ + *(ebp₁ - 4)₁)
+                            //
+                            // do not appear in the stack, because they were picked up as:
+                            //      *(*(ebp₁ + 8) + *(ebp₁ - 4))
+                            //
+                            // <WORKAROUND>
+                            if (!(repr in count)) {
+                                console.warn('[!] ssa: could not find stack for', '"' + repr + '"');
+                                count[repr] = 0;
+                                stack[repr] = [];
+                            }
+                            // </WORKAROUND>
 
-                            op.idx = top(ctx.stack[repr]);
+                            count[repr]++;
+                            stack[repr].push(count[repr]);
+
+                            op.idx = top(stack[repr]);
                             ctx.add_def(op);
                         }
                     });
@@ -454,7 +465,7 @@
                                 var phi = expr.operands[1];
                                 var op = phi.operands[j];
 
-                                op.idx = top(ctx.stack[op.repr()]);
+                                op.idx = top(stack[op.repr()]);
                                 ctx.add_use(op);
                             }
                         }
@@ -472,7 +483,7 @@
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands(true).forEach(function(op) {
                         if (selector(op) && op.is_def) {
-                            ctx.stack[op.repr()].pop();
+                            stack[op.repr()].pop();
                         }
                     });
                 });
@@ -481,8 +492,8 @@
 
         var entry_block = node_to_block(func, dom.getRoot());
 
-        ctx.initialize(selector);
         insert_phis.call(this, selector);
+        rename_init();
         rename_rec(entry_block);
         relax_phis(ctx);
 
