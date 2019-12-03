@@ -175,6 +175,11 @@
             'movsxd': _mov.bind(this),  // TODO: dest is signed
             'movzx' : _mov.bind(this),  // TODO: dest is unsigned
 
+            // sign exention
+            'cbw'   : _cdqe.bind(this),  // TODO: source is signed
+            'cwde'  : _cdqe.bind(this),  // TODO: source is signed
+            'cdqe'  : _cdqe.bind(this),  // TODO: source is signed
+        
             // sse
             'movaps': _mov.bind(this),
             'xorps' : _xor.bind(this),
@@ -454,6 +459,19 @@
 
     var _common_set_flag = function(f, bval) {
         return [set_flag(f, bval)];
+    };
+
+    var _common_sign_ext = function(p) {
+        var narrow = this.get_operand_expr(p.operands[0]);
+
+        var wide = {
+            8:  'ax',
+            16: 'eax',
+            32: 'rax',
+        }[narrow.size];
+
+        // TODO: narrow should be sign-extended; tag this as signed operation somwhoe
+        return [new Expr.Assign(new Expr.Reg(wide, narrow.size * 2), narrow)];
     };
 
     // ---------- instructions ----------//
@@ -741,6 +759,9 @@
 
     var _neg = function(p) { return _common_uop.call(this, p, Expr.Neg); };    // cf = (opnd is non-zero)
     var _not = function(p) { return _common_uop.call(this, p, Expr.Not); };
+
+    // signed operations
+    var _cdqe = function(p) { return _common_sign_ext.call(this, p); };
 
     var _cmp = function(p) {
         var lhand = this.get_operand_expr(p.operands[0]);
