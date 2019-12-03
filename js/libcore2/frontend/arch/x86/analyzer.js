@@ -184,7 +184,7 @@
             );
 
             // this is an artificial assignment; mark def as weak
-            assign.operands[0].weak = true;
+            // assign.operands[0].weak = true;
 
             entry.unshift_stmt(Stmt.make_statement(addr, assign));
         });
