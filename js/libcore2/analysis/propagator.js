@@ -107,7 +107,11 @@
 
     var _get_def_single_use = function(use, val) {
         // do not propagate into phi (i.e. use is a phi argument)
-        return (use.parent instanceof Expr.Phi) ? null : val.clone(['idx', 'def']);
+        if (use.parent instanceof Expr.Phi) {
+            return null;
+        }
+
+        return val.clone(['idx', 'def']);
     };
 
     // TODO: stop propagation when encountering AddrOf, since we can't predict possible side effects
@@ -150,14 +154,15 @@
             p = p.parent;
         }
 
+        // TODO: do not propagate when (val instanceof Expr.Deref)
         return ((p instanceof Expr.Deref) && (p.is_def)) ? val.clone(['idx', 'def']) : null;
     };
 
     // --------------------------------------------------
 
-    return {
-        propagate_def_single_use : new Propagator(_select_def_single_use, _get_def_single_use),
-        propagate_constants      : new Propagator(_select_constants, _get_constants),
-        propagate_dereferenced   : new Propagator(_select_dereferenced, _get_dereferenced)
-    };
+    Propagator.propagate_def_single_use = new Propagator(_select_def_single_use, _get_def_single_use);
+    Propagator.propagate_constants      = new Propagator(_select_constants, _get_constants);
+    Propagator.propagate_dereferenced   = new Propagator(_select_dereferenced, _get_dereferenced);
+
+    return Propagator;
 });

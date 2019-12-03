@@ -147,12 +147,12 @@
 
     // --------------------------------------------------
 
-    return {
-        eliminate_weak                : new Pruner(_select_weak),
-        eliminate_dead_regs           : new Pruner(_select_dead_regs),
-        eliminate_dead_derefs         : new Pruner(_select_dead_derefs),
-        eliminate_dead_results        : new Pruner(_select_dead_results),
-        eliminate_def_single_phi      : new Pruner(_select_def_single_phi),
-        eliminate_def_single_phi_circ : new Pruner(_select_def_single_phi_circ)
-    };
+    Pruner.eliminate_weak                = new Pruner(_select_weak);
+    Pruner.eliminate_dead_regs           = new Pruner(_select_dead_regs);
+    Pruner.eliminate_dead_derefs         = new Pruner(_select_dead_derefs);
+    Pruner.eliminate_dead_results        = new Pruner(_select_dead_results);
+    Pruner.eliminate_def_single_phi      = new Pruner(_select_def_single_phi);
+    Pruner.eliminate_def_single_phi_circ = new Pruner(_select_def_single_phi_circ);
+
+    return Pruner;
 });
