@@ -18,11 +18,12 @@
  (function() {
     const Flags = require('js/libcore2/frontend/arch/x86/flags');
     const CallConv = require('js/libcore2/frontend/arch/x86/cconv');
-
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Stmt = require('js/libcore2/analysis/ir/statements');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
-
+    const Optimizer = require('js/libcore2/analysis/optimizer');
+    const Propagator = require('js/libcore2/analysis/propagator');
+    
     // TODO: this file looks terrible; refactor this sh*t
 
     // replace position independent references with actual addresses
@@ -485,77 +486,62 @@
             Flags.Flag('OF')
         ];
 
-        return ctx.iterate(function(def) {
-            if (def.idx !== 0) {
-                var p = def.parent;         // p is Expr.Assign
-                var lhand = p.operands[0];  // def
-                var rhand = p.operands[1];  // assigned expression
+        var _is_flag_def = function(def, val) {
+            var __is_flag_bit = function(fb) {
+                return def.equals_no_idx(fb);
+            };
 
-                var is_flag_bit = function(fb) {
-                    return lhand.equals_no_idx(fb);
-                };
+            return freg.equals_no_idx(def) || flagbits.some(__is_flag_bit);
+        };
 
-                if (freg.equals_no_idx(lhand) || flagbits.some(is_flag_bit)) {
-                    while (def.uses.length > 0) {
-                        var u = def.uses[0];
-                        var c = rhand.clone(['idx', 'def']);
+        var _select = function(def, val, conf) {
+            return (def.idx !== 0) && !(val instanceof Expr.Phi) && _is_flag_def(def, val);
+        };
 
-                        u.replace(c);
-                        Simplify.reduce_stmt(c.parent_stmt());
-                    }
-
-                    p.pluck(true);
-
-                    return true;
-                }
+        var _get_replacement = function(use, val) {
+            if (use.parent instanceof Expr.Phi) {
+                return null;
             }
 
-            return false;
-        });
+            return val.clone(['idx', 'def']);
+        };
+
+        Optimizer.run([
+            new Propagator(_select, _get_replacement)
+        ], ctx, null);
     };
 
     // propagate stack register definitions to their uses and simplify in-place. that should
     // normalize all stack references to use a single stack pointer definition
     var propagate_stack_reg = function(ctx, arch) {
-        var _is_stack_location = function(lhand, rhand) {
-            return arch.is_stack_reg(lhand)
-                || arch.is_stack_var(lhand)
-                || arch.is_stack_var(rhand);
+        var _is_stack_location = function(def, val) {
+            return arch.is_stack_reg(def)
+                || arch.is_stack_var(def)
+                || arch.is_stack_var(val);
         };
 
-        return ctx.iterate(function(def) {
-            if (def.idx !== 0) {
-                var p = def.parent;         // p is Expr.Assign
-                var lhand = p.operands[0];  // def
-                var rhand = p.operands[1];  // assigned expression
+        var _select = function(def, val, conf) {
+            // select stack locations, but exclude those which are assigned phis
+            return (def.idx !== 0) && !(val instanceof Expr.Phi) && _is_stack_location(def, val);
+        };
 
-                // propagate stack locations, but exclude those which are assigned phis
-                if ((!(rhand instanceof Expr.Phi)) && _is_stack_location(lhand, rhand)) {
-                    var skipped = 0;
-
-                    while (def.uses.length > skipped) {
-                        var u = def.uses[skipped];
-
-                        // do not propagate into phi (i.e. user is a phi arg)
-                        if (!(u.parent instanceof Expr.Phi)) {
-                            var c = rhand.clone(['idx', 'def']);
-
-                            u.replace(c);
-                            Simplify.reduce_stmt(c.parent_stmt());
-                        } else {
-                            skipped++;
-                        }
-                    }
-
-                    // even though def got no uses left by now, we do not pluck anything just yet.
-                    // stack adjustments will be used to determine the top of stack when analysing stack
-                    // possible function call arguments locations, while stack dereferences may serve as
-                    // function call arguments
-                }
+        var _get_replacement = function(use, val) {
+            // do not propagate into phi (i.e. user is a phi arg)
+            if (use.parent instanceof Expr.Phi) {
+                return null;
             }
 
-            return false;
-        });
+            return val.clone(['idx', 'def']);
+        };
+
+        // even though def got no uses left by now, we do not pluck anything just yet.
+        // stack adjustments will be used to determine the top of stack when analysing stack
+        // possible function call arguments locations, while stack dereferences may serve as
+        // function call arguments
+
+        Optimizer.run([
+            new Propagator(_select, _get_replacement)
+        ], ctx, null);
     };
 
     // unless something really hacky is going on in the binary, stack locations
@@ -663,8 +649,8 @@
         this.func_vars = this.func_vars.concat(sp.vars, bp.vars);
         this.func_args = this.func_args.concat(sp.args, bp.args);
 
-        while (propagate_stack_reg(context, this.arch)) { /* empty */ }
-        while (propagate_flags_reg(context, this.arch)) { /* empty */ }
+        propagate_stack_reg(context, this.arch);
+        propagate_flags_reg(context, this.arch);
     };
 
     Analyzer.prototype.ssa_step_vars = function(func, context) {
