@@ -45,10 +45,13 @@
         // <DEBUG>
         // console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
         // live_by_fcall.forEach(function(d) {
-        //     console.log('  |', 'def:', d.parent.toString());
+        //     var c0 = d.weak ? '\33[90m' : '';
+        //     var c1 = d.weak ? '\33[0m' : '';
+        //
+        //     console.log(c0, ' |', 'def:', d.parent.toString(), c1);
         //
         //     d.uses.forEach(function(u) {
-        //         console.log('  |', '  |', u.parent_stmt().toString());
+        //         console.log(c0, ' |', '  |', u.parent_stmt().toString(), c1);
         //     });
         // });
         // console.log();
@@ -147,6 +150,21 @@
 
         var live_by_fcall = _get_live_unused_by(context, fcall);
 
+        // <DEBUG>
+        // console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
+        // live_by_fcall.forEach(function(d) {
+        //     var c0 = d.weak ? '\33[90m' : '';
+        //     var c1 = d.weak ? '\33[0m' : '';
+        //
+        //     console.log(c0, ' |', 'def:', d.parent.toString(), c1);
+        //
+        //     d.uses.forEach(function(u) {
+        //         console.log(c0, ' |', '  |', u.parent_stmt().toString(), c1);
+        //     });
+        // });
+        // console.log();
+        // </DEBUG>
+
         // drop all weak definitions
         live_by_fcall = live_by_fcall.filter(function(def) {
             return !(def.weak);
@@ -173,6 +191,7 @@
                     def.equals_no_idx(_arg_regs32[j])) {
 
                     // make sure that slot was not already taken
+                    // TODO: this condition seems to be always true, since we consider only live defs
                     if (args[j].def === undefined) {
                         var arg = def.clone(['idx']);
 

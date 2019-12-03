@@ -634,13 +634,9 @@
             if (cond instanceof Expr.Val) {
                 const ZERO = new Expr.Val(0, cond.size);
 
-                if (cond.equals(ZERO)) {
-                    // false expr
-                    return expr.operands[2].clone(wssa);
-                } else {
-                    // true expr
-                    return expr.operands[1].clone(wssa);
-                }
+                return cond.equals(ZERO) ?
+                    expr.operands[2].clone(wssa) :   // false expr
+                    expr.operands[1].clone(wssa);    // true expr
             }
         }
 

@@ -57,7 +57,11 @@
      */
     function Resolver() {
         // prefixes that should be trimmed
-        this.prefixes = ['sym.', 'imp.'].concat(_r2_get_libs_names());
+        this.prefixes = [
+            'sym.',
+            'imp.',
+            'reloc.'
+        ].concat(_r2_get_libs_names());
 
         // functions names cache
         this.fcalls = {};
