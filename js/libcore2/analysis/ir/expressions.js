@@ -122,6 +122,11 @@
 
     // ------------------------------------------------------------
 
+    /**
+     * Literal base class.
+     * This class is abstract and meant to be only inherited, not instantiated.
+     * @constructor
+     */
 	function Literal() {
         // empty constructor
 	}
@@ -245,7 +250,9 @@
             var orig = this;
 
             keep.forEach(function(prop) {
-                clone[prop] = orig[prop];
+                if (prop in orig) {
+                    clone[prop] = orig[prop];
+                }
             });
         }
 
@@ -271,11 +278,7 @@
     Register.prototype.toString = function(opt) {
         var str = this.name.toString();
 
-        if (this.idx !== undefined) {
-            str += subscript(this.idx);
-        }
-
-        return str;
+        return (this.idx !== undefined) ? str + subscript(this.idx) : str;
     };
 
     // ------------------------------------------------------------
@@ -516,7 +519,9 @@
             var orig = this;
 
             keep.forEach(function(prop) {
-                clone[prop] = orig[prop];
+                if (prop in orig) {
+                    clone[prop] = orig[prop];
+                }
             });
         }
 
@@ -821,6 +826,7 @@
     function TCond (op1, op2, op3) { TExpr.call(this, op1, op2, op3); }
 
     TCond.prototype = Object.create(TExpr.prototype);
+    TCond.prototype.constructor = TCond;
 
     // boolean expressions
     function BoolAnd (expr1, expr2) { BExpr.call(this, expr1, expr2); }
