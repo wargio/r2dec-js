@@ -179,7 +179,7 @@
             'cbw'   : _cdqe.bind(this),  // TODO: source is signed
             'cwde'  : _cdqe.bind(this),  // TODO: source is signed
             'cdqe'  : _cdqe.bind(this),  // TODO: source is signed
-        
+
             // sse
             'movaps': _mov.bind(this),
             'xorps' : _xor.bind(this),
@@ -198,20 +198,26 @@
 
     /**
      * Create an Assign expression to system flags
-     * @param {string} f Flag token to modify
-     * @param {number} bval Either 0 or 1
+     * @param {string} fname Name of the flag to modify
+     * @param {number} val Either 0 or 1
      * @returns {Expr.Expr}
      */
-    var set_flag = function(f, bval) {
-        return new Expr.Assign(Flags.Flag(f), new Expr.Val(bval, 1));
+    var set_flag = function(fname, val) {
+        var flag = Flags[fname].clone();
+        var bit = new Expr.Val(val, 1);
+
+        return new Expr.Assign(flag, bit);
     };
 
     x86.prototype.eval_flags = function(expr, flist) {
         var flreg = this.FLAGS_REG;
         var e = [new Expr.Assign(flreg.clone(), expr.clone())];
 
-        return e.concat(flist.map(function(f) {
-            return new Expr.Assign(Flags.Flag(f), Flags.FlagOp(f, flreg.clone()));
+        return e.concat(flist.map(function(fname) {
+            var flag = Flags[fname].clone();
+            var flag_op = Flags.make_op(fname, flreg.clone());
+
+            return new Expr.Assign(flag, flag_op);
         }));
     };
 
@@ -500,7 +506,7 @@
         var lexpr = this.get_operand_expr(p.operands[0]);
         var rexpr = this.get_operand_expr(p.operands[1]);
 
-        var op = new Expr.Add(new Expr.Add(lexpr, rexpr), Flags.Flag('CF'));
+        var op = new Expr.Add(new Expr.Add(lexpr, rexpr), Flags.CF.clone());
 
         // lexpr = lexpr + rexpr + eflags.cf
         return [new Expr.Assign(lexpr.clone(), op)].concat(
@@ -787,147 +793,147 @@
     };
 
     var _ja = function(p) {
-        return _common_jcc.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.Flag('ZF')), new Expr.BoolNot(Flags.Flag('CF'))));
+        return _common_jcc.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.ZF.clone()), new Expr.BoolNot(Flags.CF.clone())));
     };
 
     var _jae = function(p) {
-        return _common_jcc.call(this, p, new Expr.BoolNot(Flags.Flag('CF')));
+        return _common_jcc.call(this, p, new Expr.BoolNot(Flags.CF.clone()));
     };
 
     var _jb = function(p) {
-        return _common_jcc.call(this, p, Flags.Flag('CF'));
+        return _common_jcc.call(this, p, Flags.CF.clone());
     };
 
     var _jbe = function(p) {
-        return _common_jcc.call(this, p, new Expr.BoolOr(Flags.Flag('ZF'), Flags.Flag('CF')));
+        return _common_jcc.call(this, p, new Expr.BoolOr(Flags.ZF.clone(), Flags.CF.clone()));
     };
 
     var _je = function(p) {
-        return _common_jcc.call(this, p, Flags.Flag('ZF'));
+        return _common_jcc.call(this, p, Flags.ZF.clone());
     };
 
     var _jg = function(p) {
-        return _common_jcc.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.Flag('ZF')), new Expr.EQ(Flags.Flag('SF'), Flags.Flag('OF'))));
+        return _common_jcc.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.ZF.clone()), new Expr.EQ(Flags.SF.clone(), Flags.OF.clone())));
     };
 
     var _jge = function(p) {
-        return _common_jcc.call(this, p, new Expr.EQ(Flags.Flag('SF'), Flags.Flag('OF')));
+        return _common_jcc.call(this, p, new Expr.EQ(Flags.SF.clone(), Flags.OF.clone()));
     };
 
     var _jl = function(p) {
-        return _common_jcc.call(this, p, new Expr.NE(Flags.Flag('SF'), Flags.Flag('OF')));
+        return _common_jcc.call(this, p, new Expr.NE(Flags.SF.clone(), Flags.OF.clone()));
     };
 
     var _jle = function(p) {
-        return _common_jcc.call(this, p, new Expr.BoolOr(Flags.Flag('ZF'), new Expr.NE(Flags.Flag('SF'), Flags.Flag('OF'))));
+        return _common_jcc.call(this, p, new Expr.BoolOr(Flags.ZF.clone(), new Expr.NE(Flags.SF.clone(), Flags.OF.clone())));
     };
 
     var _jne = function(p) {
-        return _common_jcc.call(this, p, new Expr.BoolNot(Flags.Flag('ZF')));
+        return _common_jcc.call(this, p, new Expr.BoolNot(Flags.ZF.clone()));
     };
 
     var _jno = function(p) {
-        return _common_jcc.call(this, p, new Expr.BoolNot(Flags.Flag('OF')));
+        return _common_jcc.call(this, p, new Expr.BoolNot(Flags.OF.clone()));
     };
 
     var _jnp = function(p) {
-        return _common_jcc.call(this, p, new Expr.BoolNot(Flags.Flag('PF')));
+        return _common_jcc.call(this, p, new Expr.BoolNot(Flags.PF.clone()));
     };
 
     var _jns = function(p) {
-        return _common_jcc.call(this, p, new Expr.BoolNot(Flags.Flag('SF')));
+        return _common_jcc.call(this, p, new Expr.BoolNot(Flags.SF.clone()));
     };
 
     var _jo = function(p) {
-        return _common_jcc.call(this, p, Flags.Flag('OF'));
+        return _common_jcc.call(this, p, Flags.OF.clone());
     };
 
     var _jp = function(p) {
-        return _common_jcc.call(this, p, Flags.Flag('PF'));
+        return _common_jcc.call(this, p, Flags.PF.clone());
     };
 
     var _js = function(p) {
-        return _common_jcc.call(this, p, Flags.Flag('SF'));
+        return _common_jcc.call(this, p, Flags.SF.clone());
     };
 
     var _cmova = function(p) {
-        return _common_cmov.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.Flag('ZF')), new Expr.BoolNot(Flags.Flag('CF'))));
+        return _common_cmov.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.ZF.clone()), new Expr.BoolNot(Flags.CF.clone())));
     };
 
     var _cmovae = function(p) {
-        return _common_cmov.call(this, p, new Expr.BoolNot(Flags.Flag('CF')));
+        return _common_cmov.call(this, p, new Expr.BoolNot(Flags.CF.clone()));
     };
 
     var _cmovb = function(p) {
-        return _common_cmov.call(this, p, Flags.Flag('CF'));
+        return _common_cmov.call(this, p, Flags.CF.clone());
     };
 
     var _cmovbe = function(p) {
-        return _common_cmov.call(this, p, new Expr.BoolOr(Flags.Flag('ZF'), Flags.Flag('CF')));
+        return _common_cmov.call(this, p, new Expr.BoolOr(Flags.ZF.clone(), Flags.CF.clone()));
     };
 
     var _cmovg = function(p) {
-        return _common_cmov.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.lag('ZF')), new Expr.EQ(Flags.Flag('SF'), Flags.Flag('OF'))));
+        return _common_cmov.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.lag('ZF')), new Expr.EQ(Flags.SF.clone(), Flags.OF.clone())));
     };
 
     var _cmovge = function(p) {
-        return _common_cmov.call(this, p, new Expr.EQ(Flags.Flag('SF'), Flags.Flag('OF')));
+        return _common_cmov.call(this, p, new Expr.EQ(Flags.SF.clone(), Flags.OF.clone()));
     };
 
     var _cmovl = function(p) {
-        return _common_cmov.call(this, p, new Expr.NE(Flags.lag('SF'), Flags.Flag('OF')));
+        return _common_cmov.call(this, p, new Expr.NE(Flags.lag('SF'), Flags.OF.clone()));
     };
 
     var _cmovle = function(p) {
-        return _common_cmov.call(this, p, new Expr.BoolOr(Flags.Flag('ZF'), new Expr.NE(Flags.Flag('SF'), Flags.Flag('OF'))));
+        return _common_cmov.call(this, p, new Expr.BoolOr(Flags.ZF.clone(), new Expr.NE(Flags.SF.clone(), Flags.OF.clone())));
     };
 
     var _cmove = function(p) {
-        return _common_cmov.call(this, p, Flags.Flag('ZF'));
+        return _common_cmov.call(this, p, Flags.ZF.clone());
     };
 
     var _cmovne = function(p) {
-        return _common_cmov.call(this, p, new Expr.BoolNot(Flags.Flag('ZF')));
+        return _common_cmov.call(this, p, new Expr.BoolNot(Flags.ZF.clone()));
     };
 
     var _seta = function(p) {
-        return _common_setcc.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.Flag('ZF')), new Expr.BoolNot(Flags.Flag('CF'))));
+        return _common_setcc.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.ZF.clone()), new Expr.BoolNot(Flags.CF.clone())));
     };
 
     var _setae = function(p) {
-        return _common_setcc.call(this, p, new Expr.BoolNot(Flags.Flag('CF')));
+        return _common_setcc.call(this, p, new Expr.BoolNot(Flags.CF.clone()));
     };
 
     var _setb = function(p) {
-        return _common_setcc.call(this, p, Flags.Flag('CF'));
+        return _common_setcc.call(this, p, Flags.CF.clone());
     };
 
     var _setbe = function(p) {
-        return _common_setcc.call(this, p, new Expr.BoolOr(Flags.Flag('ZF'), Flags.Flag('CF')));
+        return _common_setcc.call(this, p, new Expr.BoolOr(Flags.ZF.clone(), Flags.CF.clone()));
     };
 
     var _setg = function(p) {
-        return _common_setcc.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.Flag('ZF')), new Expr.EQ(Flags.Flag('SF'), Flags.Flag('OF'))));
+        return _common_setcc.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.ZF.clone()), new Expr.EQ(Flags.SF.clone(), Flags.OF.clone())));
     };
 
     var _setge = function(p) {
-        return _common_setcc.call(this, p, new Expr.EQ(Flags.Flag('SF'), Flags.Flag('OF')));
+        return _common_setcc.call(this, p, new Expr.EQ(Flags.SF.clone(), Flags.OF.clone()));
     };
 
     var _setl = function(p) {
-        return _common_setcc.call(this, p, new Expr.NE(Flags.Flag('SF'), Flags.Flag('OF')));
+        return _common_setcc.call(this, p, new Expr.NE(Flags.SF.clone(), Flags.OF.clone()));
     };
 
     var _setle = function(p) {
-        return _common_setcc.call(this, p, new Expr.BoolOr(Flags.Flag('ZF'), new Expr.NE(Flags.Flag('SF'), Flags.Flag('OF'))));
+        return _common_setcc.call(this, p, new Expr.BoolOr(Flags.ZF.clone(), new Expr.NE(Flags.SF.clone(), Flags.OF.clone())));
     };
 
     var _sete = function(p) {
-        return _common_setcc.call(this, p, Flags.Flag('ZF'));
+        return _common_setcc.call(this, p, Flags.ZF.clone());
     };
 
     var _setne = function(p) {
-        return _common_setcc.call(this, p, new Expr.BoolNot(Flags.Flag('ZF')));
+        return _common_setcc.call(this, p, new Expr.BoolNot(Flags.ZF.clone()));
     };
 
     var _clc = function(p) {
@@ -956,7 +962,8 @@
             64: '__builtin_bswap64'
         }[rhand.size];
 
-        return [new Expr.Assign(lhand, new Expr.Call(bifunc, [rhand]))];
+        // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
+        return [new Expr.Assign(lhand, new Expr.Call(new Expr.Reg(bifunc), [rhand]))];
     };
 
     var _popcnt = function(p) {
@@ -968,7 +975,8 @@
             64: '__builtin_popcountll'
         }[rhand.size];
 
-        return [new Expr.Assign(lhand, new Expr.Call(bifunc, [rhand]))].concat(this.eval_flags(rhand, ['ZF']).concat([
+        // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
+        return [new Expr.Assign(lhand, new Expr.Call(new Expr.Reg(bifunc), [rhand]))].concat(this.eval_flags(rhand, ['ZF']).concat([
             set_flag('PF', 0),
             set_flag('CF', 0),
             set_flag('AF', 0),
@@ -990,9 +998,6 @@
     // TODO: to be implemented
     // idiv
     // movabs
-    // cbw
-    // cwde
-    // cdqe
     // rol
     // ror
     // lods{b,w,d,q}

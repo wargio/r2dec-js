@@ -436,11 +436,11 @@
                 // direct jump
                 if (dest instanceof Expr.Val) {
                     var fcall = new Expr.Call(dest.clone(), []);
-                    var ret = new Stmt.Return(terminator.address, fcall);
+                var ret = new Stmt.Return(terminator.address, fcall);
 
-                    // replace 'goto dest' with 'return dest()'
-                    terminator.replace(ret);
-                }
+                // replace 'goto dest' with 'return dest()'
+                terminator.replace(ret);
+            }
 
                 // indirect jump
                 // else if (dest instanceof Expr.Reg) {
@@ -477,25 +477,12 @@
     var propagate_flags_reg = function(ctx, arch) {
         const freg = arch.FLAGS_REG;
 
-        const flagbits = [
-            Flags.Flag('CF'),
-            Flags.Flag('PF'),
-            Flags.Flag('AF'),
-            Flags.Flag('ZF'),
-            Flags.Flag('SF'),
-            Flags.Flag('OF')
-        ];
-
-        var _is_flag_def = function(def, val) {
-            var __is_flag_bit = function(fb) {
-                return def.equals_no_idx(fb);
-            };
-
-            return freg.equals_no_idx(def) || flagbits.some(__is_flag_bit);
+        var _is_flag_def = function(def) {
+            return freg.equals_no_idx(def) || (def instanceof Flags.Flag);
         };
 
         var _select = function(def, val, conf) {
-            return (def.idx !== 0) && !(val instanceof Expr.Phi) && _is_flag_def(def, val);
+            return (def.idx !== 0) && !(val instanceof Expr.Phi) && _is_flag_def(def);
         };
 
         var _get_replacement = function(use, val) {

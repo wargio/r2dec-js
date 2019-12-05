@@ -18,43 +18,47 @@
 (function() {
     const Expr = require('js/libcore2/analysis/ir/expressions');
 
-    var _flag_names = {
-        'CF': 'eflags.cf',
-        'PF': 'eflags.pf',
-        'AF': 'eflags.af',
-        'ZF': 'eflags.zf',
-        'SF': 'eflags.sf',
-        'DF': 'eflags.df',
-        'OF': 'eflags.of'
-    };
+    /**
+     * Flag abstract base class; a flag is in fact a 1-bit register.
+     * It has to be a register so it would get indexed by ssa
+     * @param {string} id flag name
+     * @constructor
+     */
+    function Flag(id) {
+        Expr.Reg.call(this, id, 1);
+    }
 
-    var _flag_operations = {
-        'CF': Carry,
-        'PF': Parity,
-        'AF': Adjust,
-        'ZF': Zero,
-        'SF': Sign,
-        'OF': Overflow
-    };
+    Flag.prototype = Object.create(Expr.Reg.prototype);
+    Flag.prototype.constructor = Flag;
 
-    // create a new instance of a 1-bit register
-    var Flag = function(f) {
-        return new Expr.Reg(_flag_names[f], 1);
-    };
+    /**
+     * Flag operation abstract base class; a flag operation describes how the
+     * flag operates on a given expression.
+     * 
+     * e.g. 'Carry(Add(Reg('eax', 32), Val(5, 32)))' means 'the carry of eax + 5'
+     * @param {Expr.Expr|Expr.Literal} expr Expression or literal to operate on
+     * @constructor
+     */
+    function FlagOp(expr) {
+        Expr.UExpr.call(this, expr);
+    }
 
-    function Carry    (op) { Expr.UExpr.call(this, op); }
-    function Parity   (op) { Expr.UExpr.call(this, op); }
-    function Adjust   (op) { Expr.UExpr.call(this, op); }
-    function Zero     (op) { Expr.UExpr.call(this, op); }
-    function Sign     (op) { Expr.UExpr.call(this, op); }
-    function Overflow (op) { Expr.UExpr.call(this, op); }
+    FlagOp.prototype = Object.create(Expr.UExpr.prototype);
+    FlagOp.prototype.constructor = FlagOp;
 
-    Carry.prototype    = Object.create(Expr.UExpr.prototype);
-    Parity.prototype   = Object.create(Expr.UExpr.prototype);
-    Adjust.prototype   = Object.create(Expr.UExpr.prototype);
-    Zero.prototype     = Object.create(Expr.UExpr.prototype);
-    Sign.prototype     = Object.create(Expr.UExpr.prototype);
-    Overflow.prototype = Object.create(Expr.UExpr.prototype);
+    function Carry    (expr) { FlagOp.call(this, expr); }
+    function Parity   (expr) { FlagOp.call(this, expr); }
+    function Adjust   (expr) { FlagOp.call(this, expr); }
+    function Zero     (expr) { FlagOp.call(this, expr); }
+    function Sign     (expr) { FlagOp.call(this, expr); }
+    function Overflow (expr) { FlagOp.call(this, expr); }
+
+    Carry.prototype    = Object.create(FlagOp.prototype);
+    Parity.prototype   = Object.create(FlagOp.prototype);
+    Adjust.prototype   = Object.create(FlagOp.prototype);
+    Zero.prototype     = Object.create(FlagOp.prototype);
+    Sign.prototype     = Object.create(FlagOp.prototype);
+    Overflow.prototype = Object.create(FlagOp.prototype);
 
     Carry.prototype.constructor    = Carry;
     Parity.prototype.constructor   = Parity;
@@ -63,71 +67,92 @@
     Sign.prototype.constructor     = Sign;
     Overflow.prototype.constructor = Overflow;
 
+    const FLAG_OPS = {
+        CF: Carry,
+        PF: Parity,
+        AF: Adjust,
+        ZF: Zero,
+        SF: Sign,
+        OF: Overflow
+    };
+
     /**
      * Create a special expression representing the operation of the given flag.
      * Note that the returned expression is arch-specific.
-     * @param {string} f Flag token
+     * @param {string} id Flag id
      * @param {Expr.Expr} expr Expression to operate on (i.e. whose carry)
-     * @returns {Expr.Expr}
+     * @returns {FlagOp}
      */
-    var FlagOp = function(f, expr) {
-        return new _flag_operations[f](expr);
+    var make_op = function(id, expr) {
+        return new FLAG_OPS[id](expr);
     };
 
     var cmp_from_flags = function(expr) {
         var cmp = null;
         var op = null;
 
-        // equal
-        if (expr instanceof Zero) {
-            cmp = Expr.EQ;
-            op = expr.operands[0];
-        }
+        if (expr instanceof FlagOp) {
+            var fop = expr.operands[0];
 
-        // less (signed)
-        else if ((expr instanceof Expr.NE) &&
-            (expr.operands[0] instanceof Sign) &&
-            (expr.operands[1] instanceof Overflow) &&
-            (expr.operands[0].operands[0].equals(expr.operands[1].operands[0]))) {
+            // equal
+            if (expr instanceof Zero) {
+                cmp = Expr.EQ;
+                op = fop;
+            }
+
+            // below (unsigned)
+            else if (expr instanceof Carry) {
                 cmp = Expr.LT;
-                op = expr.operands[0].operands[0];
+                op = fop;
+            }
         }
 
-        // greater (signed)
-        else if ((expr instanceof Expr.EQ) &&
-            (expr.operands[0] instanceof Sign) &&
-            (expr.operands[1] instanceof Overflow) &&
-            (expr.operands[0].operands[0].equals(expr.operands[1].operands[0]))) {
-                cmp = Expr.GE;
-                op = expr.operands[0].operands[0];
+        else if (expr instanceof Expr.UExpr) {
+            var uop = expr.operands[0];
+
+            // above (unsigned)
+            if ((expr instanceof Expr.BoolNot) &&
+                (uop instanceof Carry)) {
+                    cmp = Expr.GE;
+                    op = uop.operands[0];
+            }
         }
 
-        // below (unsigned)
-        else if (expr instanceof Carry) {
-            cmp = Expr.LT;
-            op = expr.operands[0];
+        else if (expr instanceof Expr.BExpr) {
+            var lhand = expr.operands[0];
+            var rhand = expr.operands[1];
+
+            // less (signed)
+            if ((expr instanceof Expr.NE) && (lhand instanceof Sign) && (rhand instanceof Overflow) &&
+                (lhand.operands[0].equals(rhand.operands[0]))) {
+                    cmp = Expr.LT;
+                    op = lhand.operands[0];
+            }
+
+            // greater (signed)
+            else if ((expr instanceof Expr.EQ) && (lhand instanceof Sign) && (rhand instanceof Overflow) &&
+                (lhand.operands[0].equals(rhand.operands[0]))) {
+                    cmp = Expr.GE;
+                    op = lhand.operands[0];
+            }
         }
 
-        // above (unsigned)
-        else if ((expr instanceof Expr.BoolNot) &&
-            (expr.operands[0] instanceof Carry)) {
-                cmp = Expr.GT;
-                op = expr.operands[0];
-        }
-
-        return op ? new cmp(op.clone(['idx', 'def']), new Expr.Val(0, op.size)) : op;
+        return cmp ? new cmp(op.clone(['idx', 'def']), new Expr.Val(0, op.size)) : op;
     };
 
     return {
-        Flag    : Flag,
-        FlagOp  : FlagOp,
-        cmp_from_flags : cmp_from_flags,
+        Flag   : Flag,
+        FlagOp : FlagOp,
 
-        Carry    : Carry,
-        Parity   : Parity,
-        Adjust   : Adjust,
-        Zero     : Zero,
-        Sign     : Sign,
-        Overflow : Overflow
+        CF: new Flag('eflags.cf'),
+        PF: new Flag('eflags.pf'),
+        AF: new Flag('eflags.af'),
+        ZF: new Flag('eflags.zf'),
+        SF: new Flag('eflags.sf'),
+        DF: new Flag('eflags.df'),
+        OF: new Flag('eflags.of'),
+
+        make_op : make_op,
+        cmp_from_flags : cmp_from_flags
     };
 });
