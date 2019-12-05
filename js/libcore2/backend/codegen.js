@@ -328,15 +328,7 @@
         }
 
         else if (expr instanceof Expr.Reg) {
-            // <DEBUG>
-            // // TODO: remove this when ssa is transformed back
-            // return [
-            //     [TOK_VARNAME, expr.name.toString()],
-            //     [TOK_PUNCT, subscript(expr.idx)]
-            // ];
-            // </DEBUG>
-
-            return [[TOK_VARNAME, expr.name.toString()]];
+            return [[TOK_VARNAME, expr.toString()]];
         }
 
         else if (expr instanceof Expr.UExpr) {

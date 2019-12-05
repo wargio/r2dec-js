@@ -293,7 +293,7 @@
                         C2.prev = C0;
                     }
 
-                    var cond = S.cond.clone();
+                    var cond = S.cond.clone(['idx', 'def']);
 
                     if (C1) {
                         cond = new Expr.BoolNot(cond);
