@@ -60,13 +60,13 @@
 
     // --------------------------------------------------
 
-    var _select_weak = function(def, val, conf) {
-        var _is_phi_arg = function(u) {
-            return (u.parent instanceof Expr.Phi);
-        };
-
-        return def.weak && def.uses.every(_is_phi_arg);
-    };
+    // var _select_weak = function(def, val, conf) {
+    //     var _is_phi_arg = function(u) {
+    //         return (u.parent instanceof Expr.Phi);
+    //     };
+    //
+    //     return def.weak && def.uses.every(_is_phi_arg);
+    // };
 
     // eliminate dead assignments to registers
     var _select_dead_regs = function(def, val, conf) {
@@ -145,14 +145,51 @@
         }
     };
 
+    // eliniminate a variable that is assigned a circular phi.
+    // e.g. all x₂ users are phi expressions that are assigned to definitions that in turn assigned
+    // circular phi expressions.
+    //
+    //   x₂ = Φ(..., x₃, ...)
+    //   ...
+    //   x₃ = Φ(..., x₄, ...)
+    //   ...
+    //   x₄ = Φ(..., x₂, ...)
+    var _select_circular_phi = function(def, val, conf) {
+        var visited = [];
+
+        var __is_circular_phi = function(_val) {
+            if (_val instanceof Expr.Phi) {
+                // lhand of the phi assignment
+                var _def = _val.parent.operands[0];
+
+                if (visited.indexOf(_def) === (-1)) {
+                    visited.push(_def);
+
+                    return _def.uses.every(function(u) {
+                        return __is_circular_phi(u.parent);
+                    });
+                }
+
+                // a visited phi: it's a circle
+                return true;
+            }
+
+            // not a phi
+            return false;
+        };
+
+        return __is_circular_phi(val);
+    };
+
     // --------------------------------------------------
 
-    Pruner.eliminate_weak                = new Pruner(_select_weak);
+    // Pruner.eliminate_weak                = new Pruner(_select_weak);
     Pruner.eliminate_dead_regs           = new Pruner(_select_dead_regs);
     Pruner.eliminate_dead_derefs         = new Pruner(_select_dead_derefs);
     Pruner.eliminate_dead_results        = new Pruner(_select_dead_results);
     Pruner.eliminate_def_single_phi      = new Pruner(_select_def_single_phi);
     Pruner.eliminate_def_single_phi_circ = new Pruner(_select_def_single_phi_circ);
+    Pruner.eliminate_circular_phi        = new Pruner(_select_circular_phi);
 
     return Pruner;
 });

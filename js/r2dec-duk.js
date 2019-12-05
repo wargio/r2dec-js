@@ -207,6 +207,9 @@ var load_r2_evars = function(ns) {
  * TODO:
  *   bugfixes:
  *      o resolve pic
+ *      o orphan 'if' conditions
+ *      o propagate based on liveness and interference
+ *      o fix ssa out translation
  * 
  *   features:
  *      o let user specify parameters values
@@ -294,15 +297,15 @@ function r2dec_main(args) {
                 analyzer.ssa_done(func, ssa, ssa_ctx);
 
                 Optimizer.run([
-                    Pruner.eliminate_weak,
                     Pruner.eliminate_dead_regs,
                     Pruner.eliminate_dead_derefs,
                     Pruner.eliminate_dead_results,
-                    Propagator.propagate_def_single_use,
+                    Propagator.propagate_def_regs,
                     Propagator.propagate_constants,
                     Propagator.propagate_dereferenced,
                     Pruner.eliminate_def_single_phi,
-                    Pruner.eliminate_def_single_phi_circ
+                    Pruner.eliminate_def_single_phi_circ,
+                    Pruner.eliminate_circular_phi
                 ], ssa_ctx, config['opt']);
 
                 // <DEBUG desc="emit def-use chains before ssa is transformed out">
@@ -310,7 +313,7 @@ function r2dec_main(args) {
                 // </DEBUG>
 
                 ssa.validate(ssa_ctx);
-                ssa.transform_out(ssa_ctx);
+                // ssa.transform_out(ssa_ctx);
 
                 var cflow = new ControlFlow(func);
                 cflow.fallthroughs();

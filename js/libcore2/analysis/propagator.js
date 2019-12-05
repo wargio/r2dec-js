@@ -86,33 +86,43 @@
 
     // --------------------------------------------------
 
-    // propagate definitions with only one use to their users
-    var _select_def_single_use = function(def, val, conf) {
-        // propagation of memory dereferences may yield nicer results, but
-        // will lead to incorrect results in case of pointer aliasing.
-        //
-        // since identifying pointer aliasing is impossible without emulating
-        // the code, the decompiler stays at the safe side. the user may decide
-        // to override this by setting 'opt.noalias' to true.
-        //
-        // nevertheless, some memory dereferences may be marked as safe for propagation;
-        // for example, x86 stack locations
+    var _select_def_regs = function(def, val, conf) {
         return (def.idx !== 0)
-            && (def.uses.length === 1)
-            && (!(def instanceof Expr.Deref) || def.is_safe || conf.noalias)
-         // && (!(val instanceof Expr.Deref) || val.is_safe || conf.noalias)
-            && !(val instanceof Expr.Phi)   // do not propagate phi expressions
-            && !(val instanceof Expr.Val);  // do not propagate value literals, sicne they are handled separately
+                && ((def instanceof Expr.Reg) && !(def instanceof Expr.Var))
+                && ((val instanceof Expr.Reg) && !(val instanceof Expr.Var));
     };
 
-    var _get_def_single_use = function(use, val) {
-        // do not propagate into phi (i.e. use is a phi argument)
-        if (use.parent instanceof Expr.Phi) {
-            return null;
-        }
-
+    var _get_def_regs = function(use, val) {
         return val.clone(['idx', 'def']);
     };
+
+    // // propagate definitions with only one use to their users
+    // var _select_def_single_use = function(def, val, conf) {
+    //     // propagation of memory dereferences may yield nicer results, but
+    //     // will lead to incorrect results in case of pointer aliasing.
+    //     //
+    //     // since identifying pointer aliasing is impossible without emulating
+    //     // the code, the decompiler stays at the safe side. the user may decide
+    //     // to override this by setting 'opt.noalias' to true.
+    //     //
+    //     // nevertheless, some memory dereferences may be marked as safe for propagation;
+    //     // for example, x86 stack locations
+    //     return (def.idx !== 0)
+    //         && (def.uses.length === 1)
+    //         && (!(def instanceof Expr.Deref) || def.is_safe || conf.noalias)
+    //      // && (!(val instanceof Expr.Deref) || val.is_safe || conf.noalias)
+    //         && !(val instanceof Expr.Phi)   // do not propagate phi expressions
+    //         && !(val instanceof Expr.Val);  // do not propagate value literals, sicne they are handled separately
+    // };
+    //
+    // var _get_def_single_use = function(use, val) {
+    //     // do not propagate into phi (i.e. use is a phi argument)
+    //     if (use.parent instanceof Expr.Phi) {
+    //         return null;
+    //     }
+    //
+    //     return val.clone(['idx', 'def']);
+    // };
 
     // TODO: stop propagation when encountering AddrOf, since we can't predict possible side effects
 
@@ -127,7 +137,7 @@
     var _get_constants = function(use, val) {
         // do not propagate if user is:
         //  - a phi argument, to simplify transforming ssa back later on
-        //  - an addressOf operand, because taking address of a constant value makes no sense
+        //  - an AddressOf operand, because taking address of a constant value makes no sense
         if ((use.parent instanceof Expr.Phi) || (use.parent instanceof Expr.AddrOf)) {
             return null;
         }
@@ -160,7 +170,7 @@
 
     // --------------------------------------------------
 
-    Propagator.propagate_def_single_use = new Propagator(_select_def_single_use, _get_def_single_use);
+    Propagator.propagate_def_regs       = new Propagator(_select_def_regs, _get_def_regs);
     Propagator.propagate_constants      = new Propagator(_select_constants, _get_constants);
     Propagator.propagate_dereferenced   = new Propagator(_select_dereferenced, _get_dereferenced);
 
