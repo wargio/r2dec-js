@@ -16,7 +16,6 @@
  */
 
  (function() {
-
     /**
      * This module defines IR statements that are common to all architectures. Each
      * generated expression is wrapped in a Statement, and each statement belongs to
@@ -47,7 +46,6 @@
         this.parent = null;
 
         this.expressions = [];
-        // this.statements = [];
         this.containers = [];
 
         exprs.forEach(this.push_expr, this);
@@ -137,17 +135,21 @@
      * @returns {!Statement}
      */
     Statement.prototype.clone = function() {
-        var array_clone = function(arr) {
+        var _array_clone = function(arr) {
             return arr.map(function(elem) { return elem.clone(); });
         };
 
-        var inst = Object.create(this.constructor.prototype);
-        var cloned = this.constructor.apply(inst, [
-            array_clone(this.expressions),
-            array_clone(this.containers)
+        var cloned = Object.create(this.constructor.prototype, {
+            expressions: { value: [], writable: true },
+            containers: { value: [], writable: true }
+        });
+
+        this.constructor.apply(cloned, [
+            _array_clone(this.expressions),
+            _array_clone(this.containers)
         ]);
 
-        return ((cloned !== null) && (typeof cloned === 'object')) ? cloned : inst;
+        return cloned;
     };
 
     /**

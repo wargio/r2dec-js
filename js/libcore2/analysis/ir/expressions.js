@@ -26,45 +26,45 @@
      *
      * Class hierarchy:
      *      Literal             : generic literal base class
-     *          Value
-     *          Register
-     *          Variable
+     *       ├ Value
+     *       ├ Register
+     *       └ Variable
      *
      *      Expr                : generic expression base class
-     *          Asm
-     *          Call
-     *          Phi
-     *
-     *          UExpr           : unary expression base class
-     *              Deref
-     *              AddressOf
-     *              Not
-     *              Neg
-     *
-     *          BExpr           : binary expression base class
-     *              Assign
-     *              Add
-     *              Sub
-     *              Mul
-     *              Div
-     *              Mod
-     *              And
-     *              Or
-     *              Xor
-     *              Shl
-     *              Shr
-     *              EQ
-     *              NE
-     *              LT
-     *              GT
-     *              LE
-     *              GE
-     *              BoolAnd
-     *              BoolOr
-     *              BoolNot
-     *
-     *          TExpr           : ternary expression base class
-     *              TCond
+     *       ├ Asm
+     *       ├ Call
+     *       ├ Phi
+     *       │
+     *       ├ UExpr           : unary expression base class
+     *       │  ├ Deref
+     *       │  ├ AddressOf
+     *       │  ├ Not
+     *       │  ├ Neg
+     *       │  └ BoolNot
+     *       │
+     *       ├ BExpr           : binary expression base class
+     *       │  ├ Assign
+     *       │  ├ Add
+     *       │  ├ Sub
+     *       │  ├ Mul
+     *       │  ├ Div
+     *       │  ├ Mod
+     *       │  ├ And
+     *       │  ├ Or
+     *       │  ├ Xor
+     *       │  ├ Shl
+     *       │  ├ Shr
+     *       │  ├ EQ
+     *       │  ├ NE
+     *       │  ├ LT
+     *       │  ├ GT
+     *       │  ├ LE
+     *       │  ├ GE
+     *       │  ├ BoolAnd
+     *       │  └ BoolOr
+     *       │
+     *       └ TExpr           : ternary expression base class
+     *          └ TCond
      */
 
     /**
@@ -766,11 +766,7 @@
         var _super = Object.getPrototypeOf(Object.getPrototypeOf(this));
         var str = _super.toString.call(this);
 
-        if (this.idx !== undefined) {
-            str += subscript(this.idx);
-        }
-
-        return str;
+        return (this.idx !== undefined) ? str + subscript(this.idx) : str;
     };
 
     // ------------------------------------------------------------
@@ -864,24 +860,27 @@
     LE.prototype.constructor = LE;
 
     return {
-        // abstract base classes: use only to define arch-specific exprs
+        // abstract base classes: do not use for direct instantiation
+        // use to define arch-specific exprs or in instanceof queries
         Literal:    Literal,
         UExpr:      UExpr,
         BExpr:      BExpr,
         TExpr:      TExpr,
         Expr:       Expr,
 
-        // ssa phi expression
-        Phi:        Phi,
-
-        // common expressions
+        // literals
         Reg:        Register,
         Var:        Variable,
         Val:        Value,
+
+        // unary expressions
         Deref:      Deref,
         AddrOf:     AddressOf,
         Not:        Not,
         Neg:        Neg,
+        BoolNot:    BoolNot,
+
+        // binary expressions
         Assign:     Assign,
         Add:        Add,
         Sub:        Sub,
@@ -899,11 +898,17 @@
         GT:         GT,
         LE:         LE,
         GE:         GE,
-        Call:       Call,
-        TCond:      TCond,
         BoolAnd:    BoolAnd,
         BoolOr:     BoolOr,
-        BoolNot:    BoolNot,
+
+        // ternary expressions
+        TCond:      TCond,
+
+        // n-ary expressions
+        Phi:        Phi,
+        Call:       Call,
+
+        // unordinary
         Unknown:    Asm
     };
 });
