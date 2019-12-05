@@ -48,6 +48,13 @@
             64: 'rax'
         }[nbits], this.bits);
 
+        /** System counter register */
+        this.COUNT_REG = new Expr.Reg({
+            16: 'cx',
+            32: 'ecx',
+            64: 'rcx'
+        }[nbits], this.bits);
+
         /** System stack pointer */
         this.STACK_REG = new Expr.Reg({
             16: 'sp',
@@ -151,6 +158,7 @@
             'cmovle' : _cmovle.bind(this),
             'cmove'  : _cmove.bind(this),
             'cmovne' : _cmovne.bind(this),
+            'cmovs'  : _cmovs.bind(this),
 
             // conditional set
             'seta'  : _seta.bind(this),
@@ -163,6 +171,7 @@
             'setle' : _setle.bind(this),
             'sete'  : _sete.bind(this),
             'setne' : _setne.bind(this),
+            'sets'  : _sets.bind(this),
 
             // flags manipulations
             'clc' : _clc.bind(this),
@@ -179,6 +188,16 @@
             'cbw'   : _cdqe.bind(this),  // TODO: source is signed
             'cwde'  : _cdqe.bind(this),  // TODO: source is signed
             'cdqe'  : _cdqe.bind(this),  // TODO: source is signed
+
+            // string operations
+            'cmpsb' : _cmps.bind(this),
+            'cmpsw' : _cmps.bind(this),
+            'cmpsd' : _cmps.bind(this),
+            'cmpsq' : _cmps.bind(this),
+            'stosb' : _stos.bind(this),
+            'stosw' : _stos.bind(this),
+            'stosd' : _stos.bind(this),
+            'stosq' : _stos.bind(this),
 
             // sse
             'movaps': _mov.bind(this),
@@ -227,25 +246,24 @@
      * @enum {number}
      * @readonly
      */
-    // const INSN_PREFIX = {
-    //     NONE:       0,
-    //     PREF_REP:   2,
-    //     PREF_REPNZ: 4,
-    //     PREF_LOCK:  8
-    // };
+    const INSN_PREF = {
+        NONE  : 0,
+        REP   : 2,
+        REPNZ : 4,
+        LOCK  : 8
+    };
 
     x86.prototype.r2decode = function(aoj) {
+        // r2cmd creates Long objects for all numeric values it finds. though it is required
+        // for the assembly listing, it is not required for its metadata and generates redundant
+        // overhead.
+        // to make things simpler and lighter, we prefer to convert all meatadata Long objects
+        // back to primitive numeric values.
+        var toInt = function(n) {
+            return n && n.__isLong__ ? parseInt(n) : n;
+        };
+
         var process_ops = function(op) {
-
-            // r2cmd creates Long objects for all numeric values it finds. though it is required
-            // for the assembly listing, it is not required for its metadata and generates redundant
-            // overhead.
-            // to make things simpler and lighter, we prefer to convert all meatadata Long objects
-            // back to primitive numeric values.
-            var toInt = function(n) {
-                return n && n.__isLong__ ? parseInt(n) : n;
-            };
-
             return {
                 /**
                  * Operand size in bits
@@ -274,17 +292,17 @@
                 mem: {
                     base:  op.base,
                     index: op.index,
-                    scale: op.scale,
-                    disp:  op.disp
+                    scale: toInt(op.scale),
+                    disp:  toInt(op.disp)
                 }
             };
         };
 
         var parsed = {
             address : aoj.addr,
-            isize   : aoj.size,
+            isize   : toInt(aoj.size),
             disasm  : aoj.disasm,
-            prefix  : aoj.prefix,
+            prefix  : toInt(aoj.prefix),
             mnemonic: aoj.mnemonic,
             operands: aoj.opex.operands.map(process_ops)
         };
@@ -896,6 +914,10 @@
         return _common_cmov.call(this, p, new Expr.BoolNot(Flags.ZF.clone()));
     };
 
+    var _cmovs = function(p) {
+        return _common_cmov.call(this, p, Flags.SF.clone());
+    };
+
     var _seta = function(p) {
         return _common_setcc.call(this, p, new Expr.BoolAnd(new Expr.BoolNot(Flags.ZF.clone()), new Expr.BoolNot(Flags.CF.clone())));
     };
@@ -936,6 +958,10 @@
         return _common_setcc.call(this, p, new Expr.BoolNot(Flags.ZF.clone()));
     };
 
+    var _sets = function(p) {
+        return _common_setcc.call(this, p, Flags.SF.clone());
+    };
+
     var _clc = function(p) {
         return _common_set_flag('CF', 0);
     };
@@ -950,6 +976,48 @@
 
     var _std = function(p) {
         return _common_set_flag('DF', 1);
+    };
+
+    var _cmps = function(p) {
+        var lhand = this.get_operand_expr(p.operands[0]);
+        var rhand = this.get_operand_expr(p.operands[1]);
+        var expr;
+
+        if (p.prefix === INSN_PREF.REP) {
+            var intrin = 'memcmp';
+            var s1 = new Expr.AddrOf(lhand);
+            var s2 = new Expr.AddrOf(rhand);
+            var n = new Expr.Mul(new Expr.Val(lhand.size / 8, this.nbits), this.COUNT_REG.clone());
+
+            // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
+            expr = new Expr.Call(new Expr.Reg(intrin), [s1, s2, n]);
+        } else {
+            expr = new Expr.Sub(lhand, rhand);
+        }
+
+        // TODO: do we need to advance edi and esi pointers?
+        return this.eval_flags(expr, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF']);
+    };
+
+    var _stos = function(p) {
+        var lhand = this.get_operand_expr(p.operands[0]);
+        var rhand = this.get_operand_expr(p.operands[1]);
+        var expr;
+
+        if (p.prefix === INSN_PREF.REP) {
+            var intrin = 'memset';
+            var s = new Expr.AddrOf(lhand);
+            var c = rhand;
+            var n = this.COUNT_REG.clone();
+
+            // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
+            expr = new Expr.Call(new Expr.Reg(intrin), [s, c, n]);
+        } else {
+            expr = new Expr.Assign(lhand, rhand);
+        }
+
+        // TODO: do we need to advance edi and esi pointers?
+        return expr;
     };
 
     var _movbe = function(p) {
@@ -1001,9 +1069,7 @@
     // rol
     // ror
     // lods{b,w,d,q}
-    // stos{b,w,d,q}
     // movs{b,w,d,q}
-    // cmps{b,w,d,q}
     // scas{b,w,d,q}
     // pushf{,d,q}
     // popf{,d,q}
