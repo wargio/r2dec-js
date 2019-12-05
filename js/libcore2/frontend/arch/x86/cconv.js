@@ -48,7 +48,7 @@
         //     var c0 = d.weak ? '\33[90m' : '';
         //     var c1 = d.weak ? '\33[0m' : '';
         //
-        //     console.log(c0, ' |', 'def:', d.parent.toString(), c1);
+        //     console.log(c0, ' |', 'def:', d.parent.parent.toString(), c1);
         //
         //     d.uses.forEach(function(u) {
         //         console.log(c0, ' |', '  |', u.parent_stmt().toString(), c1);
@@ -145,7 +145,7 @@
     }
 
     CCamd64.prototype.get_args_expr = function(fcall, context) {
-        var nargs = 0;
+        var nargs = (-1);
         var args = _arg_regs64.slice();
 
         var live_by_fcall = _get_live_unused_by(context, fcall);
@@ -156,7 +156,7 @@
         //     var c0 = d.weak ? '\33[90m' : '';
         //     var c1 = d.weak ? '\33[0m' : '';
         //
-        //     console.log(c0, ' |', 'def:', d.parent.toString(), c1);
+        //     console.log(c0, ' |', 'def:', d.parent.parent.toString(), c1);
         //
         //     d.uses.forEach(function(u) {
         //         console.log(c0, ' |', '  |', u.parent_stmt().toString(), c1);
