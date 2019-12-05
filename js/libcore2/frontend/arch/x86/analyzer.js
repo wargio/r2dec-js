@@ -86,20 +86,20 @@
                             callee = callee.operands[0];
                         }
 
-                        // process only direct calls with known destinations; we cannot get calling convention
-                        // info for indirect targets
-                        if (callee instanceof Expr.Val) {
-                            var ccname = Global.r2cmd('afc', '@', callee.value.toString(), '2>', '/dev/null');
-                            var cchandler = cconvs[ccname];
+                        // retrieve calling convention name for known destinations
+                        // for unknown destination use empty string, which is used for guessing the cc
+                        var ccname = (callee instanceof Expr.Val) ?
+                            Global.r2cmd('afc', '@', callee.value.toString(), '2>', '/dev/null') : '';
 
-                            if (cchandler === undefined) {
-                                throw new Error('unsupported calling convention: ' + ccname);
-                            }
+                        var cchandler = cconvs[ccname];
 
-                            cchandler.get_args_expr(fcall, local_context).forEach(function(arg) {
-                                fcall.push_operand(arg);
-                            });
+                        if (cchandler === undefined) {
+                            throw new Error('unsupported calling convention: ' + ccname);
                         }
+
+                        cchandler.get_args_expr(fcall, local_context).forEach(function(arg) {
+                            fcall.push_operand(arg);
+                        });
                     }
                 });
             });
@@ -433,19 +433,11 @@
             if (terminator instanceof Stmt.Goto) {
                 var dest = terminator.dest;
 
-                // direct jump
-                if (dest instanceof Expr.Val) {
-                    var fcall = new Expr.Call(dest.clone(), []);
+                var fcall = new Expr.Call(dest.clone(), []);
                 var ret = new Stmt.Return(terminator.address, fcall);
 
                 // replace 'goto dest' with 'return dest()'
                 terminator.replace(ret);
-            }
-
-                // indirect jump
-                // else if (dest instanceof Expr.Reg) {
-                //     // TODO: to be implemented
-                // }
             }
         });
     };
@@ -624,8 +616,6 @@
         this.func_args = regs.args;
 
         gen_overlaps(func, this.arch);
-
-        // transform exit blocks' gotos into function calls
         transform_tailcalls(func);
     };
 
