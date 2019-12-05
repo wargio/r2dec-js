@@ -349,18 +349,24 @@
 
         // simple convergance
         this.dfs.iterNodes().forEach(function(N) {
-            var C0 = node_to_block(this.func, N).container;
-            var outter = C0.terminator();
+            do {
+                var descend = false;
+                var C0 = node_to_block(this.func, N).container;
+                var outter = C0.terminator();
 
-            if ((outter instanceof Stmt.If) && (outter.then_cntr && !outter.else_cntr)) {
-                var inner = outter.then_cntr.statements[0];
+                if ((outter instanceof Stmt.If) && (outter.then_cntr && !outter.else_cntr) && !outter.then_cntr.fallthrough) {
+                    var inner = outter.then_cntr.statements[0];
 
-                if ((inner instanceof Stmt.If) && (inner.then_cntr && !inner.else_cntr)) {
-                    var conv_cond = new Expr.BoolAnd(outter.cond, inner.cond);
+                    if ((inner instanceof Stmt.If) && (inner.then_cntr && !inner.else_cntr)) {
+                        var conv_cond = new Expr.BoolAnd(outter.cond, inner.cond);
 
-                    outter.replace(new Stmt.If(outter.address, conv_cond, inner.then_cntr, null));
+                        outter.replace(new Stmt.If(outter.address, conv_cond, inner.then_cntr, null));
+                        inner.pluck();
+
+                        descend = true;
+                    }
                 }
-            }
+            } while (descend);
         }, this);
 
         // prune Goto statements
