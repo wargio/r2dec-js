@@ -346,7 +346,7 @@
                 'Not'       : [TOK_OPRTOR, '~'],
                 'Neg'       : [TOK_OPRTOR, '-'],
                 'BoolNot'   : [TOK_OPRTOR, '!']
-            }[tname] || [TOK_INVALID, expr.operator];
+            }[tname] || [TOK_INVALID, expr.operator || tname];
 
             return _emit_uexpr.call(this, expr, _uexpr_op);
         }
@@ -372,7 +372,7 @@
                 'GE'     : [TOK_OPRTOR, '>='],
                 'BoolAnd': [TOK_OPRTOR, '&&'],
                 'BoolOr' : [TOK_OPRTOR, '||']
-            }[tname] || [TOK_INVALID, expr.operator];
+            }[tname] || [TOK_INVALID, expr.operator || tname];
 
             // check whether this is an assignment special case
             if (expr instanceof Expr.Assign) {
