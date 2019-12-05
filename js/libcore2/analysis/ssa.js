@@ -158,9 +158,14 @@
         var exp_pstmt = expr.parent_stmt();
 
         // live ranges are collected recursively along backward cfg walk. for that reason, all
-        // definitions defined in another block are guaranteed to precede expr. definition that
-        // is defined in the same block, must be checked to be defined earlier
-        return (def_pstmt.parent !== exp_pstmt.parent) || def_pstmt.address.lt(exp_pstmt.address);
+        // definitions defined in another block are guaranteed to precede expr. a definition that
+        // is defined at the same block, should be defined in an earlier address
+        //
+        // the only exception for that are phi assignments, that may appear on the same address
+        // in case the fcall is the first statement on the block
+        return (def_pstmt.parent !== exp_pstmt.parent)
+            || def_pstmt.address.lt(exp_pstmt.address)
+            || (def_pstmt.address.eq(exp_pstmt.address) && (this.def.parent.operands[1] instanceof Expr.Phi));
     };
 
     // check whether the definition is still alive when reaching specified expression
@@ -337,10 +342,10 @@
                             args[i] = a.clone(['idx', 'def', 'is_safe', 'weak']);
                         }
 
-                        var phi_var = a.clone(['idx', 'def', 'is_safe']);
+                        var phi_var = a.clone(['idx', 'def', 'is_safe', 'weak']);
 
                         // phi variables are artificial and may be safely eliminated
-                        phi_var.weak = true;
+                        // phi_var.weak = true;
 
                         // turn Node y into BasicBlock _y
                         var _y = node_to_block(func, y);
@@ -617,7 +622,7 @@
     var relax_phis = function(ctx) {
         simplify_single_phi(ctx);
         simplify_self_ref_phi(ctx);
-        propagate_chained_phi(ctx);
+        // propagate_chained_phi(ctx);
     };
 
     SSA.prototype.get_local_contexts = function(ignore_weak) {
@@ -898,6 +903,11 @@
                                     console.log('[!] use without an assigned def:', op);
                                     console.log('    parent statement:', op.parent_stmt());
                                 } else {
+                                    if (op.def.parent.parent === undefined) {
+                                        console.log('[!] dangling def regitration:', op);
+                                        console.log('    parent statement:', op.parent_stmt());
+                                    }
+
                                     if (op.def.uses.indexOf(op) === (-1)) {
                                         console.log('[!] unregistered use:', op);
                                         console.log('    parent statement:', op.parent_stmt());
