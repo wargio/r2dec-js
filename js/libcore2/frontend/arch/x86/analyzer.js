@@ -23,7 +23,8 @@
     const Simplify = require('js/libcore2/analysis/ir/simplify');
     const Optimizer = require('js/libcore2/analysis/optimizer');
     const Propagator = require('js/libcore2/analysis/propagator');
-    
+    const Pruner = require('js/libcore2/analysis/pruner');
+
     // TODO: this file looks terrible; refactor this sh*t
 
     // replace position independent references with actual addresses
@@ -473,7 +474,7 @@
             return freg.equals_no_idx(def) || (def instanceof Flags.Flag);
         };
 
-        var _select = function(def, val, conf) {
+        var _propagation_selector = function(def, val, conf) {
             return (def.idx !== 0) && !(val instanceof Expr.Phi) && _is_flag_def(def);
         };
 
@@ -485,8 +486,15 @@
             return val.clone(['idx', 'def']);
         };
 
+        var _pruning_selector = function(def, val, conf) {
+            return (def.prune) && _is_flag_def(def);
+        };
+
+        // perform propagation and then prune all fully propagated flag definitions.
+        // that cleanup is not really necessary here, but would reduce the burden on ssa local contexts
         Optimizer.run([
-            new Propagator(_select, _get_replacement)
+            new Propagator(_propagation_selector, _get_replacement),
+            new Pruner(_pruning_selector)
         ], ctx, null);
     };
 
