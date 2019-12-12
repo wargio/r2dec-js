@@ -185,9 +185,9 @@
             'movzx' : _mov.bind(this),  // TODO: dest is unsigned
 
             // sign exention
-            'cbw'   : _cdqe.bind(this),  // TODO: source is signed
-            'cwde'  : _cdqe.bind(this),  // TODO: source is signed
-            'cdqe'  : _cdqe.bind(this),  // TODO: source is signed
+            'cbw'   : _cbw.bind(this),  // TODO: source is signed
+            'cwde'  : _cwde.bind(this), // TODO: source is signed
+            'cdqe'  : _cdqe.bind(this), // TODO: source is signed
 
             // string operations
             'cmpsb' : _cmps.bind(this),
@@ -485,9 +485,7 @@
         return [set_flag(f, bval)];
     };
 
-    var _common_sign_ext = function(p) {
-        var narrow = this.get_operand_expr(p.operands[0]);
-
+    var _common_sign_ext = function(narrow) {
         var wide = {
             8:  'ax',
             16: 'eax',
@@ -784,9 +782,6 @@
     var _neg = function(p) { return _common_uop.call(this, p, Expr.Neg); };    // cf = (opnd is non-zero)
     var _not = function(p) { return _common_uop.call(this, p, Expr.Not); };
 
-    // signed operations
-    var _cdqe = function(p) { return _common_sign_ext.call(this, p); };
-
     var _cmp = function(p) {
         var lhand = this.get_operand_expr(p.operands[0]);
         var rhand = this.get_operand_expr(p.operands[1]);
@@ -976,6 +971,24 @@
 
     var _std = function(p) {
         return _common_set_flag('DF', 1);
+    };
+
+    var _cbw = function(p) {
+        var reg = new Expr.Reg('al', 8);
+
+        return _common_sign_ext(reg);
+    };
+
+    var _cwde = function(p) {
+        var reg = new Expr.Reg('ax', 16);
+
+        return _common_sign_ext(reg);
+    };
+
+    var _cdqe = function(p) {
+        var reg = new Expr.Reg('eax', 32);
+
+        return _common_sign_ext(reg);
     };
 
     var _cmps = function(p) {
