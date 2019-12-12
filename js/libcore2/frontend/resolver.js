@@ -27,10 +27,10 @@
         // do not get flag for 0; this would probably yield a register name that happens
         // to be evaluated to this number
         if ((0 | addr) !== 0) {
-            var fij = Global.r2cmdj('fij', '1', '@', addr);
+            var fij = Global.r2cmdj('fij', '4', '@', addr);
 
             if ((fij instanceof Array) && (fij.length > 0)) {
-                flag = fij.pop().name;
+                flag = fij[0].name;
             }
         }
 
