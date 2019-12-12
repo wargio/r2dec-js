@@ -24,16 +24,29 @@
     }
 
     var _get_live_unused_by = function(context, expr) {
-        var live_by = context.live_ranges.filter(function(rng) {
-            return rng.is_defined_by(expr)  // defined before expr is reached on that cfg path
-                && rng.is_alive_by(expr)    // definition is still alive by expr is reached
-                && rng.is_unused_by(expr);  // definition is not used [or used only by weak users] by expr is reached
-        });
+        // var live_by = context.live_ranges.filter(function(rng) {
+        //     return rng.is_defined_by(expr)  // defined before expr is reached on that cfg path
+        //         // && rng.is_alive_by(expr)    // definition is still alive by expr is reached
+        //         && rng.is_unused_by(expr);  // definition is not used [or used only by weak users] by expr is reached
+        // });
+        //
+        // // extract definitions out of ranges
+        // return live_by.map(function(rng) {
+        //     return rng.def;
+        // });
 
-        // extract definitions out of ranges
-        return live_by.map(function(rng) {
-            return rng.def;
+        return context.live_ranges.filter(function(rng) {
+            return rng.is_defined_by(expr);
         });
+    };
+
+    var _make_user = function(def) {
+        var use = def.clone(['idx']);
+
+        use.def = def;
+        use.def.uses.push(use);
+
+        return use;
     };
 
     CCcdecl.prototype.get_args_expr = function(fcall, context) {
@@ -42,9 +55,15 @@
 
         var live_by_fcall = _get_live_unused_by(context, fcall);
 
+        // drop all definitions that are already used prior to fcall
+        live_by_fcall = live_by_fcall.filter(function(rng) {
+            return rng.is_unused_by(fcall);
+        });
+
         // <DEBUG>
         // console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
-        // live_by_fcall.forEach(function(d) {
+        // live_by_fcall.forEach(function(rng) {
+        //     var d = rng.def;
         //     var c0 = d.weak ? '\33[90m' : '';
         //     var c1 = d.weak ? '\33[0m' : '';
         //
@@ -59,7 +78,7 @@
 
         // scan live defs backwards starting from fcall to locate top of stack
         for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
-            var def = live_by_fcall[i];
+            var def = live_by_fcall[i].def;
 
             if (this.arch.is_stack_reg(def)) {
                 top_of_stack = def.parent.operands[1].clone(['idx', 'def'], false);
@@ -69,20 +88,14 @@
         }
 
         for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
-            var def = live_by_fcall[i];
+            var def = live_by_fcall[i].def;
 
             if (def instanceof Expr.Deref) {
                 var deref_op = def.operands[0];
 
                 if (this.arch.is_stack_reg(deref_op) || this.arch.is_stack_var(deref_op)) {
                     if (deref_op.equals(top_of_stack)) {
-                        var arg = def.clone(['idx', 'def']);
-
-                        // register arg as a new user
-                        arg.def = def;
-                        arg.def.uses.push(arg);
-
-                        args.push(arg);
+                        args.push(_make_user(def));
 
                         // calculate next top of stack to look for
                         top_of_stack = new Expr.Add(top_of_stack, this.arch.ASIZE_VAL.clone());
@@ -105,8 +118,8 @@
         return args;
     };
 
-    CCcdecl.prototype.is_potential_arg = function(def) {
-        return this.arch.is_stack_reg(def);
+    CCcdecl.prototype.is_potential_arg = function(rng, fcall) {
+        return rng.is_unused_by(fcall) && this.arch.is_stack_reg(rng.def);
     };
 
     // --------------------------------------------------
@@ -144,15 +157,26 @@
         // empty
     }
 
+    var _is_phi_with_unint_arg = function(def) {
+        var val = def.parent.operands[1];
+
+        var __is_uninit = function(o) {
+            return (o.idx === 0);
+        };
+
+        return (val instanceof Expr.Phi) && val.operands.some(__is_uninit);
+    };
+
     CCamd64.prototype.get_args_expr = function(fcall, context) {
         var nargs = (-1);
-        var args = _arg_regs64.slice();
+        var args = [];
 
         var live_by_fcall = _get_live_unused_by(context, fcall);
 
         // <DEBUG>
         // console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
         // live_by_fcall.forEach(function(d) {
+        //     var d = rng.def;
         //     var c0 = d.weak ? '\33[90m' : '';
         //     var c1 = d.weak ? '\33[0m' : '';
         //
@@ -166,8 +190,8 @@
         // </DEBUG>
 
         // drop all weak definitions
-        live_by_fcall = live_by_fcall.filter(function(def) {
-            return !(def.weak);
+        live_by_fcall = live_by_fcall.filter(function(rng) {
+            return !(rng.def.weak);
         });
 
         // as opposed to arguments passed on the stack, arguments passed on registers are
@@ -184,38 +208,41 @@
         // be passed directly).
 
         for (var i = (live_by_fcall.length - 1); i >= 0; i--) {
-            var def = live_by_fcall[i];
+            var rng = live_by_fcall[i];
+            var def = rng.def;
 
             for (var j = 0; j < _arg_regs64.length; j++) {
                 if (def.equals_no_idx(_arg_regs64[j]) ||
                     def.equals_no_idx(_arg_regs32[j])) {
 
-                    // make sure that slot was not already taken
-                    // TODO: this condition seems to be always true, since we consider only live defs
-                    if (args[j].def === undefined) {
-                        var arg = def.clone(['idx']);
+                    // do not consider phi definitions that have at least one uninit argument. that prevents
+                    // registers that are not initialized on all paths - from being considered as fcall args
+                    if (!_is_phi_with_unint_arg(def)) {
+                        // make sure that slot was not already taken; i.e. consider only the latest definition
+                        // of the same name
+                        if (args[j] === undefined) {
+                            args[j] = def;
 
-                        // register arg as a new user
-                        arg.def = def;
-                        arg.def.uses.push(arg);
-
-                        args[j] = arg;
-                        nargs = Math.max(nargs, j);
+                            if (rng.is_unused_by(fcall)) {
+                                nargs = Math.max(nargs, j);
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // TODO: some elements of 'args' may be the default ones, i.e. with no ssa data
-        return args.slice(0, nargs + 1);
+        return args.slice(0, nargs + 1).map(function(def) {
+            return _make_user(def);
+        });
     };
 
-    CCamd64.prototype.is_potential_arg = function(def) {
+    CCamd64.prototype.is_potential_arg = function(rng, fcall) {
         var found = false;
 
         for (var j = 0; !found && (j < _arg_regs64.length); j++) {
-            found = def.equals_no_idx(_arg_regs64[j]) ||
-                    def.equals_no_idx(_arg_regs32[j]);
+            found = rng.def.equals_no_idx(_arg_regs64[j]) ||
+                    rng.def.equals_no_idx(_arg_regs32[j]);
         }
 
         return found;
@@ -234,13 +261,13 @@
 
         // scan live defs backwards starting from fcall to locate potential args
         for (var i = (live_by_fcall.length - 1); !CCobj && (i >= 0); i--) {
-            var def = live_by_fcall[i];
+            var rng = live_by_fcall[i];
 
             // find first cc handler that would consider def as a potential fcall argument
             for (var j = 0; !CCobj && (j < this.cchandlers.length); j++) {
                 var cc = this.cchandlers[j];
 
-                if (cc.is_potential_arg(def)) {
+                if (cc.is_potential_arg(rng, fcall)) {
                     CCobj = cc;
                 }
             }
