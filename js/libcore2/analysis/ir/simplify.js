@@ -121,10 +121,7 @@
 
                 // ((ilhand op irhand) op orhand) --> (ilhand op (irhand op orhand))
                 if ((oexpr_op === iexpr_op) && (orhand instanceof Expr.Val) && (irhand instanceof Expr.Val)) {
-                    var new_lhand = ilhand.clone(wssa);
-                    var new_rhand = new iexpr_op(irhand, orhand);
-
-                    return new oexpr_op(new_lhand, new_rhand);
+                    return new iexpr_op(ilhand.clone(wssa), new iexpr_op(irhand.clone(), orhand.clone()));
                 }
             }
         }
@@ -148,7 +145,7 @@
         if (arith_ops.indexOf(oexpr_op) !== (-1)) {
             // implied: (oexpr instanceof Expr.BExpr)
             var olhand = expr.operands[0];
-            var orhand = expr.operands[1];
+            var orhand = expr.operands[1];  // b
 
             // inner expression (left hand of the outter one)
             var iexpr = olhand;
@@ -156,23 +153,20 @@
 
             if (arith_ops.indexOf(iexpr_op) !== (-1)) {
                 // implied: (iexpr instanceof Expr.BExpr)
-                var ilhand = iexpr.operands[0];
-                var irhand = iexpr.operands[1];
+                var ilhand = iexpr.operands[0]; // x
+                var irhand = iexpr.operands[1]; // a
 
                 // ((x iexpr_op a) oexpr_op b)
                 if ((orhand instanceof Expr.Val) && (irhand instanceof Expr.Val)) {
-                    var sign = (oexpr_op === iexpr_op ? Long.UONE : Long.NEG_ONE);
+                    var op = (oexpr_op === iexpr_op) ? Expr.Add : Expr.Sub;
 
                     // ((x - a) - b) == (x - (a + b))
                     // ((x + a) + b) == (x + (a + b))
-                    // ((x - a) + b) == (x + (-a + b))
-                    // ((x + a) - b) == (x - (-a + b))
+                    // ((x - a) + b) == (x - (a - b))
+                    // ((x + a) - b) == (x + (a - b))
 
-                    var new_lhand = ilhand.clone(wssa);
-                    var new_rhand = new Expr.Val(irhand.value.mul(sign).add(orhand.value), irhand.size);
-
-                    // (x oexpr_op (sign * a + b))
-                    return new oexpr_op(new_lhand, new_rhand);
+                    // generalized case: (x iexpr_op (a op b))
+                    return new iexpr_op(ilhand.clone(wssa), new op(irhand.clone(), orhand.clone()));
                 }
             }
         }

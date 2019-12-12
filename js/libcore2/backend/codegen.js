@@ -450,15 +450,17 @@
             return Array.prototype.concat(fcall, _emit_expr_list.call(this, args));
         }
 
+        // Phi expressions are not expected here since SSA was already transfromed out, but this is here
+        // for debugging and testing purposes
+        else if (expr instanceof Expr.Phi) {
+            return Array.prototype.concat([[TOK_INVALID, '\u03a6']], _emit_expr_list.call(this, expr.operands));
+        }
+
         else if (expr instanceof Expr.Unknown) {
             var asm_line = [TOK_STRING, '"' + expr.line + '"'];
 
             return [[TOK_KEYWORD, '__asm'], SPACE].concat(parenthesize([asm_line]));
         }
-
-        // else if (expr instanceof Expr.Phi) {
-        //     return Array.prototype.concat([[TOK_INVALID, '\u03a6']], _emit_expr_list.call(this, expr.operands));
-        // }
 
         return [[TOK_INVALID, expr ? expr.toString() : expr]];
     };

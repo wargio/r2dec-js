@@ -170,7 +170,7 @@
 
     // check whether the definition is still alive when reaching specified expression
     LiveRange.prototype.is_alive_by = function(expr) {
-        if (this.is_killed()) {
+        if (this.killing !== null) {
             var kill_pstmt = this.killing.parent_stmt();
             var exp_pstmt = expr.parent_stmt();
 
@@ -222,10 +222,6 @@
 
             return unused || _is_weak_use(u);
         });
-    };
-
-    LiveRange.prototype.is_killed = function() {
-        return (this.killing !== null);
     };
 
     LiveRange.prototype.toString = function() {
@@ -534,7 +530,7 @@
     // propagate phi groups that have only one item in them.
     // if a phi expression has only one argument, propagate it into defined variable
     //
-    // x7 = Phi(x4) --> x7 = x4
+    // x₃ = Φ(x₂) --> x₃ = x₂
     var simplify_single_phi = function(ctx) {
         return ctx.iterate(function(def) {
             var p = def.parent;         // p is Expr.Assign
@@ -554,7 +550,7 @@
     };
 
     // propagate self-referencing phis with two arguments; this is common in loops
-    // e.g. x₃ = Φ(x₂, x₃)   --> x₃ = x₂
+    // e.g. x₃ = Φ(x₂, x₃) --> x₃ = x₂
     var simplify_self_ref_phi = function(ctx) {
         return ctx.iterate(function(def) {
             var p = def.parent;         // p is Expr.Assign
@@ -562,17 +558,15 @@
             var rhand = p.operands[1];  // assigned expression
 
             if ((rhand instanceof Expr.Phi) && (rhand.operands.length === 2)) {
-                var other = null;
+                var phi_arg1 = rhand.operands[0];
+                var phi_arg2 = rhand.operands[1];
 
-                // check which of the phi operands (if any) equals to the assigned variable
-                if (rhand.operands[0].equals(lhand)) {
-                    other = rhand.operands[1];
-                } else if (rhand.operands[1].equals(lhand)) {
-                    other = rhand.operands[0];
-                }
-
-                if (other) {
-                    rhand.replace(other.pluck());
+                // check which of the phi operands (if any) equals to the defined variable
+                // and use the other one to replace the entire phi expression
+                if (phi_arg1.equals(lhand)) {
+                    rhand.replace(phi_arg2.pluck());
+                } else if (phi_arg2.equals(lhand)) {
+                    rhand.replace(phi_arg1.pluck());
                 }
             }
 
@@ -819,8 +813,8 @@
 
         var candidates = {};
 
-        for (var c in contexts) {
-            var locals = contexts[c].locals;
+        for (var ctx in contexts) {
+            var locals = contexts[ctx].locals;
 
             locals.forEach(function(def) {
                 if (def.idx !== 0) {
@@ -841,9 +835,9 @@
 
         var preserved = [];
 
-        for (var c in candidates) {
-            var def = candidates[c][0];
-            var origins = candidates[c][1];
+        for (var cnd in candidates) {
+            var def = candidates[cnd][0];
+            var origins = candidates[cnd][1];
 
             var identical = function(o) {
                 return o.equals(origins[0]);
@@ -865,13 +859,26 @@
     };
 
     SSA.prototype.validate = function(ctx) {
+        var warnings = {};
+
+        var _warn = function(msg, expr) {
+            var pstmt = expr.parent_stmt() || 'unknown';
+
+            if (!(pstmt in warnings)) {
+                warnings[pstmt] = [];
+            }
+
+            warnings[pstmt].push({
+                msg:  msg,
+                expr: expr
+            });
+        };
+
         var _is_assignable = function(expr) {
             return (expr instanceof Expr.Reg) || (expr instanceof Expr.Deref) || (expr instanceof Expr.Var);
         };
 
         var defs = ctx.defs;
-
-        // console.log('validating ssa context');
 
         // iterate through all expressions in function:
         // - if a definition: make sure it is registered in context defs
@@ -884,10 +891,10 @@
 
                         if (_is_assignable(lhand)) {
                             if (!lhand.is_def) {
-                                console.log('[!] assigned expression not marked as def:', expr);
+                                _warn('assigned expression not marked as def', expr);
                             }
                         } else {
-                            console.log('[!] assigning to a non-assignable expression:', expr);
+                            _warn('assigning to a non-assignable expression', expr);
                         }
                     }
 
@@ -895,22 +902,18 @@
                         if (_is_assignable(op)) {
                             if (op.is_def) {
                                 if (!(op in defs)) {
-                                    console.log('[!] missing def for:', op);
-                                    console.log('    parent statement:', op.parent_stmt());
+                                    _warn('missing def for', op);
                                 }
                             } else {
                                 if (op.def === undefined) {
-                                    console.log('[!] use without an assigned def:', op);
-                                    console.log('    parent statement:', op.parent_stmt());
+                                    _warn('use without an assigned def', op);
                                 } else {
                                     if (op.def.parent.parent === undefined) {
-                                        console.log('[!] dangling def regitration:', op);
-                                        console.log('    parent statement:', op.parent_stmt());
+                                        _warn('dangling def regitration', op);
                                     }
 
                                     if (op.def.uses.indexOf(op) === (-1)) {
-                                        console.log('[!] unregistered use:', op);
-                                        console.log('    parent statement:', op.parent_stmt());
+                                        _warn('unregistered use', op);
                                     }
                                 }
                             }
@@ -927,13 +930,23 @@
             var v = defs[d];
 
             if (v.parent_stmt() === undefined) {
-                console.log('[!] stale def:', v);
+                _warn('stale def:', v);
             }
 
             v.uses.forEach(function(u, i) {
                 if (!(u.def.equals(v))) {
-                    console.log('[!] stale use:', v, '[' + i + ']');
+                    _warn('stale use ' + '[' + i + ']', v);
                 }
+            });
+        }
+
+        // display warnings
+        // console.log('validating ssa context');
+        for (var key in warnings) {
+            console.log('[!]', key, ':');
+
+            warnings[key].forEach(function(witem) {
+                console.log('   ', witem.msg, ':', witem.expr);
             });
         }
     };
