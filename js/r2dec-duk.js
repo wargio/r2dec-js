@@ -16,7 +16,7 @@
  */
 
  // a few polyfills to make life easier; do not remove and keep it first
-const Polyfill = require('js/libcore2/polyfill');
+require('js/libcore2/polyfill');
 
 const Graph = require('js/libcore2/analysis/graph');
 const JSONr2 = require('js/libcore2/libs/json64');
@@ -86,12 +86,16 @@ function Function(afij, afbj) {
     //
     // though we could just pick the first block listed in 'afbj' [which is is usually the function's
     // entry block], this approach seems to be more robust
-    this.entry_block = this.basic_blocks.filter(function(bb) { return bb.is_entry; })[0];
+    this.entry_block = this.basic_blocks.filter(function(bb) {
+        return bb.is_entry;
+    })[0];
 
-    // a list of blocks that leaves the function either by returning or tail-calling another function.
+    // a list of blocks that leave the function either by returning or tail-calling another function.
     // there should be at least one item in this list. note that an exit block may be the function entry
     // block as well
-    this.exit_blocks = this.basic_blocks.filter(function(bb) { return bb.is_exit; });
+    this.exit_blocks = this.basic_blocks.filter(function(bb) {
+        return bb.is_exit;
+    });
 
     var va_base = afij.offset.sub(afij.minbound);
 
@@ -103,6 +107,12 @@ function Function(afij, afbj) {
     this.rettype = afij.signature.split(afij.name, 1)[0].trim() || 'void';
 }
 
+/**
+ * Retreives a basic block by its address.
+ * @param {Long} address Address of desired basic block
+ * @returns {BasicBlock} Basic block whose address was specified at `address`,
+ * or `undefined` if no basic block with that address exists in function
+ */
 Function.prototype.getBlock = function(address) {
     return this.basic_blocks.find(function(block) {
         return block.address.eq(address);
@@ -277,8 +287,7 @@ function r2dec_main(args) {
                 analyzer.ssa_step_regs(func, ssa_ctx);
 
                 Optimizer.run([
-                    Propagator.propagate_constants,
-                    Propagator.propagate_dereferenced
+                    Propagator.propagate_safe_defs
                 ], ssa_ctx, config['opt']);
 
                 // ssa tagging for local variables
@@ -286,8 +295,7 @@ function r2dec_main(args) {
                 analyzer.ssa_step_vars(func, ssa_ctx);
 
                 Optimizer.run([
-                    Propagator.propagate_constants,
-                    Propagator.propagate_dereferenced
+                    Propagator.propagate_safe_defs
                 ], ssa_ctx, config['opt']);
 
                 // ssa tagging for memory dereferences
@@ -297,12 +305,10 @@ function r2dec_main(args) {
                 analyzer.ssa_done(func, ssa, ssa_ctx);
 
                 Optimizer.run([
+                    Propagator.propagate_safe_defs,
                     Pruner.eliminate_dead_regs,
                     Pruner.eliminate_dead_derefs,
                     Pruner.eliminate_dead_results,
-                    Propagator.propagate_def_regs,
-                    Propagator.propagate_constants,
-                    Propagator.propagate_dereferenced,
                     Pruner.eliminate_def_single_phi,
                     Pruner.eliminate_def_single_phi_circ,
                     Pruner.eliminate_circular_phi

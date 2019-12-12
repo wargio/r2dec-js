@@ -74,7 +74,7 @@
                     }
                 }
 
-                // no uses left after propagation; mark for pruning
+                // no uses left after propagation; mark as safe for pruning
                 if (def.uses.length === 0) {
                     def.prune = true;
                 }
@@ -86,93 +86,191 @@
 
     // --------------------------------------------------
 
-    var _select_def_regs = function(def, val, conf) {
-        return (def.idx !== 0)
-                && ((def instanceof Expr.Reg) && !(def instanceof Expr.Var))
-                && ((val instanceof Expr.Reg) && !(val instanceof Expr.Var));
+    /**
+     * Predicate to test whether an expression encloses a memory access for
+     * either read or write
+     * 
+     * @param {Expr} expr Exression to test
+     * @returns {boolean} Whether `expr` encloses or is a memory dereference
+     */
+    var __has_enclosed_deref = function(expr) {
+        return expr.iter_operands().some(function(o) {
+            return (o instanceof Expr.Deref);
+        });
     };
 
-    var _get_def_regs = function(use, val) {
-        return val.clone(['idx', 'def']);
+    /**
+     * Predicate to test whether an expression encloses a call to a function
+     * 
+     * @param {Expr} expr Exression to test
+     * @returns {boolean} Whether `expr` encloses or is a function call
+     */
+    var __has_enclosed_fcall = function(expr) {
+        return expr.iter_operands().some(function(o) {
+            return (o instanceof Expr.Call);
+        });
     };
 
-    // // propagate definitions with only one use to their users
-    // var _select_def_single_use = function(def, val, conf) {
-    //     // propagation of memory dereferences may yield nicer results, but
-    //     // will lead to incorrect results in case of pointer aliasing.
-    //     //
-    //     // since identifying pointer aliasing is impossible without emulating
-    //     // the code, the decompiler stays at the safe side. the user may decide
-    //     // to override this by setting 'opt.noalias' to true.
-    //     //
-    //     // nevertheless, some memory dereferences may be marked as safe for propagation;
-    //     // for example, x86 stack locations
-    //     return (def.idx !== 0)
-    //         && (def.uses.length === 1)
-    //         && (!(def instanceof Expr.Deref) || def.is_safe || conf.noalias)
-    //      // && (!(val instanceof Expr.Deref) || val.is_safe || conf.noalias)
-    //         && !(val instanceof Expr.Phi)   // do not propagate phi expressions
-    //         && !(val instanceof Expr.Val);  // do not propagate value literals, sicne they are handled separately
-    // };
-    //
-    // var _get_def_single_use = function(use, val) {
-    //     // do not propagate into phi (i.e. use is a phi argument)
-    //     if (use.parent instanceof Expr.Phi) {
-    //         return null;
-    //     }
-    //
-    //     return val.clone(['idx', 'def']);
-    // };
-
-    // TODO: stop propagation when encountering AddrOf, since we can't predict possible side effects
-
-    // propagate definitions that are set to constant values
-    var _select_constants = function(def, val, conf) {
-        return (def.idx !== 0)
-            && (!(def instanceof Expr.Deref) || (def.is_safe || conf.noalias))
-            && !(def instanceof Expr.Var)
-            && (val instanceof Expr.Literal);
+    var __may_have_side_effects = function(expr) {
+        return expr.iter_operands().some(function(o) {
+            return (o instanceof Expr.Call)
+                || (o instanceof Expr.Deref);
+        });
     };
 
-    var _get_constants = function(use, val) {
-        // do not propagate if user is:
-        //  - a phi argument, to simplify transforming ssa back later on
-        //  - an AddressOf operand, because taking address of a constant value makes no sense
-        if ((use.parent instanceof Expr.Phi) || (use.parent instanceof Expr.AddrOf)) {
+    var _select_safe_defs = function(def, val, conf) {
+        var def_pstmt = def.parent_stmt();
+        var statements = def_pstmt.parent.statements;
+
+        // make sure a def is being used on the same container it was defined.
+        // phi users typically appear on the def's block dom-front, so there is no need to be bothered
+        var __on_same_container = function(use) {
+            var use_pstmt = use.parent_stmt();
+
+            return (use_pstmt.parent === def_pstmt.parent) || (use.parent instanceof Expr.Phi);
+        };
+
+        // a statement will be considered interfering if it appears on the cfg path between def
+        // and a specific use of def, and has some effect (i.e. picked up by the selector function).
+        //
+        // this method simplifies the interference check by requiring use and def to be on the same
+        // container, which implies that def precedes use. although this requirement prevents some
+        // propagations from being made, it is, well, simpler
+        var __has_interfering_expr = function(use, selector) {
+            var use_pstmt = use.parent_stmt();
+            var d_idx = statements.indexOf(def_pstmt);
+            var u_idx = statements.indexOf(use_pstmt);
+            var interfering = false;
+    
+            for (var i = (d_idx + 1); (i < u_idx) && !interfering; i++) {
+                interfering = statements[i].expressions.some(selector);
+            }
+
+            return interfering;
+        };
+
+        // do not propagate if uninit or assigned a phi expression
+        if ((def.idx !== 0) && !(val instanceof Expr.Phi)) {
+
+            // make sure all uses are on the same container as definition.
+            // although this restriction reduces the number of potential propagations, it lets us check for
+            // interference much more easily, as users on the same block are guaranteed to post-dominate the
+            // definition they use and all we need is to check the statements between def and use.
+            if (def.uses.every(__on_same_container) || (val instanceof Expr.Literal)) {
+
+                // calling a function:
+                // if the assigned value encloses a function call, propagate only if there is only one user
+                // and there are no interfering statements in between that may have side effects
+                if (__has_enclosed_fcall(val)) {
+                    return (def.uses.length === 1) && !def.uses.some(function(u) {
+                        return __has_interfering_expr(u, __may_have_side_effects);
+                    });
+                }
+
+                // writing to memory:
+                // if the definition encloses a memory dereference, propagate only if there are no interfering
+                // statamenets between def and all its users that may have side effects
+                else if (__has_enclosed_deref(def)) {
+                    return !def.uses.some(function(u) {
+                        return __has_interfering_expr(u, __may_have_side_effects);
+                    });
+                }
+
+                // reading from memory:
+                // if the assigned value encloses a memory dereference, propagate only if there are no interfering
+                // statamenets between def and all its users that may have side effects
+                //
+                // TODO: requirement could be reduced to either memory write or function call: memory reads may be allowed
+                else if (__has_enclosed_deref(val)) {
+                    return !def.uses.some(function(u) {
+                        return __has_interfering_expr(u, __may_have_side_effects);
+                    });
+                }
+
+                // all users post-dominates def and there is no need to check for interference.
+                // assigned value should be probably ok to propagate
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    var _get_safe_defs = function(use, val) {
+        // do not propagate values where variable's address is taken: that would appear as taking
+        // the address of a constant value, which makes no sense. very common in fcall out parameters
+        // that are explicitly initialized to some constant (e.g. NULL)
+        if ((val instanceof Expr.Val) && (use.parent instanceof Expr.AddrOf)) {
+            return null;
+        }
+
+        // as a rule we do not propagate into phi expressions, but we may allow simple cases in which a
+        // register replaces another (copy propagation)
+        if ((use.parent instanceof Expr.Phi) && !((use instanceof Expr.Reg) && (val instanceof Expr.Reg))) {
             return null;
         }
 
         return val.clone(['idx', 'def']);
     };
 
-    var __is_ptr_calc = function(expr) {
-        return (expr instanceof Expr.Add)
-            || (expr instanceof Expr.Sub)
-            || (expr instanceof Expr.And);
-    };
-
-    var _select_dereferenced = function(def, val, conf) {
-        return (def.idx !== 0)
-            && (def instanceof Expr.Reg)
-            && !(val instanceof Expr.Phi);
-    };
-
-    var _get_dereferenced = function(use, val) {
-        var p = use.parent;
-
-        while (__is_ptr_calc(p)) {
-            p = p.parent;
-        }
-
-        // TODO: do not propagate when (val instanceof Expr.Deref)
-        return ((p instanceof Expr.Deref) && (p.is_def)) ? val.clone(['idx', 'def']) : null;
-    };
+    // var _select_def_regs = function(def, val, conf) {
+    //     return (def.idx !== 0)
+    //             && ((def instanceof Expr.Reg) && !(def instanceof Expr.Var))
+    //             && ((val instanceof Expr.Reg) && !(val instanceof Expr.Var));
+    // };
+    //
+    // var _get_def_regs = function(use, val) {
+    //     return val.clone(['idx', 'def']);
+    // };
+    //
+    // // propagate definitions that are set to constant values
+    // var _select_constants = function(def, val, conf) {
+    //     return (def.idx !== 0)
+    //         && (!(def instanceof Expr.Deref) || (def.is_safe || conf.noalias))
+    //         && !(def instanceof Expr.Var)
+    //         && (val instanceof Expr.Literal);
+    // };
+    //
+    // var _get_constants = function(use, val) {
+    //     // do not propagate if user is:
+    //     //  - a phi argument, to simplify transforming ssa back later on
+    //     //  - an AddressOf operand, because taking address of a constant value makes no sense
+    //     if ((use.parent instanceof Expr.Phi) || (use.parent instanceof Expr.AddrOf)) {
+    //         return null;
+    //     }
+    //
+    //     return val.clone(['idx', 'def']);
+    // };
+    //
+    // var __is_ptr_calc = function(expr) {
+    //     return (expr instanceof Expr.Add)
+    //         || (expr instanceof Expr.Sub)
+    //         || (expr instanceof Expr.And);
+    // };
+    //
+    // var _select_dereferenced = function(def, val, conf) {
+    //     return (def.idx !== 0)
+    //         && (def instanceof Expr.Reg)
+    //         && !(val instanceof Expr.Phi);
+    // };
+    //
+    // var _get_dereferenced = function(use, val) {
+    //     var p = use.parent;
+    //
+    //     while (__is_ptr_calc(p)) {
+    //         p = p.parent;
+    //     }
+    //
+    //     // TODO: do not propagate when (val instanceof Expr.Deref)
+    //     return ((p instanceof Expr.Deref) && (p.is_def)) ? val.clone(['idx', 'def']) : null;
+    // };
 
     // --------------------------------------------------
 
-    Propagator.propagate_def_regs       = new Propagator(_select_def_regs, _get_def_regs);
-    Propagator.propagate_constants      = new Propagator(_select_constants, _get_constants);
-    Propagator.propagate_dereferenced   = new Propagator(_select_dereferenced, _get_dereferenced);
+    // Propagator.propagate_def_regs       = new Propagator(_select_def_regs, _get_def_regs);
+    // Propagator.propagate_constants      = new Propagator(_select_constants, _get_constants);
+    // Propagator.propagate_dereferenced   = new Propagator(_select_dereferenced, _get_dereferenced);
+    Propagator.propagate_safe_defs = new Propagator(_select_safe_defs, _get_safe_defs);
 
     return Propagator;
 });
