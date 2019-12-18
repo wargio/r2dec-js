@@ -112,35 +112,27 @@
             var def_loc = _get_stmt_addr(def);              // address of definition
             var use_locs = def.uses.map(_get_stmt_addr);    // list of users addresses
 
-            var emblems = [
-                def.is_safe ? '+' : '',
-                def.weak ? '-' : ''
-            ].join('');
-
             return {
                 name    : d,
-                emblems : emblems,
                 defined : def_loc,
-                used    : use_locs
+                used    : use_locs,
+                color   : def.weak ? ['\033[90m', '\033[0m'] : ['', '']
             };
         }, this);
 
-        var names_maxlen = _maxlen(table.map(function(obj) { return obj.name; })) + 3;
+        var names_maxlen = _maxlen(table.map(function(obj) { return obj.name; })) + 2;
         var addrs_maxlen = _maxlen(table.map(function(obj) { return obj.defined; }));
 
         var header = ['def-use chains:'];
 
         var lines = table.map(function(obj) {
-            var name = obj.name + obj.emblems;  // definition name
-            var defined = obj.defined;          // where defined
-            var used = obj.used;                // where used (list)
-
             return [
-                ' ',
-                name.padEnd(names_maxlen),
-                defined.padStart(addrs_maxlen),
+                obj.color[0],
+                obj.name.padEnd(names_maxlen),
+                obj.defined.padStart(addrs_maxlen),
                 ':',
-                _toStringArray(used)
+                _toStringArray(obj.used),
+                obj.color[1]
             ].join(' ');
         });
 
@@ -242,7 +234,6 @@
     }
 
     // iterate all statements in block and collect only defined names
-    // TODO: consider replacing by local_contexts functionality
     var _find_local_defs = function(selector, block) {
         var defs = [];
 

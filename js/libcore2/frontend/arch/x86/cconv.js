@@ -177,8 +177,8 @@
         // console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
         // live_by_fcall.forEach(function(d) {
         //     var d = rng.def;
-        //     var c0 = d.weak ? '\33[90m' : '';
-        //     var c1 = d.weak ? '\33[0m' : '';
+        //     var c0 = d.weak ? '\033[90m' : '';
+        //     var c1 = d.weak ? '\033[0m' : '';
         //
         //     console.log(c0, ' |', 'def:', d.parent.parent.toString(), c1);
         //

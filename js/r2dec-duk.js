@@ -216,7 +216,6 @@ var load_r2_evars = function(ns) {
 /**
  * TODO:
  *   bugfixes:
- *      o resolve pic
  *      o orphan 'if' conditions
  *      o propagate based on liveness and interference
  *      o fix ssa out translation
@@ -302,7 +301,7 @@ function r2dec_main(args) {
                 ssa_ctx = ssa.rename_derefs();
                 analyzer.ssa_step_derefs(func, ssa_ctx);
 
-                analyzer.ssa_done(func, ssa, ssa_ctx);
+                analyzer.ssa_done(func, ssa);
 
                 Optimizer.run([
                     Propagator.propagate_safe_defs,

@@ -89,7 +89,7 @@
         return __get_rel_rank(expr) !== (-1);
     };
 
-    var _ctx_fold_assoc = function(expr) {
+    var _ctx_fold_assoc = function(bexpr) {
         var assoc_ops = [
             Expr.Add,
             Expr.Mul,
@@ -102,13 +102,13 @@
         // where op is an associative operation and c0, c1 are known values.
 
         // outter expression
-        var oexpr = expr;
+        var oexpr = bexpr;
         var oexpr_op = oexpr.constructor;
 
         if (assoc_ops.indexOf(oexpr_op) !== (-1)) {
             // implied: (oexpr instanceof Expr.BExpr)
-            var olhand = expr.operands[0];
-            var orhand = expr.operands[1];
+            var olhand = bexpr.operands[0];
+            var orhand = bexpr.operands[1];
 
             // inner expression (left hand of the outter one)
             var iexpr = olhand;
@@ -129,7 +129,7 @@
         return null;
     };
 
-    var _ctx_fold_arith = function(expr) {
+    var _ctx_fold_arith = function(bexpr) {
         var arith_ops = [
             Expr.Add,
             Expr.Sub
@@ -139,13 +139,13 @@
         // where op1, op0 are arithmetic operations and c0, c1 are known values.
 
         // outter expression
-        var oexpr = expr;
+        var oexpr = bexpr;
         var oexpr_op = oexpr.constructor;
 
         if (arith_ops.indexOf(oexpr_op) !== (-1)) {
             // implied: (oexpr instanceof Expr.BExpr)
-            var olhand = expr.operands[0];
-            var orhand = expr.operands[1];  // b
+            var olhand = bexpr.operands[0];
+            var orhand = bexpr.operands[1];  // b
 
             // inner expression (left hand of the outter one)
             var iexpr = olhand;
@@ -174,7 +174,7 @@
         return null;
     };
 
-    var _constant_folding = function(expr) {
+    var _constant_folding = function(bexpr) {
         const operations = {
             'Add': Long.prototype.add,
             'Sub': Long.prototype.sub,
@@ -202,11 +202,11 @@
             return signed_ops.indexOf(opname) === (-1) || !_has_msb_set(val);
         };
 
-        var opname = expr.constructor.name;
+        var opname = bexpr.constructor.name;
 
         if (opname in operations) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+            var lhand = bexpr.operands[0];
+            var rhand = bexpr.operands[1];
 
             if ((lhand instanceof Expr.Val) && (rhand instanceof Expr.Val)) {
                 if (_sign_safe(opname, lhand)) {
@@ -220,11 +220,11 @@
         return null;
     };
 
-    var _correct_arith = function(expr) {
-        var lhand = expr.operands[0];
-        var rhand = expr.operands[1];
+    var _correct_arith = function(bexpr) {
+        var lhand = bexpr.operands[0];
+        var rhand = bexpr.operands[1];
 
-        if ((expr instanceof Expr.Add) || (expr instanceof Expr.Sub)) {
+        if ((bexpr instanceof Expr.Add) || (bexpr instanceof Expr.Sub)) {
             const ZERO = new Expr.Val(0, rhand.size);
 
             // x + 0
@@ -234,7 +234,7 @@
             }
         }
 
-        else if ((expr instanceof Expr.Mul) || (expr instanceof Expr.Div)) {
+        else if ((bexpr instanceof Expr.Mul) || (bexpr instanceof Expr.Div)) {
             const ONE = new Expr.Val(1, rhand.size);
 
             // x * 1
@@ -247,9 +247,9 @@
         return null;
     };
 
-    var _negate = function(expr) {
-        if (expr instanceof Expr.BoolNot) {
-            var op = expr.operands[0];
+    var _negate = function(uexpr) {
+        if (uexpr instanceof Expr.BoolNot) {
+            var op = uexpr.operands[0];
 
             if (op instanceof Expr.BExpr) {
                 var inner_lhand = op.operands[0];
@@ -306,23 +306,23 @@
         return null;
     };
 
-    var _correct_sign = function(expr) {
-        var lhand = expr.operands[0];
-        var rhand = expr.operands[1];
+    var _correct_sign = function(bexpr) {
+        var lhand = bexpr.operands[0];
+        var rhand = bexpr.operands[1];
 
         var isNegativeValue = function(e) {
             return (e instanceof Expr.Val) && (e.value.isNegative());
         };
 
         // x + -y
-        if ((expr instanceof Expr.Add) && isNegativeValue(rhand)) {
+        if ((bexpr instanceof Expr.Add) && isNegativeValue(rhand)) {
             rhand.value = rhand.value.negate();
 
             return new Expr.Sub(lhand.clone(wssa), rhand.clone(wssa));
         }
 
         // x - -y
-        else if ((expr instanceof Expr.Sub) && isNegativeValue(rhand)) {
+        else if ((bexpr instanceof Expr.Sub) && isNegativeValue(rhand)) {
             rhand.value = rhand.value.negate();
 
             return new Expr.Add(lhand.clone(wssa), rhand.clone(wssa));
@@ -331,25 +331,25 @@
         return null;
     };
 
-    var _correct_ref = function(expr) {
-        var op = expr.operands[0];
+    var _correct_ref = function(uexpr) {
+        var op = uexpr.operands[0];
 
         // &*x
-        if ((expr instanceof Expr.AddrOf) && (op instanceof Expr.Deref)) {
+        if ((uexpr instanceof Expr.AddrOf) && (op instanceof Expr.Deref)) {
             return op.operands[0].clone(wssa);
         }
 
         // *&x
-        else if ((expr instanceof Expr.Deref) && (op instanceof Expr.AddrOf)) {
+        else if ((uexpr instanceof Expr.Deref) && (op instanceof Expr.AddrOf)) {
             return op.operands[0].clone(wssa);
         }
 
         return null;
     };
 
-    var _correct_bitwise = function(expr) {
-        var lhand = expr.operands[0];
-        var rhand = expr.operands[1];
+    var _correct_bitwise = function(bexpr) {
+        var lhand = bexpr.operands[0];
+        var rhand = bexpr.operands[1];
 
         // create an FF's mask that matches lhand size
         const ffmask = Long.UONE.shl(lhand.size).sub(Long.UONE);
@@ -357,7 +357,7 @@
         const ZERO = new Expr.Val(0, lhand.size);
         const FF = new Expr.Val(ffmask, lhand.size);
 
-        if (expr instanceof Expr.Xor) {
+        if (bexpr instanceof Expr.Xor) {
             // 0 ^ x
             if (lhand.equals(ZERO)) {
                 return rhand.clone(wssa);
@@ -379,7 +379,7 @@
             }
         }
 
-        else if (expr instanceof Expr.Or) {
+        else if (bexpr instanceof Expr.Or) {
             // 0 | x
             if (lhand.equals(ZERO)) {
                 return rhand.clone(wssa);
@@ -401,7 +401,7 @@
             }
         }
 
-        else if (expr instanceof Expr.And) {
+        else if (bexpr instanceof Expr.And) {
             // 0 & x
             if (lhand.equals(ZERO)) {
                 return ZERO;
@@ -423,7 +423,7 @@
             }
         }
 
-        else if (expr instanceof Expr.Shr) {
+        else if (bexpr instanceof Expr.Shr) {
             // 0 >> x
             if (lhand.equals(ZERO)) {
                 return ZERO;
@@ -435,7 +435,7 @@
             }
         }
 
-        else if (expr instanceof Expr.Shl) {
+        else if (bexpr instanceof Expr.Shl) {
             // 0 << x
             if (lhand.equals(ZERO)) {
                 return ZERO;
@@ -462,14 +462,14 @@
         return null;
     };
 
-    var _equality = function(expr) {
+    var _equality = function(bexpr) {
         // the following comments demonstrate equality as '==', but this
         // simplification is not limited to that only. rather it applies to 
         // all kind of comparisons.
 
-        if (__is_compare_expr(expr)) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+        if (__is_compare_expr(bexpr)) {
+            var lhand = bexpr.operands[0];
+            var rhand = bexpr.operands[1];
 
             if (lhand instanceof Expr.BExpr) {
                 var x = lhand.operands[0];
@@ -483,12 +483,12 @@
 
                         // ((x + c1) == c2) yields (x == c3) where c3 = c2 - c1
                         if (lhand instanceof Expr.Add) {
-                            return new expr.constructor(x.clone(wssa), new Expr.Sub(c2.clone(), c1.clone()));
+                            return new bexpr.constructor(x.clone(wssa), new Expr.Sub(c2.clone(), c1.clone()));
                         }
 
                         // ((x - c1) == c2) yields (x == c3) where c3 = c2 + c1
                         else if (lhand instanceof Expr.Sub) {
-                            return new expr.constructor(x.clone(wssa), new Expr.Add(c2.clone(), c1.clone()));
+                            return new bexpr.constructor(x.clone(wssa), new Expr.Add(c2.clone(), c1.clone()));
                         }
                     }
                 }
@@ -497,12 +497,12 @@
 
                     // ((x - y) == 0) yields (x == y)
                     if (lhand instanceof Expr.Sub) {
-                        return new expr.constructor(x.clone(wssa), y.clone(wssa));
+                        return new bexpr.constructor(x.clone(wssa), y.clone(wssa));
                     }
 
                     // ((x + y) == 0) yields (x == -y)
                     else if (lhand instanceof Expr.Add) {
-                        return new expr.constructor(x.clone(wssa), new Expr.Neg(y.clone(wssa)));
+                        return new bexpr.constructor(x.clone(wssa), new Expr.Neg(y.clone(wssa)));
                     }
                 }
             }
@@ -514,7 +514,7 @@
                 var vtrue = new Expr.Val(1, 1);
                 var are_equal = lhand.equals(rhand);
 
-                if (expr instanceof Expr.EQ) {
+                if (bexpr instanceof Expr.EQ) {
                     return are_equal ? vtrue : vfalse;
                 }
 
@@ -524,7 +524,7 @@
                 // rather leave it.
                 //
                 // [yes, we could check for sizes here, but that would be a pointless workaround]
-                else if (expr instanceof Expr.NE) {
+                else if (bexpr instanceof Expr.NE) {
                     return are_equal ? vfalse : null;
                 }
             }
@@ -600,37 +600,35 @@
         }
 
         else if (expr instanceof Expr.BoolOr) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+            var bo_lhand = expr.operands[0];
+            var bo_rhand = expr.operands[1];
 
-            if (__is_compare_expr(lhand) && __is_compare_expr(rhand)) {
-                return __handle_or(lhand, rhand);
+            if (__is_compare_expr(bo_lhand) && __is_compare_expr(bo_rhand)) {
+                return __handle_or(bo_lhand, bo_rhand);
             }
         }
 
         else if (expr instanceof Expr.BoolAnd) {
-            var lhand = expr.operands[0];
-            var rhand = expr.operands[1];
+            var ba_lhand = expr.operands[0];
+            var ba_rhand = expr.operands[1];
 
-            if (__is_compare_expr(lhand) && __is_compare_expr(rhand)) {
-                return __handle_and(lhand, rhand);
+            if (__is_compare_expr(ba_lhand) && __is_compare_expr(ba_rhand)) {
+                return __handle_and(ba_lhand, ba_rhand);
             }
         }
 
         return null;
     };
 
-    var _cond_folding = function(expr) {
-        if (expr instanceof Expr.TCond) {
-            var cond = expr.operands[0];
+    var _cond_folding = function(texpr) {
+        if (texpr instanceof Expr.TCond) {
+            var cond = texpr.operands[0];
 
             // x = C ? true_expr : false_expr
             if (cond instanceof Expr.Val) {
-                const ZERO = new Expr.Val(0, cond.size);
-
-                return cond.equals(ZERO) ?
-                    expr.operands[2].clone(wssa) :   // false expr
-                    expr.operands[1].clone(wssa);    // true expr
+                return cond.value.isZero() ?
+                    texpr.operands[2].clone(wssa) :   // false expr
+                    texpr.operands[1].clone(wssa);    // true expr
             }
         }
 

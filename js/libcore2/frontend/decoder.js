@@ -1,5 +1,5 @@
 /** 
- * Copyright (C) 2018 elicn
+ * Copyright (C) 2018-2019 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,29 +46,30 @@
      * @returns {Cntr.Container} Container object including all generated Statements
      */
     Decoder.prototype.transform_ir = function(aoj) {
-        var start = undefined;  // block starting address
-        var stmts = [];         // generated ir statements
+        var start = undefined;      // block starting address
+        var all_statements = [];    // generated ir statements
 
         aoj.forEach(function(item) {
             var decoded = this.arch.r2decode(item);
             var handler = this.arch.instructions[decoded.mnemonic] || this.arch.invalid;
 
             // turn r2 decoded instruction into a list of ir expressions and statements
-            var exprs = handler(decoded);
+            var expressions = handler(decoded);
 
-            // to simplify further handling, wrap expressions in statements
-            Array.prototype.push.apply(stmts, exprs.map(function(expr) {
+            // to simplify further ir handling, expressions are wrapped as statements
+            var statements = expressions.map(function(expr) {
                 return Stmt.make_statement(decoded.address, expr);
-            }));
+            });
 
+            // simplify statements in-place
+            statements.forEach(Simplify.reduce_stmt);
+
+            Array.prototype.push.apply(all_statements, statements);
             start = start || decoded.address;
         }, this);
 
-        // simplify statements in-place
-        stmts.forEach(Simplify.reduce_stmt);
-
         // put all statements in a container and return it
-        return new Cntr.Container(start, stmts);
+        return new Cntr.Container(start, all_statements);
     };
 
     return Decoder;

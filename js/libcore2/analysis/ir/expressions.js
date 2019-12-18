@@ -491,14 +491,18 @@
      * @returns {boolean} `true` iff this and other are equal in operators and operands, `false` otherwise
      */
     Expr.prototype.equals = function(other) {
-        var eq = (Object.getPrototypeOf(this) === Object.getPrototypeOf(other)) &&
-            (this.operands.length === other.operands.length);
+        return (
+            // have same prototype
+            (Object.getPrototypeOf(this) === Object.getPrototypeOf(other)) &&
 
-        for (var i = 0; eq && (i < this.operands.length); i++) {
-            eq &= this.operands[i].equals(other.operands[i]);
-        }
+            // have same number of operands
+            (this.operands.length === other.operands.length) &&
 
-        return eq;
+            // all operands are equal (recursive)
+            this.operands.every(function(op, i) {
+                return op.equals(other.operands[i]);
+            })
+        );
     };
 
     /**

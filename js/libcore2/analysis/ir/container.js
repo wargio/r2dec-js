@@ -83,8 +83,9 @@
 
         // statements refer their child containers (if there are any) by their position, so removing a container
         // must preserve other containers' position.
+        p.containers[i] = null;
 
-        return p.containers[i] = null;
+        return this;
     };
 
     // /**
