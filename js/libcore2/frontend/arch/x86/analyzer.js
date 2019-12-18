@@ -25,44 +25,9 @@
     const Propagator = require('js/libcore2/analysis/propagator');
     const Pruner = require('js/libcore2/analysis/pruner');
 
-    // TODO: this file looks terrible; refactor this sh*t
-
-    // replace position independent references with actual addresses
-    var resolve_pic = function(cntr, arch) {
-        const pcreg = arch.PC_REG;
-        var subst = [];
-
-        cntr.statements.forEach(function(s, i, stmts) {
-            s.expressions.forEach(function(e) {
-                e.iter_operands().forEach(function(o) {
-                    if (o.equals(pcreg)) {
-                        // TODO: rip value is taken at the end of instruction boundary.
-                        // the easy way to calculate that is to take the next statement's
-                        // address; however this hack doesn't work 100% of the times.
-                        // need to find a better solution for that; perhaps: aoj @ `s+1`
-
-                        if (i < (stmts.length - 1)) {
-                            subst.push([o, stmts[i + 1].address]);
-                        }
-                    }
-                });
-            });
-        });
-
-        // TODO: re-implement this with insertion of weak pcreg assignments
-        // rather than direct propagation
-        subst.forEach(function(pair) {
-            var op = pair[0];
-            var addr_next = pair[1];
-            var expr = new Expr.Val(addr_next, pcreg.size);
-
-            op.replace(expr);
-            Simplify.reduce_stmt(expr.parent_stmt());            
-        });
-    };
-
     // analyze and assign function calls arguments
-    var assign_fcall_args = function(func, contexts, arch) {
+    var assign_fcall_args = function(func, ssa, arch) {
+        var contexts = ssa.get_local_contexts(false);
         var cconvs = CallConv(arch);
 
         func.basic_blocks.forEach(function(block) {
@@ -113,14 +78,14 @@
     // for example, the following assignment:
     //   eax = ebx
     //
-    // would need the following assingments to reflect its effect on its counterparts correctly:
-    //   rax = 0
+    // would need the following additional assingments to reflect its effect on its counterparts correctly:
+    //   rax = ebx & 0xffffffff
     //   ax = ebx & 0x0000ffff
     //   al = ebx & 0x000000ff
     //   ah = (ebx & 0x0000ff00) >> 16
     //
     // that generates a lot of redundant assignment statements that would be eventually eliminated if remained unused
-    var gen_overlaps = function(func, arch) {
+    var insert_overlaps = function(func, arch) {
         var archregs = arch.archregs;
 
         func.basic_blocks.forEach(function(bb) {
@@ -430,11 +395,10 @@
         func.exit_blocks.forEach(function(block) {
             var terminator = block.container.terminator();
 
-            // a goto terminator in an exit block means this is a tail call
+            // a goto terminator in an exit block means this is a tail call.
+            // the fcall arguments will be determined later
             if (terminator instanceof Stmt.Goto) {
-                var dest = terminator.dest;
-
-                var fcall = new Expr.Call(dest.clone(), []);
+                var fcall = new Expr.Call(terminator.dest.clone(), []);
                 var ret = new Stmt.Return(terminator.address, fcall);
 
                 // replace 'goto dest' with 'return dest()'
@@ -443,7 +407,10 @@
         });
     };
 
-    var remove_preserved_loc = function(ctx, preserved) {
+    var remove_preserved_loc = function(ssa) {
+        var contexts = ssa.get_local_contexts(false);
+        var preserved = ssa.preserved_locations(contexts);
+
         preserved.forEach(function(pair) {
             var restored = pair[0];
             var saved = pair[1];
@@ -453,20 +420,10 @@
 
                 restored.weak = true;   // do not consider for fcall args
                 restored.prune = true;  // include in dce pass
-                // restored.marked = true;
+
                 restored = p.operands[1].def;
             }
         });
-
-        // return ctx.iterate(function(def) {
-        //     if (def.marked) {
-        //         def.parent.pluck(true);
-        //
-        //         return true;
-        //     }
-        //
-        //     return false;
-        // });
     };
 
     var propagate_flags_reg = function(ctx, arch) {
@@ -492,8 +449,8 @@
             return (def.prune) && _is_flag_def(def);
         };
 
-        // perform propagation and then prune all fully propagated flag definitions.
-        // that cleanup is not really necessary here, but would reduce the burden on ssa local contexts
+        // perform propagation and then sweep out all fully propagated flag definitions.
+        // that cleanup is not really necessary, but would reduce the burden on ssa local contexts
         Optimizer.run([
             new Propagator(_select, _get_replacement),
             new Pruner(_pruning_selector)
@@ -616,7 +573,7 @@
     }
 
     Analyzer.prototype.transform_step = function(container) {
-        resolve_pic(container, this.arch);
+        // empty
     };
 
     Analyzer.prototype.transform_done = function(func) {
@@ -625,7 +582,7 @@
         this.func_vars = regs.vars;
         this.func_args = regs.args;
 
-        gen_overlaps(func, this.arch);
+        insert_overlaps(func, this.arch);
         transform_tailcalls(func);
     };
 
@@ -648,15 +605,9 @@
         tag_stack_derefs(context, this.arch);
     };
 
-    Analyzer.prototype.ssa_done = function(func, ssa, ctx) {
-        var contexts = ssa.get_local_contexts(false);
-        var preserved = ssa.preserved_locations(contexts);
-
-        remove_preserved_loc(ctx, preserved);
-
-        contexts = ssa.get_local_contexts(false);
-        assign_fcall_args(func, contexts, this.arch);
-
+    Analyzer.prototype.ssa_done = function(func, ssa) {
+        remove_preserved_loc(ssa);
+        assign_fcall_args(func, ssa, this.arch);
         adjust_returns(func, this.arch);
         transform_flags(func);
     };

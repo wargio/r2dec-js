@@ -28,10 +28,6 @@
         /** @type {number} */
         this.bits = nbits.toInt();
 
-        // TODO: use this info to resolve pic
-        /** @type {boolean} */
-        this.pic = iIj.pic;
-
         this.archregs = new ArchRegs(this.bits);
 
         /** System frame pointer */
@@ -209,8 +205,50 @@
 
             // misc
             'nop'   : _nop.bind(this),
+            'ud2'   : _ud2.bind(this),
             'hlt'   : _hlt.bind(this)
         };
+
+        // as instruction size info is not carried by ir objects, we have to handle pc reg references as soon
+        // as the insruction is transformed.
+        //
+        // in case of a pie, a wrapper function is set up to handle pc reg references. that wrapper internally
+        // calls the original instruction handler and then scans the result to identify references to pc reg.
+        // if there are, it places a pc reg definition on top of the generated expressions; that definition
+        // simply assigns the appropriate address to the pc reg that is about to be used. since all transformed
+        // expressions are originated from the same assembly instructions, all pc reg references reference the
+        // same address. the assignment will be propagated to its users later on.
+        if (iIj.pic) {
+            var pc_reg = this.PC_REG;
+
+            this.instructions = new Proxy(this.instructions, {
+                get: function(obj, key) {
+                    var ihandler = obj[key];
+
+                    var wrapped = function(p) {
+                        var exprs = ihandler(p);
+
+                        var has_pic = exprs.some(function(e) {
+                            var __ref_pc_reg = function(op) {
+                                return op.equals(pc_reg);
+                            };
+
+                            return (e instanceof Expr.Expr) && e.iter_operands().some(__ref_pc_reg);
+                        });
+
+                        if (has_pic) {
+                            var pc_val = new Expr.Val(p.address.add(p.isize), pc_reg.size);
+
+                            exprs.unshift(new Expr.Assign(pc_reg.clone(), pc_val));
+                        }
+
+                        return exprs;
+                    };
+
+                    return ihandler && wrapped;
+                }
+            });
+        }
 
         this.invalid = _invalid;
     }
@@ -997,13 +1035,12 @@
         var expr;
 
         if (p.prefix === INSN_PREF.REP) {
-            var intrin = 'memcmp';
             var s1 = new Expr.AddrOf(lhand);
             var s2 = new Expr.AddrOf(rhand);
             var n = new Expr.Mul(new Expr.Val(lhand.size / 8, this.nbits), this.COUNT_REG.clone());
 
             // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
-            expr = new Expr.Call(new Expr.Reg(intrin), [s1, s2, n]);
+            expr = new Expr.Call(new Expr.Reg('memcmp'), [s1, s2, n]);
         } else {
             expr = new Expr.Sub(lhand, rhand);
         }
@@ -1018,13 +1055,12 @@
         var expr;
 
         if (p.prefix === INSN_PREF.REP) {
-            var intrin = 'memset';
             var s = new Expr.AddrOf(lhand);
             var c = rhand;
             var n = this.COUNT_REG.clone();
 
             // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
-            expr = new Expr.Call(new Expr.Reg(intrin), [s, c, n]);
+            expr = new Expr.Call(new Expr.Reg('memset'), [s, c, n]);
         } else {
             expr = new Expr.Assign(lhand, rhand);
         }
@@ -1067,7 +1103,11 @@
     };
 
     var _hlt = function(p) {
-        return [new Expr.Call('_hlt', [])];
+        return [new Expr.Call(new Expr.Reg('_hlt'), [])];
+    };
+
+    var _ud2 = function(p) {
+        return [new Expr.Call(new Expr.Reg('__builtin_trap'), [])];
     };
 
     var _invalid = function(p) {
