@@ -440,7 +440,7 @@
             }
 
             if (fname instanceof Expr.Val) {
-                fname = this.xrefs.resolve_fname(fname);
+                fname = this.xrefs.resolve_fname(fname) || fname;
 
                 fcall = [[TOK_FNCALL, fname.toString()]];
             } else {
