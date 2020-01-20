@@ -189,6 +189,39 @@
     // ------------------------------------------------------------
 
     /**
+     * System Symbol.
+     * @param {!string} name Symbol name
+     * @constructor
+     */
+    function Symbol(name) {
+        Literal.call(this);
+
+        /** @type {!string} */
+        this.name = name;
+    }
+
+    Symbol.prototype = Object.create(Literal.prototype);
+    Symbol.prototype.constructor = Symbol;
+
+    /** @returns {boolean} */
+    Symbol.prototype.equals = function(other) {
+        return (other instanceof Symbol) &&
+            (this.name == other.name);
+    };
+
+    /** @returns {!Symbol} */
+    Symbol.prototype.clone = function() {
+        return new Symbol(this.name);
+    };
+
+    /** @returns {string} */
+    Symbol.prototype.toString = function(opt) {
+        return this.name;
+    };
+
+    // ------------------------------------------------------------
+
+    /**
      * System register.
      * @param {!string} name Register name
      * @param {number} size Register size in bits
@@ -573,7 +606,7 @@
         // the operands list is only to enable the optimizers count it in when iterating through
         // expressions and their operands
 
-        if (args instanceof Array) {
+        if (Array.isArray(args)) {
             args.unshift(callee);
         } else {
             args = Array.prototype.slice.call(arguments);
@@ -596,7 +629,7 @@
     function Phi(exprs) {
         // in case a Phi instance is cloned, its operands list is passed flat.
         // the following is to regroup the operands back into a list:
-        if (!(exprs instanceof Array)) {
+        if (!Array.isArray(exprs)) {
             exprs = Array.prototype.slice.call(arguments);
         }
 
@@ -876,6 +909,7 @@
         Reg:        Register,
         Var:        Variable,
         Val:        Value,
+        Sym:        Symbol,
 
         // unary expressions
         Deref:      Deref,

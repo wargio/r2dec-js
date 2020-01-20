@@ -21,7 +21,7 @@ require('js/libcore2/polyfill');
 const Graph = require('js/libcore2/analysis/graph');
 const JSONr2 = require('js/libcore2/libs/json64');
 const Decoder = require('js/libcore2/frontend/decoder');
-const Analyzer = require('js/libcore2/frontend/arch/x86/analyzer'); // TODO: does not belong here
+const Analyzer = require('js/libcore2/frontend/analyzer'); // TODO: does not belong here
 const Resolver = require('js/libcore2/frontend/resolver');
 const SSA = require('js/libcore2/analysis/ssa');
 const Optimizer = require('js/libcore2/analysis/optimizer');
@@ -127,7 +127,13 @@ Function.prototype.cfg = function() {
         nodes.push(bb.address);
 
         if (bb.jump) {
-            edges.push([bb.address, bb.jump]);
+            if (Array.isArray(bb.jump)) {
+                bb.jump.forEach(function(jmp){
+                    edges.push([bb.address, jmp]);
+                });
+            } else {
+                edges.push([bb.address, bb.jump]);
+            }
         }
 
         if (bb.fail) {
@@ -168,6 +174,13 @@ function BasicBlock(bb) {
 
     // get instructions list
     this.instructions = Global.r2cmdj('aoj', bb.ninstr, '@', bb.addr);
+
+    if (bb.switch_op) {
+        this.jump = bb.switch_op.cases.map(function(scase){
+            return scase.jump;
+        });
+        this.instructions[this.instructions.length - 1].is_switch = true;
+    }
 }
 
 // this is used to hash basic blocks in arrays and enumerable objects
@@ -253,7 +266,8 @@ function r2dec_main(args) {
                 var config = load_r2_evars('pdd');
 
                 var decoder = new Decoder(iIj);
-                var analyzer = new Analyzer(decoder.arch);  // TODO: this is a design workaround!
+                // TODO: define a design for analyzer
+                var analyzer = new Analyzer(iIj, decoder.arch); 
                 var func = new Function(afij, afbj);
 
                 // transform assembly instructions into internal representation

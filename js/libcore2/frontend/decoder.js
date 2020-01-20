@@ -22,6 +22,7 @@
 
     /** available architectures */
     var archs = {
+        'arm': require('js/libcore2/frontend/arch/arm/arm'),
         'x86': require('js/libcore2/frontend/arch/x86/x86')
     };
 
@@ -70,6 +71,10 @@
 
         // put all statements in a container and return it
         return new Cntr.Container(start, all_statements);
+    };
+
+    Decoder.prototype.analyzer = function() {
+        return this.arch.analyzer
     };
 
     return Decoder;

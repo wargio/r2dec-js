@@ -228,13 +228,13 @@
                     var wrapped = function(p) {
                         var exprs = ihandler(p);
 
-                        var has_pic = exprs.some(function(e) {
+                        var has_pic = exprs.some ? exprs.some(function(e) {
                             var __ref_pc_reg = function(op) {
                                 return op.equals(pc_reg);
                             };
 
                             return (e instanceof Expr.Expr) && e.iter_operands().some(__ref_pc_reg);
-                        });
+                        }) : false;
 
                         if (has_pic) {
                             var pc_val = new Expr.Val(p.address.add(p.isize), pc_reg.size);
@@ -1040,7 +1040,7 @@
             var n = new Expr.Mul(new Expr.Val(lhand.size / 8, this.nbits), this.COUNT_REG.clone());
 
             // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
-            expr = new Expr.Call(new Expr.Reg('memcmp'), [s1, s2, n]);
+            expr = new Expr.Call(new Expr.Sym('memcmp'), [s1, s2, n]);
         } else {
             expr = new Expr.Sub(lhand, rhand);
         }
@@ -1060,13 +1060,13 @@
             var n = this.COUNT_REG.clone();
 
             // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
-            expr = new Expr.Call(new Expr.Reg('memset'), [s, c, n]);
+            expr = new Expr.Call(new Expr.Sym('memset'), [s, c, n]);
         } else {
             expr = new Expr.Assign(lhand, rhand);
         }
 
         // TODO: do we need to advance edi and esi pointers?
-        return expr;
+        return [expr];
     };
 
     var _movbe = function(p) {
@@ -1103,11 +1103,11 @@
     };
 
     var _hlt = function(p) {
-        return [new Expr.Call(new Expr.Reg('_hlt'), [])];
+        return [new Expr.Call(new Expr.Sym('_hlt'), [])];
     };
 
     var _ud2 = function(p) {
-        return [new Expr.Call(new Expr.Reg('__builtin_trap'), [])];
+        return [new Expr.Call(new Expr.Sym('__builtin_trap'), [])];
     };
 
     var _invalid = function(p) {
