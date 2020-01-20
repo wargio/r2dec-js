@@ -48,7 +48,7 @@
         this.data = isj.filter(_sanitize).sort(Global.evars.honor.paddr ? _physical_compare : _virtual_compare).map(function(x) {
             return {
                 location: Global.evars.honor.paddr ? x.paddr : x.vaddr,
-                value: x.demname.length > 0 ? x.demname : x.name,
+                value: (x.demname && x.demname.length > 0) ? x.demname : x.name,
             };
         });
         this.search = function(address) {
