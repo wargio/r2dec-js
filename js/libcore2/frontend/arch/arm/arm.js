@@ -16,6 +16,7 @@
  */
 
 (function() {
+    const CGOpt = require('js/libcore2/backend/cgoptions');
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Stmt = require('js/libcore2/analysis/ir/statements');
 
@@ -324,6 +325,12 @@
         };
 
         return parsed;
+    };
+
+    Arm.prototype.cgopt = function() {
+        const opts = CGOpt();
+        opts.numeric_deref = true;
+        return opts;
     };
 
     // ---------- common handlers ----------//

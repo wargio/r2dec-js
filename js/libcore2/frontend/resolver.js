@@ -16,6 +16,43 @@
  */
 
 (function() {
+    const Expr = require('js/libcore2/analysis/ir/expressions');
+    const Long = require('js/libcore2/libs/long');
+
+    /**
+     * Memory helper for memory ranges checks.
+     * @constructor
+     */
+    function MemorySection(name, begin, size) {
+        this.name  = name;
+        this.begin = begin;
+        this.end   = this.begin.add(size || 0);
+    };
+
+    /**
+     * Used to check if a memory area is inside or outside of the mem section
+     * @param  {!Long}  pointer Pointer of the deref
+     * @param  {number} size    Number of bits to read
+     * @return {boolean}        True if read operation is inside the boundaries
+     */
+    MemorySection.prototype.inside = function(pointer, size) {
+        return pointer && size > 0 && this.begin.ge(pointer) && pointer.add(size).le(this.end);
+    };
+
+    var _r2_get_memory_sections = function() {
+        return Global.r2cmdj('iSj').filter(function(m) {
+            return m.perm.indexOf('r') >= 0 && m.vsize.gt(0) && m.vaddr.ne(0);
+        }).map(function(m) {
+            return new MemorySection(m.name, m.vaddr, m.vsize);
+        });
+    };
+
+    var _r2_get_memdata = function(addr, bytes) {
+        return (Global.r2cmdj('pxj', bytes, '@', addr) || []).map(function(x) {
+            x = x.toString(16);
+            return x.length > 1 ? x : '0' + x;
+        });
+    };
 
     var _r2_get_fname = function(addr) {
         return Global.r2cmd('afn', '@', addr);
@@ -62,6 +99,8 @@
             'imp.',
             'reloc.'
         ].concat(_r2_get_libs_names());
+
+        this.memory = _r2_get_memory_sections();
 
         // functions names cache
         this.fcalls = {};
@@ -134,6 +173,38 @@
         }
 
         return this.data[key];
+    };
+
+    /**
+     * Verifies if a pointer reference is inside a readable memory
+     * @param  {!Long}  pointer Pointer of the deref
+     * @param  {number} size    Number of bits to read
+     * @returns {boolean}
+     */
+    Resolver.prototype.verify_deref = function(pointer, size) {
+        if (!pointer instanceof Expr.Deref) {
+            return false;
+        }
+        return this.memory.some(function(m) {
+            return m.inside(pointer.value, size);
+        })
+    };
+
+    /**
+     * Verifies if a pointer reference is inside a readable memory
+     * @param  {!Long}  pointer Pointer of the deref
+     * @param  {number} size    Number of bits to read
+     * @returns {boolean}
+     */
+    Resolver.prototype.read_deref = function(pointer, size, big_endian) {
+        if (!pointer instanceof Expr.Deref) {
+            throw Error("pointer is not a Expr.Deref value");
+        }
+        var data = _r2_get_memdata(pointer.value.toString(16), size);
+        if (!big_endian) {
+            data = data.reverse();
+        }
+        return Long.fromString(data.join(''), false, 16);
     };
 
     return Resolver;

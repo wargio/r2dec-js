@@ -153,7 +153,7 @@
     // };
     // </DEBUG>
 
-    function CodeGen(resolver, conf) {
+    function CodeGen(resolver, options, conf) {
         var colorful = 0 | Global.r2cmd('e', 'scr.color');
 
         // let r2 to decide whether there would be syntax highlighting
@@ -178,6 +178,7 @@
         }
 
         this.guide = guides[conf.guides];
+        this.options = options;
     }
 
     // <DEBUG>
@@ -324,6 +325,11 @@
             }
 
             // TODO: emit value in the appropriate format: dec, hex, signed, unsigned, ...
+            return [[TOK_NUMBER, expr.toString(opt)]];
+        }
+
+        else if (this.options.numeric_deref && this.xrefs.verify_deref(expr)) {
+
             return [[TOK_NUMBER, expr.toString(opt)]];
         }
 

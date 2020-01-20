@@ -16,6 +16,7 @@
  */
 
 (function() {
+    const CGOpt = require('js/libcore2/backend/cgoptions');
     const ArchRegs = require('js/libcore2/frontend/arch/x86/archregs');
     const Flags = require('js/libcore2/frontend/arch/x86/flags');
     const Expr = require('js/libcore2/analysis/ir/expressions');
@@ -346,6 +347,10 @@
         };
 
         return parsed;
+    };
+
+    x86.prototype.cgopt = function() {
+        return CGOpt();
     };
 
     var _make_new_reg = function(name, size) {
