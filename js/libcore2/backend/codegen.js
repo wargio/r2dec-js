@@ -328,10 +328,9 @@
             return [[TOK_NUMBER, expr.toString(opt)]];
         }
 
-        else if (this.options.numeric_deref && this.xrefs.verify_deref(expr)) {
-
-            return [[TOK_NUMBER, expr.toString(opt)]];
-        }
+        //else if (this.options.numeric_deref && this.xrefs.verify_deref(expr)) {
+        //    return [[TOK_NUMBER, expr.toString(opt)]];
+        //}
 
         else if (expr instanceof Expr.Reg) {
             return [[TOK_VARNAME, expr.toString()]];

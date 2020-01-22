@@ -340,7 +340,7 @@ function r2dec_main(args) {
                 cflow.conditions();
 
                 var resolver = new Resolver();
-                var codegen = new CodeGen(resolver, arch.cgopt(), config['out']);
+                var codegen = new CodeGen(resolver, decoder.arch.cgopt(), config['out']);
 
                 console.log(codegen.emit_func(func));
             } else {

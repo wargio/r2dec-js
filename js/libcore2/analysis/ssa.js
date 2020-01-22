@@ -401,8 +401,9 @@
                         expr.iter_operands(true).forEach(function(op) {
                             if (selector(op) && !op.is_def) {
                                 var repr = op.repr();
-
-                                op.idx = top(stack[repr]);
+                                if (stack[repr]) {
+                                    op.idx = top(stack[repr]);
+                                }
                                 ctx.add_use(op);
                             }
                         });

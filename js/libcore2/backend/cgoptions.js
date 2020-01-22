@@ -21,5 +21,5 @@
 		this.big_endian = false;
 	}
 
-	return CGOptions
-})
+	return CGOptions;
+});

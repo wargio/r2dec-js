@@ -59,7 +59,7 @@
                         var cchandler = CConvs[ccname];
 
                         if (cchandler === undefined) {
-                            throw new Error('unsupported calling convention: ' + ccname);
+                            throw new Error('unsupported calling convention: ' + ccname + ' - afc @ ' + callee.value.toString());
                         }
 
                         cchandler.get_args_expr(fcall, local_context).forEach(function(arg) {

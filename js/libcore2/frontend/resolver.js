@@ -27,7 +27,7 @@
         this.name  = name;
         this.begin = begin;
         this.end   = this.begin.add(size || 0);
-    };
+    }
 
     /**
      * Used to check if a memory area is inside or outside of the mem section
@@ -182,12 +182,12 @@
      * @returns {boolean}
      */
     Resolver.prototype.verify_deref = function(pointer, size) {
-        if (!pointer instanceof Expr.Deref) {
+        if (!(pointer instanceof Expr.Deref)) {
             return false;
         }
         return this.memory.some(function(m) {
             return m.inside(pointer.value, size);
-        })
+        });
     };
 
     /**
@@ -197,7 +197,7 @@
      * @returns {boolean}
      */
     Resolver.prototype.read_deref = function(pointer, size, big_endian) {
-        if (!pointer instanceof Expr.Deref) {
+        if (!(pointer instanceof Expr.Deref)) {
             throw Error("pointer is not a Expr.Deref value");
         }
         var data = _r2_get_memdata(pointer.value.toString(16), size);

@@ -24,6 +24,7 @@
     },
     "globals": {
         "Global": true,
+        "Proxy": true,
         "Duktape": true,
         "TextDecoder": true,
         "require": true,

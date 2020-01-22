@@ -74,7 +74,7 @@
     };
 
     Decoder.prototype.analyzer = function() {
-        return this.arch.analyzer
+        return this.arch.analyzer;
     };
 
     return Decoder;
