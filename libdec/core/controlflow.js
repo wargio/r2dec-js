@@ -84,7 +84,7 @@
     };
 
     var _set_outbounds_jump = function(instruction, index, context) {
-        if (Utils.search(instruction.jump, context.instructions, _compare_locations)) {
+        if (Utils.search(instruction.jump, context.instructions, _compare_locations) && context.findBlock(instruction.location)) {
             return false;
         }
         if (!instruction.code) {
@@ -104,12 +104,14 @@
             }
         } else if (instruction.cond) {
             var block = context.findBlock(instruction.location);
-            var single_instr = block.split(block.instructions.indexOf(instruction));
-            if (single_instr) {
-                single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, false)));
-                single_instr.addExtraTail(new Scope.brace(instruction.location));
-                context.addBlock(single_instr);
-                context.addBlock(single_instr.split(1));
+            if (block) {
+                var single_instr = block.split(block.instructions.indexOf(instruction));
+                if (single_instr) {
+                    single_instr.addExtraHead(new Scope.if(instruction.location, _condition(instruction, false)));
+                    single_instr.addExtraTail(new Scope.brace(instruction.location));
+                    context.addBlock(single_instr);
+                    context.addBlock(single_instr.split(1));
+                }
             }
         }
 
