@@ -126,6 +126,9 @@
             return false;
         }
         var block = context.findBlock(instruction.location);
+        if (!block) {
+            return false;
+        }
 
         // let's check if is a oneline loop or panic loop
         if (instruction.jump.eq(instruction.location)) {
@@ -218,6 +221,9 @@
         }
 
         var block = context.findBlock(instruction.location);
+        if (!block) {
+            return false;
+        }
 
         var outside = Utils.search(instruction.jump, block.instructions, _compare_locations);
 
@@ -290,6 +296,9 @@
 
     var _set_custom_flow = function(instruction, index, context) {
         var block = context.findBlock(instruction.location);
+        if (!block) {
+            return false;
+        }
 
         var first_external_instruction = Utils.search(instruction.jump, block.instructions, _compare_locations);
         var if_block = block.split(block.instructions.indexOf(instruction));
