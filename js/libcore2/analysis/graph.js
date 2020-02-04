@@ -109,20 +109,46 @@
         dst.inbound.push(src);
     };
 
-    var _remove_node = function(arr, node) {
+    var _remove_from_list = function(node, arr) {
         var i = arr.findIndex(function(n) {
             return n.key == node.key;
         });
 
-        return (i === (-1) ? undefined : arr.splice(i, 1));
+        if (i !== (-1)) {
+            arr.splice(i, 1);
+        }
     };
 
     Directed.prototype.delEdge = function(edge) {
         var src = this.getNode(edge[0]);
         var dst = this.getNode(edge[1]);
 
-        _remove_node(src.outbound, dst);
-        _remove_node(dst.inbound, src);
+        _remove_from_list(dst, src.outbound);
+        _remove_from_list(src, dst.inbound);
+    };
+
+    Directed.prototype.delNode = function(key) {
+        var node = this.getNode(key);
+
+        if (node) {
+            // remove all edges to successors
+            this.successors(node).forEach(function(succ) {
+                this.delEdge([node.key, succ.key]);
+            }, this);
+
+            // remove all edges to predecessors
+            this.predecessors(node).forEach(function(pred) {
+                this.delEdge([pred.key, node.key]);
+            }, this);
+
+            // deleting the root node makes no sense, but support it anyway
+            if (node === this.root) {
+                this.root = null;
+            }
+
+            // remove the node itself
+            delete this.nodes[key];
+        }
     };
 
     // not really an iterator, as Duktape does not support "yield" and "function*"
@@ -170,6 +196,9 @@
      * custom graph. Please note that executing the commands sequence
      * will discard a previous custom graph, if exists.
      *
+     * Usage example (assuming a graph named 'g'):
+     *   console.log(Global.r2cmd(g.r2graph().join(' ; ')));
+     * 
      * @returns {Array.<string>} A list of commands to display the graph in r2
      */
     Directed.prototype.r2graph = function() {
@@ -354,11 +383,11 @@
     DominatorTree.prototype.constructor = DominatorTree;
 
     DominatorTree.prototype.dominates = function(v, u) {
-        if (u == v) {
+        if (u === v) {
             return true;
         }
 
-        if (u == this.root) {
+        if (u === this.root) {
             return false;
         }
 
@@ -381,7 +410,7 @@
             _this.successors(n).forEach(descend_dom);
         };
 
-        _this.successors(v).forEach(descend_dom);
+        this.successors(v).forEach(descend_dom);
 
         return dominated.map(this.getNode, this);
     };
