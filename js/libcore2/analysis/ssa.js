@@ -362,7 +362,11 @@
             return (expr instanceof Expr.Assign) && (expr.operands[1] instanceof Expr.Phi);
         };
 
-        // get the top element of an array
+        /**
+         * Get the top element of array
+         * @param {Array} arr Array
+         * @returns {Object} Top element of `arr`
+         */ 
         var top = function(arr) {
             return arr[arr.length - 1];
         };
@@ -393,14 +397,22 @@
             });
         };
 
-        var rename_rec = function(n) {
-            n.container.statements.forEach(function(stmt) {
+        var rename_rec = function(block) {
+            block.container.statements.forEach(function(stmt) {
                 // pick up uses to assign ssa index
                 stmt.expressions.forEach(function(expr) {
                     if (!is_phi_assignment(expr)) {
                         expr.iter_operands(true).forEach(function(op) {
                             if (selector(op) && !op.is_def) {
                                 var repr = op.repr();
+
+                                // <WORKAROUND>
+                                if (!(repr in count)) {
+                                    console.warn('[!] ssa: could not find stack for', '"' + repr + '" (use)');
+                                    count[repr] = 0;
+                                    stack[repr] = [];
+                                }
+                                // </WORKAROUND>
 
                                 op.idx = top(stack[repr]);
                                 ctx.add_use(op);
@@ -428,7 +440,7 @@
                             //
                             // <WORKAROUND>
                             if (!(repr in count)) {
-                                console.warn('[!] ssa: could not find stack for', '"' + repr + '"');
+                                console.warn('[!] ssa: could not find stack for', '"' + repr + '" (def)');
                                 count[repr] = 0;
                                 stack[repr] = [];
                             }
@@ -444,8 +456,8 @@
                 });
             });
 
-            cfg.successors(block_to_node(cfg, n)).forEach(function(Y) {
-                var j = cfg.predecessors(Y).indexOf(block_to_node(cfg, n));
+            cfg.successors(block_to_node(cfg, block)).forEach(function(Y) {
+                var j = cfg.predecessors(Y).indexOf(block_to_node(cfg, block));
 
                 // iterate over all phi functions in Y
                 node_to_block(func, Y).container.statements.forEach(function(stmt) {
@@ -466,12 +478,12 @@
             });
 
             // descend the dominator tree recursively
-            dom.successors(block_to_node(dom, n)).forEach(function(X) {
+            dom.successors(block_to_node(dom, block)).forEach(function(X) {
                 rename_rec(node_to_block(func, X));
             });
 
             // cleanup context stack of current block's definitions
-            n.container.statements.forEach(function(stmt) {
+            block.container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands(true).forEach(function(op) {
                         if (selector(op) && op.is_def) {
@@ -710,19 +722,19 @@
                 return (ignore_weak && def.weak) ? null : def.repr();
             });
     
-            // filter out definitions whose name is shadowed by a
-            // locally defined name; keep those who are not
-            var entry_alive = ctx.entry.filter(function(def) {
+            // filter out definitions whose name is shadowed by a locally defined name.
+            // keep only non-shadowed entry defs
+            var nshdw_entry_defs = ctx.entry.filter(function(def) {
                 return (local_names.indexOf(def.repr()) === (-1));
             });
 
-            // filter out local definitions that are shadowed by other
-            // ones that are defined later in the same block
-            var locals_alive = locals.filter(function(def, i) {
+            // filter out local definitions that are shadowed by other ones that are
+            // defined later in the same block. keep only non-shadowed local defs
+            var nshdw_local_defs = locals.filter(function(def, i) {
                 return (local_names.slice(i + 1).indexOf(def.repr()) === (-1));
             });
 
-            return entry_alive.concat(locals_alive);
+            return nshdw_entry_defs.concat(nshdw_local_defs);
         };
     
         func.basic_blocks.forEach(function(block) {

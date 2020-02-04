@@ -542,7 +542,7 @@
         }
 
         else if (stmt instanceof Stmt.Return) {
-            var retval = stmt.retval ? [SPACE].concat(auto_paren(this.emit_expression(stmt.retval))) : [];
+            var retval = stmt.retval ? [SPACE].concat(this.emit_expression(stmt.retval)) : [];
 
             lines.push([[TOK_KEYWORD, 'return']].concat(retval).concat([SEMIC]));
         }

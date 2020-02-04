@@ -42,7 +42,7 @@
     };
 
     var _r2_get_libs_names = function() {
-        var ilj = Global.r2cmdj('ilj');
+        var ilj = Global.r2cmdj('ilj') || [];
 
         // for some reason r2 does not keep the name in its original case
         // so we have to canonicalize it for later

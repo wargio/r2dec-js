@@ -23,7 +23,7 @@
         this.arch = arch;
     }
 
-    var _get_live_unused_by = function(context, expr) {
+    var _get_defined_by = function(context, expr) {
         // var live_by = context.live_ranges.filter(function(rng) {
         //     return rng.is_defined_by(expr)  // defined before expr is reached on that cfg path
         //         // && rng.is_alive_by(expr)    // definition is still alive by expr is reached
@@ -53,7 +53,7 @@
         var top_of_stack = null;
         var args = [];
 
-        var live_by_fcall = _get_live_unused_by(context, fcall);
+        var live_by_fcall = _get_defined_by(context, fcall);
 
         // drop all definitions that are already used prior to fcall
         live_by_fcall = live_by_fcall.filter(function(rng) {
@@ -70,7 +70,7 @@
         //     console.log(c0, ' |', 'def:', d.parent.parent.toString(), c1);
         //
         //     d.uses.forEach(function(u) {
-        //         console.log(c0, ' |', '  |', u.parent_stmt().toString(), c1);
+        //         console.log(c0, ' |', ' |', u.parent_stmt().toString(), c1);
         //     });
         // });
         // console.log();
@@ -171,11 +171,11 @@
         var nargs = (-1);
         var args = [];
 
-        var live_by_fcall = _get_live_unused_by(context, fcall);
+        var live_by_fcall = _get_defined_by(context, fcall);
 
         // <DEBUG>
         // console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
-        // live_by_fcall.forEach(function(d) {
+        // live_by_fcall.forEach(function(rng) {
         //     var d = rng.def;
         //     var c0 = d.weak ? '\033[90m' : '';
         //     var c1 = d.weak ? '\033[0m' : '';
@@ -183,13 +183,14 @@
         //     console.log(c0, ' |', 'def:', d.parent.parent.toString(), c1);
         //
         //     d.uses.forEach(function(u) {
-        //         console.log(c0, ' |', '  |', u.parent_stmt().toString(), c1);
+        //         console.log(c0, ' |', ' |', u.parent_stmt().toString(), c1);
         //     });
         // });
         // console.log();
         // </DEBUG>
 
-        // drop all weak definitions
+        // in amd64 cc all arguments are passed through regs. we are not interested in their
+        // overlap assignments so we drop all weak definitions first
         live_by_fcall = live_by_fcall.filter(function(rng) {
             return !(rng.def.weak);
         });
@@ -254,8 +255,32 @@
         this.cchandlers = cchandlers;
     }
 
+    // BUG:
+    //
+    // consider the following assembly code:
+    //    push 0
+    //    mov  eax, dword [var_8h]
+    //    push eax
+    //    mov  ecx, dword [var_8h]
+    //    mov  edx, dword [ecx + 0x14]
+    //    call edx
+    //
+    // correct analysis would yield the following fcall:
+    //    (var_8h + 20)(var_8h, 0)
+    //
+    // however, by the time this method is used to guess the calling convension, var_8h is already
+    // propagated into [ecx + 0x14], which in turn is propagated into the fcall target. though the
+    // propagations took place, the propagated definitions (now appear 'unused') are not pruned yet.
+    // that causes the cc guess method to pick up edx as the first considerable argument, since it
+    // has no uses left
+
     CCguess.prototype.get_args_expr = function(fcall, context) {
-        var live_by_fcall = _get_live_unused_by(context, fcall);
+        var live_by_fcall = _get_defined_by(context, fcall);
+
+        // drop all definitions that are already used prior to fcall
+        live_by_fcall = live_by_fcall.filter(function(rng) {
+            return rng.is_unused_by(fcall) && !(rng.def.weak);
+        });
 
         var CCobj = null;
 
