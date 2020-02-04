@@ -68,12 +68,12 @@ function Function(afij, afbj) {
 
     // function arguments
     this.args = vars.filter(function(v) {
-        return (v.kind === 'arg') || (v.kind === 'reg');
+        return v && ((v.kind === 'arg') || (v.kind === 'reg'));
     });
 
     // function locals
     this.vars = vars.filter(function(v) {
-        return (v.kind === 'var');
+        return v && (v.kind === 'var');
     });
 
     // read and process function's basic blocks
@@ -81,14 +81,31 @@ function Function(afij, afbj) {
         return new BasicBlock(bb);
     });
 
+    var entry_blocks = this.basic_blocks.filter(function(bb) {
+        return bb.is_entry;
+    });
+
     // the block that serves as the function head. except of some rare cases, there should be exactly
     // one entry block. in case of multiple entry blocks, the first would be arbitraily selected.
+    this.entry_block = entry_blocks[0];
+
+    // multiple function entry blocks means that some nodes [i.e. the nodes on the path originated from
+    // the entry block that was not selected] are not reachable from the selected root node. to maintain
+    // the connectivity property of the control flow graph, nodes that cannot be reached from the selected
+    // entry block, have to be removed.
     //
-    // though we could just pick the first block listed in 'afbj' [which is is usually the function's
-    // entry block], this approach seems to be more robust
-    this.entry_block = this.basic_blocks.filter(function(bb) {
-        return bb.is_entry;
-    })[0];
+    // unreachable nodes can be filtered out easily by creating a depth-first spanning tree and preserving
+    // only the ones that were picked up by the dfs walk
+    if (entry_blocks.length > 1) {
+        var cfg = this.cfg();
+        var dfs = new Graph.DFSpanningTree(cfg);
+
+        var _node_to_block = function(node) {
+            return this.getBlock(node.key);
+        };
+
+        this.basic_blocks = dfs.iterNodes().map(_node_to_block, this);
+    }
 
     // a list of blocks that leave the function either by returning or tail-calling another function.
     // there should be at least one item in this list. note that an exit block may be the function entry
