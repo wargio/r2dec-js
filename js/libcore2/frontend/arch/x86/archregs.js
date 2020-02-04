@@ -127,8 +127,8 @@
         var reg16 = ovl[IDX_REG16] && new Expr.Reg(ovl[IDX_REG16], 16);
 
         return [
-            reg32 && new Expr.Assign(reg32, new Expr.Or(new Expr.And(reg32.clone(), new Expr.Val(MASK_INV8H, 32))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 32))),
-            reg16 && new Expr.Assign(reg16, new Expr.Or(new Expr.And(reg16.clone(), new Expr.Val(MASK_INV8H, 16))), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 16)))
+            reg32 && new Expr.Assign(reg32, new Expr.Or(new Expr.And(reg32.clone(), new Expr.Val(MASK_INV8H, 32)), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 32)))),
+            reg16 && new Expr.Assign(reg16, new Expr.Or(new Expr.And(reg16.clone(), new Expr.Val(MASK_INV8H, 16)), new Expr.Shl(reg8h.clone(), new Expr.Val(8, 16))))
         ].filter(Boolean);
     };
 
