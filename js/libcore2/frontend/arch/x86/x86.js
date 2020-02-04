@@ -87,6 +87,7 @@
 
             'pushad': _pushad.bind(this),
             'popad' : _popad.bind(this),
+            'pushfd': _pushfd.bind(this),
 
             // arithmetic operations
             'add'   : _add.bind(this),
@@ -769,6 +770,19 @@
         ];
 
         return Array.prototype.concat(poped_regs.map(pop_step));
+    };
+
+    var _pushfd = function(p) {
+        var expr = this.FLAGS_REG.clone();
+        var sreg = this.STACK_REG;
+        var asize = this.ASIZE_VAL;
+
+        // rsp = rsp - asize
+        // *rsp = expr
+        return [
+            new Expr.Assign(sreg.clone(), new Expr.Sub(sreg.clone(), asize.clone())),
+            new Expr.Assign(new Expr.Deref(sreg.clone(), asize.size), expr)
+        ];
     };
 
     var _nop = function(p) {
