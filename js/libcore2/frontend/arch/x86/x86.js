@@ -228,15 +228,19 @@
                     var wrapped = function(p) {
                         var exprs = ihandler(p);
 
-                        var has_pic = exprs.some(function(e) {
-                            var __ref_pc_reg = function(op) {
+                        var has_pc_reg_ref = function(exprs) {
+                            var __is_pc_reg = function(op) {
                                 return op.equals(pc_reg);
                             };
 
-                            return (e instanceof Expr.Expr) && e.iter_operands().some(__ref_pc_reg);
-                        });
+                            return exprs.some(function(e) {
+                                return (e.expressions)
+                                    ? has_pc_reg_ref(e.expressions)
+                                    : e.iter_operands().some(__is_pc_reg);
+                            });
+                        };
 
-                        if (has_pic) {
+                        if (has_pc_reg_ref(exprs)) {
                             var pc_val = new Expr.Val(p.address.add(p.isize), pc_reg.size);
 
                             exprs.unshift(new Expr.Assign(pc_reg.clone(), pc_val));

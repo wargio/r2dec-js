@@ -101,7 +101,7 @@
         };
     };
 
-    ControlFlow.prototype.identify_loops = function() {
+    ControlFlow.prototype.loops = function() {
         var func = this.func;
         var cfg = this.cfg;
         var dom = this.dom;
@@ -293,6 +293,8 @@
                         C2.prev = C0;
                     }
 
+                    // technically ssa properties are stripped by now and there is no need to clone them.
+                    // that said, sometimes ssa is still needed for debugging purposes
                     var cond = S.cond.clone(['idx', 'def']);
 
                     if (C1) {

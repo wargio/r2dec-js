@@ -60,19 +60,11 @@
 
     // --------------------------------------------------
 
-    // var _select_weak = function(def, val, conf) {
-    //     var _is_phi_arg = function(u) {
-    //         return (u.parent instanceof Expr.Phi);
-    //     };
-    //
-    //     return def.weak && def.uses.every(_is_phi_arg);
-    // };
-
     // eliminate dead assignments to registers
     var _select_dead_regs = function(def, val, conf) {
         // elinimate dead assignments to reg, however:
         // - return value regs assigned to fcalls cannot be eliminated, as fcalls may have side effects
-        // - assigned variables, ever though not used, better stay there for clarity
+        // - assigned variables, even though not used, better stay there for clarity
         // - however, if either of these exceptions was a def that was fully propagated, then prune
         return (def.uses.length === 0)
             && (def instanceof Expr.Reg)
@@ -183,7 +175,6 @@
 
     // --------------------------------------------------
 
-    // Pruner.eliminate_weak                = new Pruner(_select_weak);
     Pruner.eliminate_dead_regs           = new Pruner(_select_dead_regs);
     Pruner.eliminate_dead_derefs         = new Pruner(_select_dead_derefs);
     Pruner.eliminate_dead_results        = new Pruner(_select_dead_results);
