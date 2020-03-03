@@ -1,15 +1,33 @@
 language: node_js
-
 node_js:  
   - node
 
-os:
-  - linux
-  - osx
+matrix:
+  fast_finish: true
+  include:
+    - os: linux
+      name: Test
+    - os: osx
+      name: Test
+    - os: linux
+      name: Debian
+      dist: trusty
 
 script:
-  - chmod +x travis-test.sh
-  - ./travis-test.sh
+  - |
+    case "$TRAVIS_JOB_NAME" in
+    Test)
+      chmod +x travis-test.sh
+      ./travis-test.sh
+      ;;
+    Debian)
+      pwd
+      make -C p/dist/debian
+      wget -q https://github.com/probonopd/uploadtool/raw/master/upload.sh
+      bash upload.sh p/dist/debian/*.deb
+      ;;
+    esac
 
 git:
+  quiet: true
   depth: 3
