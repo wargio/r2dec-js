@@ -1,5 +1,5 @@
 #!/bin/sh
-[ -z "${VERSION}" ] && VERSION=`r2 -qv`
+[ -z "${VERSION}" ] && VERSION=4.0.0
 (
 	RV=${VERSION}
 	RA=amd64
