@@ -1,5 +1,7 @@
 PACKAGE=r2dec
-VERSION=4.0.0
+ifndef VERSION
+  VERSION=$(shell r2 -qv)
+endif
 ARCH=amd64
 DEPENDS=radare2
 SECTION=user/shell
