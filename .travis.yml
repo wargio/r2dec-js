@@ -21,7 +21,7 @@ script:
       ./travis-test.sh
       ;;
     Debian)
-      pwd
+      export VERSION="4.3.1"
       make -C p/dist/debian
       wget -q https://github.com/probonopd/uploadtool/raw/master/upload.sh
       bash upload.sh p/dist/debian/*.deb
