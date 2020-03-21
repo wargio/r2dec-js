@@ -42,7 +42,7 @@ static char* r2dec_read_file(const char* file) {
 			"r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js");
 #endif
 	}
-	int len = 0;
+	size_t len = 0;
 	if (!r2dec_home) {
 		return 0;
 	}
@@ -350,5 +350,8 @@ _R_API RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_CORE,
 	.data = &r_core_plugin_test,
 	.version = R2_VERSION
+#if R2_VERSION_MAJOR >= 4 &&  R2_VERSION_MINOR >= 2
+	, .pkgname = "r2dec"
+#endif
 };
 #endif
