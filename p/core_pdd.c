@@ -350,5 +350,8 @@ _R_API RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_CORE,
 	.data = &r_core_plugin_test,
 	.version = R2_VERSION
+#if R2_VERSION_MAJOR >= 4 &&  R2_VERSION_MINOR >= 2
+	, .pkgname = "r2dec"
+#endif
 };
 #endif
