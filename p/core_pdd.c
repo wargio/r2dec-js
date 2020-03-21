@@ -42,7 +42,7 @@ static char* r2dec_read_file(const char* file) {
 			"r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js");
 #endif
 	}
-	int len = 0;
+	size_t len = 0;
 	if (!r2dec_home) {
 		return 0;
 	}
