@@ -38,13 +38,23 @@
     Container.prototype.push_stmt = function(stmt) {
         stmt.parent = this;
 
+        // if statement does not specify an address, use the last statement's address (if there is one)
+        if (stmt.address === undefined) {
+            stmt.address = this.statements.length > 0
+                ? this.statements[this.statements.length - 1].address
+                : this.address;
+        }
+
         this.statements.push(stmt);
     };
 
     Container.prototype.unshift_stmt = function(stmt) {
         stmt.parent = this;
 
-        // TODO: also update statement address to container address?
+        // if statement does not specify an address, use the container starting address
+        if (stmt.address === undefined) {
+            stmt.address = this.address;
+        }
 
         this.statements.unshift(stmt);
     };
