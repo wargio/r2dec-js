@@ -233,6 +233,8 @@ var load_r2_evars = function(ns) {
 /**
  * TODO:
  *   bugfixes:
+ *      o deref ssa indices don't show on output
+ *      o func args may appear not in order
  *      o orphan 'if' conditions
  *      o propagate based on liveness and interference
  *      o fix ssa out translation
@@ -339,6 +341,7 @@ function r2dec_main(args) {
 
                 var cflow = new ControlFlow(func);
                 cflow.fallthroughs();
+                cflow.missing_gotos();
                 cflow.loops();
                 cflow.conditions();
 

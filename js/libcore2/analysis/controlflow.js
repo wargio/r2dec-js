@@ -221,6 +221,21 @@
         }, this);
     };
 
+    // blocks with no explicit branching or jumps just fall through to the next
+    // block. add an explicit goto statement to such blocks to reflect this
+    // behavior explicitly on the output code
+    ControlFlow.prototype.missing_gotos = function() {
+        this.func.basic_blocks.forEach(function(bb) {
+            var term = bb.container.terminator();
+
+            if (!term && bb.jump) {
+                term = new Stmt.Goto(undefined, new Expr.Val(bb.jump));
+
+                bb.container.push_stmt(term);
+            }
+        }, this);
+    };
+    
     // TODO: duplicated code from ssa.js
     // get a function basic block from a graph node
     var node_to_block = function(f, node) {
