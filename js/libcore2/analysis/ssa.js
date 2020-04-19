@@ -62,7 +62,7 @@
             // all definitions should appear as assignments
             var assign = new Expr.Assign(lhand, rhand);
 
-            this.uninit.push_stmt(Stmt.make_statement(this.uninit.address, assign));
+            this.uninit.push_stmt(Stmt.make_statement(undefined, assign));
             this.add_def(lhand);
         }
 
