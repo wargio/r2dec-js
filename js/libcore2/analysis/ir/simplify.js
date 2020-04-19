@@ -80,6 +80,16 @@
     };
 
     /**
+     * Returns the opposite ranking value of a given rank
+     * @param {number} rank Rank to negate
+     * @returns {number} A numberic value between 0 and 7, which represents the negation of given one
+     * @inner
+     */
+    var __get_neg_rank = function(rank) {
+        return rank ^ (__rel_exprs.length - 1);
+    };
+
+    /**
      * Checks whether an expression is an instance of a comparison expression
      * @param {Expr.Expr} expr An expression instance to check
      * @returns `true` if `expr` is an instance of a comparison expression, `false` otherwise
@@ -225,22 +235,40 @@
         var rhand = bexpr.operands[1];
 
         if ((bexpr instanceof Expr.Add) || (bexpr instanceof Expr.Sub)) {
-            const ZERO = new Expr.Val(0, rhand.size);
-
             // x + 0
             // x - 0
-            if (rhand.equals(ZERO)) {
+            var __is_additive_id = function(expr) {
+                const ZERO = new Expr.Val(0, expr.size);
+
+                return expr.equals(ZERO);
+            };
+
+            if (__is_additive_id(rhand)) {
                 return lhand.clone(wssa);
+            }
+
+            // Add is a commutative operator; try also with flipped operands
+            if ((bexpr instanceof Expr.Add) && __is_additive_id(lhand)) {
+                return rhand.clone(wssa);
             }
         }
 
         else if ((bexpr instanceof Expr.Mul) || (bexpr instanceof Expr.Div)) {
-            const ONE = new Expr.Val(1, rhand.size);
-
             // x * 1
             // x / 1
-            if (rhand.equals(ONE)) {
+            var __is_multiplicative_id = function(expr) {
+                const ONE = new Expr.Val(1, expr.size);
+
+                return expr.equals(ONE);
+            };
+
+            if (__is_multiplicative_id(rhand)) {
                 return lhand.clone(wssa);
+            }
+
+            // Mul is a commutative operator; try also with flipped operands
+            if ((bexpr instanceof Expr.Mul) && __is_multiplicative_id(lhand)) {
+                return rhand.clone(wssa);
             }
         }
 
@@ -591,6 +619,29 @@
             return null;
         };
 
+        var __handle_eq = function(lcmp, rcmp) {
+            // lhand inner operands
+            var x0 = lcmp.operands[0];
+            var y0 = lcmp.operands[1];
+
+            // rhand inner operands
+            var x1 = rcmp.operands[0];
+            var y1 = rcmp.operands[1];
+
+            // (x LCMP y) == (x RCMP y)
+            if (x0.equals(x1) && y0.equals(y1)) {
+                // the way the result relation expression is computed is indifferent
+                // to how the input relations are ordered, so there is no need to worry
+                // about 'equals' being a commutative operator
+                var rank = __get_neg_rank(__get_rel_rank(lcmp) ^ __get_rel_rank(rcmp));
+                var cons = __get_rel_expr(rank);
+
+                return cons(x0.clone(wssa), y0.clone(wssa));
+            }
+
+            return null;
+        };
+
         if (expr instanceof Expr.BoolNot) {
             var op = expr.operands[0];
 
@@ -614,6 +665,15 @@
 
             if (__is_compare_expr(ba_lhand) && __is_compare_expr(ba_rhand)) {
                 return __handle_and(ba_lhand, ba_rhand);
+            }
+        }
+
+        else if (expr instanceof Expr.EQ) {
+            var eq_lhand = expr.operands[0];
+            var eq_rhand = expr.operands[1];
+
+            if (__is_compare_expr(eq_lhand) && __is_compare_expr(eq_rhand)) {
+                return __handle_eq(eq_lhand, eq_rhand);
             }
         }
 
