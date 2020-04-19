@@ -146,7 +146,15 @@
             // not true, we would need arch.archregs.get_reg_size(vitem.base) instead
             var assign = new Expr.Assign(
                 new Expr.Reg(vitem.base, size),
-                new Expr.Var(vitem.name, size)
+
+                // WORKAROUND: should have been an Expr.Var, however that would cause it to be oversighted
+                // if propagated into a phi that happens to be assigned to another type (e.g. Expr.Reg):
+                // Expr.Var defs and uses are enumerated and indexed on their own step, however phi exprs
+                // are picked only when they are assigned to the current step's type. assigned Expr.Var
+                // may be propagated into a phi after the rename_regs step, but would that phi would be
+                // skipped later on the rename_vars step, and its args (i.e. propagated Expr.Var values)
+                // won't be indexed and assigned to their def
+                new Expr.Reg(vitem.name, size)
             );
 
             // this is an artificial assignment; mark def as weak
@@ -154,11 +162,6 @@
 
             entry.unshift_stmt(Stmt.make_statement(addr, assign));
         });
-
-        return {
-            vars: [],
-            args: aitems
-        };
     };
 
     // TODO: too similar to rename_bp_vars; consider unifying them
@@ -238,11 +241,6 @@
                 }
             });
         }
-
-        return {
-            vars: vitems,
-            args: aitems
-        };
     };
 
     // turn bp-based variables and arguments references into Variable expressions
@@ -350,11 +348,6 @@
                 }
             });
         }
-
-        return {
-            vars: vitems,
-            args: aitems
-        };
     };
 
     // TODO: extract and move it somewhere else
@@ -567,9 +560,6 @@
 
     function Analyzer(arch) {
         this.arch = arch;
-
-        this.func_args = [];
-        this.func_vars = [];
     }
 
     Analyzer.prototype.transform_step = function(container) {
@@ -577,21 +567,15 @@
     };
 
     Analyzer.prototype.transform_done = function(func) {
-        var regs = insert_reg_args(func, this.arch);
-
-        this.func_vars = regs.vars;
-        this.func_args = regs.args;
+        insert_reg_args(func, this.arch);
 
         insert_overlaps(func, this.arch);
         transform_tailcalls(func);
     };
 
     Analyzer.prototype.ssa_step_regs = function(func, context) {
-        var sp = rename_sp_vars(func, context, this.arch);
-        var bp = rename_bp_vars(func, context, this.arch);
-
-        this.func_vars = this.func_vars.concat(sp.vars, bp.vars);
-        this.func_args = this.func_args.concat(sp.args, bp.args);
+        rename_sp_vars(func, context, this.arch);
+        rename_bp_vars(func, context, this.arch);
 
         propagate_stack_reg(context, this.arch);
         propagate_flags_reg(context, this.arch);

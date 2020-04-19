@@ -1,3 +1,19 @@
+/* 
+ * Copyright (C) 2018-2019 elicn
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 (function() {
     var Expr = require('js/libcore2/analysis/ir/expressions');
@@ -49,6 +65,8 @@
         return this.colormap[tag] + txt + this.colormap[TOK_RESET];
     };
 
+    // ------------------------------------------------------------
+
 	// theme based on vscode dark+
     function DarkPlusPalette() {
         var colormap = [
@@ -74,6 +92,8 @@
 
     DarkPlusPalette.prototype = Object.create(Palette.prototype);
     DarkPlusPalette.prototype.constructor = DarkPlusPalette;
+
+    // ------------------------------------------------------------
 
     // highlight syntax according to r2 theme
     function ThemePalette(ecj) {
@@ -104,6 +124,8 @@
     ThemePalette.prototype = Object.create(Palette.prototype);
     ThemePalette.prototype.constructor = ThemePalette;
 
+    // ------------------------------------------------------------
+
     // a monochrome palette that does no syntax highlighting
     // useful when stdout is not a tty (i.e. a pipe to file or process)
     function MonoPalette() {
@@ -114,6 +136,8 @@
 
     MonoPalette.prototype = Object.create(Palette.prototype);
     MonoPalette.prototype.constructor = MonoPalette;
+
+    // ------------------------------------------------------------
 
     var parenthesize = function(s) {
         return Array.prototype.concat([[TOK_PAREN, '(']], s, [[TOK_PAREN, ')']]);
@@ -131,20 +155,20 @@
     };
 
     // <DEBUG>
-    // var subscript = function(n) {
-    //     const uc_digits = [
-    //         '\u2080',
-    //         '\u2081',
-    //         '\u2082',
-    //         '\u2083',
-    //         '\u2084',
-    //         '\u2085',
-    //         '\u2086',
-    //         '\u2087',
-    //         '\u2088',
-    //         '\u2089'
-    //     ];
+    // const uc_digits = [
+    //     '\u2080',
+    //     '\u2081',
+    //     '\u2082',
+    //     '\u2083',
+    //     '\u2084',
+    //     '\u2085',
+    //     '\u2086',
+    //     '\u2087',
+    //     '\u2088',
+    //     '\u2089'
+    // ];
     //
+    // var subscript = function(n) {
     //     var str_digit_to_uc_digit = function(d) {
     //         return uc_digits[d - 0];
     //     };
@@ -264,18 +288,10 @@
             var lhand = bexpr.operands[0];
             var rhand = bexpr.operands[1];
 
-            var lhand_opt = {};
-            var rhand_opt = {};
-
-            // most likely a bitmask, show right argument as hex
-            if (['And', 'Or', 'Xor'].indexOf(tname) !== (-1)) {
-                rhand_opt.radix = 16;
-            }
-
             var elements = Array.prototype.concat(
-                this.emit_expression(lhand, lhand_opt),
+                this.emit_expression(lhand),
                 [SPACE, op, SPACE],
-                this.emit_expression(rhand, rhand_opt)
+                this.emit_expression(rhand)
             );
 
             if ((p instanceof Expr.Expr) && !(p instanceof Expr.Assign)) {
@@ -313,14 +329,23 @@
         };
 
         if (expr instanceof Expr.Val) {
+            var _p = expr.parent;
+
             // TODO: this causes even pointer displacements to be attempted for resolving.
             // need to find a better way to filter what needs to be resolved (derefs and fcall args..?)
             var str = this.xrefs.resolve_data(expr,
-                (expr.parent instanceof Expr.Deref) ||
-                (expr.parent instanceof Expr.Call));
+                (_p instanceof Expr.Deref) ||
+                (_p instanceof Expr.Call));
 
             if (str) {
                 return [[TOK_STRING, str]];
+            }
+
+            // most likely this is a mask value, display as hex
+            if ((_p instanceof Expr.And) ||
+                (_p instanceof Expr.Or) ||
+                (_p instanceof Expr.Xor)) {
+                opt.radix = 16;
             }
 
             // TODO: emit value in the appropriate format: dec, hex, signed, unsigned, ...
