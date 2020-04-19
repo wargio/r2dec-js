@@ -46,7 +46,7 @@ static char* r2dec_read_file(const char* file)
 		return (char*) NULL;
 	}
 
-	int len = 0;
+	size_t len = 0;
 	char* filepath = r_str_newf("%s"R_SYS_DIR"%s", r2dec_home, file);
 	char* text = r_file_slurp (filepath, &len);
 
