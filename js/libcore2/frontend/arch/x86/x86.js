@@ -93,6 +93,7 @@
             'add'   : _add.bind(this),
             'adc'   : _adc.bind(this),
             'sub'   : _sub.bind(this),
+            'sbb'   : _sbb.bind(this),
             'div'   : _div.bind(this),
             'mul'   : _mul.bind(this),
             'imul'  : _imul.bind(this),
@@ -565,7 +566,7 @@
         var lexpr = this.get_operand_expr(p.operands[0]);
         var rexpr = this.get_operand_expr(p.operands[1]);
 
-        var op = new Expr.Add(new Expr.Add(lexpr, rexpr), Flags.CF.clone());
+        var op = new Expr.Add(lexpr, new Expr.Add(rexpr, Flags.CF.clone()));
 
         // lexpr = lexpr + rexpr + eflags.cf
         return [new Expr.Assign(lexpr.clone(), op)].concat(
@@ -580,6 +581,18 @@
         var op = new Expr.Sub(lexpr, rexpr);
 
         // lexpr = lexpr - rexpr
+        return [new Expr.Assign(lexpr.clone(), op)].concat(
+            this.eval_flags(lexpr, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF'])
+        );
+    };
+
+    var _sbb = function(p) {
+        var lexpr = this.get_operand_expr(p.operands[0]);
+        var rexpr = this.get_operand_expr(p.operands[1]);
+
+        var op = new Expr.Sub(lexpr, new Expr.Add(rexpr, Flags.CF.clone()));
+
+        // lexpr = lexpr - (rexpr + eflags.cf)
         return [new Expr.Assign(lexpr.clone(), op)].concat(
             this.eval_flags(lexpr, ['CF', 'PF', 'AF', 'ZF', 'SF', 'OF'])
         );
