@@ -81,6 +81,14 @@
         return null;
     };
 
+    Container.prototype.replace = function(other) {
+        var p = this.parent;
+        var i = p.containers.indexOf(this);
+
+        other.parent = p;
+        p.containers[i] = other;
+    };
+
     Container.prototype.pluck = function(detach) {
         var p = this.parent;
         var i = p.containers.indexOf(this);

@@ -319,11 +319,6 @@
                         C2 = null;
                     }
 
-                    // elinimate empty 'else' clause
-                    if (C2 && (C2.statements.length === 0)) {
-                        C2 = null;
-                    }
-
                     S.replace(new Stmt.If(S.address, cond, C1, C2));
                     Simplify.reduce_expr(cond);
                     
@@ -403,6 +398,62 @@
                     }
 
                     if (C0 && S.dest.value.eq(C0.fallthrough.address)) {
+                        S.pluck(true);
+                    }
+                }
+            }
+        }, this);
+
+        // adjust If statements
+        this.dfs.iterNodes().forEach(function(N) {
+            var C0 = node_to_block(this.func, N).container;
+            var S = C0.terminator();
+
+            if (S instanceof Stmt.If) {
+                // look for empty clauses and replace them by their safe fallthrough container.
+                // if there is no such container, remove them. a safe fallthrough container would
+                // be a container that is the only successor to its predecessor
+
+                // is this an empty 'else' clause?
+                if (S.else_cntr && S.else_cntr.statements.length === 0) {
+                    var N1 = this.cfg.getNode(S.else_cntr.address);
+
+                    // replace by its safe fallthrough container, if there is one or remove otherwise
+                    if (this.cfg.outdegree(N1) === 1) {
+                        S.else_cntr.replace(S.else_cntr.fallthrough);
+                    } else {
+                        S.else_cntr.pluck();
+                    }
+                }
+
+                // is this an empty 'then' clause?
+                if (S.then_cntr && S.then_cntr.statements.length === 0) {
+                    var N2 = this.cfg.getNode(S.then_cntr.address);
+
+                    // replace by its safe fallthrough container, if there is one or remove otherwise
+                    if (this.cfg.outdegree(N2) === 1) {
+                        S.then_cntr.replace(S.then_cntr.fallthrough);
+                    } else {
+                        S.then_cntr.pluck();
+                    }
+                }
+
+                // an If statement must have at least a 'then' clause. if there isn't
+                // one, replace with its 'else' clause, and accomodate by negating the
+                // condition. if both clauses are gone, the statement is meaningless and
+                // should be removed altogether
+                if (!S.then_cntr) {
+                    if (S.else_cntr) {
+                        console.log('replacing then with else!', S);
+                        var neg_cond = new Expr.BoolNot(S.cond.clone(['idx', 'def']));
+                        var else_cntr = S.else_cntr.pluck(false);
+
+                        S.then_cntr.replace(else_cntr);
+                        S.cond.replace(neg_cond);
+
+                        Simplify.reduce_expr(neg_cond);
+                    } else {
+                        console.log('no clasues, remove!', S.address.toString(16));
                         S.pluck(true);
                     }
                 }
