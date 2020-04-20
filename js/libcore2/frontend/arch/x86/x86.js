@@ -182,6 +182,9 @@
             'movsxd': _mov.bind(this),  // TODO: dest is signed
             'movzx' : _mov.bind(this),  // TODO: dest is unsigned
 
+            // unsigned assingments
+            'movabs' : _mov.bind(this),  // TODO: dest is unsigned
+
             // sign exention
             'cbw'   : _cbw.bind(this),  // TODO: source is signed
             'cwde'  : _cwde.bind(this), // TODO: source is signed
