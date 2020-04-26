@@ -404,22 +404,24 @@
             }
         }, this);
 
+        // a container has a safe fallthrough if it has only one successor and a valid
+        // fallthrough container
+        var _has_safe_fthrough = function(cntr, cfg) {
+            var N = cfg.getNode(cntr.address);
+
+            return (cfg.outdegree(N) === 1) && (cntr.fallthrough);
+        };
+
         // adjust If statements
         this.dfs.iterNodes().forEach(function(N) {
             var C0 = node_to_block(this.func, N).container;
             var S = C0.terminator();
 
             if (S instanceof Stmt.If) {
-                // look for empty clauses and replace them by their safe fallthrough container.
-                // if there is no such container, remove them. a safe fallthrough container would
-                // be a container that is the only successor to its predecessor
-
                 // is this an empty 'else' clause?
                 if (S.else_cntr && S.else_cntr.statements.length === 0) {
-                    var N1 = this.cfg.getNode(S.else_cntr.address);
-
                     // replace by its safe fallthrough container, if there is one or remove otherwise
-                    if (this.cfg.outdegree(N1) === 1) {
+                    if (_has_safe_fthrough(S.else_cntr, this.cfg)) {
                         S.else_cntr.replace(S.else_cntr.fallthrough);
                     } else {
                         S.else_cntr.pluck();
@@ -428,10 +430,8 @@
 
                 // is this an empty 'then' clause?
                 if (S.then_cntr && S.then_cntr.statements.length === 0) {
-                    var N2 = this.cfg.getNode(S.then_cntr.address);
-
                     // replace by its safe fallthrough container, if there is one or remove otherwise
-                    if (this.cfg.outdegree(N2) === 1) {
+                    if (_has_safe_fthrough(S.then_cntr, this.cfg)) {
                         S.then_cntr.replace(S.then_cntr.fallthrough);
                     } else {
                         S.then_cntr.pluck();
@@ -444,16 +444,12 @@
                 // should be removed altogether
                 if (!S.then_cntr) {
                     if (S.else_cntr) {
-                        console.log('replacing then with else!', S);
-                        var neg_cond = new Expr.BoolNot(S.cond.clone(['idx', 'def']));
-                        var else_cntr = S.else_cntr.pluck(false);
+                        var cond = new Expr.BoolNot(S.cond.clone(['idx', 'def']));
+                        var C1 = S.else_cntr;
 
-                        S.then_cntr.replace(else_cntr);
-                        S.cond.replace(neg_cond);
-
-                        Simplify.reduce_expr(neg_cond);
+                        S.replace(new Stmt.If(S.address, cond, C1, null));
+                        Simplify.reduce_expr(cond);
                     } else {
-                        console.log('no clasues, remove!', S.address.toString(16));
                         S.pluck(true);
                     }
                 }
