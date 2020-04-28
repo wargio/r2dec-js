@@ -262,12 +262,12 @@
 
     // get a function basic block from a graph node
     var node_to_block = function(f, node) {
-        return f.getBlock(node.key) || null;
+        return node.key;
     };
 
     // get a graph node from a function basic block
     var block_to_node = function(g, block) {
-        return g.getNode(block.address) || null;
+        return g.getNode(block) || null;
     };
 
     var insert_phis = function(selector) {
@@ -278,8 +278,8 @@
         var defs = {};
 
         // map a block to its list of definitions
-        func.basic_blocks.forEach(function(blk) {
-            defs[blk] = _find_local_defs(selector, blk);
+        func.basic_blocks.forEach(function(bb) {
+            defs[bb] = _find_local_defs(selector, bb);
         });
 
         // JS causes defsites keys to be stored as strings. since we need the definitions
@@ -290,8 +290,8 @@
         };
 
         // map a variable to blocks where it is defined
-        func.basic_blocks.forEach(function(blk) {
-            var block_defs = defs[blk];
+        func.basic_blocks.forEach(function(bb) {
+            var block_defs = defs[bb];
 
             block_defs.forEach(function(d) {
                 if (!(d in defsites.vals)) {
@@ -299,7 +299,7 @@
                     defsites.vals[d] = [];
                 }
 
-                defsites.vals[d].push(blk);
+                defsites.vals[d].push(bb);
             });
         });
 
@@ -340,7 +340,7 @@
                         // insert the statement a = Phi(a, a, ..., a) at the top of block y, where the
                         // phi-function has as many arguments as y has predecessors
                         var phi_assignment = new Expr.Assign(phi_var, new Expr.Phi(args));
-                        var phi_stmt = Stmt.make_statement(_y.address, phi_assignment);
+                        var phi_stmt = Stmt.make_statement(undefined, phi_assignment);
 
                         // insert phi at the beginning of the container
                         _y.container.unshift_stmt(phi_stmt);
@@ -494,11 +494,9 @@
             });
         };
 
-        var entry_block = node_to_block(func, dom.getRoot());
-
         insert_phis.call(this, selector);
         rename_init();
-        rename_rec(entry_block);
+        rename_rec(func.entry_block);
         relax_phis(ctx);
 
         return ctx;

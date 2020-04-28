@@ -101,7 +101,7 @@ function Function(afij, afbj) {
         var dfs = new Graph.DFSpanningTree(cfg);
 
         var _node_to_block = function(node) {
-            return this.getBlock(node.key);
+            return node.key;
         };
 
         this.basic_blocks = dfs.iterNodes().map(_node_to_block, this);
@@ -141,25 +141,25 @@ Function.prototype.cfg = function() {
     var edges = []; // jumping, branching or falling into another basic block
 
     this.basic_blocks.forEach(function(bb) {
-        nodes.push(bb.address);
+        nodes.push(bb);
 
         if (bb.jump) {
-            edges.push([bb.address, bb.jump]);
+            edges.push([bb, this.getBlock(bb.jump)]);
         }
 
         if (bb.fail) {
-            edges.push([bb.address, bb.fail]);
+            edges.push([bb, this.getBlock(bb.fail)]);
         }
 
         if (bb.cases) {
             bb.cases.forEach(function(caddr) {
-                edges.push([bb.address, caddr]);
+                edges.push([bb, this.getBlock(caddr)]);
             });
         }
-    });
+    }, this);
 
     // set up control flow graph
-    return new Graph.Directed(nodes, edges, this.entry_block.address);
+    return new Graph.Directed(nodes, edges, this.entry_block);
 };
 
 function BasicBlock(bb) {
