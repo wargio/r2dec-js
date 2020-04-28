@@ -4,8 +4,8 @@
 	RV=${VERSION}
 	RA=amd64
 	echo "[*] Downloading r2-${RV}-${RA}"
-	wget -c http://radare.mikelloc.com/get/${RV}/radare2_${RV}_${RA}.deb
-	wget -c http://radare.mikelloc.com/get/${RV}/radare2-dev_${RV}_${RA}.deb
+	wget -c https://github.com/radareorg/radare2/releases/download/${RV}/radare2_${RV}_${RA}.deb
+	wget -c https://github.com/radareorg/radare2/releases/download/${RV}/radare2-dev_${RV}_${RA}.deb
 	#sudo apt update -y
 	#sudo apt upgrade -y
 	sudo apt install -y libssl-dev # why
