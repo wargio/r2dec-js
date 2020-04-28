@@ -48,6 +48,21 @@
     // };
     // </DEBUG>
 
+    // get a function basic block from a graph node
+    var node_to_block = function(f, node) {
+        return node.key;
+    };
+
+    // get a graph node from a function basic block
+    var block_to_node = function(g, block) {
+        return g.getNode(block) || null;
+    };
+
+    // retreive the address of the basic block represented by the specified node
+    var addrOf = function(node) {
+        return node_to_block(null, node).address;
+    };
+
     var _construct_loop = function(N, cfg, dom) {
         var key = N.key;
         
@@ -86,7 +101,7 @@
         // the set of nodes dominated by the loop head includes loop body nodes and
         // exit nodes. we now "xoring" those sets together to find exit nodes
         var exits = dom.all_dominated(head).filter(function(n0) {
-            return !(body.find(function(n1) { return n0.key.eq(n1.key); }));
+            return !(body.find(function(n1) { return addrOf(n0).eq(addrOf(n1)); }));
         });
 
         // console.log('loop:');
@@ -130,11 +145,11 @@
 
             if (S instanceof Stmt.Branch) {
                 var _taken_key = function(node) {
-                    return node.key.eq(S.taken.value);
+                    return addrOf(node).eq(S.taken.value);
                 };
 
                 var _not_taken_key = function(node) {
-                    return node.key.eq(S.not_taken.value);
+                    return addrOf(node).eq(S.not_taken.value);
                 };
 
                 var cond;
@@ -183,15 +198,17 @@
         loops.forEach(function(loop) {
             var loop_nodes = Array.prototype.concat(loop.body, loop.exits);
 
+            // iterate loop blocks to replace Goto statements with Break and
+            // Continue statements where appropriate
             loop_nodes.forEach(function(n) {
                 var C0 = node_to_block(func, n).container;
                 var S = C0.terminator();
-    
+
                 if (S instanceof Stmt.Goto) {
                     var _dest_key = function(node) {
-                        return node.key.eq(S.dest.value);
+                        return addrOf(node).eq(S.dest.value);
                     };
-    
+
                     // jumping to an exit node?
                     if (loop.exits.find(_dest_key)) {
                         S.replace(new Stmt.Break(S.address));
@@ -236,12 +253,6 @@
         }, this);
     };
     
-    // TODO: duplicated code from ssa.js
-    // get a function basic block from a graph node
-    var node_to_block = function(f, node) {
-        return f.getBlock(node.key) || null;
-    };
-
     ControlFlow.prototype.conditions = function() {
         //  for each node N in dfs tree:
         //      let C0 = container of node N
@@ -279,32 +290,32 @@
             // console.log('  +dominates:', ArrayToString(imm_dominated, 16));
 
             // proceed only if S is not a loop branch
-            if (!(this.loops.find(function(loop) { return loop.head.key.eq(N.key); }))) {
+            if (!(this.loops.find(function(loop) { return addrOf(loop.head).eq(addrOf(N)); }))) {
                 if (S instanceof Stmt.Branch) {
                     var C1; // container for 'then' clause
                     var C2; // container for 'else' clause
-                    var target;
+                    var bb;
 
                     // block is immediately dominated by N
-                    var valid_if_block = function(address) {
+                    var valid_if_block = function(bb) {
                         var i = imm_dominated.findIndex(function(D) {
-                            return D.key.eq(address);
+                            return addrOf(D).eq(bb.address);
                         });
 
                         return i === (-1) ? undefined : imm_dominated.splice(i, 1).pop();
                     };
 
                     // 'then' clause: should be immediately dominated by N
-                    target = S.not_taken.value;
-                    if ((this.cfg.indegree(this.cfg.getNode(target)) === 1) && valid_if_block(target)) {
-                        C1 = this.func.getBlock(target).container;
+                    bb = this.func.getBlock(S.not_taken.value);
+                    if ((this.cfg.indegree(block_to_node(this.cfg, bb)) === 1) && valid_if_block(bb)) {
+                        C1 = bb.container;
                         C1.prev = C0;
                     }
 
                     // 'else' clause: should be immediately dominates by N and have only one predecessor
-                    target = S.taken.value;
-                    if ((this.cfg.indegree(this.cfg.getNode(target)) === 1) && valid_if_block(target)) {
-                        C2 = this.func.getBlock(target).container;
+                    bb = this.func.getBlock(S.taken.value);
+                    if ((this.cfg.indegree(block_to_node(this.cfg, bb)) === 1) && valid_if_block(bb)) {
+                        C2 = bb.container;
                         C2.prev = C0;
                     }
 
@@ -406,8 +417,9 @@
 
         // a container has a safe fallthrough if it has only one successor and a valid
         // fallthrough container
-        var _has_safe_fthrough = function(cntr, cfg) {
-            var N = cfg.getNode(cntr.address);
+        var _has_safe_fthrough = function(cntr, cfg, func) {
+            var bb = func.getBlock(cntr.address);
+            var N = block_to_node(cfg, bb);
 
             return (cfg.outdegree(N) === 1) && (cntr.fallthrough);
         };
@@ -421,7 +433,7 @@
                 // is this an empty 'else' clause?
                 if (S.else_cntr && S.else_cntr.statements.length === 0) {
                     // replace by its safe fallthrough container, if there is one or remove otherwise
-                    if (_has_safe_fthrough(S.else_cntr, this.cfg)) {
+                    if (_has_safe_fthrough(S.else_cntr, this.cfg, this.func)) {
                         S.else_cntr.replace(S.else_cntr.fallthrough);
                     } else {
                         S.else_cntr.pluck();
@@ -431,7 +443,7 @@
                 // is this an empty 'then' clause?
                 if (S.then_cntr && S.then_cntr.statements.length === 0) {
                     // replace by its safe fallthrough container, if there is one or remove otherwise
-                    if (_has_safe_fthrough(S.then_cntr, this.cfg)) {
+                    if (_has_safe_fthrough(S.then_cntr, this.cfg, this.func)) {
                         S.then_cntr.replace(S.then_cntr.fallthrough);
                     } else {
                         S.then_cntr.pluck();
