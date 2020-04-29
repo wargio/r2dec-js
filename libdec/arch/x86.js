@@ -889,7 +889,7 @@
                     return Base.assign(returnval, call);
                 }
             }
-        } else if (callee) {
+        } else if (callee && callee.calltype) {
             var guess_nargs = {
                 'cdecl': _guess_cdecl_nargs,
                 'amd64': _guess_amd64_nargs
