@@ -22,6 +22,7 @@ root:
 wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2_$(VERSION)_amd64.deb ; \
 wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-dev_$(VERSION)_amd64.deb ; \
 sudo dpkg -i *.deb ; \
+sudo apt-get --assume-yes install openssl libuv1-dev ; \
 r2 -H; \
 export CFLAGS=-DR2DEC_HOME=\"\\\"$(R2PLUGDIR)/r2dec-js\\\"\" ;\
  make'
