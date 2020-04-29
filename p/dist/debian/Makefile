@@ -19,8 +19,8 @@ all: root
 root:
 	cd ../.. && $(MAKE) clean ; \
 	$(DOCKCROSS) --image dockcross/linux-$(CROSSARCH) bash -c ' \
-wget -c https://radare.mikelloc.com/get/$(VERSION)/radare2_$(VERSION)_amd64.deb ; \
-wget -c https://radare.mikelloc.com/get/$(VERSION)/radare2-dev_$(VERSION)_amd64.deb ; \
+wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2_$(VERSION)_amd64.deb ; \
+wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-dev_$(VERSION)_amd64.deb ; \
 sudo dpkg -i *.deb ; \
 r2 -H; \
 export CFLAGS=-DR2DEC_HOME=\"\\\"$(R2PLUGDIR)/r2dec-js\\\"\" ;\
