@@ -16,6 +16,16 @@ all: root
 	${MAKE} control
 	${MAKE} deb
 
+# only run this in native Ubuntu/Debian based system
+myroot:
+	export CFLAGS=-DR2DEC_HOME="\\\"$(shell r2 -H R2_LIBR_PLUGINS)/r2dec-js\\\"" ; \
+	make -C ../.. clean core_pdd.so V=
+	mkdir -p root/$(R2PLUGDIR)
+	cp -f ../../core_pdd.so root/$(R2PLUGDIR)
+	git clone ../../.. .r
+	rm -rf .r/p .r/.git*
+	mv .r root/$(R2PLUGDIR)/r2dec-js
+
 root:
 	cd ../.. && $(MAKE) clean ; \
 	$(DOCKCROSS) --image dockcross/linux-$(CROSSARCH) bash -c ' \
