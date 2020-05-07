@@ -22,8 +22,10 @@
     const Cntr = require('js/libcore2/analysis/ir/container');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
-    function ControlFlow(func) {
+    function ControlFlow(func, conf) {
         this.func = func;
+        this.conf = conf;
+
         this.cfg = this.func.cfg();
         this.dfs = new Graph.DFSpanningTree(this.cfg);
         this.dom = new Graph.DominatorTree(this.cfg);
@@ -370,6 +372,7 @@
             }
         }, this);
 
+        if (this.conf.converge) {
         // simple convergance
         this.dfs.iterNodes().forEach(function(N) {
             do {
@@ -391,6 +394,7 @@
                 }
             } while (descend);
         }, this);
+        }
 
         // prune Goto statements
         this.dfs.iterNodes().forEach(function(N) {
