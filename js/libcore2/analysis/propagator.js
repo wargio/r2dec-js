@@ -86,6 +86,14 @@
 
     // --------------------------------------------------
 
+    var __is_deref = function(o) {
+        return (o instanceof Expr.Deref);
+    };
+
+    var __is_fcall = function(o) {
+        return (o instanceof Expr.Call);
+    };
+
     /**
      * Predicate to test whether an expression encloses a memory access for
      * either read or write
@@ -94,9 +102,7 @@
      * @returns {boolean} Whether `expr` encloses or is a memory dereference
      */
     var __has_enclosed_deref = function(expr) {
-        return expr.iter_operands().some(function(o) {
-            return (o instanceof Expr.Deref);
-        });
+        return expr.iter_operands().some(__is_deref);
     };
 
     /**
@@ -106,15 +112,23 @@
      * @returns {boolean} Whether `expr` encloses or is a function call
      */
     var __has_enclosed_fcall = function(expr) {
+        return expr.iter_operands().some(__is_fcall);
+    };
+
+    // const expressions do not dereference memory neither call non-const functions.
+    // we do not inspect called functions to infere whether they are const functions,
+    // so all fcalls are treated as a non-const behvaior
+    var __non_const = function(expr) {
         return expr.iter_operands().some(function(o) {
-            return (o instanceof Expr.Call);
+            return __is_fcall(o) || __is_deref(o);
         });
     };
 
-    var __may_have_side_effects = function(expr) {
+    // pure expressions have slightly relaxed requirements comparing to const. pure
+    // expressions may dereference memory only for reading, but not writing
+    var __impure = function(expr) {
         return expr.iter_operands().some(function(o) {
-            return (o instanceof Expr.Call)
-                || (o instanceof Expr.Deref);
+            return __is_fcall(o) || (o.is_def && __is_deref(o));
         });
     };
 
@@ -161,9 +175,11 @@
                 // calling a function:
                 // if the assigned value encloses a function call, propagate only if there is only one user
                 // and there are no interfering statements in between that may have side effects
+                //
+                // TODO: not sure whether this is safe, since it doesn't take fcall out parameters into account
                 if (__has_enclosed_fcall(val)) {
                     return (def.uses.length === 1) && !def.uses.some(function(u) {
-                        return __has_interfering_expr(u, __may_have_side_effects);
+                        return __has_interfering_expr(u, __non_const);
                     });
                 }
 
@@ -172,18 +188,16 @@
                 // statamenets between def and all its users that may have side effects
                 else if (__has_enclosed_deref(def)) {
                     return !def.uses.some(function(u) {
-                        return __has_interfering_expr(u, __may_have_side_effects);
+                        return __has_interfering_expr(u, __non_const);
                     });
                 }
 
                 // reading from memory:
                 // if the assigned value encloses a memory dereference, propagate only if there are no interfering
                 // statamenets between def and all its users that may have side effects
-                //
-                // TODO: requirement could be reduced to either memory write or function call: memory reads may be allowed
                 else if (__has_enclosed_deref(val)) {
                     return !def.uses.some(function(u) {
-                        return __has_interfering_expr(u, __may_have_side_effects);
+                        return __has_interfering_expr(u, __impure);
                     });
                 }
 
