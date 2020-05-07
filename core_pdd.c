@@ -226,6 +226,9 @@ int r_cmd_pdd_init(void* user, const char* cmd)
 	// workaround: r2 looks for this config entry for indication whether r2dec exists
 	SETPREFS("r2dec.asm", "true", "r2dec indentification dummy var");
 
+	// control flow settings
+	SETPREFS("pdd.cflow.converge", "true", "converge (collapse) related conditions");
+
 	// output settings
 	SETPREFI("pdd.out.guides", 1, "scope guidelines [0: none, 1: solid, 2: dashed]");
 	SETPREFS("pdd.out.newline", "true", "add a new line before an opening curly bracket");
