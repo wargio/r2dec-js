@@ -691,20 +691,25 @@
             var ctx = contexts[block];
             var locals = ctx.locals;
 
+            // get locally defined names; filter out weak ones if necessary
             var local_names = locals.map(function(def) {
                 return (ignore_weak && def.weak ? null : def.repr());
             });
 
+            // couple names defined on entry with their local shadowing names (if any)
             var ranges_entry = ctx.entry.map(function(def) {
                 const idx = local_names.indexOf(def.repr());
+                const kil = idx === (-1) ? null : locals[idx];
 
-                return new LiveRange(def, idx === (-1) ? null : locals[idx]);
+                return new LiveRange(def, kil);
             });
 
+            // couple names defined locally with their local shadowing names (if any)
             var ranges_locals = locals.map(function(def, i) {
                 const idx = local_names.slice(i + 1).indexOf(def.repr());
+                const kil = idx === (-1) ? null : locals[idx + i + 1];
 
-                return new LiveRange(def, idx === (-1) ? null : locals[idx + i + 1]);
+                return new LiveRange(def, kil);
             });
 
             return ranges_entry.concat(ranges_locals);
@@ -740,7 +745,7 @@
             var ctx = {};
 
             // a utility function that generates a getter function. the getter
-            // function first looks for cached data to return. if such dataexists,
+            // function first looks for cached data to return. if such data exists,
             // the getter function return it. if not, it calls the handler function,
             // caches the result and then returns it
             var _cached_property_getter = function(cached, handler) {

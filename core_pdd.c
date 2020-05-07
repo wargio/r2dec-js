@@ -177,9 +177,9 @@ static void duk_r2dec(RCore* core, const char* input)
 static void usage(const RCore* const core)
 {
 	const char* help[] = {
-		"Usage: pdd[g]", "",	"# Decompile current function",
+		"Usage: pdd"/*"[g]"*/, "",	"# Decompile current function",
 		"pdd",	"",	"decompile current function",
-		"pddg",	"",	"decompile and show as a graph",
+		// "pddg",	"",	"decompile and show as a graph",
 		NULL
 	};
 
@@ -188,13 +188,12 @@ static void usage(const RCore* const core)
 
 static void _cmd_pdd(RCore* core, const char* input)
 {
-	switch (*input)
+	const char* trimmed = r_str_trim_head_ro(input);
+
+	switch (*trimmed)
 	{
-	case ' ':
-		for (; *input == ' '; input++);
 	case '\0':
-	case 'g':
-		duk_r2dec(core, input);
+		duk_r2dec(core, trimmed);
 		break;
 	case '?':
 	default:
@@ -219,7 +218,7 @@ static int r_cmd_pdd(void* user, const char* input)
 int r_cmd_pdd_init(void* user, const char* cmd)
 {
 	RCmd* rcmd = (RCmd*) user;
-	RCore* core = (RCore *) rcmd->data;
+	RCore* core = (RCore*) rcmd->data;
 	RConfig* cfg = core->config;
 
 	r_config_lock (cfg, false);
