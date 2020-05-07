@@ -278,45 +278,59 @@
         //              replace S with I
         //              C0.next = container of last block left dominated by N, or null if nothing left
 
+        var func = this.func;
+        var cfg = this.cfg;
+        var dom = this.dom;
+
         var carried = null;
 
         // turn Branch statements into If
         this.dfs.iterNodes().forEach(function(N) {
-            var C0 = node_to_block(this.func, N).container;
+            var C0 = node_to_block(func, N).container;
             var S = C0.terminator();
-            var imm_dominated = this.dom.successors(this.dom.getNode(N.key));
+            var imm_dominated = dom.successors(dom.getNode(N.key));
 
             // console.log(ObjAddrToString(C0, 16), ':');
-            // console.log('  domfront:', ArrayToString(this.dom.dominanceFrontier(N), 16));
-            // console.log('  imm dom:', this.dom.getNode(N.key).idom ? this.dom.getNode(N.key).idom.toString(16) : 'none');
+            // console.log('  domfront:', ArrayToString(dom.dominanceFrontier(N), 16));
+            // console.log('  idom:', dom.getNode(N.key).idom ? dom.getNode(N.key).idom.toString(16) : 'none');
             // console.log('  +dominates:', ArrayToString(imm_dominated, 16));
 
-            // proceed only if S is not a loop branch
-            if (!(this.loops.find(function(loop) { return addrOf(loop.head).eq(addrOf(N)); }))) {
+            // proceed only if S is not a loop branch (i.e. a branch in a loop head)
+            if (!(this.loops.find(function(loop) { return loop.head.key === N.key; }))) {
                 if (S instanceof Stmt.Branch) {
                     var C1; // container for 'then' clause
                     var C2; // container for 'else' clause
-                    var bb;
+                    var bb; // destination func block
 
-                    // block is immediately dominated by N
-                    var valid_if_block = function(bb) {
+                    // does N immediately dominate node?
+                    var _is_dominated = function(node) {
                         var i = imm_dominated.findIndex(function(D) {
-                            return addrOf(D).eq(bb.address);
+                            return D.key === node.key;
                         });
 
                         return i === (-1) ? undefined : imm_dominated.splice(i, 1).pop();
                     };
 
+                    // both If clauses (i.e. 'then' and 'else' scopes) are expected to be
+                    // preceded solely by the Branch block.
+                    //
+                    // check whether bb is immediately dominated by the Branch's block
+                    var _is_imm_dominated = function(bb) {
+                        var node = block_to_node(cfg, bb);
+
+                        return (cfg.indegree(node) === 1) && _is_dominated(node);
+                    };
+
                     // 'then' clause: should be immediately dominated by N
-                    bb = this.func.getBlock(S.not_taken.value);
-                    if ((this.cfg.indegree(block_to_node(this.cfg, bb)) === 1) && valid_if_block(bb)) {
+                    bb = func.getBlock(S.not_taken.value);
+                    if (_is_imm_dominated(bb)) {
                         C1 = bb.container;
                         C1.prev = C0;
                     }
 
                     // 'else' clause: should be immediately dominates by N and have only one predecessor
-                    bb = this.func.getBlock(S.taken.value);
-                    if ((this.cfg.indegree(block_to_node(this.cfg, bb)) === 1) && valid_if_block(bb)) {
+                    bb = func.getBlock(S.taken.value);
+                    if (_is_imm_dominated(bb)) {
                         C2 = bb.container;
                         C2.prev = C0;
                     }
@@ -365,7 +379,7 @@
                 // }
 
                 // set fall-through container, if exists
-                C0.set_fallthrough(sink && node_to_block(this.func, sink).container);
+                C0.set_fallthrough(sink && node_to_block(func, sink).container);
 
                 // console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
                 // console.log();
@@ -373,27 +387,27 @@
         }, this);
 
         if (this.conf.converge) {
-        // simple convergance
-        this.dfs.iterNodes().forEach(function(N) {
-            do {
-                var descend = false;
-                var C0 = node_to_block(this.func, N).container;
-                var outter = C0.terminator();
+            // simple convergance
+            this.dfs.iterNodes().forEach(function(N) {
+                do {
+                    var descend = false;
+                    var C0 = node_to_block(func, N).container;
+                    var outter = C0.terminator();
 
-                if ((outter instanceof Stmt.If) && (outter.then_cntr && !outter.else_cntr) && !outter.then_cntr.fallthrough) {
-                    var inner = outter.then_cntr.statements[0];
+                    if ((outter instanceof Stmt.If) && (outter.then_cntr && !outter.else_cntr) && !outter.then_cntr.fallthrough) {
+                        var inner = outter.then_cntr.statements[0];
 
-                    if ((inner instanceof Stmt.If) && (inner.then_cntr && !inner.else_cntr)) {
-                        var conv_cond = new Expr.BoolAnd(outter.cond, inner.cond);
+                        if ((inner instanceof Stmt.If) && (inner.then_cntr && !inner.else_cntr)) {
+                            var conv_cond = new Expr.BoolAnd(outter.cond, inner.cond);
 
-                        outter.replace(new Stmt.If(outter.address, conv_cond, inner.then_cntr, null));
-                        inner.pluck();
+                            outter.replace(new Stmt.If(outter.address, conv_cond, inner.then_cntr, null));
+                            inner.pluck();
 
-                        descend = true;
+                            descend = true;
+                        }
                     }
-                }
-            } while (descend);
-        }, this);
+                } while (descend);
+            }, this);
         }
 
         // prune Goto statements
@@ -428,7 +442,7 @@
             return (cfg.outdegree(N) === 1) && (cntr.fallthrough);
         };
 
-        // adjust If statements
+        // adjust If statements in case they have empty clauses
         this.dfs.iterNodes().forEach(function(N) {
             var C0 = node_to_block(this.func, N).container;
             var S = C0.terminator();
