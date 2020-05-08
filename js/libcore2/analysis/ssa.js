@@ -76,10 +76,10 @@
         def.uses.push(u);
     };
 
-    Context.prototype.iterate = function(func) {
-        // apply `func` on all defs entries, and collect the keys to eliminate
+    Context.prototype.iterate = function(predicate) {
+        // apply given predicate on all defs entries, and collect the keys to eliminate
         var eliminate = Object.keys(this.defs).filter(function(d) {
-            return func(this.defs[d]);
+            return predicate(this.defs[d]);
         }, this);
 
         // eliminate collected keys from defs
@@ -261,7 +261,7 @@
     };
 
     // get a function basic block from a graph node
-    var node_to_block = function(f, node) {
+    var node_to_block = function(node) {
         return node.key;
     };
 
@@ -335,7 +335,7 @@
                         // phi_var.weak = true;
 
                         // turn Node y into BasicBlock _y
-                        var _y = node_to_block(func, y);
+                        var _y = node_to_block(y);
 
                         // insert the statement a = Phi(a, a, ..., a) at the top of block y, where the
                         // phi-function has as many arguments as y has predecessors
@@ -460,7 +460,7 @@
                 var j = cfg.predecessors(Y).indexOf(block_to_node(cfg, block));
 
                 // iterate over all phi functions in Y
-                node_to_block(func, Y).container.statements.forEach(function(stmt) {
+                node_to_block(Y).container.statements.forEach(function(stmt) {
                     stmt.expressions.forEach(function(expr) {
                         if (is_phi_assignment(expr)) {
                             var v = expr.operands[0];
@@ -479,7 +479,7 @@
 
             // descend the dominator tree recursively
             dom.successors(block_to_node(dom, block)).forEach(function(X) {
-                rename_rec(node_to_block(func, X));
+                rename_rec(node_to_block(X));
             });
 
             // cleanup context stack of current block's definitions
@@ -652,7 +652,7 @@
 
             // collect incoming definitions; i.e. exit contexts of predecessors
             var incoming = preds.map(function(pred) {
-                return contexts[node_to_block(func, pred)].exit;
+                return contexts[node_to_block(pred)].exit;
             });
 
             // node is the function entry block; inherit definitions from uninit
