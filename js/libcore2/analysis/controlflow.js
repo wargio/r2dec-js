@@ -51,7 +51,7 @@
     // </DEBUG>
 
     // get a function basic block from a graph node
-    var node_to_block = function(f, node) {
+    var node_to_block = function(node) {
         return node.key;
     };
 
@@ -62,7 +62,7 @@
 
     // retreive the address of the basic block represented by the specified node
     var addrOf = function(node) {
-        return node_to_block(null, node).address;
+        return node_to_block(node).address;
     };
 
     var _construct_loop = function(N, cfg, dom) {
@@ -142,7 +142,7 @@
         });
 
         loops.forEach(function(loop) {
-            var C0 = node_to_block(func, loop.head).container;
+            var C0 = node_to_block(loop.head).container;
             var S = C0.terminator();
 
             if (S instanceof Stmt.Branch) {
@@ -203,7 +203,7 @@
             // iterate loop blocks to replace Goto statements with Break and
             // Continue statements where appropriate
             loop_nodes.forEach(function(n) {
-                var C0 = node_to_block(func, n).container;
+                var C0 = node_to_block(n).container;
                 var S = C0.terminator();
 
                 if (S instanceof Stmt.Goto) {
@@ -252,7 +252,7 @@
 
                 bb.container.push_stmt(term);
             }
-        }, this);
+        });
     };
     
     ControlFlow.prototype.conditions = function() {
@@ -286,7 +286,7 @@
 
         // turn Branch statements into If
         this.dfs.iterNodes().forEach(function(N) {
-            var C0 = node_to_block(func, N).container;
+            var C0 = node_to_block(N).container;
             var S = C0.terminator();
             var imm_dominated = dom.successors(dom.getNode(N.key));
 
@@ -379,7 +379,7 @@
                 // }
 
                 // set fall-through container, if exists
-                C0.set_fallthrough(sink && node_to_block(func, sink).container);
+                C0.set_fallthrough(sink && node_to_block(sink).container);
 
                 // console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
                 // console.log();
@@ -391,7 +391,7 @@
             this.dfs.iterNodes().forEach(function(N) {
                 do {
                     var descend = false;
-                    var C0 = node_to_block(func, N).container;
+                    var C0 = node_to_block(N).container;
                     var outter = C0.terminator();
 
                     if ((outter instanceof Stmt.If) && (outter.then_cntr && !outter.else_cntr) && !outter.then_cntr.fallthrough) {
@@ -412,7 +412,7 @@
 
         // prune Goto statements
         this.dfs.iterNodes().forEach(function(N) {
-            var C0 = node_to_block(this.func, N).container;
+            var C0 = node_to_block(N).container;
             var S = C0.terminator();
 
             if (S instanceof Stmt.Goto) {
@@ -431,11 +431,11 @@
                     }
                 }
             }
-        }, this);
+        });
 
         // a container has a safe fallthrough if it has only one successor and a valid
         // fallthrough container
-        var _has_safe_fthrough = function(cntr, cfg, func) {
+        var _has_safe_fthrough = function(cntr) {
             var bb = func.getBlock(cntr.address);
             var N = block_to_node(cfg, bb);
 
@@ -444,14 +444,14 @@
 
         // adjust If statements in case they have empty clauses
         this.dfs.iterNodes().forEach(function(N) {
-            var C0 = node_to_block(this.func, N).container;
+            var C0 = node_to_block(N).container;
             var S = C0.terminator();
 
             if (S instanceof Stmt.If) {
                 // is this an empty 'else' clause?
                 if (S.else_cntr && S.else_cntr.statements.length === 0) {
                     // replace by its safe fallthrough container, if there is one or remove otherwise
-                    if (_has_safe_fthrough(S.else_cntr, this.cfg, this.func)) {
+                    if (_has_safe_fthrough(S.else_cntr)) {
                         S.else_cntr.replace(S.else_cntr.fallthrough);
                     } else {
                         S.else_cntr.pluck();
@@ -461,7 +461,7 @@
                 // is this an empty 'then' clause?
                 if (S.then_cntr && S.then_cntr.statements.length === 0) {
                     // replace by its safe fallthrough container, if there is one or remove otherwise
-                    if (_has_safe_fthrough(S.then_cntr, this.cfg, this.func)) {
+                    if (_has_safe_fthrough(S.then_cntr)) {
                         S.then_cntr.replace(S.then_cntr.fallthrough);
                     } else {
                         S.then_cntr.pluck();
@@ -484,7 +484,7 @@
                     }
                 }
             }
-        }, this);
+        });
     };
 
     return ControlFlow;
