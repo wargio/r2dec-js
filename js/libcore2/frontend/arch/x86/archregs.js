@@ -44,10 +44,12 @@
         ['r15', 'r15d', 'r15w', 'r15b']
     ];
 
-    // const IDX_RESULT_REG = 0;
-    // const IDX_STACK_REG = 4;
-    // const IDX_FRAME_REG = 5;
-    // const IDX_PC_REG = 8;
+    // rows in ALL_REGS representing special regs
+    const IDX_RESULT_REG = 0;
+    const IDX_COUNT_REG = 2;
+    const IDX_STACK_REG = 4;
+    const IDX_FRAME_REG = 5;
+    const IDX_PC_REG = 8;
 
     // size index: ALL_REGS columns
     const IDX_REG64 = 0;
@@ -164,6 +166,23 @@
      * @constructor
      */
     function ArchRegs(bits) {
+        const sidx = sizes.indexOf(bits);
+
+        var __make_reg = function(ridx) {
+            return new Expr.Reg(ALL_REGS[ridx][sidx], bits);
+        };
+
+        this.FRAME_REG  = __make_reg(IDX_FRAME_REG);
+        this.RESULT_REG = __make_reg(IDX_RESULT_REG);
+        this.COUNT_REG  = __make_reg(IDX_COUNT_REG);
+        this.STACK_REG  = __make_reg(IDX_STACK_REG);
+        this.PC_REG     = __make_reg(IDX_PC_REG);
+
+        this.FLAGS_REG = new Expr.Reg({
+            16: 'flags',
+            32: 'eflags',
+            64: 'rflags'
+        }[bits], bits);
 
         // we will never need all entries from ALL_REGS; a different subset is needed
         // depending on arch bits. this module is designed to rely on predefined indexes,
