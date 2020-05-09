@@ -1071,10 +1071,10 @@
         if (p.prefix === INSN_PREF.REP) {
             var s1 = new Expr.AddrOf(lhand);
             var s2 = new Expr.AddrOf(rhand);
-            var n = new Expr.Mul(new Expr.Val(lhand.size / 8, this.nbits), this.COUNT_REG.clone());
+            var n = new Expr.Mul(new Expr.Val(lhand.size / 8, this.bits), this.COUNT_REG.clone());
 
             // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
-            expr = new Expr.Call(new Expr.Reg('memcmp'), [s1, s2, n]);
+            expr = new Expr.Intrinsic(new Expr.Reg('memcmp'), [s1, s2, n]);
         } else {
             expr = new Expr.Sub(lhand, rhand);
         }
@@ -1094,13 +1094,13 @@
             var n = this.COUNT_REG.clone();
 
             // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
-            expr = new Expr.Call(new Expr.Reg('memset'), [s, c, n]);
+            expr = new Expr.Intrinsic(new Expr.Reg('memset'), [s, c, n]);
         } else {
             expr = new Expr.Assign(lhand, rhand);
         }
 
         // TODO: do we need to advance edi and esi pointers?
-        return expr;
+        return [expr];
     };
 
     var _movbe = function(p) {
@@ -1114,7 +1114,7 @@
         }[rhand.size];
 
         // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
-        return [new Expr.Assign(lhand, new Expr.Call(new Expr.Reg(bifunc), [rhand]))];
+        return [new Expr.Assign(lhand, new Expr.Intrinsic(new Expr.Reg(bifunc), [rhand]))];
     };
 
     var _popcnt = function(p) {
@@ -1127,7 +1127,7 @@
         }[rhand.size];
 
         // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
-        return [new Expr.Assign(lhand, new Expr.Call(new Expr.Reg(bifunc), [rhand]))].concat(this.eval_flags(rhand, ['ZF']).concat([
+        return [new Expr.Assign(lhand, new Expr.Intrinsic(new Expr.Reg(bifunc), [rhand]))].concat(this.eval_flags(rhand, ['ZF']).concat([
             set_flag('PF', 0),
             set_flag('CF', 0),
             set_flag('AF', 0),
@@ -1137,11 +1137,11 @@
     };
 
     var _hlt = function(p) {
-        return [new Expr.Call(new Expr.Reg('_hlt'), [])];
+        return [new Expr.Intrinsic(new Expr.Reg('_hlt'), [])];
     };
 
     var _ud2 = function(p) {
-        return [new Expr.Call(new Expr.Reg('__builtin_trap'), [])];
+        return [new Expr.Intrinsic(new Expr.Reg('__builtin_trap'), [])];
     };
 
     var _invalid = function(p) {

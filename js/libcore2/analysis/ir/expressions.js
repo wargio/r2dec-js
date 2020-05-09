@@ -33,6 +33,7 @@
      *      Expr                : generic expression base class
      *       ├ Asm
      *       ├ Call
+     *       │  └ Intrinsic
      *       ├ Phi
      *       │
      *       ├ UExpr           : unary expression base class
@@ -588,6 +589,23 @@
     // ------------------------------------------------------------
 
     /**
+     * Intrinsic function call.
+     * Intrinsics arguments are known in the time of instatination, so there is
+     * no need to detect its arguments like we do in an ordinary function call
+     * @param {Expr} callee Callee target address
+     * @param {Array.<Expr>} args Array of function call arguments
+     * @constructor
+     */
+    function Intrinsic(callee, args) {
+        Call.call(this, callee, args);
+    }
+
+    Intrinsic.prototype = Object.create(Call.prototype);
+    Intrinsic.prototype.constructor = Intrinsic;
+
+    // ------------------------------------------------------------
+
+    /**
      * Phi expression: used for SSA stage, and eliminated afterwards.
      * Normally would appear as a right-hand of an assignment.
      * @param {Array.<Expr>} exprs Array of possible rvalues
@@ -911,6 +929,7 @@
         // n-ary expressions
         Phi:        Phi,
         Call:       Call,
+        Intrinsic:  Intrinsic,
 
         // unordinary
         Unknown:    Asm
