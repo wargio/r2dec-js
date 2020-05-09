@@ -23,54 +23,29 @@
 
     /** @constructor */
     function x86(iIj) {
-        var nbits = iIj.bits;
 
         /** @type {number} */
-        this.bits = nbits.toInt();
+        this.bits = iIj.bits.toInt();
 
         this.archregs = new ArchRegs(this.bits);
 
         /** System frame pointer */
-        this.FRAME_REG = new Expr.Reg({
-            16: 'bp',
-            32: 'ebp',
-            64: 'rbp'
-        }[nbits], this.bits);
+        this.FRAME_REG = this.archregs.FRAME_REG;
 
         /** System result register */
-        this.RESULT_REG = new Expr.Reg({
-            16: 'ax',
-            32: 'eax',
-            64: 'rax'
-        }[nbits], this.bits);
+        this.RESULT_REG = this.archregs.RESULT_REG;
 
         /** System counter register */
-        this.COUNT_REG = new Expr.Reg({
-            16: 'cx',
-            32: 'ecx',
-            64: 'rcx'
-        }[nbits], this.bits);
+        this.COUNT_REG = this.archregs.COUNT_REG;
 
         /** System stack pointer */
-        this.STACK_REG = new Expr.Reg({
-            16: 'sp',
-            32: 'esp',
-            64: 'rsp'
-        }[nbits], this.bits);
+        this.STACK_REG = this.archregs.STACK_REG;
 
         /** System program counter */
-        this.PC_REG = new Expr.Reg({
-            16: 'ip',
-            32: 'eip',
-            64: 'rip'
-        }[nbits], this.bits);
+        this.PC_REG = this.archregs.PC_REG;
 
         /** System flags register */
-        this.FLAGS_REG = new Expr.Reg({
-            16: 'flags',
-            32: 'eflags',
-            64: 'rflags'
-        }[nbits], this.bits);
+        this.FLAGS_REG = this.archregs.FLAGS_REG;
 
         /** Address size value */
         this.ASIZE_VAL = new Expr.Val(this.bits / 8, this.bits);
@@ -1152,7 +1127,6 @@
 
     // TODO: to be implemented
     // idiv
-    // movabs
     // rol
     // ror
     // lods{b,w,d,q}
