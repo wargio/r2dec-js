@@ -43,7 +43,9 @@
                         expr = expr.operands[1];
                     }
 
-                    if (expr instanceof Expr.Call) {
+                    // assign argument only to ordinary function calls; skip intrinsics as they
+                    // are assigned arguments on creation time
+                    if ((expr instanceof Expr.Call) && !(expr instanceof Expr.Intrinsic)) {
                         var fcall = expr;
                         var callee = fcall.operands[0];
 
