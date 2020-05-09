@@ -183,10 +183,14 @@
             'movbe' : _movbe.bind(this),
             'popcnt': _popcnt.bind(this),
 
+            // no-op
+            'nop'     : _nop.bind(this),
+            'endbr32' : _nop.bind(this),
+            'endbr64' : _nop.bind(this),
+
             // misc
-            'nop'   : _nop.bind(this),
-            'ud2'   : _ud2.bind(this),
-            'hlt'   : _hlt.bind(this)
+            'ud2' : _ud2.bind(this),
+            'hlt' : _hlt.bind(this)
         };
 
         // as instruction size info is not carried by ir objects, we have to handle pc reg references as soon
