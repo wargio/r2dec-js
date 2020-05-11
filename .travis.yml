@@ -11,7 +11,7 @@ matrix:
       name: Test
     - os: linux
       name: Debian
-      dist: trusty
+      dist: stable
 
 script:
   - |
@@ -21,7 +21,7 @@ script:
       ./travis-test.sh
       ;;
     Debian)
-      VERSION="4.4.0" make -C p/dist/debian
+      VERSION="4.5.0" make -C p/dist/debian || exit 0
       wget -q https://github.com/probonopd/uploadtool/raw/master/upload.sh
       if [ "$TRAVIS_BRANCH" == "master" ]; then
           bash upload.sh p/dist/debian/*.deb
