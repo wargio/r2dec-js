@@ -21,10 +21,10 @@ script:
       ./travis-test.sh
       ;;
     Debian)
-      VERSION="4.4.0" make -C p/dist/debian
+      VERSION="4.4.0" make -C p/dist/debian || exit 0
       wget -q https://github.com/probonopd/uploadtool/raw/master/upload.sh
       if [ "$TRAVIS_BRANCH" == "master" ]; then
-          bash upload.sh p/dist/debian/*.deb || echo "allowed to fail."
+          bash upload.sh p/dist/debian/*.deb
       else
           echo "Not pushing the deb to release since is not master (actual $TRAVIS_BRANCH)"
       fi
