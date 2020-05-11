@@ -11,7 +11,7 @@ matrix:
       name: Test
     - os: linux
       name: Debian
-      dist: stretch
+      dist: stable
 
 script:
   - |
