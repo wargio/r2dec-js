@@ -19,9 +19,24 @@
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
-    function CCcdecl(arch) {
-        this.arch = arch;
-    }
+    // <DEBUG>
+    var __print_debug_info = function(lranges, fcall) {
+        console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
+
+        lranges.forEach(function(rng) {
+            var d = rng.def;
+            var c0 = d.weak ? '\033[90m' : '';
+            var c1 = d.weak ? '\033[0m' : '';
+        
+            console.log(c0, ' |', 'def:', d.parent.parent.toString(), c1);
+        
+            d.uses.forEach(function(u) {
+                console.log(c0, ' |', ' |', u.parent_stmt().toString(), c1);
+            });
+        });
+        console.log();
+    };
+    // </DEBUG>
 
     var _get_defined_by = function(context, expr) {
         // var live_by = context.live_ranges.filter(function(rng) {
@@ -49,7 +64,14 @@
         return use;
     };
 
-    CCcdecl.prototype.get_args_expr = function(fcall, context) {
+    // --------------------------------------------------
+
+    // cc base class for arguments passed on the stack
+    function StackArgsCC(arch) {
+        this.arch = arch;
+    }
+
+    StackArgsCC.prototype.get_args_expr = function(fcall, context) {
         var top_of_stack = null;
         var args = [];
 
@@ -61,19 +83,7 @@
         });
 
         // <DEBUG>
-        // console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
-        // live_by_fcall.forEach(function(rng) {
-        //     var d = rng.def;
-        //     var c0 = d.weak ? '\33[90m' : '';
-        //     var c1 = d.weak ? '\33[0m' : '';
-        //
-        //     console.log(c0, ' |', 'def:', d.parent.parent.toString(), c1);
-        //
-        //     d.uses.forEach(function(u) {
-        //         console.log(c0, ' |', ' |', u.parent_stmt().toString(), c1);
-        //     });
-        // });
-        // console.log();
+        // __print_debug_info(live_by_fcall, fcall);
         // </DEBUG>
 
         // scan live defs backwards starting from fcall to locate top of stack
@@ -118,43 +128,15 @@
         return args;
     };
 
-    CCcdecl.prototype.is_potential_arg = function(rng, fcall) {
+    StackArgsCC.prototype.is_potential_arg = function(rng, fcall) {
         return rng.is_unused_by(fcall) && this.arch.is_stack_reg(rng.def);
     };
 
     // --------------------------------------------------
 
-    const _arg_regs64 = [
-        new Expr.Reg('rdi', 64),
-        new Expr.Reg('rsi', 64),
-        new Expr.Reg('rdx', 64),
-        new Expr.Reg('rcx', 64),
-        new Expr.Reg('r8',  64),
-        new Expr.Reg('r9',  64)
-    ];
-
-    const _arg_regs32 = [
-        new Expr.Reg('edi', 32),
-        new Expr.Reg('esi', 32),
-        new Expr.Reg('edx', 32),
-        new Expr.Reg('ecx', 32),
-        new Expr.Reg('r8d', 32),
-        new Expr.Reg('r9d', 32)
-    ];
-
-    // const _arg_regs128 = [
-    //     new Expr.Reg('xmm0', 128),
-    //     new Expr.Reg('xmm1', 128),
-    //     new Expr.Reg('xmm2', 128),
-    //     new Expr.Reg('xmm3', 128),
-    //     new Expr.Reg('xmm4', 128),
-    //     new Expr.Reg('xmm5', 128),
-    //     new Expr.Reg('xmm6', 128),
-    //     new Expr.Reg('xmm7', 128),
-    // ];
-
-    function CCamd64() {
-        // empty
+    // cc base class for arguments passed through registers
+    function RegArgsCC(regsset) {
+        this.regsset = regsset;
     }
 
     var _is_phi_with_unint_arg = function(def) {
@@ -167,30 +149,18 @@
         return (val instanceof Expr.Phi) && val.operands.some(__is_uninit);
     };
 
-    CCamd64.prototype.get_args_expr = function(fcall, context) {
+    RegArgsCC.prototype.get_args_expr = function(fcall, context) {
         var nargs = (-1);
         var args = [];
 
         var live_by_fcall = _get_defined_by(context, fcall);
 
         // <DEBUG>
-        // console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
-        // live_by_fcall.forEach(function(rng) {
-        //     var d = rng.def;
-        //     var c0 = d.weak ? '\033[90m' : '';
-        //     var c1 = d.weak ? '\033[0m' : '';
-        //
-        //     console.log(c0, ' |', 'def:', d.parent.parent.toString(), c1);
-        //
-        //     d.uses.forEach(function(u) {
-        //         console.log(c0, ' |', ' |', u.parent_stmt().toString(), c1);
-        //     });
-        // });
-        // console.log();
+        // __print_debug_info(live_by_fcall, fcall);
         // </DEBUG>
 
-        // in amd64 cc all arguments are passed through regs. we are not interested in their
-        // overlap assignments so we drop all weak definitions first
+        // arguments passed through registers would have overlap assingments generated for
+        // them, in which we are not interested. drop all weak definitions before proceeding
         live_by_fcall = live_by_fcall.filter(function(rng) {
             return !(rng.def.weak);
         });
@@ -212,12 +182,14 @@
             var rng = live_by_fcall[i];
             var def = rng.def;
 
-            for (var j = 0; j < _arg_regs64.length; j++) {
-                if (def.equals_no_idx(_arg_regs64[j]) ||
-                    def.equals_no_idx(_arg_regs32[j])) {
+            var __matching_arg_reg = function(areg) {
+                return def.equals_no_idx(areg);
+            };
 
+            this.regsset.forEach(function(set, j) {
+                if (set.find(__matching_arg_reg)) {
                     // do not consider phi definitions that have at least one uninit argument. that prevents
-                    // registers that are not initialized on all paths - from being considered as fcall args
+                    // registers that are not initialized on all paths from being considered as fcall args
                     if (!_is_phi_with_unint_arg(def)) {
                         // make sure that slot was not already taken; i.e. consider only the latest definition
                         // of the same name
@@ -230,7 +202,7 @@
                         }
                     }
                 }
-            }
+            });
         }
 
         return args.slice(0, nargs + 1).map(function(def) {
@@ -238,20 +210,70 @@
         });
     };
 
-    CCamd64.prototype.is_potential_arg = function(rng, fcall) {
-        var found = false;
+    RegArgsCC.prototype.is_potential_arg = function(rng, fcall) {
+        var __matching_arg_reg = function(areg) {
+            return rng.def.equals_no_idx(areg);
+        };
 
-        for (var j = 0; !found && (j < _arg_regs64.length); j++) {
-            found = rng.def.equals_no_idx(_arg_regs64[j]) ||
-                    rng.def.equals_no_idx(_arg_regs32[j]);
-        }
-
-        return found;
+        return this.regsset.some(function(set) {
+            return set.find(__matching_arg_reg);
+        });
     };
 
     // --------------------------------------------------
 
-    function CCguess(cchandlers) {
+    function cdecl(arch) {
+        StackArgsCC.call(this, arch);
+    }
+
+    cdecl.prototype = Object.create(StackArgsCC.prototype);
+    cdecl.prototype.constructor = cdecl;
+
+    // --------------------------------------------------
+
+    const _amd64_argsset = [
+        [new Expr.Reg('rdi', 64), new Expr.Reg('edi', 32), new Expr.Reg('dil', 8)],
+        [new Expr.Reg('rsi', 64), new Expr.Reg('esi', 32), new Expr.Reg('sil', 8)],
+        [new Expr.Reg('rdx', 64), new Expr.Reg('edx', 32), new Expr.Reg('dl',  8)],
+        [new Expr.Reg('rcx', 64), new Expr.Reg('ecx', 32), new Expr.Reg('cl',  8)],
+        [new Expr.Reg('r8',  64), new Expr.Reg('r8d', 32), new Expr.Reg('r8b', 8)],
+        [new Expr.Reg('r9',  64), new Expr.Reg('r9d', 32), new Expr.Reg('r9b', 8)]
+    //  [new Expr.Reg('xmm0', 128)],
+    //  [new Expr.Reg('xmm1', 128)],
+    //  [new Expr.Reg('xmm2', 128)],
+    //  [new Expr.Reg('xmm3', 128)],
+    //  [new Expr.Reg('xmm4', 128)],
+    //  [new Expr.Reg('xmm5', 128)],
+    //  [new Expr.Reg('xmm6', 128)],
+    //  [new Expr.Reg('xmm7', 128)]
+    ];
+
+    function amd64() {
+        RegArgsCC.call(this, _amd64_argsset);
+    }
+
+    amd64.prototype = Object.create(RegArgsCC.prototype);
+    amd64.prototype.constructor = amd64;
+
+    // --------------------------------------------------
+
+    const _ms_argsset = [
+        [new Expr.Reg('xmm0', 128), new Expr.Reg('rcx', 64), new Expr.Reg('ecx', 32), new Expr.Reg('cl',  8)],
+        [new Expr.Reg('xmm1', 128), new Expr.Reg('rdx', 64), new Expr.Reg('edx', 32), new Expr.Reg('dl',  8)],
+        [new Expr.Reg('xmm2', 128), new Expr.Reg('r8',  64), new Expr.Reg('r8d', 32), new Expr.Reg('r8b', 8)],
+        [new Expr.Reg('xmm3', 128), new Expr.Reg('r9',  64), new Expr.Reg('r9d', 32), new Expr.Reg('r9b', 8)]
+    ];
+
+    function ms() {
+        RegArgsCC.call(this, _ms_argsset);
+    }
+
+    ms.prototype = Object.create(RegArgsCC.prototype);
+    ms.prototype.constructor = ms;
+
+    // --------------------------------------------------
+    
+    function guess(cchandlers) {
         this.cchandlers = cchandlers;
     }
 
@@ -274,7 +296,7 @@
     // that causes the cc guess method to pick up edx as the first considerable argument, since it
     // has no uses left
 
-    CCguess.prototype.get_args_expr = function(fcall, context) {
+    guess.prototype.get_args_expr = function(fcall, context) {
         var live_by_fcall = _get_defined_by(context, fcall);
 
         // drop all definitions that are already used prior to fcall
@@ -282,26 +304,26 @@
             return rng.is_unused_by(fcall) && !(rng.def.weak);
         });
 
-        var CCobj = null;
+        var cc_obj = null;
 
         // scan live defs backwards starting from fcall to locate potential args
-        for (var i = (live_by_fcall.length - 1); !CCobj && (i >= 0); i--) {
+        for (var i = (live_by_fcall.length - 1); !cc_obj && (i >= 0); i--) {
             var rng = live_by_fcall[i];
 
             // find first cc handler that would consider def as a potential fcall argument
-            for (var j = 0; !CCobj && (j < this.cchandlers.length); j++) {
+            for (var j = 0; !cc_obj && (j < this.cchandlers.length); j++) {
                 var cc = this.cchandlers[j];
 
                 if (cc.is_potential_arg(rng, fcall)) {
-                    CCobj = cc;
+                    cc_obj = cc;
                 }
             }
         }
 
-        if (CCobj) {
+        if (cc_obj) {
             // console.log('assuming', fcall.parent_stmt().toString(), 'is called using', CCobj.constructor.name);
 
-            return CCobj.get_args_expr(fcall, context);
+            return cc_obj.get_args_expr(fcall, context);
         }
 
         // could not find any suitable cc
@@ -309,14 +331,16 @@
     };
 
     return function(arch) {
-        var cc_cdecl = new CCcdecl(arch);
-        var cc_amd64 = new CCamd64();
-        var cc_guess = new CCguess([cc_cdecl, cc_amd64]);
+        var cc_cdecl = new cdecl(arch);
+        var cc_amd64 = new amd64();
+        var cc_ms = new ms();
+        var cc_guess = new guess([cc_cdecl, cc_amd64, cc_ms]);
 
         return {
             ''     : cc_guess,  // unknown cc, try to guess it
             'cdecl': cc_cdecl,  // args passed through stack
-            'amd64': cc_amd64   // args passed through: rdi, rsi, rdx, rcx, r8, r9, xmm0-7
+            'amd64': cc_amd64,  // args passed through: rdi, rsi, rdx, rcx, r8, r9, xmm0-7
+            'ms'   : cc_ms
         };
     };
 });
