@@ -201,8 +201,10 @@
         // if there are, it places a pc reg definition on top of the generated expressions; that definition
         // simply assigns the appropriate address to the pc reg that is about to be used. since all transformed
         // expressions are originated from the same assembly instructions, all pc reg references reference the
-        // same address. the assignment will be propagated to its users later on.
-        if (iIj.pic) {
+        // same address. the assignment to pc reg will be propagated to its users later on.
+        //
+        // note: some 64 bit executables would not have their pic property set, even though they do use pc reg
+        if (iIj.pic || (this.bits === 64)) {
             var pc_reg = this.PC_REG;
 
             this.instructions = new Proxy(this.instructions, {
