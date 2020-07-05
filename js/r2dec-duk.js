@@ -154,7 +154,7 @@ Function.prototype.cfg = function() {
         if (bb.cases) {
             bb.cases.forEach(function(caddr) {
                 edges.push([bb, this.getBlock(caddr)]);
-            });
+            }, this);
         }
     }, this);
 
@@ -235,8 +235,8 @@ var load_r2_evars = function(ns) {
  *   bugfixes:
  *      o deref ssa indices don't show on output
  *      o func args may appear not in order
- *      o orphan 'if' conditions
- *      o propagate based on liveness and interference
+ *      o orphan 'if' conditions                        [fixed]
+ *      o propagate based on liveness and interference  [fixed]
  *      o fix ssa out translation
  * 
  *   features:

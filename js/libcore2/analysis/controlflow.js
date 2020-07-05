@@ -29,13 +29,6 @@
         this.cfg = this.func.cfg();
         this.dfs = new Graph.DFSpanningTree(this.cfg);
         this.dom = new Graph.DominatorTree(this.cfg);
-
-        // <DEBUG>
-        // var r2commands = this.dom.r2graph();
-        // var graph_str = Global.r2cmd(r2commands.join(' ; '));
-        //
-        // console.log(graph_str);
-        // </DEBUG>
     }
 
     // <DEBUG>
@@ -105,6 +98,16 @@
         var exits = dom.all_dominated(head).filter(function(n0) {
             return !(body.find(function(n1) { return addrOf(n0).eq(addrOf(n1)); }));
         });
+
+        // var exits = [];
+        //
+        // body.forEach(function(node) {
+        //     var obranches = cfg.successors(node).filter(function(n0) {
+        //         return !(body.find(function(n1) { return addrOf(n0).eq(addrOf(n1)); }));
+        //     });
+        //
+        //     Array.prototype.push.apply(exits, obranches);
+        // });
 
         // console.log('loop:');
         // console.log('', 'head node :', head.toString(16));
