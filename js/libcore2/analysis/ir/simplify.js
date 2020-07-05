@@ -407,15 +407,22 @@
         return null;
     };
 
+    // calculating an ff mask for a given bit size should have neen as simple as: ((1 << size) - 1)
+    // however that calculation doesn't work in javascipt as it cannot handle large numbers. instead of
+    // instantinating the value ad-hoc, we'll instantinate all possible ff masks and cache them for reuse.
+    const FFMASKS = {
+         8 : new Expr.Val(Long.fromBits(0x000000ff, 0x00000000, false),  8),
+        16 : new Expr.Val(Long.fromBits(0x0000ffff, 0x00000000, false), 16),
+        32 : new Expr.Val(Long.fromBits(0xffffffff, 0x00000000, false), 32),
+        64 : new Expr.Val(Long.fromBits(0xffffffff, 0xffffffff, false), 64)
+    };
+
     var _correct_bitwise = function(bexpr) {
         var lhand = bexpr.operands[0];
         var rhand = bexpr.operands[1];
 
-        // create an FF's mask that matches lhand size
-        const ffmask = Long.UONE.shl(lhand.size).sub(Long.UONE);
-
         const ZERO = new Expr.Val(0, lhand.size);
-        const FF = new Expr.Val(ffmask, lhand.size);
+        const FF = FFMASKS[lhand.size];
 
         if (bexpr instanceof Expr.Xor) {
             // 0 ^ x
