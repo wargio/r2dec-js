@@ -1,5 +1,5 @@
 /** 
- * Copyright (C) 2018-2019 elicn
+ * Copyright (C) 2018-2020 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1068,6 +1068,14 @@
         var lhand = this.get_operand_expr(p.operands[0]);
         var rhand = this.get_operand_expr(p.operands[1]);
         var expr;
+        var inc;
+
+        // advance destination: edi = edi + (n * scale)
+        var __inc_dest = function(dest, count) {
+            var scale = new Expr.Val(lhand.size / 8, lhand.size);
+
+            return new Expr.Assign(dest.clone(), new Expr.Add(dest.clone(), new Expr.Mul(count.clone(), scale)));
+        };
 
         if (p.prefix === INSN_PREF.REP) {
             var s = new Expr.AddrOf(lhand);
@@ -1076,12 +1084,13 @@
 
             // TODO: using Expr.Reg for intrinsic name is cheating! it will get indexed by ssa
             expr = new Expr.Intrinsic(new Expr.Reg('memset'), [s, c, n]);
+            inc = __inc_dest(s, n);
         } else {
             expr = new Expr.Assign(lhand, rhand);
+            inc = __inc_dest(lhand, new Expr.Val(1, lhand.size));
         }
 
-        // TODO: do we need to advance edi and esi pointers?
-        return [expr];
+        return [expr, inc];
     };
 
     var _movbe = function(p) {
