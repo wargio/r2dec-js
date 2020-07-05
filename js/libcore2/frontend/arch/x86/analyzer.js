@@ -327,14 +327,13 @@
 
                             var vexpr = new Expr.AddrOf(new Expr.Var(vitem.name, vsize));
 
-                            // // TODO: this is an experimental method to identify arrays on stack and
-                            // // make their references show appropriately
-                            // if ((vitem.type.endsWith('*')) && (vlist === vitems)) {
-                            //     // this memory deref comes solely to match the address of, hence
-                            //     // the undefined size - which is irrelevant
-                            //
-                            //     vexpr = new Expr.Deref(vexpr, undefined);
-                            // }
+                            // TODO: this is an experimental method to identify arrays on stack and
+                            // make their references show appropriately
+                            if ((vitem.type.endsWith('*')) && (vlist === vitems)) {
+                                // this memory deref comes solely to match the address of, hence
+                                // the undefined size - which is irrelevant
+                                vexpr = new Expr.Deref(vexpr, undefined);
+                            }
 
                             if (vdisp > edisp) {
                                 vexpr = new Expr.Add(vexpr, new Expr.Val(vdisp - edisp, size));

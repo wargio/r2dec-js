@@ -43,8 +43,9 @@ var Global = {
      */
     r2cmd: function() {
         var cmdline = Array.prototype.slice.call(arguments).join(' ');
+        var output = r2cmd(cmdline).trimEnd();
 
-        return r2cmd(cmdline).trimEnd();
+        return output;
     },
 
     /**

@@ -65,6 +65,10 @@
         return this.colormap[tag] + txt + this.colormap[TOK_RESET];
     };
 
+    Palette.prototype.colorizeAll = function(tokens) {
+        return tokens.map(this.colorize, this).join('');
+    };
+
     // ------------------------------------------------------------
 
 	// theme based on vscode dark+
@@ -226,7 +230,7 @@
             tokens.unshift(INDENT);
             tokens.unshift(addr);
 
-            return tokens.map(this.palette.colorize, this.palette).join('');
+            return this.palette.colorizeAll(tokens);
         }, this);
 
         return colorized.join('\n');
@@ -250,17 +254,19 @@
             //         var idx = operand.operands[1];
             //
             //         if (ptr instanceof Expr.Var) {
-            //             var cast = {
-            //                 8: 'char*',
-            //                16: 'short*',
-            //                32: 'int*',
-            //                64: 'long long*'
-            //             }[uexpr.size];
+            //             var cast_tok = [];
             //
-            //             // omit casting if variable size matches the dereference size
-            //             var cast_tok = (ptr.size === uexpr.size) ?
-            //                 [] :
-            //                 [[TOK_PAREN, '('], [TOK_VARTYPE, cast], [TOK_PAREN, ')'], SPACE];
+            //             // prepend casting if variable size does not match the dereference size
+            //             if (ptr.size !== uexpr.size) {
+            //                 var cast = {
+            //                     8: 'char*',
+            //                    16: 'short*',
+            //                    32: 'int*',
+            //                    64: 'long long*'
+            //                 }[uexpr.size];
+            //
+            //                 cast_tok = [[TOK_PAREN, '('], [TOK_VARTYPE, cast], [TOK_PAREN, ')'], SPACE];
+            //             }
             //
             //             // adjust index according to pointer arithmetic
             //             if (idx instanceof Expr.Val) {
