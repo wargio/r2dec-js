@@ -1,5 +1,5 @@
 /** 
- * Copyright (C) 2019 elicn
+ * Copyright (C) 2019-2020 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,9 +24,12 @@
     var _r2_get_flag = function(addr) {
         var flag = undefined;
 
-        // do not get flag for 0; this would probably yield a register name that happens
-        // to be evaluated to this number
-        if ((0 | addr) !== 0) {
+        // do not get flag for negative values since they are interpreted as relative offsets
+        // to the current seek location rather than absolute addresses
+        //
+        // do not get flag for zero values either; this would probably yield a register name that
+        // happens to be evaluated to this number
+        if ((0 | addr) > 0) {
             var fij = Global.r2cmdj('fij', '4', '@', addr);
 
             if ((fij instanceof Array) && (fij.length > 0)) {
