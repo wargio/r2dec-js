@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018-2019 elicn
+ * Copyright (C) 2018-2020 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -600,6 +600,13 @@
      * @constructor
      */
     function Intrinsic(callee, args) {
+        // when cloned all arguments are passed flat, we need to turn them into an array
+        // before passing them to Call constructor. in that case, the first array element
+        // should be discarded to avoid duplication of 'callee'
+        if (!(args instanceof Array)) {
+            args = Array.prototype.slice.call(arguments, 1);
+        }
+
         Call.call(this, callee, args);
     }
 
