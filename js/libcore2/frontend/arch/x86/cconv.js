@@ -321,7 +321,7 @@
         }
 
         if (cc_obj) {
-            // console.log('assuming', fcall.parent_stmt().toString(), 'is called using', CCobj.constructor.name);
+            // console.log('assuming', fcall.parent_stmt().toString(), 'is called using', cc_obj.constructor.name);
 
             return cc_obj.get_args_expr(fcall, context);
         }

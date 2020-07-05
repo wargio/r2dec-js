@@ -493,6 +493,9 @@
      */
     Expr.prototype.equals = function(other) {
         return (
+            // other is a valid instance: neither null nor undefined
+            (other != undefined) &&
+
             // have same prototype
             (Object.getPrototypeOf(this) === Object.getPrototypeOf(other)) &&
 

@@ -30,14 +30,14 @@
     // that works for combining relations using bitwise and, or and not
     /** @type {Array<string>} */
     const __rel_names = [
-        null,   /* palceholder for False */ // 0b000
+        null,   /* placeholder for False */ // 0b000
         Expr.EQ.prototype.constructor.name, // 0b001
         Expr.LT.prototype.constructor.name, // 0b010
         Expr.LE.prototype.constructor.name, // 0b011
         Expr.GT.prototype.constructor.name, // 0b100
         Expr.GE.prototype.constructor.name, // 0b101
         Expr.NE.prototype.constructor.name, // 0b110
-        null,   /* palceholder for True */  // 0b111
+        null,   /* placeholder for True */  // 0b111
     ];
 
     /**
@@ -464,7 +464,7 @@
 
             // x | 0xff...
             if (rhand.equals(FF)) {
-                return FF;
+                return FF.clone();
             }
         }
 
