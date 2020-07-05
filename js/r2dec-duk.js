@@ -288,13 +288,15 @@ function r2dec_main(args) {
                 analyzer.transform_done(func);
 
                 // <DEBUG>
-                // func.basic_blocks.forEach(function(bb) {
-                //     console.log(bb.container.toString(), '{');
-                //     bb.container.statements.forEach(function(stmt) {
-                //         console.log('  ', stmt.toString());
-                //     });
-                //     console.log('}');
-                // });
+                // var _mk_title = function(n) {
+                //     return '0x' + n.key.address.toString(16);
+                // };
+                //
+                // var _mk_body = function(n) {
+                //     return 'base64:' + Duktape.enc('base64', n.key.container.statements.map(String).join('\n'));
+                // };
+                //
+                // console.log(Global.r2cmd(func.cfg().r2graph(_mk_title, _mk_body).join(' ; ')));
                 // </DEBUG>
 
                 var ssa = new SSA(func);

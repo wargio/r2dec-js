@@ -197,31 +197,47 @@
      * will discard a previous custom graph, if exists.
      *
      * Usage example (assuming a graph named 'g'):
-     *   console.log(Global.r2cmd(g.r2graph().join(' ; ')));
      * 
+     *   var mkt = function(node) {
+     *       return node.key.toString();
+     *   }
+     * 
+     *   var mkb = function(node) {
+     *       return "base64:" + Duktape.enc("base64", "body of: " + node.key.toString());
+     *   }
+     * 
+     *   console.log(Global.r2cmd(g.r2graph(mkt, mkb).join(' ; ')));
+     * 
+     * @param {function} mk_title Callback function that takes a node and returns its title text
+     * @param {function} mk_body  Callback function that takes a node and returns its body text
      * @returns {Array.<string>} A list of commands to display the graph in r2
      */
-    Directed.prototype.r2graph = function() {
+    Directed.prototype.r2graph = function(mk_title, mk_body) {
         var clear_graph = ['ag-'];
         var add_nodes = [];
         var add_edges = [];
         var show_graph = ['agg'];
 
-        var _node_key_toString = function(n) {
-            return '0x' + n.key.toString(16);
-        };
+        // if (mk_title === undefined) {
+        //     mk_title = function(node) { return '"' + node.key.toString() + '"'; };
+        // }
+        //
+        // if (mk_body === undefined) {
+        //     mk_body = function(node) { return ''; };
+        // }
 
         this.iterNodes().forEach(function(n) {
             add_nodes.push([
                 'agn',
-                _node_key_toString(n)
+                mk_title(n),
+                mk_body(n)
             ].join(' '));
 
             var edges = this.successors(n).map(function(succ) {
                 return [
                     'age',
-                    _node_key_toString(n),
-                    _node_key_toString(succ)
+                    mk_title(n),
+                    mk_title(succ)
                 ].join(' ');
             });
 
