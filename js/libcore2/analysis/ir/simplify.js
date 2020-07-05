@@ -139,6 +139,38 @@
         return null;
     };
 
+    var _ctx_fold_mul = function(bexpr) {
+        // fold back expressions of the form: (x + (x * c))
+        // where c is a known value.
+
+        // outter expression
+        var oexpr = bexpr;
+
+        if (oexpr.constructor === Expr.Add) {
+            // implied: (oexpr instanceof Expr.BExpr)
+            var olhand = oexpr.operands[0]; // x
+            var orhand = oexpr.operands[1];
+
+            // inner expression (right hand of the outter one)
+            var iexpr = orhand;
+
+            if (iexpr.constructor === Expr.Mul) {
+                // implied: (iexpr instanceof Expr.BExpr)
+                var ilhand = iexpr.operands[0]; // x
+                var irhand = iexpr.operands[1]; // c
+
+                if (olhand.equals(ilhand) && (irhand instanceof Expr.Val)) {
+                    const ONE = new Expr.Val(1, irhand.size);
+
+                    // (olhand + (olhand * irhand)) becomes: (olhand * (irhand + 1))
+                    return new Expr.Mul(olhand.clone(wssa), new Expr.Add(irhand.clone(wssa), ONE));
+                }
+            }
+        }
+
+        return null;
+    };
+
     var _ctx_fold_arith = function(bexpr) {
         var arith_ops = [
             Expr.Add,
@@ -154,8 +186,8 @@
 
         if (arith_ops.indexOf(oexpr_op) !== (-1)) {
             // implied: (oexpr instanceof Expr.BExpr)
-            var olhand = bexpr.operands[0];
-            var orhand = bexpr.operands[1];  // b
+            var olhand = oexpr.operands[0];
+            var orhand = oexpr.operands[1];  // b
 
             // inner expression (left hand of the outter one)
             var iexpr = olhand;
@@ -713,6 +745,7 @@
         _converged_cond,
         _constant_folding,
         _ctx_fold_assoc,
+        _ctx_fold_mul,
         _ctx_fold_arith
     ];
 
