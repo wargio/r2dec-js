@@ -16,6 +16,19 @@
  */
 
 (function() {
+    var _Object_fromEntries = function(entries) {
+        var obj = {};
+
+        entries.forEach(function(ent) {
+            var key = ent[0];
+            var val = ent[1];
+
+            obj[key] = val;
+        });
+
+        return obj;
+    };
+
     var _Array_fill = function(value, start, end) {
         if (start == undefined) {
             start = 0;
@@ -93,13 +106,14 @@
     // --------------------------------------------------
 
     var polyfills = [
-        { proto: Array.prototype,   name: 'fill',       func: _Array_fill       },
-        { proto: Array.prototype,   name: 'findIndex',  func: _Array_findIndex  },
-        { proto: Array.prototype,   name: 'find',       func: _Array_find       },
-        { proto: String.prototype,  name: 'padStart',   func: _String_padStart  },
-        { proto: String.prototype,  name: 'padEnd',     func: _String_padEnd    },
-        { proto: String.prototype,  name: 'trimStart',  func: _String_trimStart },
-        { proto: String.prototype,  name: 'trimEnd',    func: _String_trimEnd   }
+        { proto: Object,           name: 'fromEntries', func: _Object_fromEntries },
+        { proto: Array.prototype,  name: 'fill',        func: _Array_fill         },
+        { proto: Array.prototype,  name: 'findIndex',   func: _Array_findIndex    },
+        { proto: Array.prototype,  name: 'find',        func: _Array_find         },
+        { proto: String.prototype, name: 'padStart',    func: _String_padStart    },
+        { proto: String.prototype, name: 'padEnd',      func: _String_padEnd      },
+        { proto: String.prototype, name: 'trimStart',   func: _String_trimStart   },
+        { proto: String.prototype, name: 'trimEnd',     func: _String_trimEnd     }
     ];
 
     polyfills.forEach(function(pobj) {
