@@ -593,8 +593,10 @@
      * @returns {CodeLine} Newly created declaration line
      */
     CodeGen.prototype.emitDecl = function(f, listing) {
+        const padding = ' '.repeat(addrOf(f).length);
+
         var entry = listing.makeScope('entry');
-        var decl = entry.makeLine(null, [f]);
+        var decl = entry.makeLine(padding, [f]);
 
         // emit function return type and name
         decl.extend([
