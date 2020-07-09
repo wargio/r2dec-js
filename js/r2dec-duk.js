@@ -29,6 +29,9 @@ const Propagator = require('js/libcore2/analysis/propagator');
 const Pruner = require('js/libcore2/analysis/pruner');
 const ControlFlow = require('js/libcore2/analysis/controlflow');
 const CodeGen = require('js/libcore2/backend/codegen');
+const Printer = require('js/libcore2/backend/printer');
+const ConsoleEmitter = require('js/libcore2/backend/emitter/console');
+const JsonEmitter = require('js/libcore2/backend/emitter/json');
 
 /**
  * Global data accessible from everywhere.
@@ -263,6 +266,7 @@ var load_r2_evars = function(ns) {
  */
 function r2dec_main(args) {
     try {
+        var suffix = args[0] || '';
         var iIj = Global.r2cmdj('iIj');
 
         if (iIj.arch in Decoder.archs) {
@@ -335,9 +339,8 @@ function r2dec_main(args) {
                     Pruner.eliminate_circular_phi
                 ], ssa_ctx, config['opt']);
 
-                // <DEBUG desc="emit def-use chains before ssa is transformed out">
+                // DEBUG: emit def-use chains before ssa is transformed out
                 // console.log(ssa_ctx.toString());
-                // </DEBUG>
 
                 ssa.validate(ssa_ctx);
                 // ssa.transform_out(ssa_ctx);
@@ -349,9 +352,19 @@ function r2dec_main(args) {
                 cflow.conditions();
 
                 var resolver = new Resolver();
-                var codegen = new CodeGen(resolver, config['out']);
+                var codegen = new CodeGen(resolver);
 
-                console.log(codegen.emit_func(func));
+                // allow syntax highlighting only if r2 is configured to display colors
+                var colorful = 0 | Global.r2cmd('e', 'scr.color');
+                var printer = new Printer(colorful ? config['out'].theme : 'none');
+                
+                var EmitterClass = suffix.endsWith('j') ? JsonEmitter : ConsoleEmitter;
+                var emitter = new EmitterClass(config['out']);
+
+                var listing = codegen.emitFunction(func);
+                var output = emitter.emit(listing, printer);
+
+                console.log(output);
             } else {
                 console.log('error: no data available; analyze the function / binary first');
             }

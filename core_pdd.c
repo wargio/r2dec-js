@@ -177,8 +177,9 @@ static void duk_r2dec(RCore* core, const char* input)
 static void usage(const RCore* const core)
 {
 	const char* help[] = {
-		"Usage: pdd"/*"[g]"*/, "",	"# Decompile current function",
+		"Usage: pdd[j]", "", "# Decompile current function",
 		"pdd",	"",	"decompile current function",
+		"pddj",	"",	"decompile to json",
 		// "pddg",	"",	"decompile and show as a graph",
 		NULL
 	};
@@ -193,6 +194,7 @@ static void _cmd_pdd(RCore* core, const char* input)
 	switch (*trimmed)
 	{
 	case '\0':
+	case 'j':
 		duk_r2dec(core, trimmed);
 		break;
 	case '?':
@@ -229,9 +231,11 @@ int r_cmd_pdd_init(void* user, const char* cmd)
 	SETPREFS("pdd.cflow.converge", "true", "converge (collapse) related conditions");
 
 	// output settings
+	SETPREFS("pdd.out.offsets", "true", "prefix each line with its offset");
 	SETPREFI("pdd.out.guides", 1, "scope guidelines [0: none, 1: solid, 2: dashed]");
 	SETPREFS("pdd.out.newline", "true", "add a new line before an opening curly bracket");
 	SETPREFI("pdd.out.tabsize", 4, "indent size");
+	SETPREFS("pdd.out.theme", "dark+", "syntax highlighting palette [\"none\", \"default\", \"dark+\"");
 
 	// optimization settings
 	SETPREFS("pdd.opt.noalias", "false", "assume no pointer aliasing");
