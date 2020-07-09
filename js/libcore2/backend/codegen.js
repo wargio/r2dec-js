@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018-2019 elicn
+ * Copyright (C) 2018-2020 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,140 +16,161 @@
  */
 
 (function() {
-    var Expr = require('js/libcore2/analysis/ir/expressions');
-    var Stmt = require('js/libcore2/analysis/ir/statements');
+    const Expr = require('js/libcore2/analysis/ir/expressions');
+    const Stmt = require('js/libcore2/analysis/ir/statements');
+    const Tag = require('js/libcore2/backend/tags');
 
-    // coloring tokens enumeration
-    const TOK_RESET   =  0; // color reset
-    const TOK_WHTSPCE =  1; // whitespace
-    const TOK_KEYWORD =  2; // reserved keyword
-    const TOK_PAREN   =  3; // parenthesis
-    const TOK_PUNCT   =  4; // punctuation
-    const TOK_OPRTOR  =  5; // operator
-    const TOK_NUMBER  =  6; // number literal
-    const TOK_STRING  =  7; // string literal
-    const TOK_FNCALL  =  8; // function name [func call]
-    const TOK_FNNAME  =  9; // function name [func prototype]
-    const TOK_VARTYPE = 10; // data type
-    const TOK_VARNAME = 11; // variable name
-    const TOK_COMMENT = 12; // comment
-    const TOK_OFFSET  = 13; // instruction address
-    const TOK_INVALID = 14; // unknown
+    /**
+     * Listing object: holds decompilation data of the entire function
+     * @constructor
+     */
+    function CodeListing() {
+        this.keys = [];
+        this.scopes = [];
+    }
 
-    var _wrap = function(esccode) {
-        return esccode ? '\033[' + esccode + 'm' : '';
+    /**
+     * Registers a new scope object to the listing, and returns it
+     * @param {string} address Scope address
+     * @param {string?} next Scope address to which this scope falls through (optional)
+     * @returns {CodeScope} Newly created scope instance
+     */
+    CodeListing.prototype.makeScope = function(address, next) {
+        var scope = new CodeScope(address, next);
+
+        this.keys.push(address);
+        this.scopes.push(scope);
+
+        return scope;
     };
 
-    var _rgb_to_esccode = function(rgb) {
-        if (!rgb) {
-            return '';
+    /**
+     * Get JSON-friendly object represenation
+     * @returns {Object} Subscriptable code listing object that indexes function's scopes
+     * by their addresses. Function's entry scope is accessed by the 'entry' key
+     */
+    CodeListing.prototype.repr = function() {
+        var listing = {};
+
+        for (var i = 0; i < this.keys.length; i++) {
+            var key = this.keys[i];
+            var val = this.scopes[i].repr();
+
+            listing[key] = val;
         }
 
-        var r = rgb[0];
-        var g = rgb[1];
-        var b = rgb[2];
-
-        return ['38', '2', r, g, b].join(';');
-    };
-
-    function Palette(colormap) {
-        colormap[TOK_RESET] = _wrap('0');
-
-        this.colormap = colormap;
-    }
-
-    Palette.prototype.colorize = function(token) {
-        var tag = token[0];  // coloring tag
-        var txt = token[1];  // text to color
-
-        return this.colormap[tag] + txt + this.colormap[TOK_RESET];
-    };
-
-    Palette.prototype.colorizeAll = function(tokens) {
-        return tokens.map(this.colorize, this).join('');
+        return listing;
     };
 
     // ------------------------------------------------------------
 
-	// theme based on vscode dark+
-    function DarkPlusPalette() {
-        var colormap = [
-            null,               // TOK_RESET -- placeholder
-            '',                 // TOK_WHTSPCE
-            [197, 134, 192],    // TOK_KEYWORD	+ [this color is for cflow; other kwords: [ 86, 156, 214])
-            [212, 212, 212],    // TOK_PAREN
-            [212, 212, 212],    // TOK_PUNCT
-            [212, 212, 212],    // TOK_OPERATOR
-            [181, 206, 168],    // TOK_NUMBER	+
-            [206, 145, 120],    // TOK_STRING	+
-            [220, 220, 170],    // TOK_FNCALL
-            [220, 220, 170],    // TOK_FNNAME	+
-            [ 78, 201, 176],    // TOK_VARTYPE	+
-            [156, 220, 254],    // TOK_VARNAME	+ 
-            [106, 153,  85],    // TOK_COMMENT	+
-            [131, 148, 150],    // TOK_OFFSET
-            [244,  71,  71]     // TOK_INVALID	+
-        ].map(function(key) { return _wrap(_rgb_to_esccode(key)); });
-
-        Palette.call(this, colormap);
+    /**
+     * Scope object: holds decompilation information of a single scope
+     * To be called only by the `makeScope` method
+     * @param {string} address Scope address
+     * @param {string?} next Scope address to which this scope falls through (optional)
+     * @constructor
+     */
+    function CodeScope(address, next) {
+        this.address = address;
+        this.lines = [];
+        this.next = next;
     }
 
-    DarkPlusPalette.prototype = Object.create(Palette.prototype);
-    DarkPlusPalette.prototype.constructor = DarkPlusPalette;
+    /**
+     * Registers a new line object to the scope, and returns it
+     * @param {string} address Line (statement) address
+     * @param {Array.<string>?} sub Sub scopes: scopes addresses to which this line continues (optional)
+     * @returns {CodeLine} Newly created line instance
+     */
+    CodeScope.prototype.makeLine = function(address, sub) {
+        var line = new CodeLine(address, sub);
+
+        this.lines.push(line);
+
+        return line;
+    };
+
+    /**
+     * Get JSON-friendly object represenation
+     * @returns {Object} Subscriptable scope object that lists scope's lines
+     */
+    CodeScope.prototype.repr = function() {
+        return {
+            'address' : this.address,
+            'lines' : this.lines.map(function(l) { return l.repr(); }),
+            'next' : this.next
+        };
+    };
 
     // ------------------------------------------------------------
 
-    // highlight syntax according to r2 theme
-    function ThemePalette(ecj) {
-        // map TOK indices to r2 theme color keys and then turn them
-        // into their corresponding rgb entries
-
-        var colormap = [
-            null,               // TOK_RESET -- placeholder
-            '',                 // TOK_WHTSPCE
-            'ret',              // TOK_KEYWORD
-            '',                 // TOK_PAREN
-            '',                 // TOK_PUNCT
-            'math',             // TOK_OPERATOR
-            'num',              // TOK_NUMBER
-            'btext',            // TOK_STRING
-            'call',             // TOK_FNCALL
-            'fname',            // TOK_FNNAME
-            'func_var_type',    // TOK_VARTYPE
-            'reg',              // TOK_VARNAME
-            'comment',          // TOK_COMMENT
-            'offset',           // TOK_OFFSET
-            'invalid'           // TOK_INVALID
-        ].map(function(key) { return _wrap(_rgb_to_esccode(ecj[key])); });
-
-        Palette.call(this, colormap);
+    /**
+     * Line object: holds decompilation information of a single line / statement
+     * To be called only by the `makeLine` method
+     * @param {string} address Line (statement) address
+     * @param {Array.<string>?} sub Sub scopes: scopes addresses to which this line continues (optional)
+     * @constructor
+     */
+    function CodeLine(address, sub) {
+        this.address = address;
+        this.line = [];
+        this.sub = sub || [];
     }
 
-    ThemePalette.prototype = Object.create(Palette.prototype);
-    ThemePalette.prototype.constructor = ThemePalette;
+    /**
+     * Append a syntax token to the line.
+     * @param {Token} token Syntax token to add
+     */
+    CodeLine.prototype.append = function(token) {
+        this.line.push(token);
+    };
+
+    /**
+     * Append multiple syntax tokens to the line.
+     * @param {Array.<Token>} tokens List of syntax tokens to add
+     */
+    CodeLine.prototype.extend = function(tokens) {
+        tokens.forEach(this.append, this);
+    };
+
+    /**
+     * Get JSON-friendly object represenation
+     * @returns {Object} Subscriptable scope object that contain a single line information
+     */
+    CodeLine.prototype.repr = function() {
+        return {
+            'address' : this.address,
+            'line' : this.line,
+            'sub' : this.sub.map(addrOf)
+        };
+    };
 
     // ------------------------------------------------------------
 
-    // a monochrome palette that does no syntax highlighting
-    // useful when stdout is not a tty (i.e. a pipe to file or process)
-    function MonoPalette() {
-        var colormap = Object.freeze(Array(TOK_INVALID + 1).fill(''));
-
-        Palette.call(this, colormap);
+    /**
+     * Code generator object: transforms IR to code tokens
+     * @param {*} resolver Resolver instance to handle resolving of r2 flags
+     * @constructor
+     */
+    function CodeGen(resolver) {
+        this.xrefs = resolver;
     }
 
-    MonoPalette.prototype = Object.create(Palette.prototype);
-    MonoPalette.prototype.constructor = MonoPalette;
+    const SPACE = [Tag.WHTSPCE, ' '];
+    const SEMIC = [Tag.PUNCT, ';'];
 
-    // ------------------------------------------------------------
+    var addrOf = function(o) {
+        return '0x' + o.address.toString(16);
+    };
 
     var parenthesize = function(s) {
-        return Array.prototype.concat([[TOK_PAREN, '(']], s, [[TOK_PAREN, ')']]);
+        return Array.prototype.concat([[Tag.PAREN, '(']], s, [[Tag.PAREN, ')']]);
     };
 
     var auto_paren = function(s) {
         var is_paren_token = function(e) {
-            return (e instanceof Array) && (e.length === 2) && (e[0] === TOK_PAREN);
+            return (e instanceof Array) && (e.length === 2) && (e[0] === Tag.PAREN);
         };
 
         var complex = s.length > 1;
@@ -158,7 +179,6 @@
         return (complex && !has_paren) ? parenthesize(s) : s;
     };
 
-    // <DEBUG>
     // const uc_digits = [
     //     '\u2080',
     //     '\u2081',
@@ -179,66 +199,14 @@
     //
     //     return n.toString().split('').map(str_digit_to_uc_digit).join('');
     // };
-    // </DEBUG>
 
-    function CodeGen(resolver, conf) {
-        var colorful = 0 | Global.r2cmd('e', 'scr.color');
-
-        // let r2 to decide whether there would be syntax highlighting
-        this.palette = colorful ?
-            new DarkPlusPalette() :
-            // new ThemePalette(Global.r2cmdj('ecj')) :
-            new MonoPalette();
-
-        this.xrefs = resolver;
-        this.tabsize = conf.tabsize;
-        this.scope_newline = conf.newline;
-
-        // see alternate guides here: http://unicode-search.net/unicode-namesearch.pl?term=VERTICAL
-        var guides = [
-            ' ',        // none
-            '\uffe8',   // solid line
-            '\uffe4'    // dashed line
-        ];
-
-        if (conf.guides >= guides.length) {
-            conf.guides = 0;
-        }
-
-        this.guide = guides[conf.guides];
-    }
-
-    // <DEBUG>
-    // var array_toString = function(seq) {
-    //     var elems = seq.map(function(elem) {
-    //         return elem instanceof Array ? array_toString(elem) : elem && elem.toString();
-    //     }).join(', ');
-    //
-    //     return '[' + elems + ']';
-    // };
-    // </DEBUG>
-
-    CodeGen.prototype.emit = function(lines) {
-        const INDENT = [TOK_WHTSPCE, ' '.repeat(this.tabsize)];
-
-        var colorized = lines.map(function(l) {
-            // return array_toString(l);
-
-            var addr = l[0];
-            var tokens = l[1];
-
-            tokens.unshift(INDENT);
-            tokens.unshift(addr);
-
-            return this.palette.colorizeAll(tokens);
-        }, this);
-
-        return colorized.join('\n');
-    };
-
-    CodeGen.prototype.emit_expression = function(expr, opt) {
-        const SPACE = [TOK_WHTSPCE, ' '];
-
+    /**
+     * Transform an expression into a list of code tokens
+     * @param {Expr} expr Expression to transform
+     * @param {Expr} opt Conext-aware info (optional)
+     * @returns {Array.<Token>?} List of code tokens representing `expr`
+     */
+    CodeGen.prototype.emitExpression = function(expr, opt) {
         var tname = Object.getPrototypeOf(expr).constructor.name;
 
         opt = opt || {};
@@ -265,7 +233,7 @@
             //                    64: 'long long*'
             //                 }[uexpr.size];
             //
-            //                 cast_tok = [[TOK_PAREN, '('], [TOK_VARTYPE, cast], [TOK_PAREN, ')'], SPACE];
+            //                 cast_tok = [[Tag.PAREN, '('], [Tag.VARTYPE, cast], [Tag.PAREN, ')'], SPACE];
             //             }
             //
             //             // adjust index according to pointer arithmetic
@@ -275,8 +243,8 @@
             //
             //             return Array.prototype.concat(
             //                 cast_tok,
-            //                 this.emit_expression(ptr),
-            //                 [[TOK_PAREN, '[']], this.emit_expression(idx), [[TOK_PAREN, ']']]
+            //                 this.emitExpression(ptr),
+            //                 [[Tag.PAREN, '[']], this.emitExpression(idx), [[Tag.PAREN, ']']]
             //             );
             //         }
             //     }
@@ -284,7 +252,7 @@
 
             return Array.prototype.concat(
                 [op],
-                auto_paren(this.emit_expression(uexpr.operands[0]))
+                auto_paren(this.emitExpression(uexpr.operands[0]))
             );
         };
 
@@ -295,9 +263,9 @@
             var rhand = bexpr.operands[1];
 
             var elements = Array.prototype.concat(
-                this.emit_expression(lhand),
+                this.emitExpression(lhand),
                 [SPACE, op, SPACE],
-                this.emit_expression(rhand)
+                this.emitExpression(rhand)
             );
 
             if ((p instanceof Expr.Expr) && !(p instanceof Expr.Assign)) {
@@ -310,11 +278,11 @@
         // emit a generic ternary expression
         var _emit_texpr = function(texpr, op1, op2) {
             return Array.prototype.concat(
-                this.emit_expression(texpr.operands[0]),
+                this.emitExpression(texpr.operands[0]),
                 [SPACE, op1, SPACE],
-                this.emit_expression(texpr.operands[1]),
+                this.emitExpression(texpr.operands[1]),
                 [SPACE, op2, SPACE],
-                this.emit_expression(texpr.operands[2])
+                this.emitExpression(texpr.operands[2])
             );
         };
 
@@ -323,11 +291,11 @@
             var elements = [];
 
             if (exprs.length > 0) {
-                Array.prototype.push.apply(elements, this.emit_expression(exprs[0]));
+                Array.prototype.push.apply(elements, this.emitExpression(exprs[0]));
 
                 for (var i = 1; i < exprs.length; i++) {
-                    Array.prototype.push.apply(elements, [[TOK_PUNCT, ','], SPACE]);
-                    Array.prototype.push.apply(elements, this.emit_expression(exprs[i]));
+                    Array.prototype.push.apply(elements, [[Tag.PUNCT, ','], SPACE]);
+                    Array.prototype.push.apply(elements, this.emitExpression(exprs[i]));
                 }
             }
 
@@ -344,7 +312,7 @@
                 (_p instanceof Expr.Call));
 
             if (str) {
-                return [[TOK_STRING, str]];
+                return [[Tag.STRING, str]];
             }
 
             // most likely this is a mask value, display as hex
@@ -355,47 +323,47 @@
             }
 
             // TODO: emit value in the appropriate format: dec, hex, signed, unsigned, ...
-            return [[TOK_NUMBER, expr.toString(opt)]];
+            return [[Tag.NUMBER, expr.toString(opt)]];
         }
 
         else if (expr instanceof Expr.Reg) {
-            return [[TOK_VARNAME, expr.toString()]];
+            return [[Tag.VARNAME, expr.toString()]];
         }
 
         else if (expr instanceof Expr.UExpr) {
             var _uexpr_op = {
-                'Deref'     : [TOK_OPRTOR, '*'],
-                'AddressOf' : [TOK_OPRTOR, '&'],
-                'Not'       : [TOK_OPRTOR, '~'],
-                'Neg'       : [TOK_OPRTOR, '-'],
-                'BoolNot'   : [TOK_OPRTOR, '!']
-            }[tname] || [TOK_INVALID, expr.operator || tname];
+                'Deref'     : [Tag.OPRTOR, '*'],
+                'AddressOf' : [Tag.OPRTOR, '&'],
+                'Not'       : [Tag.OPRTOR, '~'],
+                'Neg'       : [Tag.OPRTOR, '-'],
+                'BoolNot'   : [Tag.OPRTOR, '!']
+            }[tname] || [Tag.INVALID, expr.operator || tname];
 
             return _emit_uexpr.call(this, expr, _uexpr_op);
         }
 
         else if (expr instanceof Expr.BExpr) {
             var _bexpr_op = {
-                'Assign' : [TOK_OPRTOR, '='],
-                'Add'    : [TOK_OPRTOR, '+'],
-                'Sub'    : [TOK_OPRTOR, '-'],
-                'Mul'    : [TOK_OPRTOR, '*'],
-                'Div'    : [TOK_OPRTOR, '/'],
-                'Mod'    : [TOK_OPRTOR, '%'],
-                'And'    : [TOK_OPRTOR, '&'],
-                'Or'     : [TOK_OPRTOR, '|'],
-                'Xor'    : [TOK_OPRTOR, '^'],
-                'Shl'    : [TOK_OPRTOR, '<<'],
-                'Shr'    : [TOK_OPRTOR, '>>'],
-                'EQ'     : [TOK_OPRTOR, '=='],
-                'NE'     : [TOK_OPRTOR, '!='],
-                'LT'     : [TOK_OPRTOR, '<'],
-                'GT'     : [TOK_OPRTOR, '>'],
-                'LE'     : [TOK_OPRTOR, '<='],
-                'GE'     : [TOK_OPRTOR, '>='],
-                'BoolAnd': [TOK_OPRTOR, '&&'],
-                'BoolOr' : [TOK_OPRTOR, '||']
-            }[tname] || [TOK_INVALID, expr.operator || tname];
+                'Assign' : [Tag.OPRTOR, '='],
+                'Add'    : [Tag.OPRTOR, '+'],
+                'Sub'    : [Tag.OPRTOR, '-'],
+                'Mul'    : [Tag.OPRTOR, '*'],
+                'Div'    : [Tag.OPRTOR, '/'],
+                'Mod'    : [Tag.OPRTOR, '%'],
+                'And'    : [Tag.OPRTOR, '&'],
+                'Or'     : [Tag.OPRTOR, '|'],
+                'Xor'    : [Tag.OPRTOR, '^'],
+                'Shl'    : [Tag.OPRTOR, '<<'],
+                'Shr'    : [Tag.OPRTOR, '>>'],
+                'EQ'     : [Tag.OPRTOR, '=='],
+                'NE'     : [Tag.OPRTOR, '!='],
+                'LT'     : [Tag.OPRTOR, '<'],
+                'GT'     : [Tag.OPRTOR, '>'],
+                'LE'     : [Tag.OPRTOR, '<='],
+                'GE'     : [Tag.OPRTOR, '>='],
+                'BoolAnd': [Tag.OPRTOR, '&&'],
+                'BoolOr' : [Tag.OPRTOR, '||']
+            }[tname] || [Tag.INVALID, expr.operator || tname];
 
             // check whether this is an assignment special case
             if (expr instanceof Expr.Assign) {
@@ -432,16 +400,16 @@
                         if (((rhand instanceof Expr.Add) || (rhand instanceof Expr.Sub)) && inner_rhand.equals(new Expr.Val(1, lhand.size))) {
                             // "x++" / "x--"
                             return Array.prototype.concat(
-                                this.emit_expression(lhand),
-                                [[TOK_OPRTOR, _inner_op.repeat(2)]]
+                                this.emitExpression(lhand),
+                                [[Tag.OPRTOR, _inner_op.repeat(2)]]
                             );
                         }
     
                         // "x op= y"
                         return Array.prototype.concat(
-                            this.emit_expression(lhand),
-                            [SPACE, [TOK_OPRTOR, _inner_op + '='], SPACE],
-                            this.emit_expression(inner_rhand)
+                            this.emitExpression(lhand),
+                            [SPACE, [Tag.OPRTOR, _inner_op + '='], SPACE],
+                            this.emitExpression(inner_rhand)
                         );
                     }
                 }
@@ -454,8 +422,8 @@
 
         else if (expr instanceof Expr.TExpr) {
             var _texpr_ops = {
-                'TCond': [[TOK_OPRTOR, '?'], [TOK_OPRTOR, ':']]
-            }[tname] || [[TOK_INVALID, expr.operator[0]], [TOK_INVALID, expr.operator[1]]];
+                'TCond': [[Tag.OPRTOR, '?'], [Tag.OPRTOR, ':']]
+            }[tname] || [[Tag.INVALID, expr.operator[0]], [Tag.INVALID, expr.operator[1]]];
 
             return _emit_texpr.call(this, expr, _texpr_ops[0], _texpr_ops[1]);
         }
@@ -473,9 +441,9 @@
             if (fname instanceof Expr.Val) {
                 fname = this.xrefs.resolve_fname(fname) || fname;
 
-                fcall = [[TOK_FNCALL, fname.toString()]];
+                fcall = [[Tag.FNCALL, fname.toString()]];
             } else {
-                fcall = this.emit_expression(fname);
+                fcall = this.emitExpression(fname);
             }
 
             return Array.prototype.concat(fcall, _emit_expr_list.call(this, args));
@@ -484,231 +452,206 @@
         // Phi expressions are not expected here since SSA was already transfromed out, but this is here
         // for debugging and testing purposes
         else if (expr instanceof Expr.Phi) {
-            return Array.prototype.concat([[TOK_INVALID, '\u03a6']], _emit_expr_list.call(this, expr.operands));
+            return Array.prototype.concat([[Tag.INVALID, '\u03a6']], _emit_expr_list.call(this, expr.operands));
         }
 
         else if (expr instanceof Expr.Unknown) {
-            var asm_line = [TOK_STRING, '"' + expr.line + '"'];
+            var asm_line = [Tag.STRING, '"' + expr.line + '"'];
 
-            return [[TOK_KEYWORD, '__asm'], SPACE].concat(parenthesize([asm_line]));
+            return [[Tag.KEYWORD, '__asm'], SPACE].concat(parenthesize([asm_line]));
         }
 
-        return [[TOK_INVALID, expr ? expr.toString() : expr]];
+        return [[Tag.INVALID, expr ? expr.toString() : expr]];
     };
 
     /**
-     * Emit a statement with the appropriate indentation.
-     * @param {!Stmt.Statement} stmt  Statement object to emit
+     * Transform a statement and resiter it as a new line in the specified scope
+     * @param {Statement} s Statement to transform
+     * @param {CodeScope} scope Scope instance to add the new line to
+     * @returns {CodeLine} Newly created line instance
      */
-    CodeGen.prototype.emit_statement = function(stmt) {
-        const SPACE = [TOK_WHTSPCE, ' '];
-        const SEMIC = [TOK_PUNCT, ';'];
+    CodeGen.prototype.emitStatement = function(s, scope) {
+        console.assert(s);
 
-        var addr_str = '0x' + stmt.address.toString(16);
+        const addr = addrOf(s);
+        var line;
 
-        // a list of lists: each element in `lines` is a line of output made of list of tokens
-        var lines = [];
-
-        // note: all Branch stataments are supposed to be replaced by conditions and loops
-        // this is left here just in case
-        if (stmt instanceof Stmt.Branch) {
-            lines.push(Array.prototype.concat(
-                [[TOK_KEYWORD, 'branch'], SPACE],
-                this.emit_expression(stmt.cond),
-                [SPACE, [TOK_PUNCT, '?'], SPACE],
-                this.emit_expression(stmt.taken),
-                [SPACE, [TOK_PUNCT, ':'], SPACE],
-                this.emit_expression(stmt.not_taken),
-                [SEMIC]));
+        if (s instanceof Stmt.Branch) {
+            line = scope.makeLine(addr, [s.taken, s.not_taken]);
+            line.append([Tag.CFLOW, 'branch']);            line.append(SPACE);
+            line.extend(this.emitExpression(s.cond));      line.append(SPACE);
+            line.append([Tag.PUNCT, '?']);                 line.append(SPACE);
+            line.extend(this.emitExpression(s.taken));     line.append(SPACE);
+            line.append([Tag.PUNCT, ':']);                 line.append(SPACE);
+            line.extend(this.emitExpression(s.not_taken)); line.append(SEMIC);
         }
 
-        else if (stmt instanceof Stmt.Break) {
-            lines.push([[TOK_KEYWORD, 'break'], SEMIC]);
+        else if (s instanceof Stmt.Break) {
+            line = scope.makeLine(addr);
+            line.append([Tag.CFLOW, 'break']);
+            line.append(SEMIC);
         }
 
-        else if (stmt instanceof Stmt.Continue) {
-            lines.push([[TOK_KEYWORD, 'continue'], SEMIC]);
+        else if (s instanceof Stmt.Continue) {
+            line = scope.makeLine(addr);
+            line.append([Tag.CFLOW, 'continue']);
+            line.append(SEMIC);
         }
 
-        else if (stmt instanceof Stmt.DoWhile) {
-            var do_body = this.emit_scope(stmt.body);
-            var do_cond = this.emit_expression(stmt.cond);
+        else if (s instanceof Stmt.DoWhile) {
+            line = scope.makeLine(addr, [s.body]);
+            line.append([Tag.CFLOW, 'do']);
 
-            lines.push([[TOK_KEYWORD, 'do']].concat(this.scope_newline ? [] : [SPACE, do_body.shift()[1][0]]));
-            Array.prototype.push.apply(lines, do_body);
-            lines.push([[TOK_KEYWORD, 'while'], SPACE].concat(parenthesize(do_cond)).concat([SEMIC]));
+            line = scope.makeLine(null);
+            line.append([Tag.CFLOW, 'while']);                      line.append(SPACE);
+            line.extend(parenthesize(this.emitExpression(s.cond))); line.append(SEMIC);
         }
 
-        else if (stmt instanceof Stmt.Goto) {
-            var goto_dest = this.emit_expression(stmt.dest);
-
-            lines.push([[TOK_KEYWORD, 'goto'], SPACE].concat(goto_dest).concat([SEMIC]));
+        else if (s instanceof Stmt.Goto) {
+            line = scope.makeLine(addr);
+            line.append([Tag.CFLOW, 'goto']);         line.append(SPACE);
+            line.extend(this.emitExpression(s.dest)); line.append(SEMIC);
         }
 
-        else if (stmt instanceof Stmt.If) {
-            var if_cond = this.emit_expression(stmt.cond);
-            var if_true = this.emit_scope(stmt.then_cntr);
-            var if_true_o = this.scope_newline ? [] : [SPACE, if_true.shift()[1][0]];
+        else if (s instanceof Stmt.If) {
+            line = scope.makeLine(addr, [s.then_cntr]);
+            line.append([Tag.CFLOW, 'if']);
+            line.append(SPACE);
+            line.extend(parenthesize(this.emitExpression(s.cond)));
 
-            var if_true_c = [];
-            var if_false = [];
-            var if_false_o = [];
-
-            if (stmt.else_cntr) {
-                if_false = this.emit_scope(stmt.else_cntr);
-
-                if (!this.scope_newline) {
-                    if_true_c = [if_true.pop()[1][0], SPACE];
-                    if_false_o = [SPACE, if_false.shift()[1][0]];
-                }
-            }
-
-            lines.push([[TOK_KEYWORD, 'if'], SPACE].concat(parenthesize(if_cond)).concat(if_true_o));
-            Array.prototype.push.apply(lines, if_true);
-
-            if (stmt.else_cntr) {
-                lines.push([[TOK_OFFSET, ' '.repeat(addr_str.length)], if_true_c.concat([[TOK_KEYWORD, 'else']]).concat(if_false_o)]);
-                Array.prototype.push.apply(lines, if_false);
+            if (s.else_cntr) {
+                line = scope.makeLine(null, [s.else_cntr]);
+                line.append([Tag.CFLOW, 'else']);
             }
         }
 
-        else if (stmt instanceof Stmt.Return) {
-            var retval = stmt.retval ? [SPACE].concat(this.emit_expression(stmt.retval)) : [];
+        else if (s instanceof Stmt.Return) {
+            line = scope.makeLine(addr);
+            line.append([Tag.CFLOW, 'return']);
 
-            lines.push([[TOK_KEYWORD, 'return']].concat(retval).concat([SEMIC]));
+            if (s.retval) {
+                line.append(SPACE);
+                line.extend(this.emitExpression(s.retval));
+            }
+
+            line.append(SEMIC);
         }
 
-        else if (stmt instanceof Stmt.While) {
-            var while_cond = this.emit_expression(stmt.cond);
-            var while_body = this.emit_scope(stmt.body);
-            
-            lines.push([[TOK_KEYWORD, 'while'], SPACE].concat(parenthesize(while_cond)).concat(this.scope_newline ? [] : [SPACE, while_body.shift()[1][0]]));
-            Array.prototype.push.apply(lines, while_body);
+        else if (s instanceof Stmt.While) {
+            line = scope.makeLine(addr, [s.body]);
+            line.append([Tag.CFLOW, 'while']);
+            line.append(SPACE);
+            line.extend(parenthesize(this.emitExpression(s.cond)));
         }
 
         // generic statement
         else {
-            lines = stmt.expressions.map(function(expr) {
-                return this.emit_expression(expr).concat([SEMIC]);
+            s.expressions.forEach(function(expr) {
+                line = scope.makeLine(addr);
+                line.extend(this.emitExpression(expr));
+                line.append(SEMIC);
             }, this);
         }
 
-        lines[0] = [[TOK_OFFSET, addr_str], lines[0]];
-
-        return lines;
+        return line;
     };
 
     /**
-     * Emit a lexical scope with the appropriate indentation.
-     * @param {!Cntr.Container} cntr  Container object to emit
-     * @param {boolean} stripped Strip off curly braces
+     * Transform a container and resiter it as a new scope in the specified listing
+     * @param {Container} c Container to transform
+     * @param {CodeListing} listing Listing instance to add the new scope to
+     * @returns {CodeScope} Newly created scope instance
      */
-    CodeGen.prototype.emit_scope = function(cntr, stripped) {
-        if (!cntr) { return; }
-        // console.assert(cntr);
+    CodeGen.prototype.emitContainer = function(c, listing) {
+        console.assert(c);
 
-        const INDENT = [TOK_OFFSET, this.guide + ' '.repeat(this.tabsize - 1)];
-        const addr_str = '0x' + cntr.address.toString(16);
+        const addr = addrOf(c);
 
-        var lines = [];
+        var next = c.fallthrough && addrOf(c.fallthrough);
+        var scope = listing.makeScope(addr, next);
 
-        if (!stripped) {
-            lines.push([[TOK_OFFSET, addr_str], [[TOK_PAREN, '{']]]);
-        }
+        c.locals.forEach(function(v) {
+            var vdecl = scope.makeLine(null);
 
-        Array.prototype.push.apply(lines, cntr.locals.map(function(vitem) {
-            return [
-                [TOK_OFFSET, ' '.repeat(addr_str.length)],
-                [
-                    INDENT,
-                    [TOK_VARTYPE, vitem.type],
-                    [TOK_WHTSPCE, ' '],
-                    [TOK_VARNAME, vitem.name],
-                    [TOK_PUNCT, ';']
-                ]
-            ];
-        }));
+            vdecl.extend([
+                [Tag.VARTYPE, v.type], SPACE,
+                [Tag.VARNAME, v.name], SEMIC
+            ]);
+        });
 
-        cntr.statements.forEach(function(s) {
-            var stmt_lines = this.emit_statement(s);
-
-            // indent child statements
-            stmt_lines.forEach(function(l) {
-                l[1].unshift(INDENT);
-            });
-
-            Array.prototype.push.apply(lines, stmt_lines);
+        c.statements.forEach(function(s) {
+            this.emitStatement(s, scope);
         }, this);
 
-        // emit fall-through container
-        if (cntr.fallthrough) {
-            Array.prototype.push.apply(lines, this.emit_scope(cntr.fallthrough, true));
-        }
-
-        if (!stripped) {
-            lines.push([[TOK_OFFSET, ' '.repeat(addr_str.length)], [[TOK_PAREN, '}']]]);
-        }
-
-        return lines;
+        return scope;
     };
 
-    CodeGen.prototype.emit_func = function(func) {
-        const SPACE = [TOK_WHTSPCE, ' '];
+    /**
+     * Transform function declaration info and register it in a special scope named 'entry'
+     * @param {Function} f Function to transform
+     * @param {CodeListing} listing Listing instance to add the 'entry' scope to
+     * @returns {CodeLine} Newly created declaration line
+     */
+    CodeGen.prototype.emitDecl = function(f, listing) {
+        var entry = listing.makeScope('entry');
+        var decl = entry.makeLine(null, [f]);
 
-        var _emit_func_decl = function(func) {
-            var arglist = [];
+        // emit function return type and name
+        decl.extend([
+            [Tag.VARTYPE, f.rettype], SPACE,
+            [Tag.FNNAME, f.name]
+        ]);
 
-            if (func.args.length === 0) {
-                arglist = [[TOK_VARTYPE, 'void']];
-            } else {
-                var a = func.args[0];
+        decl.append([Tag.PAREN, '(']);
 
-                // handle first arg
-                arglist.push([TOK_VARTYPE, a.type]);
-                arglist.push(SPACE);
-                arglist.push([TOK_VARNAME, a.name]);
-    
-                // handle rest of the args
-                func.args.slice(1).forEach(function(a) {
-                    arglist.push([TOK_PUNCT, ',']);
-                    arglist.push(SPACE);
-                    arglist.push([TOK_VARTYPE, a.type]);
-                    arglist.push(SPACE);
-                    arglist.push([TOK_VARNAME, a.name]);
-                });
-            }
-  
-            var func_decl = Array.prototype.concat([
-                [TOK_VARTYPE, func.rettype],
-                SPACE,
-                [TOK_FNNAME, func.name],
-                [TOK_PAREN, '(']],
-                arglist,
-                [[TOK_PAREN, ')']]
-            );
+        // emit arguments list
+        if (f.args.length === 0) {
+            decl.append([Tag.KEYWORD, 'void']);
+        } else {
+            var a = f.args[0];
 
-            return [
-                [[TOK_OFFSET, '0x' + func.address.toString(16)], func_decl]
-            ];
-        };
+            // handle first arg
+            decl.extend([
+                [Tag.VARTYPE, a.type], SPACE,
+                [Tag.VARNAME, a.name]
+            ]);
 
-        var func_decl = _emit_func_decl(func);
-
-        func.entry_block.container.locals = func.vars;
-
-        // emit containers recursively
-        var func_body = this.emit_scope(func.entry_block.container);
-
-        // if no scope newline, pull opening bracket from function body to function decl
-        if (!(this.scope_newline)) {
-            // pulling out first token of first body line
-            var obrace = func_body.shift()[1][0];
-
-            func_decl[0][1].push(SPACE);
-            func_decl[0][1].push(obrace);
+            // handle rest of the args
+            f.args.slice(1).forEach(function(a) {
+                decl.extend([
+                    [Tag.PUNCT, ','],      SPACE,
+                    [Tag.VARTYPE, a.type], SPACE,
+                    [Tag.VARNAME, a.name]
+                ]);
+            });
         }
 
-        return this.emit(Array.prototype.concat(func_decl, func_body));
+        decl.append([Tag.PAREN, ')']);
+
+        return decl;
+    };
+
+    /**
+     * Transform a decompiled function IR into a JSON-friendly representation.
+     * To produce readable output, use a Printer object of your choice
+     * @param {Function} f Function to transform
+     * @returns {Object} Subscriptable code listing object that indexes function's scopes
+     * by their addresses. Function's entry scope is accessed by the 'entry' key
+     */
+    CodeGen.prototype.emitFunction = function(f) {
+        console.assert(f);
+
+        var listing = new CodeListing();
+
+        this.emitDecl(f, listing);
+
+        f.entry_block.container.locals = f.vars;
+
+        f.basic_blocks.forEach(function(bb) {
+            this.emitContainer(bb.container, listing);
+        }, this);
+
+        return listing.repr();
     };
 
     return CodeGen;
