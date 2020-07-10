@@ -67,8 +67,8 @@
         // - assigned variables, even though not used, better stay there for clarity
         // - however, if either of these exceptions was a def that was fully propagated, then prune
         return (def.uses.length === 0)
-            && (def instanceof Expr.Reg)
-            && (!((def instanceof Expr.Var) || (val instanceof Expr.Call)) || (def.prune));
+            && (def instanceof Expr.Reg) && !(def instanceof Expr.Var)
+            && (!(val instanceof Expr.Call) || (def.prune));
     };
 
     // eliminate dead assignments to memory

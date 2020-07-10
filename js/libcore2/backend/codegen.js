@@ -157,15 +157,23 @@
         this.xrefs = resolver;
     }
 
-    const SPACE = [Tag.WHTSPCE, ' '];
-    const SEMIC = [Tag.PUNCT, ';'];
+    // common tokens
+    const COMMA  = [Tag.PUNCT,   ','];
+    const SPACE  = [Tag.WHTSPCE, ' '];
+    const LPAREN = [Tag.PAREN,   '('];
+    const RPAREN = [Tag.PAREN,   ')'];
+    const SEMIC  = [Tag.PUNCT,   ';'];
 
     var addrOf = function(o) {
         return '0x' + o.address.toString(16);
     };
 
+    var blanks = function(o) {
+        return ' '.repeat(addrOf(o).length);
+    };
+
     var parenthesize = function(s) {
-        return Array.prototype.concat([[Tag.PAREN, '(']], s, [[Tag.PAREN, ')']]);
+        return Array.prototype.concat([LPAREN], s, [RPAREN]);
     };
 
     var auto_paren = function(s) {
@@ -233,7 +241,7 @@
             //                    64: 'long long*'
             //                 }[uexpr.size];
             //
-            //                 cast_tok = [[Tag.PAREN, '('], [Tag.VARTYPE, cast], [Tag.PAREN, ')'], SPACE];
+            //                 cast_tok = [LPAREN, [Tag.VARTYPE, cast], RPAREN, SPACE];
             //             }
             //
             //             // adjust index according to pointer arithmetic
@@ -294,7 +302,7 @@
                 Array.prototype.push.apply(elements, this.emitExpression(exprs[0]));
 
                 for (var i = 1; i < exprs.length; i++) {
-                    Array.prototype.push.apply(elements, [[Tag.PUNCT, ','], SPACE]);
+                    Array.prototype.push.apply(elements, [COMMA, SPACE]);
                     Array.prototype.push.apply(elements, this.emitExpression(exprs[i]));
                 }
             }
@@ -565,10 +573,8 @@
     CodeGen.prototype.emitContainer = function(c, listing) {
         console.assert(c);
 
-        const addr = addrOf(c);
-
         var next = c.fallthrough && addrOf(c.fallthrough);
-        var scope = listing.makeScope(addr, next);
+        var scope = listing.makeScope(addrOf(c), next);
 
         c.locals.forEach(function(v) {
             var vdecl = scope.makeLine(null);
@@ -593,10 +599,8 @@
      * @returns {CodeLine} Newly created declaration line
      */
     CodeGen.prototype.emitDecl = function(f, listing) {
-        const padding = ' '.repeat(addrOf(f).length);
-
         var entry = listing.makeScope('entry');
-        var decl = entry.makeLine(padding, [f]);
+        var decl = entry.makeLine(blanks(f), [f]);
 
         // emit function return type and name
         decl.extend([
@@ -604,7 +608,7 @@
             [Tag.FNNAME, f.name]
         ]);
 
-        decl.append([Tag.PAREN, '(']);
+        decl.append(LPAREN);
 
         // emit arguments list
         if (f.args.length === 0) {
@@ -621,14 +625,14 @@
             // handle rest of the args
             f.args.slice(1).forEach(function(a) {
                 decl.extend([
-                    [Tag.PUNCT, ','],      SPACE,
+                    COMMA,                 SPACE,
                     [Tag.VARTYPE, a.type], SPACE,
                     [Tag.VARNAME, a.name]
                 ]);
             });
         }
 
-        decl.append([Tag.PAREN, ')']);
+        decl.append(RPAREN);
 
         return decl;
     };
