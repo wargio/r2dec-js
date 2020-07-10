@@ -30,10 +30,10 @@
         var contexts = ssa.get_local_contexts(false);
         var cconvs = CallConv(arch);
 
-        func.basic_blocks.forEach(function(block) {
-            var local_context = contexts[block];
+        func.containers.forEach(function(container) {
+            var local_context = contexts[container];
 
-            block.container.statements.forEach(function(stmt) {
+            container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
 
                     // normally a function call would be assigned to a result register, but not
@@ -90,8 +90,7 @@
     var insert_overlaps = function(func, arch) {
         var archregs = arch.archregs;
 
-        func.basic_blocks.forEach(function(bb) {
-            var container = bb.container;
+        func.containers.forEach(function(container) {
             var statements = container.statements;
             var expanded = [];
 
@@ -372,8 +371,8 @@
             return null;
         };
 
-        func.basic_blocks.forEach(function(block) {
-            block.container.statements.forEach(function(stmt) {
+        func.containers.forEach(function(cntr) {
+            cntr.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     while (reduce_expr(expr)) {
                         Simplify.reduce_expr(expr);
