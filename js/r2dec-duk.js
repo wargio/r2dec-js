@@ -140,6 +140,18 @@ Function.prototype.getBlock = function(address) {
     });
 };
 
+/**
+ * Retreives a container by its address.
+ * @param {Long} address Address of desired container
+ * @returns {Container} Container whose address was specified at `address`,
+ * or `undefined` if no container with that address exists in function
+ */
+Function.prototype.getContainer = function(address) {
+    return this.containers.find(function(container) {
+        return container.address.eq(address);
+    });
+};
+
 Function.prototype.cfg = function() {
     var nodes = []; // basic blocks
     var edges = []; // jumping, branching or falling into another basic block
@@ -282,12 +294,14 @@ function r2dec_main(args) {
 
                 // transform assembly instructions into internal representation
                 // this is a prerequisit to ssa-based analysis and optimizations
-                func.basic_blocks.forEach(function(bb) {
+                func.containers = func.basic_blocks.map(function(bb) {
                     bb.container = decoder.transform_ir(bb.instructions);
 
-                    // perform arch-specific modifications (container)
-                    analyzer.transform_step(bb.container);
+                    return bb.container;
                 });
+
+                // perform arch-specific modifications (per container)
+                func.containers.forEach(analyzer.transform_step);
 
                 // perform arch-specific modifications (whole function)
                 analyzer.transform_done(func);
@@ -298,7 +312,9 @@ function r2dec_main(args) {
                 // };
                 //
                 // var _mk_body = function(n) {
-                //     return 'base64:' + Duktape.enc('base64', n.key.container.statements.map(String).join('\n'));
+                //     var container = func.getContainer(n.key);
+                //
+                //     return 'base64:' + Duktape.enc('base64', container.statements.map(String).join('\n'));
                 // };
                 //
                 // console.log(Global.r2cmd(func.cfg().r2graph(_mk_title, _mk_body).join(' ; ')));

@@ -27,7 +27,7 @@
      */
     function Context(func) {
         this.defs = {};
-        this.uninit = new Cntr.Container(func.entry_block.container.address, []);
+        this.uninit = new Cntr.Container(func.entry_block.address, []);
     }
 
     Context.prototype.add_def = function(v) {
@@ -234,10 +234,10 @@
     }
 
     // iterate all statements in block and collect only defined names
-    var _find_local_defs = function(selector, block) {
+    var _find_local_defs = function(selector, container) {
         var defs = [];
 
-        block.container.statements.forEach(function(stmt) {
+        container.statements.forEach(function(stmt) {
             stmt.expressions.forEach(function(expr) {
                 expr.iter_operands().forEach(function(op) {
                     if (selector(op) && op.is_def) {
@@ -265,9 +265,17 @@
         return node.key;
     };
 
+    var node_to_container = function(node) {
+        return node.key.container;
+    };
+
     // get a graph node from a function basic block
     var block_to_node = function(g, block) {
         return g.getNode(block) || null;
+    };
+
+    var container_to_node = function(g, f, container) {
+        return block_to_node(g, f.getBlock(container.address));
     };
 
     var insert_phis = function(selector) {
@@ -278,8 +286,8 @@
         var defs = {};
 
         // map a block to its list of definitions
-        func.basic_blocks.forEach(function(bb) {
-            defs[bb] = _find_local_defs(selector, bb);
+        func.containers.forEach(function(cntr) {
+            defs[cntr] = _find_local_defs(selector, cntr);
         });
 
         // JS causes defsites keys to be stored as strings. since we need the definitions
@@ -289,9 +297,9 @@
             keys : []
         };
 
-        // map a variable to blocks where it is defined
-        func.basic_blocks.forEach(function(bb) {
-            var block_defs = defs[bb];
+        // map a variable to containers where it is defined
+        func.containers.forEach(function(cntr) {
+            var block_defs = defs[cntr];
 
             block_defs.forEach(function(d) {
                 if (!(d in defsites.vals)) {
@@ -299,7 +307,7 @@
                     defsites.vals[d] = [];
                 }
 
-                defsites.vals[d].push(bb);
+                defsites.vals[d].push(cntr);
             });
         });
 
@@ -311,7 +319,7 @@
 
             while (W.length > 0) {
                 // defsites value list elements are basic blocks, while domTree accepts nodes
-                var n = block_to_node(dom, W.pop());
+                var n = container_to_node(dom, func, W.pop());
 
                 dom.dominanceFrontier(n).forEach(function(y) {
                     if (!(y in phis)) {
@@ -334,8 +342,8 @@
                         // phi variables are artificial and may be safely eliminated
                         // phi_var.weak = true;
 
-                        // turn Node y into BasicBlock _y
-                        var _y = node_to_block(y);
+                        // turn Node y into Container _y
+                        var _y = node_to_container(y);
 
                         // insert the statement a = Phi(a, a, ..., a) at the top of block y, where the
                         // phi-function has as many arguments as y has predecessors
@@ -343,7 +351,7 @@
                         var phi_stmt = Stmt.make_statement(undefined, phi_assignment);
 
                         // insert phi at the beginning of the container
-                        _y.container.unshift_stmt(phi_stmt);
+                        _y.unshift_stmt(phi_stmt);
 
                         phis[y].push(a);
                         if (defs[_y].indexOf(a) === (-1)) {
@@ -381,8 +389,8 @@
 
         // intialize 'count' and 'stack' to be used in the renaming process
         var rename_init = function() {
-            func.basic_blocks.forEach(function(bb) {
-                bb.container.statements.forEach(function(stmt) {
+            func.containers.forEach(function(cntr) {
+                cntr.statements.forEach(function(stmt) {
                     stmt.expressions.forEach(function(expr) {
                         expr.iter_operands(true).forEach(function(op) {
                             if (selector(op)) {
@@ -397,8 +405,10 @@
             });
         };
 
-        var rename_rec = function(block) {
-            block.container.statements.forEach(function(stmt) {
+        var rename_rec = function(container) {
+            var node;
+
+            container.statements.forEach(function(stmt) {
                 // pick up uses to assign ssa index
                 stmt.expressions.forEach(function(expr) {
                     if (!is_phi_assignment(expr)) {
@@ -456,11 +466,12 @@
                 });
             });
 
-            cfg.successors(block_to_node(cfg, block)).forEach(function(Y) {
-                var j = cfg.predecessors(Y).indexOf(block_to_node(cfg, block));
+            node = container_to_node(cfg, func, container);
+            cfg.successors(node).forEach(function(Y) {
+                var j = cfg.predecessors(Y).indexOf(node);
 
                 // iterate over all phi functions in Y
-                node_to_block(Y).container.statements.forEach(function(stmt) {
+                node_to_container(Y).statements.forEach(function(stmt) {
                     stmt.expressions.forEach(function(expr) {
                         if (is_phi_assignment(expr)) {
                             var v = expr.operands[0];
@@ -478,12 +489,13 @@
             });
 
             // descend the dominator tree recursively
-            dom.successors(block_to_node(dom, block)).forEach(function(X) {
-                rename_rec(node_to_block(X));
+            node = container_to_node(dom, func, container);
+            dom.successors(node).forEach(function(X) {
+                rename_rec(node_to_container(X));
             });
 
             // cleanup context stack of current block's definitions
-            block.container.statements.forEach(function(stmt) {
+            container.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     expr.iter_operands(true).forEach(function(op) {
                         if (selector(op) && op.is_def) {
@@ -496,7 +508,7 @@
 
         insert_phis.call(this, selector);
         rename_init();
-        rename_rec(func.entry_block);
+        rename_rec(func.entry_block.container);
         relax_phis(ctx);
 
         return ctx;
@@ -627,8 +639,8 @@
 
         var contexts = {};
 
-        var _get_locals = function(block) {
-            var locals = block.container.statements.map(function(stmt) {
+        var _get_locals = function(container) {
+            var locals = container.statements.map(function(stmt) {
                 var assigns = stmt.expressions.filter(function(expr) {
                     return (expr instanceof Expr.Assign);
                 });
@@ -642,17 +654,17 @@
             return Array.prototype.concat.apply([], locals);
         };
 
-        var _get_entry = function(block) {
-            var node = block_to_node(cfg, block);
+        var _get_entry = function(container) {
+            var node = container_to_node(cfg, func, container);
             var preds = cfg.predecessors(node);
 
-            // prevent endless recursion: set current block's entry to empty list
+            // prevent endless recursion: set current container's entry to empty list
             // so subsequent calls would not re-enter this function
-            contexts[block].__entry = [];
+            contexts[container].__entry = [];
 
             // collect incoming definitions; i.e. exit contexts of predecessors
             var incoming = preds.map(function(pred) {
-                return contexts[node_to_block(pred)].exit;
+                return contexts[node_to_container(pred)].exit;
             });
 
             // node is the function entry block; inherit definitions from uninit
@@ -687,8 +699,8 @@
             }
         };
 
-        var _get_live_ranges = function(block) {
-            var ctx = contexts[block];
+        var _get_live_ranges = function(container) {
+            var ctx = contexts[container];
             var locals = ctx.locals;
 
             // get locally defined names; filter out weak ones if necessary
@@ -715,8 +727,8 @@
             return ranges_entry.concat(ranges_locals);
         };
 
-        var _get_exit = function(block) {
-            var ctx = contexts[block];
+        var _get_exit = function(container) {
+            var ctx = contexts[container];
             var locals = ctx.locals;
 
             // collect locally defined names; filter out weak definitions
@@ -732,7 +744,7 @@
             });
 
             // filter out local definitions that are shadowed by other ones that are
-            // defined later in the same block. keep only non-shadowed local defs
+            // defined later in the same container. keep only non-shadowed local defs
             var nshdw_local_defs = locals.filter(function(def, i) {
                 return (local_names.slice(i + 1).indexOf(def.repr()) === (-1));
             });
@@ -740,8 +752,8 @@
             return nshdw_entry_defs.concat(nshdw_local_defs);
         };
     
-        func.basic_blocks.forEach(function(block) {
-            // local context of current block
+        func.containers.forEach(function(container) {
+            // local context of current container
             var ctx = {};
 
             // a utility function that generates a getter function. the getter
@@ -750,10 +762,10 @@
             // caches the result and then returns it
             var _cached_property_getter = function(cached, handler) {
                 return function() {
-                    // console.log('ctx' + block.toString() + '.' + cached, '=', '{');
+                    // console.log('ctx' + container.toString() + '.' + cached, '=', '{');
 
                     if (!(cached in ctx)) {
-                        ctx[cached] = handler(block);
+                        ctx[cached] = handler(container);
                     }
 
                     // ctx[cached].forEach(function(d) {
@@ -773,7 +785,7 @@
                     get : _cached_property_getter('__locals', _get_locals)
                 },
 
-                // an array of definitions that are live on block's entry (aggregated)
+                // an array of definitions that are live on container's entry (aggregated)
                 'entry' : {
                     get : _cached_property_getter('__entry', _get_entry)
                 },
@@ -783,13 +795,13 @@
                     get : _cached_property_getter('__live_ranges', _get_live_ranges)
                 },
 
-                // an array of definitions that are live on block's exit (aggregated)
+                // an array of definitions that are live on container's exit (aggregated)
                 'exit' : {
                     get : _cached_property_getter('__exit', _get_exit)
                 }
             });
 
-            contexts[block] = ctx;
+            contexts[container] = ctx;
         });
 
         return contexts;
@@ -889,8 +901,8 @@
         // iterate through all expressions in function:
         // - if a definition: make sure it is registered in context defs
         // - if a use: make sure it is attached to a valid definition, which in turn has it on its uses list
-        this.func.basic_blocks.forEach(function(blk) {
-            blk.container.statements.forEach(function(stmt) {
+        this.func.containers.forEach(function(cntr) {
+            cntr.statements.forEach(function(stmt) {
                 stmt.expressions.forEach(function(expr) {
                     if (expr instanceof Expr.Assign) {
                         var lhand = expr.operands[0];

@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2019 elicn
+ * Copyright (C) 2019-2020 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,9 +48,17 @@
         return node.key;
     };
 
+    var node_to_container = function(node) {
+        return node.key.container;
+    };
+
     // get a graph node from a function basic block
     var block_to_node = function(g, block) {
         return g.getNode(block) || null;
+    };
+
+    var container_to_node = function(g, f, container) {
+        return block_to_node(g, f.getBlock(container.address));
     };
 
     // retreive the address of the basic block represented by the specified node
@@ -145,7 +153,7 @@
         });
 
         loops.forEach(function(loop) {
-            var C0 = node_to_block(loop.head).container;
+            var C0 = node_to_container(loop.head);
             var S = C0.terminator();
 
             if (S instanceof Stmt.Branch) {
@@ -174,8 +182,8 @@
                     next = S.taken.value;
                 }
 
-                var C1 = func.getBlock(body).container;
-                var C2 = func.getBlock(next).container;
+                var C1 = func.getContainer(body);
+                var C2 = func.getContainer(next);
 
                 // when a loop contains only one block (i.e. loop head is also the only body block), the
                 // loop body would point its own container and cause an endless recursion. to avoid that,
@@ -191,8 +199,8 @@
 
                     C1 = new Cntr.Container(C0.address, plucked);
 
-                    // DIRTY HACK: add a new basic blcok to have this container emitted later on
-                    func.basic_blocks.push({ container: C1});
+                    // DIRTY HACK: add to function containers list so it would be emitted later on
+                    func.containers.push(C1);
 
                     // C0 includes only the terminating statement; update its address to reflect that
                     C0.address = S.address;
@@ -212,7 +220,7 @@
             // iterate loop blocks to replace Goto statements with Break and
             // Continue statements where appropriate
             loop_nodes.forEach(function(n) {
-                var C0 = node_to_block(n).container;
+                var C0 = node_to_container(n);
                 var S = C0.terminator();
 
                 if (S instanceof Stmt.Goto) {
@@ -295,7 +303,7 @@
 
         // turn Branch statements into If
         this.dfs.iterNodes().forEach(function(N) {
-            var C0 = node_to_block(N).container;
+            var C0 = node_to_container(N);
             var S = C0.terminator();
             var imm_dominated = dom.successors(dom.getNode(N.key));
 
@@ -307,9 +315,9 @@
             // proceed only if S is not a loop branch (i.e. a branch in a loop head)
             if (!(this.loops.find(function(loop) { return loop.head.key === N.key; }))) {
                 if (S instanceof Stmt.Branch) {
-                    var C1; // container for 'then' clause
-                    var C2; // container for 'else' clause
-                    var bb; // destination func block
+                    var C1;     // container for 'then' clause
+                    var C2;     // container for 'else' clause
+                    var cntr;   // destination func block
 
                     // does N immediately dominate node?
                     var _is_dominated = function(node) {
@@ -321,26 +329,26 @@
                     };
 
                     // both If clauses (i.e. 'then' and 'else' scopes) are expected to be
-                    // preceded solely by the Branch block.
+                    // preceded solely by the Branch container.
                     //
-                    // check whether bb is immediately dominated by the Branch's block
-                    var _is_imm_dominated = function(bb) {
-                        var node = block_to_node(cfg, bb);
+                    // check whether cntr is immediately dominated by the Branch's container
+                    var _is_imm_dominated = function(cntr) {
+                        var node = container_to_node(cfg, func, cntr);
 
                         return (cfg.indegree(node) === 1) && _is_dominated(node);
                     };
 
                     // 'then' clause: should be immediately dominated by N
-                    bb = func.getBlock(S.not_taken.value);
-                    if (_is_imm_dominated(bb)) {
-                        C1 = bb.container;
+                    cntr = func.getContainer(S.not_taken.value);
+                    if (_is_imm_dominated(cntr)) {
+                        C1 = cntr;
                         C1.prev = C0;
                     }
 
                     // 'else' clause: should be immediately dominates by N and have only one predecessor
-                    bb = func.getBlock(S.taken.value);
-                    if (_is_imm_dominated(bb)) {
-                        C2 = bb.container;
+                    cntr = func.getContainer(S.taken.value);
+                    if (_is_imm_dominated(cntr)) {
+                        C2 = cntr;
                         C2.prev = C0;
                     }
 
@@ -388,7 +396,7 @@
                 // }
 
                 // set fall-through container, if exists
-                C0.set_fallthrough(sink && node_to_block(sink).container);
+                C0.set_fallthrough(sink && node_to_container(sink));
 
                 // console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
                 // console.log();
@@ -400,7 +408,7 @@
             this.dfs.iterNodes().forEach(function(N) {
                 do {
                     var descend = false;
-                    var C0 = node_to_block(N).container;
+                    var C0 = node_to_container(N);
                     var outter = C0.terminator();
 
                     if ((outter instanceof Stmt.If) && (outter.then_cntr && !outter.else_cntr) && !outter.then_cntr.fallthrough) {
@@ -421,7 +429,7 @@
 
         // prune Goto statements
         this.dfs.iterNodes().forEach(function(N) {
-            var C0 = node_to_block(N).container;
+            var C0 = node_to_container(N);
             var S = C0.terminator();
 
             if (S instanceof Stmt.Goto) {
@@ -445,15 +453,14 @@
         // a container has a safe fallthrough if it has only one successor and a valid
         // fallthrough container
         var _has_safe_fthrough = function(cntr) {
-            var bb = func.getBlock(cntr.address);
-            var N = block_to_node(cfg, bb);
+            var N = container_to_node(cfg, func, cntr);
 
             return (cfg.outdegree(N) === 1) && (cntr.fallthrough);
         };
 
         // adjust If statements in case they have empty clauses
         this.dfs.iterNodes().forEach(function(N) {
-            var C0 = node_to_block(N).container;
+            var C0 = node_to_container(N);
             var S = C0.terminator();
 
             if (S instanceof Stmt.If) {

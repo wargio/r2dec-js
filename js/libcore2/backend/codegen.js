@@ -653,8 +653,8 @@
 
         f.entry_block.container.locals = f.vars;
 
-        f.basic_blocks.forEach(function(bb) {
-            this.emitContainer(bb.container, listing);
+        f.containers.forEach(function(container) {
+            this.emitContainer(container, listing);
         }, this);
 
         return listing.repr();
