@@ -190,6 +190,12 @@
                     });
 
                     C1 = new Cntr.Container(C0.address, plucked);
+
+                    // DIRTY HACK: add a new basic blcok to have this container emitted later on
+                    func.basic_blocks.push({ container: C1});
+
+                    // C0 includes only the terminating statement; update its address to reflect that
+                    C0.address = S.address;
                 }
 
                 S.replace(new Stmt.While(S.address, cond, C1));
