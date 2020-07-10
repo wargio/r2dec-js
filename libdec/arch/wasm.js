@@ -244,8 +244,8 @@
     var _common_store = function(instr, context) {
         context.memory = true;
         var offset = instr.parsed.opd[instr.parsed.opd.length - 1];
-        var pointer = context.stack.pop().toString();
         var register = context.stack.pop().toString();
+        var pointer = context.stack.pop().toString();
         var bits = instr.parsed.mnem.match(/\d+/) || ["32"];
         bits = parseInt(bits[0]);
         if (offset != '0') {
