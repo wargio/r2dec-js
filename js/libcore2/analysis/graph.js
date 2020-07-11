@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018-2019 elicn
+ * Copyright (C) 2018-2020 elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@
      * @constructor
      */
     function Directed(nodes, edges, root) {
-        this.nodes = {};
+        this.nodes_map = {};
         this.root = undefined;
 
         if (nodes) {
@@ -60,10 +60,20 @@
         if (root) {
             this.setRoot(root);
         }
+
+        // returns a list of nodes, not necessarily in insertion order
+        Object.defineProperty(this, 'nodes', {
+            get : function() {
+                return Object.values(this.nodes_map);
+            },
+
+            // allow overriding this property
+            configurable: true
+        });
     }
 
     Directed.prototype.toString = function(opt) {
-        return this.iterNodes().map(function(n) {
+        return this.nodes.map(function(n) {
             var outs = this.successors(n).map(function(succ) {
                 return succ.toString(opt);
             });
@@ -77,7 +87,7 @@
      * @param {*} key A key the node can be retrieved with; keys must be unique
      */
     Directed.prototype.addNode = function(key) {
-        this.nodes[key] = new Node(key);
+        this.nodes_map[key] = new Node(key);
     };
 
     /**
@@ -86,7 +96,7 @@
      * @return {Node} Node whose key equals to `key`, or `undefined` if key not found
      */
     Directed.prototype.getNode = function(key) {
-        return this.nodes[key];
+        return this.nodes_map[key];
     };
 
     Directed.prototype.getRoot = function() {
@@ -147,15 +157,8 @@
             }
 
             // remove the node itself
-            delete this.nodes[key];
+            delete this.nodes_map[key];
         }
-    };
-
-    // not really an iterator, as Duktape does not support "yield" and "function*"
-    // returns a list of nodes, not necessarily in insertion order
-    Directed.prototype.iterNodes = function() {
-        // Duktape does not support Object.values() neither...
-        return Object.keys(this.nodes).map(function(k) { return this.getNode(k); }, this);
     };
 
     Directed.prototype.predecessors = function(node) {
@@ -178,7 +181,7 @@
         var nodes = [];
         var edges = [];
 
-        this.iterNodes().forEach(function(n) {
+        this.nodes.forEach(function(n) {
             nodes.push(n.key);
 
             var rev = this.successors(n).map(function(succ) {
@@ -226,7 +229,7 @@
         //     mk_body = function(node) { return ''; };
         // }
 
-        this.iterNodes().forEach(function(n) {
+        this.nodes.forEach(function(n) {
             add_nodes.push([
                 'agn',
                 mk_title(n),
@@ -279,8 +282,15 @@
         // this array keeps them in order.
         this.keys_dfs = nodes;
 
+        // override the nodes property to make sure dfs node are returned in correct order
+        Object.defineProperty(this, 'nodes', {
+            get: function() {
+                return this.keys_dfs.map(function(k) { return this.getNode(k); }, this);
+            }
+        });
+
         // modify Node objects to hold DFS indices
-        this.iterNodes().forEach(function(n, i) {
+        this.nodes.forEach(function(n, i) {
             n.dfnum = i;
         });
     }
@@ -291,10 +301,6 @@
     DFSpanningTree.prototype.parent = function(node) {
         // for every node in a [spanning] tree has zero or one predecessors
         return this.predecessors(node)[0];
-    };
-
-    DFSpanningTree.prototype.iterNodes = function() {
-        return this.keys_dfs.map(function(k) { return this.getNode(k); }, this);
     };
 
     // --------------------------------------------------
@@ -324,7 +330,7 @@
         };
 
         var dfstree = new DFSpanningTree(g);
-        var nodes = dfstree.iterNodes();
+        var nodes = dfstree.nodes;
 
         // init
         nodes.forEach(function(n) {
@@ -390,7 +396,7 @@
         Directed.call(this, keys, edges, keys[0]);
 
         // modify Node objects to hold dominator data
-        this.iterNodes().forEach(function(n) {
+        this.nodes.forEach(function(n) {
             n.idom = n.inbound[0];
         });
     }
