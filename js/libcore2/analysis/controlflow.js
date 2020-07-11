@@ -257,9 +257,9 @@
         }, this);
     };
 
-    // blocks with no explicit branching or jumps just fall through to the next
-    // block. add an explicit goto statement to such blocks to reflect this
-    // behavior explicitly on the output code
+    // blocks with no explicit branching or jumps fall through to the next block.
+    // adding a Goto statement to such blocks would guarantee a terminator statement
+    // and reflect the branching behavior explicitly on the output code
     ControlFlow.prototype.missing_gotos = function() {
         this.func.basic_blocks.forEach(function(bb) {
             var term = bb.container.terminator();
@@ -395,8 +395,15 @@
                 //     console.log('  -fthrough:', ObjAddrToString(C0.fallthrough, 16));
                 // }
 
-                // set fall-through container, if exists
-                C0.set_fallthrough(sink && node_to_container(sink));
+                // fall-through container, if exists
+                var C3 = sink && node_to_container(sink);
+
+                // if that container was already assigned, un-assign it
+                if (C3 && C3.parent) {
+                    C3.parent.set_fallthrough(undefined);
+                }
+
+                C0.set_fallthrough(C3);
 
                 // console.log('  +fthrough:', ObjAddrToString(C0.fallthrough, 16));
                 // console.log();
