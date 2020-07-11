@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2018-2019 pancake, deroad, elicn
+ * Copyright (C) 2018-2020 pancake, deroad, elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -108,7 +108,7 @@ function Function(afij, afbj) {
             return node.key;
         };
 
-        this.basic_blocks = dfs.iterNodes().map(_node_to_block, this);
+        this.basic_blocks = dfs.nodes.map(_node_to_block);
     }
 
     // a list of blocks that leave the function either by returning or tail-calling another function.

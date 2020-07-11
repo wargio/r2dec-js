@@ -99,7 +99,7 @@
         // build a dfs tree from the pruned reversed cfg; this would let us
         // know which nodes are in the loop body
         var rdfs = new Graph.DFSpanningTree(rcfg);
-        var body = rdfs.iterNodes();
+        var body = rdfs.nodes;
 
         // the set of nodes dominated by the loop head includes loop body nodes and
         // exit nodes. we now "xoring" those sets together to find exit nodes
@@ -136,7 +136,7 @@
 
         var loops = [];
 
-        this.dfs.iterNodes().forEach(function(N) {
+        this.dfs.nodes.forEach(function(N) {
             var _is_loop_head = function(node) {
                 var _succ = dom.getNode(node.key);
                 var _curr = dom.getNode(N.key);
@@ -302,7 +302,7 @@
         var carried = null;
 
         // turn Branch statements into If
-        this.dfs.iterNodes().forEach(function(N) {
+        this.dfs.nodes.forEach(function(N) {
             var C0 = node_to_container(N);
             var S = C0.terminator();
             var imm_dominated = dom.successors(dom.getNode(N.key));
@@ -405,7 +405,7 @@
 
         if (this.conf.converge) {
             // simple convergance
-            this.dfs.iterNodes().forEach(function(N) {
+            this.dfs.nodes.forEach(function(N) {
                 do {
                     var descend = false;
                     var C0 = node_to_container(N);
@@ -428,7 +428,7 @@
         }
 
         // prune Goto statements
-        this.dfs.iterNodes().forEach(function(N) {
+        this.dfs.nodes.forEach(function(N) {
             var C0 = node_to_container(N);
             var S = C0.terminator();
 
@@ -459,7 +459,7 @@
         };
 
         // adjust If statements in case they have empty clauses
-        this.dfs.iterNodes().forEach(function(N) {
+        this.dfs.nodes.forEach(function(N) {
             var C0 = node_to_container(N);
             var S = C0.terminator();
 
