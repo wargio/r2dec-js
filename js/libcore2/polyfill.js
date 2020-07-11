@@ -29,6 +29,12 @@
         return obj;
     };
 
+    var _Object_values = function(obj) {
+        return Object.keys(obj).map(function(k) {
+            return obj[k];
+        });
+    };
+
     var _Array_fill = function(value, start, end) {
         if (start == undefined) {
             start = 0;
@@ -107,6 +113,7 @@
 
     var polyfills = [
         { proto: Object,           name: 'fromEntries', func: _Object_fromEntries },
+        { proto: Object,           name: 'values',      func: _Object_values      },
         { proto: Array.prototype,  name: 'fill',        func: _Array_fill         },
         { proto: Array.prototype,  name: 'findIndex',   func: _Array_findIndex    },
         { proto: Array.prototype,  name: 'find',        func: _Array_find         },
