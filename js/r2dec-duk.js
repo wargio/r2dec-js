@@ -343,6 +343,9 @@ function r2dec_main(args) {
                 ssa_ctx = ssa.rename_derefs();
                 analyzer.ssa_step_derefs(func, ssa_ctx);
 
+                // memory dereferences are now safe to propagate
+                config['opt'].safe_derefs = true;
+
                 analyzer.ssa_done(func, ssa);
 
                 Optimizer.run([

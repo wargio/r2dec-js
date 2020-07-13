@@ -187,7 +187,7 @@
                 // if the definition encloses a memory dereference, propagate only if there are no interfering
                 // statamenets between def and all its users that may have side effects
                 else if (__has_enclosed_deref(def)) {
-                    return !def.uses.some(function(u) {
+                    return conf.safe_derefs && !def.uses.some(function(u) {
                         return __has_interfering_expr(u, __non_const);
                     });
                 }
@@ -196,7 +196,7 @@
                 // if the assigned value encloses a memory dereference, propagate only if there are no interfering
                 // statamenets between def and all its users that may have side effects
                 else if (__has_enclosed_deref(val)) {
-                    return !def.uses.some(function(u) {
+                    return conf.safe_derefs && !def.uses.some(function(u) {
                         return __has_interfering_expr(u, __impure);
                     });
                 }
