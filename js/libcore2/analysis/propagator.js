@@ -48,7 +48,7 @@
     }
 
     Propagator.prototype.run = function(context, config) {
-        var propagated = 0;
+        var modified = false;
 
         for (var d in context.defs) {
             var p = context.defs[d].parent; // parent assignment
@@ -56,6 +56,7 @@
             var val = p.operands[1];        // assigned expression
 
             if (this.selector(def, val, config)) {
+                var propagated = 0;
                 var skipped = 0;
 
                 while (def.uses.length > skipped) {
@@ -75,13 +76,15 @@
                 }
 
                 // no uses left after propagation; mark as safe for pruning
-                if (def.uses.length === 0) {
+                if ((propagated > 0) && (def.uses.length === 0)) {
                     def.prune = true;
                 }
+
+                modified |= (propagated > 0);
             }
         }
 
-        return propagated > 0;
+        return modified;
     };
 
     // --------------------------------------------------
