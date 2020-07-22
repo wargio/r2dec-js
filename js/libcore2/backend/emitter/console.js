@@ -27,7 +27,8 @@
         var guides = [
             ' ',        // none
             '\uffe8',   // solid line
-            '\uffe4'    // dashed line
+            '\uffe4',   // dashed line
+            '\ufe19'    // dotted line
         ];
 
         if (conf.guides >= guides.length) {
