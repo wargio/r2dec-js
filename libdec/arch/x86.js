@@ -892,12 +892,14 @@
         } else if (callee && callee.calltype) {
             var guess_nargs = {
                 'cdecl': _guess_cdecl_nargs,
-                'amd64': _guess_amd64_nargs
+                'amd64': _guess_amd64_nargs,
+                'ms': _guess_amd64_nargs
             }[callee.calltype];
 
             var populate_call_args = {
                 'cdecl': _populate_cdecl_call_args,
-                'amd64': _populate_amd64_call_args
+                'amd64': _populate_amd64_call_args,
+                'ms': _populate_amd64_call_args
             }[callee.calltype];
 
             // every non-import callee has a known number of arguments
