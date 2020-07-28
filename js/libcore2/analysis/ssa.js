@@ -192,8 +192,24 @@
         return def && (def instanceof Expr.Reg) && (def.weak);
     };
 
+    // used in an expression that is a phi argument
+    var _is_phi_arg = function(expr) {
+        var def = _parent_def(expr);
+
+        return def && (def.parent.operands[1] instanceof Expr.Phi);
+    };
+
     LiveRange.prototype.is_unused_by = function(expr) {
         var exp_pstmt = expr.parent_stmt();
+
+        // TODO: this checking method is simplified and might be inaccurate in some cases. a definition
+        // would be considered as unused if it has no uses, or its only uses are either weak or phi args,
+        // which are not part of the original code flow rather they were added by the decompiler.
+        //
+        // since we are interested in uses that occur between definition and a specific expression, all
+        // uses that occur afterwards are ignored. when both expressions are on the same block it is easy
+        // to determine that by testing their addresses. if they are not on the same block, all paths
+        // between the two expressions should be traveresed (not implemented)
 
         return this.def.uses.every(function(u) {
             var use_pstmt = u.parent_stmt();
@@ -201,18 +217,9 @@
 
             if (use_pstmt.parent === exp_pstmt.parent) {
                 unused = use_pstmt.address.ge(exp_pstmt.address);
-            } else {
-                // TODO: this is a partial implementation; if not in the same block, search recursively backwards.
-                // this should check whether all uses occur after expr in cfg. this can be done by recording the cfg
-                // path along the way when building context, and see whether the use appears there (occures ealier)
-                // or not (occures afterwards). since this is not implemented yet, we check for phi uses, which are
-                // the common case for late use.
-                var def = _parent_def(u);
-
-                unused = def && (def.parent.operands[1] instanceof Expr.Phi);
             }
 
-            return unused || _is_weak_use(u);
+            return unused || _is_weak_use(u) || _is_phi_arg(u);
         });
     };
 
