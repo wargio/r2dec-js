@@ -395,6 +395,11 @@
                 expr = disp;
             }
 
+            // unexpected
+            else {
+                throw new Error('unknown memory operand');
+            }
+
             expr = new Expr.Deref(expr, op.size);
             break;
 

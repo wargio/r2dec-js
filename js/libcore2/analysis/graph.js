@@ -18,14 +18,28 @@
 (function() {
 
     /**
+     * @typedef {object} Key An object that the node is indexed by. A key object
+     * must implement a `toString` method that would produce a unique identifier
+     */
+
+    /**
+     * @typedef {[Key, Key]} Edge A pair of key objects that represents an edge
+     * from the first element to the second
+     */
+
+    /**
      * Construct a graph node.
-     * @param {*} key A key that the node is indexed by
+     * @param {Key} key A key that the node is indexed by
      * @constructor
      * @inner
      */
     function Node(key) {
         this.key = key;
+
+        /** @type {Array.<Node>} */
         this.inbound = [];
+
+        /** @type {Array.<Node>} */
         this.outbound = [];
     }
 
@@ -40,9 +54,9 @@
 
     /**
      * Construct a directed graph object.
-     * @param {Array.<*>} nodes List of node keys to add
-     * @param {Array.<Array.<*>>} edges List of node key pairs, where pointing node key is first and pointed is second
-     * @param {*} root Key of root node; must be one of `nodes`
+     * @param {Array.<Key>} nodes List of node keys to add
+     * @param {Array.<Edge>} edges List of edges; all keys specified in edges must exist in `nodes`
+     * @param {Key} root Key of root node; must be one of `nodes`
      * @constructor
      */
     function Directed(nodes, edges, root) {
@@ -84,16 +98,18 @@
 
     /**
      * Add a node to the graph.
-     * @param {*} key A key the node can be retrieved with; keys must be unique
+     * @param {Key} key A key the node can be retrieved with; keys must be unique
      */
     Directed.prototype.addNode = function(key) {
+        console.assert(!(key in this.nodes_map), 'A node with key ' + key + ' is already in graph');
+
         this.nodes_map[key] = new Node(key);
     };
 
     /**
      * Retrieve a node by its key.
-     * @param {*} key A key the node can be retrieved with
-     * @return {Node} Node whose key equals to `key`, or `undefined` if key not found
+     * @param {Key} key A key the node can be retrieved with
+     * @return {?Node} Node which is mapped to `key`, or `undefined` if there is no such node
      */
     Directed.prototype.getNode = function(key) {
         return this.nodes_map[key];
@@ -105,18 +121,25 @@
 
     /**
      * Set graph root node.
-     * @param {*} key A key the node to be root can be retrieved with; `key` must exist already in graph
+     * @param {Key} key A key the node to be root can be retrieved with; `key` must exist already in graph
      */
     Directed.prototype.setRoot = function(key) {
         this.root = this.getNode(key);
     };
 
+    /**
+     * Create an edge between two nodes in the graph.
+     * @param {Edge} edge A pair of keys representing source and destination nodes
+     */
     Directed.prototype.addEdge = function(edge) {
-        var src = this.getNode(edge[0]);
-        var dst = this.getNode(edge[1]);
+        var u = this.getNode(edge[0]);
+        var v = this.getNode(edge[1]);
 
-        src.outbound.push(dst);
-        dst.inbound.push(src);
+        console.assert(u !== undefined);
+        console.assert(v !== undefined);
+
+        u.outbound.push(v);
+        v.inbound.push(u);
     };
 
     var _remove_from_list = function(node, arr) {
@@ -129,12 +152,34 @@
         }
     };
 
+    /**
+     * Remove an existing edge in the graph.
+     * @param {Edge} edge A pair of keys representing source and destination nodes
+     */
     Directed.prototype.delEdge = function(edge) {
-        var src = this.getNode(edge[0]);
-        var dst = this.getNode(edge[1]);
+        var u = this.getNode(edge[0]);
+        var v = this.getNode(edge[1]);
 
-        _remove_from_list(dst, src.outbound);
-        _remove_from_list(src, dst.inbound);
+        console.assert(u !== undefined);
+        console.assert(v !== undefined);
+
+        _remove_from_list(v, u.outbound);
+        _remove_from_list(u, v.inbound);
+    };
+
+    /**
+     * Split an existing edge into two edges and insert a node in between.
+     * That is, splitting edge `u -> v` and inserting `t` would result in: `u -> t`, `t -> v`
+     * @param {Edge} edge Edge to split
+     * @param {Key} key Key of the node to insert; node must already exist in the graph
+     */
+    Directed.prototype.splitEdge = function(edge, key) {
+        var u = edge[0];
+        var v = edge[1];
+
+        this.delEdge([u, v]);
+        this.addEdge([u, key]);
+        this.addEdge([key, v]);
     };
 
     Directed.prototype.delNode = function(key) {
@@ -195,9 +240,8 @@
     };
 
     /**
-     * Generate a sequence of r2 commands to represent the graph via r2
-     * custom graph. Please note that executing the commands sequence
-     * will discard a previous custom graph, if exists.
+     * Generate a sequence of r2 commands to represent the graph via r2 custom graph. Note that
+     * executing the commands sequence will discard a previous custom graph, if exists.
      *
      * Usage example (assuming a graph named 'g'):
      * 

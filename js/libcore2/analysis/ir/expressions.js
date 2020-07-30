@@ -284,6 +284,12 @@
 
     // ------------------------------------------------------------
 
+    /**
+     * Local variable.
+     * @param {!string} name Variable name
+     * @param {number} size Variable size in bits
+     * @constructor
+     */
     function Variable(name, size) {
         Register.call(this, name, size);
     }
@@ -382,7 +388,7 @@
     /**
      * Expression base class.
      * This class is abstract and meant to be only inherited, not instantiated.
-     * @param {Array.<(Expr|Register|Value)>} operands An array of expressions instances
+     * @param {Array.<(Expr|Literal)>} operands An array of expressions instances
      * @constructor
      */
     function Expr(operands) {
@@ -682,7 +688,7 @@
 
     /**
      * Unary expression base class.
-     * @param {(Expr|Register|Value)} operand1 1st operand expression
+     * @param {(Expr|Literal)} operand1 1st operand expression
      * @constructor
      */
     function UExpr(operand1) {
@@ -696,8 +702,8 @@
 
     /**
      * Binary expression base class.
-     * @param {(Expr|Register|Value)} operand1 1st operand expression
-     * @param {(Expr|Register|Value)} operand2 2nd operand expression
+     * @param {(Expr|Literal)} operand1 1st operand expression
+     * @param {(Expr|Literal)} operand2 2nd operand expression
      * @constructor
      */
     function BExpr(operand1, operand2) {
@@ -711,9 +717,9 @@
 
     /**
      * Ternary expression base class.
-     * @param {(Expr|Register|Value)} operand1 1st operand expression
-     * @param {(Expr|Register|Value)} operand2 2nd operand expression
-     * @param {(Expr|Register|Value)} operand3 3rd operand expression
+     * @param {(Expr|Literal)} operand1 1st operand expression
+     * @param {(Expr|Literal)} operand2 2nd operand expression
+     * @param {(Expr|Literal)} operand3 3rd operand expression
      * @constructor
      */
     function TExpr(operand1, operand2, operand3) {

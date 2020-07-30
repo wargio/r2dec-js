@@ -20,22 +20,22 @@
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
     // <DEBUG>
-    var __print_debug_info = function(lranges, fcall) {
-        console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
-
-        lranges.forEach(function(rng) {
-            var d = rng.def;
-            var c0 = d.weak ? '\033[90m' : '';
-            var c1 = d.weak ? '\033[0m' : '';
-        
-            console.log(c0, ' |', 'def:', d.parent.parent.toString(), c1);
-        
-            d.uses.forEach(function(u) {
-                console.log(c0, ' |', ' |', u.parent_stmt().toString(), c1);
-            });
-        });
-        console.log();
-    };
+    // var __print_debug_info = function(lranges, fcall) {
+    //     console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
+    // 
+    //     lranges.forEach(function(rng) {
+    //         var d = rng.def;
+    //         var c0 = d.weak ? '\033[90m' : '';
+    //         var c1 = d.weak ? '\033[0m' : '';
+    // 
+    //         console.log(c0, ' |', 'def:', d.parent.parent.toString(), c1);
+    // 
+    //         d.uses.forEach(function(u) {
+    //             console.log(c0, ' |', ' |', u.parent_stmt().toString(), c1);
+    //         });
+    //     });
+    //     console.log();
+    // };
     // </DEBUG>
 
     var _get_defined_by = function(context, expr) {

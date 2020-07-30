@@ -17,18 +17,17 @@
 
 (function() {
     function JsonEmitter(conf) {
-        this.offsets = conf.offsets;
-        this.tabsize = conf.tabsize;
+        // empty
     }
 
     JsonEmitter.prototype.emit = function(listing, printer) {
-        Object.keys(listing).forEach(function(skey) {
+        for (var skey in listing) {
             var scope = listing[skey];
 
             scope.lines.forEach(function(l) {
                 l.line = printer.colorizeAll(l.line);
             });
-        });
+        }
 
         return JSON.stringify(listing);
     };
