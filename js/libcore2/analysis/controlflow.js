@@ -26,233 +26,60 @@
         this.func = func;
         this.conf = conf;
 
-        this.cfg = this.func.cfg();
-        this.dfs = new Graph.DFSpanningTree(this.cfg);
-        this.dom = new Graph.DominatorTree(this.cfg);
+        var _to_container = function(node) {
+            return node.key.container;
+        };
+
+        // replace all nodes of a graph while keeping the hierarchy
+        var _translate_graph = function(g, trfunc) {
+            var nodes = [];
+            var edges = [];
+
+            g.nodes.forEach(function(u) {
+                var _u = trfunc(u);
+
+                nodes.push(_u);
+
+                var succ = g.successors(u).map(function(v) {
+                    return [_u, trfunc(v)];
+                });
+
+                Array.prototype.push.apply(edges, succ);
+            });
+
+            return new Graph.Directed(nodes, edges, trfunc(g.root));
+        };
+
+        // translate basic blocks cfg into containers cfg: same hierarchy, different keys
+        this.cfg = _translate_graph(func.cfg(), _to_container);
+
+        this.loops = [];
     }
 
-    // <DEBUG>
-    // var ArrayToString = function(a, opt) {
-    //     return '[' + a.map(function(d) {
-    //         return d.toString(opt);
-    //     }).join(', ') + ']';
-    // };
-    //
-    // var ObjAddrToString = function(o, opt) {
-    //     return o ? o.address.toString(opt) : o;
-    // };
-    // </DEBUG>
-
-    // get a function basic block from a graph node
-    var node_to_block = function(node) {
+    // get a function container from a graph node
+    var node_to_container = function(node) {
         return node.key;
     };
 
-    var node_to_container = function(node) {
-        return node.key.container;
+    // get a graph node from a function container
+    var container_to_node = function(g, container) {
+        return g.getNode(container);
     };
 
-    // get a graph node from a function basic block
-    var block_to_node = function(g, block) {
-        return g.getNode(block) || null;
-    };
-
-    var container_to_node = function(g, f, container) {
-        return block_to_node(g, f.getBlock(container.address));
-    };
-
-    // retreive the address of the basic block represented by the specified node
+    // retrieve the address of the basic block represented by the specified node
     var addrOf = function(node) {
-        return node_to_block(node).address;
-    };
-
-    var _construct_loop = function(N, cfg, dom) {
-        var key = N.key;
-        
-        // head of the loop
-        var head = dom.getNode(key);
-
-        // the loop body consists of all the nodes that can reach back the
-        // loop head. to know whether there is a path from some node S to another
-        // node T, we need a DFS traveresal starting from S; if T is picked up
-        // then there is a path. that is, a dedicated DFS traversal for each node
-        // in the graph, or at least for all nodes that are dominated by the loop
-        // head.
-        //
-        // to avoid that many DFS traversals, we just reverse the graph starting
-        // from the loop head and perform a DFS traversal only once. all the nodes
-        // that are picked up are known to be reached from loop head in the reversed
-        // graph, which means the loop head is reached from each one of them in
-        // the original one.
-        //
-        // note: that is normally done with a post-dominator tree, which features
-        // a reversed dfs tree
-
-        // build a reversed cfg starting from loop head; prune the edge
-        // pointing the head immediate dominator, which is outside the loop
-        var rcfg = cfg.reversed(key);
-        rcfg.delEdge([key, head.idom.key]);
-
-        // TODO: it looks like the idom trick won't work if there are multiple edges
-        // coming into the loop head; do we need to split the edges to get a pre-loop?
-
-        // build a dfs tree from the pruned reversed cfg; this would let us
-        // know which nodes are in the loop body
-        var rdfs = new Graph.DFSpanningTree(rcfg);
-        var body = rdfs.nodes;
-
-        // the set of nodes dominated by the loop head includes loop body nodes and
-        // exit nodes. we now "xoring" those sets together to find exit nodes
-        var exits = dom.all_dominated(head).filter(function(n0) {
-            return !(body.find(function(n1) { return addrOf(n0).eq(addrOf(n1)); }));
-        });
-
-        // var exits = [];
-        //
-        // body.forEach(function(node) {
-        //     var obranches = cfg.successors(node).filter(function(n0) {
-        //         return !(body.find(function(n1) { return addrOf(n0).eq(addrOf(n1)); }));
-        //     });
-        //
-        //     Array.prototype.push.apply(exits, obranches);
-        // });
-
-        // console.log('loop:');
-        // console.log('', 'head node :', head.toString(16));
-        // console.log('', 'body nodes:', ArrayToString(body, 16));
-        // console.log('', 'exit nodes:', ArrayToString(exits, 16));
-
-        return {
-            head:   head,
-            body:   body,
-            exits:  exits
-        };
-    };
-
-    ControlFlow.prototype.loops = function() {
-        var func = this.func;
-        var cfg = this.cfg;
-        var dom = this.dom;
-
-        var loops = [];
-
-        this.dfs.nodes.forEach(function(N) {
-            var _is_loop_head = function(node) {
-                var _succ = dom.getNode(node.key);
-                var _curr = dom.getNode(N.key);
-
-                return dom.dominates(_succ, _curr);
-            };
-
-            var loop_heads = cfg.successors(N).filter(_is_loop_head);
-
-            // is this a back edge?
-            if (loop_heads.length > 0) {
-                loops.push(_construct_loop(loop_heads[0], cfg, dom));
-            }
-        });
-
-        loops.forEach(function(loop) {
-            var C0 = node_to_container(loop.head);
-            var S = C0.terminator();
-
-            if (S instanceof Stmt.Branch) {
-                var _taken_key = function(node) {
-                    return addrOf(node).eq(S.taken.value);
-                };
-
-                var _not_taken_key = function(node) {
-                    return addrOf(node).eq(S.not_taken.value);
-                };
-
-                var cond;
-                var body;
-                var next;
-
-                if (loop.body.find(_taken_key)) {
-                    cond = S.cond;
-                    body = S.taken.value;
-                    next = S.not_taken.value;
-                }
-
-                else if (loop.body.find(_not_taken_key))
-                {
-                    cond = new Expr.BoolNot(S.cond);
-                    body = S.not_taken.value;
-                    next = S.taken.value;
-                }
-
-                var C1 = func.getContainer(body);
-                var C2 = func.getContainer(next);
-
-                // when a loop contains only one block (i.e. loop head is also the only body block), the
-                // loop body would point its own container and cause an endless recursion. to avoid that,
-                // we extract all the statements except the terminator, to form a new body container.
-                // the terminator remains the only statement in the original cotnainer, and marks the new
-                // one as its body container.
-                if (C0 === C1) {
-                    var plucked = C0.statements.filter(function(stmt) {
-                        return stmt !== S;
-                    }).map(function(stmt) {
-                        return stmt.pluck(false);
-                    });
-
-                    C1 = new Cntr.Container(C0.address, plucked);
-
-                    // DIRTY HACK: add to function containers list so it would be emitted later on
-                    func.containers.push(C1);
-
-                    // C0 includes only the terminating statement; update its address to reflect that
-                    C0.address = S.address;
-                }
-
-                S.replace(new Stmt.While(S.address, cond, C1));
-                Simplify.reduce_expr(cond);
-
-                C0.set_fallthrough(C2);
-                C2.prev = C0;
-            }
-        });
-
-        loops.forEach(function(loop) {
-            var loop_nodes = Array.prototype.concat(loop.body, loop.exits);
-
-            // iterate loop blocks to replace Goto statements with Break and
-            // Continue statements where appropriate
-            loop_nodes.forEach(function(n) {
-                var C0 = node_to_container(n);
-                var S = C0.terminator();
-
-                if (S instanceof Stmt.Goto) {
-                    var _dest_key = function(node) {
-                        return addrOf(node).eq(S.dest.value);
-                    };
-
-                    // jumping to an exit node?
-                    if (loop.exits.find(_dest_key)) {
-                        S.replace(new Stmt.Break(S.address));
-                    }
-
-                    // jumping to loop's head?
-                    else if (_dest_key(loop.head)) {
-                        S.replace(new Stmt.Continue(S.address));
-                    }
-                }
-            });
-        });
-
-        this.loops = loops;
+        return node_to_container(node).address;
     };
 
     ControlFlow.prototype.fallthroughs = function() {
         this.func.basic_blocks.forEach(function(bb) {
             // N --> M
-            var n_block = bb;
-            var m_block = ((n_block.fail && this.func.getBlock(n_block.fail))
-                || (n_block.jump && this.func.getBlock(n_block.jump)));
+            var n = bb;
+            var m = ((n.fail && this.func.getBlock(n.fail))
+                || (n.jump && this.func.getBlock(n.jump)));
 
-            if (m_block) {
-                n_block.container.set_fallthrough(m_block.container);
+            if (m) {
+                n.container.set_fallthrough(m.container);
             }
         }, this);
     };
@@ -272,7 +99,310 @@
         });
     };
     
-    ControlFlow.prototype.conditions = function() {
+    // <DEBUG>
+    // var ArrayToString = function(a, opt) {
+    //     return '[' + a.map(function(d) {
+    //         return d.toString(opt);
+    //     }).join(', ') + ']';
+    // };
+    //
+    // var ObjAddrToString = function(o, opt) {
+    //     return o ? o.address.toString(opt) : o;
+    // };
+    // </DEBUG>
+
+    var _construct_loop = function(head, tail, cfg) {
+        // the loop body consists of all the nodes that can reach back the
+        // loop head. to know whether there is a path from some node S to another
+        // node T, we need a DFS traveresal starting from S; if T is picked up
+        // then there is a path. that is, a dedicated DFS traversal for each node
+        // in the graph, or at least for all nodes that are dominated by the loop
+        // head.
+        //
+        // to avoid that many DFS traversals, we just reverse the graph starting
+        // from the loop head and perform a DFS traversal only once. all the nodes
+        // that are picked up are known to be reached from loop head in the reversed
+        // graph, which means the loop head is reached from each one of them in
+        // the original one.
+        //
+        // note: that is normally done with a post-dominator tree, which features
+        // a reversed dfs tree
+
+        // build a reversed cfg starting from loop head
+        var rcfg = cfg.reversed(head.key);
+
+        // prune all other back edges (if any) except the one that led us here. this
+        // is essential to distinguish nested loops that share the same loop head
+        rcfg.successors(head).forEach(function(succ) {
+            if (succ.key !== tail.key) {
+                rcfg.delEdge([head.key, succ.key]);
+            }
+        });
+
+        // build a dfs tree from the pruned reversed cfg; this would let us
+        // know which nodes are in the loop body
+        var rdfs = new Graph.DFSpanningTree(rcfg);
+        var body = rdfs.nodes;
+
+        var _is_outside_loop = function(node) {
+            var __same_key = function(other) {
+                return other.key === node.key;
+            };
+
+            return !(body.find(__same_key));
+        };
+
+        // list of exit nodes: nodes outside the loop which may be reached from within the loop
+        var exits = body.reduce(function(prev, node) {
+            return prev.concat(cfg.successors(node).filter(_is_outside_loop));
+        }, []);
+
+        // console.log('loop:');
+        // console.log('', 'head node :', head.toString(16));
+        // console.log('', 'tail node :', tail.toString(16));
+        // console.log('', 'body nodes:', ArrayToString(body, 16));
+        // console.log('', 'exit nodes:', ArrayToString(exits, 16));
+
+        // normalize all nodes to be cfg's
+        var _to_cfg_node = function(n) {
+            return cfg.getNode(n.key);
+        };
+
+        return {
+            head:   _to_cfg_node(head),
+            tail:   _to_cfg_node(tail),
+            body:   body.map(_to_cfg_node),
+            exits:  exits.map(_to_cfg_node)
+        };
+    };
+
+    ControlFlow.prototype.handle_loops = function() {
+        var func = this.func;
+        var cfg = this.cfg;
+        var dom = new Graph.DominatorTree(cfg);
+
+        var loops = [];
+
+        // detect loops
+        dom.nodes.forEach(function(N) {
+            var _dominates_N = function(node) {
+                var _succ = dom.getNode(node.key);
+
+                return dom.dominates(_succ, N);
+            };
+
+            // if a successor of N also dominates it, it means it is a back edge.
+            // find a back edge and get its destination (i.e. the loop head)
+            var loop_head = cfg.successors(N).find(_dominates_N);
+
+            // found a loop head?
+            if (loop_head) {
+                // BUGBUG: loop objects do not take pre loop nodes, that would be
+                // inserted later, into consideration. this makes nested loops that
+                // share the same loop head to appear buggy
+
+                loops.push(_construct_loop(loop_head, N, cfg));
+            }
+        });
+
+        // get loop elements out of a Branch statement
+        var _branch_to_loop_elements = function(loop, branch) {
+            var _same_as = function(target) {
+                return function(node) {
+                    return addrOf(node).eq(target.value);
+                };
+            };
+
+            var continues_by_taken = !!loop.body.find(_same_as(branch.taken));
+            var continues_by_not_taken = !!loop.body.find(_same_as(branch.not_taken));
+
+            // if loop continues by following both paths, that is a simple 'if' and not
+            // a loop condition
+            if (continues_by_taken && continues_by_not_taken) {
+                return null;
+            }
+
+            var cond;   // loop condition expression
+            var body;   // loop body first container
+            var next;   // container next to loop
+
+            // loop continues by following the 'taken' branch
+            if (continues_by_taken) {
+                cond = branch.cond.clone(['idx', 'def']);
+                body = branch.taken.value;
+                next = branch.not_taken.value;
+            }
+
+            // loop continues by following the 'not taken' branch
+            else if (continues_by_not_taken)
+            {
+                cond = new Expr.BoolNot(branch.cond.clone(['idx', 'def']));
+                body = branch.not_taken.value;
+                next = branch.taken.value;
+            }
+
+            return {
+                cond: cond,
+                body: func.getContainer(body),
+                next: func.getContainer(next)
+            };
+        };
+
+        // Wrapper object to work around pre-loop's key problem: when a pre-loop container
+        // is inserted, it gets the same address (hence the same key in the graph), which
+        // violates the assumption that every key is unique. in order to work around the
+        // key collision, this object holds the key value (i.e. container address) but
+        // shows a slightly differrent string representation: dotted with an increasing
+        // number, e.g. 0x8040100.1
+        function Suffixed(val) {
+            this.val = val;
+            this.suffix = Suffixed.counter++;
+        }
+
+        Suffixed.prototype.toString = function(opt) {
+            return [this.val.toString(opt), this.suffix].join('.');
+        };
+
+        Suffixed.counter = 0;
+
+        var _insert_pre_loop = function(head) {
+            // this method creates a new empty container that will precede the loop head
+            // and will contain the loop statement. this is done in case the loop entry
+            // point is considered part of the body (in DoWhile loops, for example).
+            //
+            // inserting a blank container to precede the loop head would be complicated,
+            // since it is already pointed by other nodes in the cfg. instead, it would be
+            // easier to create a succsor node, and move all the statements from loop head
+            // there. that would practically make an empty container appearing before loop
+            // head statements on the cfg.
+
+            var C0 = node_to_container(head);
+            var plucked = [];
+
+            // cut all statements from C0
+            while (C0.statements.length > 0) {
+                var s = C0.statements[0];
+
+                plucked.push(s.pluck());
+            }
+
+            // paste all statements into C1
+            var C1 = new Cntr.Container(new Suffixed(C0.address), plucked);
+
+            // add C1 to function containers list so it will get emitted
+            func.containers.push(C1);
+
+            // insert a node for C1 in cfg as a successor for C0.
+            // all original successors of C0 will be C1's
+            cfg.addNode(C1);
+            cfg.successors(head).forEach(function(v) {
+                cfg.delEdge([C0, v.key]);
+                cfg.addEdge([C1, v.key]);
+            });
+            cfg.addEdge([C0, C1]);
+
+            C0.set_fallthrough(null);
+
+            return C1;
+        };
+
+        loops.forEach(function(loop) {
+            var head = node_to_container(loop.head);
+            var tail = node_to_container(loop.tail);
+
+            var S0 = tail.terminator();
+            var S1;
+            var C1;
+
+            // if tail is branching out, this is a do-while loop
+            if (S0 instanceof Stmt.Branch) {
+                var elems = _branch_to_loop_elements(loop, S0);
+                var cond = elems.cond;
+
+                C1 = _insert_pre_loop(loop.head);
+                S1 = new Stmt.DoWhile(undefined, cond, C1);
+                head.push_stmt(S1);
+
+                Simplify.reduce_expr(cond);
+                S0.pluck();
+            }
+
+            // if tail does not branch, this is a while loop
+            else if (S0 instanceof Stmt.Goto) {
+                S0 = head.terminator();
+
+                if (S0 instanceof Stmt.Branch) {
+                    var elems = _branch_to_loop_elements(loop, S0);
+
+                    if (elems) {
+                        var cond = elems.cond;
+                        var body = elems.body;
+                        var next = elems.next;
+
+                        S0.replace(new Stmt.While(S0.address, cond, body));
+                        Simplify.reduce_expr(cond);
+
+                        head.set_fallthrough(next);
+                        next.prev = head;
+                    }
+
+                    // head does not branch out; rather both branches are within loop body.
+                    // neither tail nor head branch out, this is an endless loop
+                    else {
+                        var cond = new Expr.Val(1, 1);
+
+                        C1 = _insert_pre_loop(loop.head);
+                        S1 = new Stmt.While(undefined, cond, C1);
+                        head.push_stmt(S1);
+                    }
+                }
+
+                // if head does not branch as well, this is an endless loop
+                else if (S0 instanceof Stmt.Goto) {
+                    var cond = new Expr.Val(1, 1);
+
+                    C1 = _insert_pre_loop(loop.head);
+                    S1 = new Stmt.While(undefined, cond, C1);
+                    head.push_stmt(S1);
+                }
+            }
+        });
+
+        // iterate loop blocks to replace Goto statements with Break and
+        // Continue statements where appropriate
+        loops.forEach(function(loop) {
+            loop.body.forEach(function(n) {
+                var C0 = node_to_container(n);
+                var S = C0.terminator();
+
+                if (S instanceof Stmt.Goto) {
+                    var _dest_key = function(node) {
+                        return addrOf(node).eq(S.dest.value);
+                    };
+
+                    // jumping out of the loop?
+                    if (loop.exits.find(_dest_key)) {
+                        S.replace(new Stmt.Break(S.address));
+                    }
+
+                    // jumping to loop's head?
+                    else if (_dest_key(loop.head)) {
+                        if (n === loop.tail) {
+                            // a continue statement at loop's end is redundant. if jumping
+                            // from loop's tail to loop's head, just remove the Goto
+                            S.pluck();
+                        } else {
+                            S.replace(new Stmt.Continue(S.address));
+                        }
+                    }
+                }
+            });
+        });
+
+        this.loops = loops;
+    };
+
+    ControlFlow.prototype.handle_conds = function() {
         //  for each node N in dfs tree:
         //      let C0 = container of node N
         //
@@ -297,33 +427,41 @@
 
         var func = this.func;
         var cfg = this.cfg;
-        var dom = this.dom;
+        var dom = new Graph.DominatorTree(cfg);
+        var dfs = new Graph.DFSpanningTree(cfg);
 
         var carried = null;
 
         // turn Branch statements into If
-        this.dfs.nodes.forEach(function(N) {
+        dfs.nodes.forEach(function(N) {
             var C0 = node_to_container(N);
             var S = C0.terminator();
-            var imm_dominated = dom.successors(dom.getNode(N.key));
+            var imm_dominated = dom.successors(N);
 
             // console.log(ObjAddrToString(C0, 16), ':');
             // console.log('  domfront:', ArrayToString(dom.dominanceFrontier(N), 16));
             // console.log('  idom:', dom.getNode(N.key).idom ? dom.getNode(N.key).idom.toString(16) : 'none');
             // console.log('  +dominates:', ArrayToString(imm_dominated, 16));
 
-            // proceed only if S is not a loop branch (i.e. a branch in a loop head)
-            if (!(this.loops.find(function(loop) { return loop.head.key === N.key; }))) {
+            var _neither_head_nor_tail = function(loop) {
+                return (N.key !== loop.head.key) && (N.key !== loop.tail.key);
+            };
+
+            // proceed only if S is not a terminator of a loop head
+            if (this.loops.every(_neither_head_nor_tail)) {
                 if (S instanceof Stmt.Branch) {
                     var C1;     // container for 'then' clause
                     var C2;     // container for 'else' clause
                     var cntr;   // destination func block
 
-                    // does N immediately dominate node?
+                    // if N immediately dominates node, remove it from the immediately
+                    // dominated list and return it. otherwise return undefined
                     var _is_dominated = function(node) {
-                        var i = imm_dominated.findIndex(function(D) {
+                        var __same_key = function(D) {
                             return D.key === node.key;
-                        });
+                        };
+
+                        var i = imm_dominated.findIndex(__same_key);
 
                         return i === (-1) ? undefined : imm_dominated.splice(i, 1).pop();
                     };
@@ -333,7 +471,7 @@
                     //
                     // check whether cntr is immediately dominated by the Branch's container
                     var _is_imm_dominated = function(cntr) {
-                        var node = container_to_node(cfg, func, cntr);
+                        var node = container_to_node(cfg, cntr);
 
                         return (cfg.indegree(node) === 1) && _is_dominated(node);
                     };
@@ -400,7 +538,9 @@
 
                 // if that container was already assigned, un-assign it
                 if (C3 && C3.parent) {
-                    C3.parent.set_fallthrough(undefined);
+                    if (C3.parent instanceof Cntr.Container) {
+                        C3.parent.set_fallthrough(undefined);
+                    }
                 }
 
                 C0.set_fallthrough(C3);
@@ -410,9 +550,9 @@
             }
         }, this);
 
+        // simple condition convergance
         if (this.conf.converge) {
-            // simple convergance
-            this.dfs.nodes.forEach(function(N) {
+            dfs.nodes.forEach(function(N) {
                 do {
                     var descend = false;
                     var C0 = node_to_container(N);
@@ -431,11 +571,11 @@
                         }
                     }
                 } while (descend);
-            }, this);
+            });
         }
 
         // prune Goto statements
-        this.dfs.nodes.forEach(function(N) {
+        dfs.nodes.forEach(function(N) {
             var C0 = node_to_container(N);
             var S = C0.terminator();
 
@@ -460,13 +600,13 @@
         // a container has a safe fallthrough if it has only one successor and a valid
         // fallthrough container
         var _has_safe_fthrough = function(cntr) {
-            var N = container_to_node(cfg, func, cntr);
+            var N = container_to_node(cfg, cntr);
 
             return (cfg.outdegree(N) === 1) && (cntr.fallthrough);
         };
 
         // adjust If statements in case they have empty clauses
-        this.dfs.nodes.forEach(function(N) {
+        dfs.nodes.forEach(function(N) {
             var C0 = node_to_container(N);
             var S = C0.terminator();
 
