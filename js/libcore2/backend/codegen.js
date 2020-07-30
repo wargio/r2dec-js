@@ -21,42 +21,77 @@
     const Tag = require('js/libcore2/backend/tags');
 
     /**
+     * Subscriptable code listing object that maps containers addresses to scopes.
+     * Function's entry scope is accessed by the 'entry' key
+     * @typedef {Object<string,CodeScopeRepr>} CodeListingRepr
+     * @inner
+     */
+
+    /**
+     * Subscriptable scope object that lists scope's lines
+     * @typedef {Object} CodeScopeRepr
+     * @property {string} address Scope starting address in hexadecimal form
+     * @property {Array.<CodeLineRepr>} lines Code lines
+     * @property {string} [next] Scope address this scope continues to
+     * @inner
+     */
+
+    /**
+     * Subscriptable scope object that contain a single line information
+     * @typedef {Object} CodeLineRepr
+     * @property {string} address Line address in hexadecimal form
+     * @property {Array.<Token>} line Array of syntax tokens
+     * @property {Array.<string>} sub Array of sub-scopes attached to this line
+     * @inner
+     */
+
+    /**
+     * Syntax token: a pair of color tag and a string
+     * @typedef {[number,string]} Token
+     * @inner
+     */
+
+    /**
      * Listing object: holds decompilation data of the entire function
      * @constructor
      */
     function CodeListing() {
+        /** @type {Array<string>} */
         this.keys = [];
-        this.scopes = [];
+
+        /** @type {Array<CodeScope>} */
+        this.vals = [];
     }
 
     /**
      * Registers a new scope object to the listing, and returns it
      * @param {string} address Scope address
-     * @param {string?} next Scope address to which this scope falls through (optional)
+     * @param {?string} next Scope address to which this scope falls through (optional)
      * @returns {CodeScope} Newly created scope instance
      */
     CodeListing.prototype.makeScope = function(address, next) {
-        var scope = new CodeScope(address, next);
+        // address coming from a FakeContainer would contain a dotted suffix which
+        // should remain in scope key, but not in the scope address
+        var scope = new CodeScope(address.split('.')[0], next);
 
         this.keys.push(address);
-        this.scopes.push(scope);
+        this.vals.push(scope);
 
         return scope;
     };
 
     /**
      * Get JSON-friendly object represenation
-     * @returns {Object} Subscriptable code listing object that indexes function's scopes
-     * by their addresses. Function's entry scope is accessed by the 'entry' key
+     * @returns {CodeListingRepr}
      */
     CodeListing.prototype.repr = function() {
         var listing = {};
 
         for (var i = 0; i < this.keys.length; i++) {
             var key = this.keys[i];
-            var val = this.scopes[i].repr();
+            var val = this.vals[i];
 
-            listing[key] = val;
+            listing[key] = val.repr();
         }
 
         return listing;
@@ -68,19 +103,24 @@
      * Scope object: holds decompilation information of a single scope
      * To be called only by the `makeScope` method
      * @param {string} address Scope address
-     * @param {string?} next Scope address to which this scope falls through (optional)
+     * @param {?string} next Scope address to which this scope falls through (optional)
      * @constructor
      */
     function CodeScope(address, next) {
+        /** @type {string} */
         this.address = address;
+
+        /** @type {Array<CodeLine>} */
         this.lines = [];
+
+        /** @type {string} */
         this.next = next;
     }
 
     /**
      * Registers a new line object to the scope, and returns it
      * @param {string} address Line (statement) address
-     * @param {Array.<string>?} sub Sub scopes: scopes addresses to which this line continues (optional)
+     * @param {?Array.<string>} sub Sub scopes: scopes addresses to which this line continues (optional)
      * @returns {CodeLine} Newly created line instance
      */
     CodeScope.prototype.makeLine = function(address, sub) {
@@ -93,7 +133,7 @@
 
     /**
      * Get JSON-friendly object represenation
-     * @returns {Object} Subscriptable scope object that lists scope's lines
+     * @returns {CodeScopeRepr}
      */
     CodeScope.prototype.repr = function() {
         return {
@@ -109,12 +149,17 @@
      * Line object: holds decompilation information of a single line / statement
      * To be called only by the `makeLine` method
      * @param {string} address Line (statement) address
-     * @param {Array.<string>?} sub Sub scopes: scopes addresses to which this line continues (optional)
+     * @param {?Array.<string>} sub Sub scopes: scopes addresses to which this line continues (optional)
      * @constructor
      */
     function CodeLine(address, sub) {
+        /** @type {string} */
         this.address = address;
+
+        /** @type {Array<Token>} */
         this.line = [];
+
+        /** @type {Array<string>} */
         this.sub = sub || [];
     }
 
@@ -136,7 +181,7 @@
 
     /**
      * Get JSON-friendly object represenation
-     * @returns {Object} Subscriptable scope object that contain a single line information
+     * @returns {CodeLineRepr}
      */
     CodeLine.prototype.repr = function() {
         return {
@@ -176,13 +221,21 @@
         return Array.prototype.concat([LPAREN], s, [RPAREN]);
     };
 
-    var auto_paren = function(s) {
-        var is_paren_token = function(e) {
-            return (e instanceof Array) && (e.length === 2) && (e[0] === Tag.PAREN);
-        };
+    var _is_token = function(a) {
+        return (a instanceof Array) && (a.length === 2);
+    };
 
+    var _is_lparen = function(a) {
+        return _is_token(a) && (a[0] === LPAREN[0]) && (a[1] === LPAREN[1]);
+    };
+
+    var _is_rparen = function(a) {
+        return _is_token(a) && (a[0] === RPAREN[0]) && (a[1] === RPAREN[1]);
+    };
+
+    var auto_paren = function(s) {
         var complex = s.length > 1;
-        var has_paren = is_paren_token(s[0]) && is_paren_token(s[s.length - 1]);
+        var has_paren = _is_lparen(s[0]) && _is_rparen(s[s.length - 1]);
 
         return (complex && !has_paren) ? parenthesize(s) : s;
     };
@@ -212,7 +265,7 @@
      * Transform an expression into a list of code tokens
      * @param {Expr} expr Expression to transform
      * @param {Expr} opt Conext-aware info (optional)
-     * @returns {Array.<Token>?} List of code tokens representing `expr`
+     * @returns {Array.<Token>} List of code tokens representing `expr`
      */
     CodeGen.prototype.emitExpression = function(expr, opt) {
         var tname = Object.getPrototypeOf(expr).constructor.name;
@@ -485,7 +538,7 @@
         var line;
 
         if (s instanceof Stmt.Branch) {
-            line = scope.makeLine(addr, [s.taken, s.not_taken]);
+            line = scope.makeLine(addr);
             line.append([Tag.CFLOW, 'branch']);            line.append(SPACE);
             line.extend(this.emitExpression(s.cond));      line.append(SPACE);
             line.append([Tag.PUNCT, '?']);                 line.append(SPACE);

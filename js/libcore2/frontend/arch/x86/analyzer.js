@@ -195,7 +195,7 @@
         sreg.idx = 0;
 
         if (sreg in ctx.defs) {
-            // locate all uses of frame register and get their parent expressions
+            // locate all uses of stack register and get their parent expressions
             var stack_refs = ctx.defs[sreg].uses.map(function(u) {
                 return u.parent;
             });

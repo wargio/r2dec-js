@@ -16,7 +16,11 @@
  */
 
 (function() {
-    // coloring tags enumeration
+    /** 
+     * coloring tags enumeration
+     * @readonly
+     * @enum {number}
+     */ 
     return Object.freeze({
         RESET   :  0,   // color reset
         WHTSPCE :  1,   // whitespace

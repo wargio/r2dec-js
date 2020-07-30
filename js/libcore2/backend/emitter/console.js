@@ -27,7 +27,7 @@
         var guides = [
             ' ',        // none
             '\uffe8',   // solid line
-            '\uffe4',   // dashed line
+            '\u00a6',   // dashed line
             '\ufe19'    // dotted line
         ];
 
