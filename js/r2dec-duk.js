@@ -312,7 +312,7 @@ function r2dec_main(args) {
                 // };
                 //
                 // var _mk_body = function(n) {
-                //     var container = func.getContainer(n.key);
+                //     var container = func.getContainer(n.key.address);
                 //
                 //     return 'base64:' + Duktape.enc('base64', container.statements.map(String).join('\n'));
                 // };
@@ -367,8 +367,8 @@ function r2dec_main(args) {
                 var cflow = new ControlFlow(func, config['cflow']);
                 cflow.fallthroughs();
                 cflow.missing_gotos();
-                cflow.loops();
-                cflow.conditions();
+                cflow.handle_loops();
+                cflow.handle_conds();
 
                 var resolver = new Resolver();
                 var codegen = new CodeGen(resolver);
@@ -377,7 +377,11 @@ function r2dec_main(args) {
                 var colorful = 0 | Global.r2cmd('e', 'scr.color');
                 var printer = new Printer(colorful ? config['out'].theme : 'none');
                 
-                var EmitterClass = suffix.endsWith('j') ? JsonEmitter : ConsoleEmitter;
+                var EmitterClass = {
+                    'j' : JsonEmitter,
+                    ''  : ConsoleEmitter
+                }[suffix.charAt(suffix.length - 1)];
+
                 var emitter = new EmitterClass(config['out']);
 
                 var listing = codegen.emitFunction(func);
