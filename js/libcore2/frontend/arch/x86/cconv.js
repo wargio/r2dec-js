@@ -128,8 +128,8 @@
         return args;
     };
 
-    StackArgsCC.prototype.is_potential_arg = function(rng, fcall) {
-        return rng.is_unused_by(fcall) && this.arch.is_stack_reg(rng.def);
+    StackArgsCC.prototype.get_arg_index = function(def) {
+        return this.arch.is_stack_reg(def) ? 1 : (-1);
     };
 
     // --------------------------------------------------
@@ -210,13 +210,13 @@
         });
     };
 
-    RegArgsCC.prototype.is_potential_arg = function(rng, fcall) {
+    RegArgsCC.prototype.get_arg_index = function(def) {
         var __matching_arg_reg = function(areg) {
-            return rng.def.equals_no_idx(areg);
+            return def.equals_no_idx(areg);
         };
 
-        return this.regsset.some(function(set) {
-            return set.find(__matching_arg_reg);
+        return this.regsset.findIndex(function(set) {
+            return !!set.find(__matching_arg_reg);
         });
     };
 
@@ -305,17 +305,21 @@
         });
 
         var cc_obj = null;
+        var cc_rank = (-1);
 
         // scan live defs backwards starting from fcall to locate potential args
         for (var i = (live_by_fcall.length - 1); !cc_obj && (i >= 0); i--) {
             var rng = live_by_fcall[i];
 
-            // find first cc handler that would consider def as a potential fcall argument
-            for (var j = 0; !cc_obj && (j < this.cchandlers.length); j++) {
+            // query all cc what arg index (rank) would the current def get. the cc
+            // to return the minimal rank would be picked
+            for (var j = 0; j < this.cchandlers.length; j++) {
                 var cc = this.cchandlers[j];
+                var rank = cc.get_arg_index(rng.def);
 
-                if (cc.is_potential_arg(rng, fcall)) {
+                if ((cc_rank === (-1)) || (rank < cc_rank)) {
                     cc_obj = cc;
+                    cc_rank = rank;
                 }
             }
         }
@@ -340,7 +344,7 @@
             ''     : cc_guess,  // unknown cc, try to guess it
             'cdecl': cc_cdecl,  // args passed through stack
             'amd64': cc_amd64,  // args passed through: rdi, rsi, rdx, rcx, r8, r9, xmm0-7
-            'ms'   : cc_ms
+            'ms'   : cc_ms      // args passed through: rcx, rdx, r8, r9
         };
     };
 });
