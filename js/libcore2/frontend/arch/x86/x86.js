@@ -146,6 +146,12 @@
             'setne' : _setne.bind(this),
             'sets'  : _sets.bind(this),
 
+            // bit tests
+            'bt'  : _bt.bind(this),
+            'btc' : _btc.bind(this),
+            'btr' : _btr.bind(this),
+            'bts' : _bts.bind(this),
+
             // flags manipulations
             'clc' : _clc.bind(this),
             'cld' : _cld.bind(this),
@@ -242,31 +248,6 @@
 
         this.invalid = _invalid;
     }
-
-    /**
-     * Create an Assign expression to system flags
-     * @param {string} fname Name of the flag to modify
-     * @param {number} val Either 0 or 1
-     * @returns {Expr.Expr}
-     */
-    var set_flag = function(fname, val) {
-        var flag = Flags[fname].clone();
-        var bit = new Expr.Val(val, 1);
-
-        return new Expr.Assign(flag, bit);
-    };
-
-    x86.prototype.eval_flags = function(expr, flist) {
-        var flreg = this.FLAGS_REG;
-        var e = [new Expr.Assign(flreg.clone(), expr.clone())];
-
-        return e.concat(flist.map(function(fname) {
-            var flag = Flags[fname].clone();
-            var flag_op = Flags.make_op(fname, flreg.clone());
-
-            return new Expr.Assign(flag, flag_op);
-        }));
-    };
 
     /**
      * List of possible instruction prefixes.
@@ -457,6 +438,31 @@
 
     // ---------- common handlers ----------//
 
+    /**
+     * Create an Assign expression to system flags
+     * @param {string} fname Name of the flag to modify
+     * @param {number} val Either 0 or 1
+     * @returns {Expr.Expr}
+     */
+    var set_flag = function(fname, val) {
+        var flag = Flags[fname].clone();
+        var bit = new Expr.Val(val, 1);
+
+        return new Expr.Assign(flag, bit);
+    };
+
+    x86.prototype.eval_flags = function(expr, flist) {
+        var flreg = this.FLAGS_REG;
+        var e = [new Expr.Assign(flreg.clone(), expr.clone())];
+
+        return e.concat(flist.map(function(fname) {
+            var flag = Flags[fname].clone();
+            var flag_op = Flags.make_op(fname, flreg.clone());
+
+            return new Expr.Assign(flag, flag_op);
+        }));
+    };
+
     /** common handler for unary operators */
     var _common_uop = function(p, op) {
         var expr = this.get_operand_expr(p.operands[0]);
@@ -525,8 +531,28 @@
             32: 'rax',
         }[narrow.size];
 
-        // TODO: narrow should be sign-extended; tag this as signed operation somwhoe
+        // TODO: narrow should be sign-extended; tag this as signed operation somehow
         return [new Expr.Assign(new Expr.Reg(wide, narrow.size * 2), narrow)];
+    };
+
+    /** common handler for bit test [and set] */
+    var _common_bit_mask = function(base, bitn) {
+        var one = new Expr.Val(1, base.size);
+        var mask = new Expr.Shl(one, bitn.clone());
+
+        // (1 << bitn)
+        return mask;
+    };
+
+    var _commong_bit_test = function(base, bitn) {
+        var bittest = new Expr.And(new Expr.Shr(base.clone(), bitn.clone()), new Expr.Val(1, 1));
+
+        // cf = (lexpr >> rexpr) & 0x1
+        return _common_set_flag('CF', bittest);
+    };
+
+    var _commong_bit_set = function(base, op, mask) {
+        return [new Expr.Assign(base.clone(), new op(base.clone(), mask))];
     };
 
     // ---------- instructions ----------//
@@ -828,17 +854,41 @@
         return [new Stmt.Return(p.address, this.RESULT_REG.clone())];
     };
 
-    // bitwise operations
-    var _and = function(p) { return _common_bitwise.call(this, p, Expr.And); };
-    var _or  = function(p) { return _common_bitwise.call(this, p, Expr.Or);  };
-    var _xor = function(p) { return _common_bitwise.call(this, p, Expr.Xor); };
+    var _and = function(p) {
+        return _common_bitwise.call(this, p, Expr.And);
+    };
 
-    var _shr = function(p) { return _common_bop.call(this, p, Expr.Shr); };    // TODO: evaluate flags for shr
-    var _shl = function(p) { return _common_bop.call(this, p, Expr.Shl); };    // TODO: evaluate flags for shl
-    var _sar = function(p) { return _common_bop.call(this, p, Expr.Shr); };    // TODO: evaluate flags for sar
+    var _or  = function(p) {
+        return _common_bitwise.call(this, p, Expr.Or);
+    };
 
-    var _neg = function(p) { return _common_uop.call(this, p, Expr.Neg); };    // cf = (opnd is non-zero)
-    var _not = function(p) { return _common_uop.call(this, p, Expr.Not); };
+    var _xor = function(p) {
+        return _common_bitwise.call(this, p, Expr.Xor);
+    };
+
+    var _shr = function(p) {
+        // TODO: evaluate flags for shr
+        return _common_bop.call(this, p, Expr.Shr);
+    };
+
+    var _shl = function(p) {
+        // TODO: evaluate flags for shl
+        return _common_bop.call(this, p, Expr.Shl);
+    };
+
+    var _sar = function(p) {
+        // TODO: evaluate flags for sar
+        return _common_bop.call(this, p, Expr.Shr);
+    };
+
+    var _neg = function(p) {
+        // cf = (opnd is non-zero)
+        return _common_uop.call(this, p, Expr.Neg);
+    };
+
+    var _not = function(p) {
+        return _common_uop.call(this, p, Expr.Not);
+    };
 
     var _cmp = function(p) {
         var lhand = this.get_operand_expr(p.operands[0]);
@@ -1015,6 +1065,55 @@
         return _common_setcc.call(this, p, Flags.SF.clone());
     };
 
+    var _bt = function(p) {
+        var lexpr = this.get_operand_expr(p.operands[0]);
+        var rexpr = this.get_operand_expr(p.operands[1]);
+
+        return _commong_bit_test(lexpr, rexpr);
+    };
+
+    var _btc = function(p) {
+        var lexpr = this.get_operand_expr(p.operands[0]);
+        var rexpr = this.get_operand_expr(p.operands[1]);
+
+        // test bit: cf = (lexpr >> rexpr) & 1
+        var test_expr = _commong_bit_test(lexpr, rexpr);
+
+        // complement bit: lexpr = lexpr ^ (1 << rexpr)
+        var mask = _common_bit_mask(lexpr, rexpr);
+        var set_expr = _commong_bit_set(lexpr, mask, Expr.Xor);
+
+        return Array.prototype.concat(test_expr, set_expr);
+    };
+
+    var _btr = function(p) {
+        var lexpr = this.get_operand_expr(p.operands[0]);
+        var rexpr = this.get_operand_expr(p.operands[1]);
+
+        // test bit: cf = (lexpr >> rexpr) & 1
+        var test_expr = _commong_bit_test(lexpr, rexpr);
+
+        // reset bit: lexpr = lexpr & ~(1 << rexpr)
+        var mask = new Expr.Not(_common_bit_mask(lexpr, rexpr));
+        var set_expr = _commong_bit_set(lexpr, mask, Expr.And);
+
+        return Array.prototype.concat(test_expr, set_expr);
+    };
+
+    var _bts = function(p) {
+        var lexpr = this.get_operand_expr(p.operands[0]);
+        var rexpr = this.get_operand_expr(p.operands[1]);
+
+        // test bit: cf = (lexpr >> rexpr) & 1
+        var test_expr = _commong_bit_test(lexpr, rexpr);
+
+        // set bit: lexpr = lexpr | (1 << rexpr)
+        var mask = _common_bit_mask(lexpr, rexpr);
+        var set_expr = _commong_bit_set(lexpr, mask, Expr.Or);
+
+        return Array.prototype.concat(test_expr, set_expr);
+    };
+
     var _clc = function(p) {
         return _common_set_flag('CF', 0);
     };
@@ -1079,6 +1178,7 @@
         var __inc_dest = function(dest, count) {
             var scale = new Expr.Val(lhand.size / 8, lhand.size);
 
+            // TODO: should be Add or Sub depending on direction flag
             return new Expr.Assign(dest.clone(), new Expr.Add(dest.clone(), new Expr.Mul(count.clone(), scale)));
         };
 
