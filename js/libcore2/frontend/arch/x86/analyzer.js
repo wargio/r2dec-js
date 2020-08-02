@@ -121,6 +121,58 @@
         });
     };
 
+    // handle a very specific x86 arch shenanigan in which a call instruction is used to reveal the
+    // current address. there is no specific pattern for that, so this method is designed to detect
+    // the simplest form of this trick, which is a call to the next instruction.
+    // if found, the function call will be replaced by a "push rip" equivalent to mimic the push of
+    // return address
+    var handle_fcall_tricks = function(func, arch) {
+        // TODO: reimplement or improve performance
+        func.containers.forEach(function(container) {
+            var statements = container.statements;
+            var expanded = [];
+
+            while (statements.length > 0) {
+                var stmt = statements.shift();
+                expanded.push(stmt);
+
+                stmt.expressions.forEach(function(expr) {
+                    if (expr instanceof Expr.Assign) {
+                        var rhand = expr.operands[1];
+
+                        if (rhand instanceof Expr.Call) {
+                            var callee = rhand.operands[0];
+
+                            if (callee instanceof Expr.Val) {
+                                var next = statements[0];
+
+                                // calling next instruction's address?
+                                if (next && next.address.eq(callee.value)) {
+                                    var sreg = arch.STACK_REG;
+                                    var asize = arch.ASIZE_VAL;
+
+                                    // mimic a "push rip" instruction
+                                    var generated = [
+                                        new Expr.Assign(sreg.clone(), new Expr.Sub(sreg.clone(), asize.clone())),
+                                        new Expr.Assign(new Expr.Deref(sreg.clone(), asize.size), callee)
+                                    ].map(function(g) {
+                                        return Stmt.make_statement(next.address, g);
+                                    });
+
+                                    // get rid of the fcall statement and replace it with the newly "push" statements
+                                    expanded.pop();
+                                    expanded = expanded.concat(generated);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            expanded.forEach(container.push_stmt, container);
+        });
+    };
+
     var insert_reg_args = function(func, arch) {
         const size = arch.bits;
 
@@ -165,7 +217,6 @@
         });
     };
 
-    // TODO: too similar to rename_bp_vars; consider unifying them
     var rename_sp_vars = function(func, ctx, arch) {
         const size = arch.bits;
 
@@ -577,6 +628,7 @@
     Analyzer.prototype.transform_done = function(func) {
         insert_reg_args(func, this.arch);
 
+        handle_fcall_tricks(func, this.arch);
         insert_overlaps(func, this.arch);
         transform_tailcalls(func);
     };
