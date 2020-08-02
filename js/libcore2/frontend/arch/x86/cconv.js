@@ -19,6 +19,8 @@
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
+    const INVALID_RANK = (-1);
+
     // <DEBUG>
     // var __print_debug_info = function(lranges, fcall) {
     //     console.log(fcall.parent_stmt().address.toString(16), 'fcall:', fcall.toString());
@@ -129,7 +131,7 @@
     };
 
     StackArgsCC.prototype.get_arg_index = function(def) {
-        return this.arch.is_stack_reg(def) ? 1 : (-1);
+        return this.arch.is_stack_reg(def) ? 1 : INVALID_RANK;
     };
 
     // --------------------------------------------------
@@ -304,8 +306,12 @@
             return rng.is_unused_by(fcall) && !(rng.def.weak);
         });
 
+        // <DEBUG>
+        // __print_debug_info(live_by_fcall, fcall);
+        // </DEBUG>
+
         var cc_obj = null;
-        var cc_rank = (-1);
+        var cc_rank = INVALID_RANK;
 
         // scan live defs backwards starting from fcall to locate potential args
         for (var i = (live_by_fcall.length - 1); !cc_obj && (i >= 0); i--) {
@@ -317,7 +323,9 @@
                 var cc = this.cchandlers[j];
                 var rank = cc.get_arg_index(rng.def);
 
-                if ((cc_rank === (-1)) || (rank < cc_rank)) {
+                // if new rank is valid (i.e. indicates cc may be relevant) update selected
+                // cc and rank only if new rank is better, or previous one is invalid
+                if ((rank !== INVALID_RANK) && ((rank < cc_rank) || (cc_rank === INVALID_RANK))) {
                     cc_obj = cc;
                     cc_rank = rank;
                 }
