@@ -650,5 +650,52 @@
         });
     };
 
+    ControlFlow.prototype.prune_gotos = function() {
+        var cfg = this.cfg;
+        var remove = [];
+
+        cfg.nodes.forEach(function(N) {
+            var C0 = node_to_container(N);
+            var S = C0.terminator();
+
+            if (S instanceof Stmt.Goto) {
+                S.pluck();
+            }
+
+            // is this an empty container?
+            // - contained only a 'goto', which was pruned
+            // - contained only nops
+            // - contained an empty 'return' statement, which was pruned during analysis phase
+            // in all cases the container has no more than one successor
+            if (C0.statements.length === 0) {
+                var succ = cfg.successors(N)[0];
+
+                // no successor? probably contained an empty return statement.
+                // insert an empty return statement, and do not remove the node
+                if (succ === undefined) {
+                    C0.push_stmt(new Stmt.Return());
+                }
+
+                // one successor? mark node for removal, delete its edges and create new ones,
+                // just like when removing an link from a linked list
+                else {
+                    cfg.predecessors(N).forEach(function(pred) {
+                        cfg.delEdge([pred.key, N.key]);
+                        cfg.addEdge([pred.key, succ.key]);
+                    });
+
+                    cfg.delEdge([N.key, succ.key]);
+
+                    remove.push(N);
+                }
+            }
+        });
+
+        // nodes could not be removed when iterated, so remove them now
+        remove.forEach(cfg.delNode, cfg);
+
+        return cfg;
+    };
+
     return ControlFlow;
 });

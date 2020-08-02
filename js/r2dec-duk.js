@@ -32,6 +32,7 @@ const CodeGen = require('js/libcore2/backend/codegen');
 const Printer = require('js/libcore2/backend/printer');
 const ConsoleEmitter = require('js/libcore2/backend/emitter/console');
 const JsonEmitter = require('js/libcore2/backend/emitter/json');
+const GraphEmitter = require('js/libcore2/backend/emitter/graph');
 
 /**
  * Global data accessible from everywhere.
@@ -365,10 +366,22 @@ function r2dec_main(args) {
                 // ssa.transform_out(ssa_ctx);
 
                 var cflow = new ControlFlow(func, config['cflow']);
-                cflow.fallthroughs();
-                cflow.missing_gotos();
-                cflow.handle_loops();
-                cflow.handle_conds();
+
+                var EmitterClass = {
+                    'g' : GraphEmitter,
+                    'j' : JsonEmitter,
+                    ''  : ConsoleEmitter
+                }[suffix.charAt(suffix.length - 1)];
+
+                // skip loops and conditions analysis for graph output
+                if (EmitterClass === GraphEmitter) {
+                    cflow.prune_gotos();
+                } else {
+                    cflow.fallthroughs();
+                    cflow.missing_gotos();
+                    cflow.handle_loops();
+                    cflow.handle_conds();
+                }
 
                 var resolver = new Resolver();
                 var codegen = new CodeGen(resolver);
@@ -376,16 +389,11 @@ function r2dec_main(args) {
                 // allow syntax highlighting only if r2 is configured to display colors
                 var colorful = 0 | Global.r2cmd('e', 'scr.color');
                 var printer = new Printer(colorful ? config['out'].theme : 'none');
-                
-                var EmitterClass = {
-                    'j' : JsonEmitter,
-                    ''  : ConsoleEmitter
-                }[suffix.charAt(suffix.length - 1)];
 
                 var emitter = new EmitterClass(config['out']);
 
                 var listing = codegen.emitFunction(func);
-                var output = emitter.emit(listing, printer);
+                var output = emitter.emit(listing, printer, cflow.cfg);
 
                 console.log(output);
             } else {

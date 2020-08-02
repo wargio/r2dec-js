@@ -428,7 +428,7 @@
      * @constructor
      */
     function Return(addr, expr) {
-        Statement.call(this, addr, [expr], []);
+        Statement.call(this, addr, expr ? [expr] : [], []);
 
         define_expr_property(this, 'retval', 0);
     }

@@ -539,12 +539,16 @@
 
         if (s instanceof Stmt.Branch) {
             line = scope.makeLine(addr);
-            line.append([Tag.CFLOW, 'branch']);            line.append(SPACE);
-            line.extend(this.emitExpression(s.cond));      line.append(SPACE);
-            line.append([Tag.PUNCT, '?']);                 line.append(SPACE);
-            line.extend(this.emitExpression(s.taken));     line.append(SPACE);
-            line.append([Tag.PUNCT, ':']);                 line.append(SPACE);
-            line.extend(this.emitExpression(s.not_taken)); line.append(SEMIC);
+            line.append([Tag.CFLOW, 'if']);
+            line.append(SPACE);
+            line.extend(this.emitExpression(s.cond));
+
+            // line.append([Tag.CFLOW, 'branch']);            line.append(SPACE);
+            // line.extend(this.emitExpression(s.cond));      line.append(SPACE);
+            // line.append([Tag.PUNCT, '?']);                 line.append(SPACE);
+            // line.extend(this.emitExpression(s.taken));     line.append(SPACE);
+            // line.append([Tag.PUNCT, ':']);                 line.append(SPACE);
+            // line.extend(this.emitExpression(s.not_taken)); line.append(SEMIC);
         }
 
         else if (s instanceof Stmt.Break) {
