@@ -22,6 +22,16 @@
     const Cntr = require('js/libcore2/analysis/ir/container');
     const Simplify = require('js/libcore2/analysis/ir/simplify');
 
+    /**
+     * Loop information object
+     * @typedef {Object} LoopInfo
+     * @property {Node} head Loop entry node
+     * @property {Node} tail Circle-back node
+     * @property {Array.<Node>} body Array of nodes contained in loop, including `head` and `tail`
+     * @property {Array.<Node>} exits Array of nodes outside the loop which body nodes jump or fallthrough into
+     * @inner
+     */
+
     function ControlFlow(func, conf) {
         this.func = func;
         this.conf = conf;
@@ -53,6 +63,7 @@
         // translate basic blocks cfg into containers cfg: same hierarchy, different keys
         this.cfg = _translate_graph(func.cfg(), _to_container);
 
+        /** @type {Array.<LoopInfo>} */
         this.loops = [];
     }
 
@@ -111,6 +122,13 @@
     // };
     // </DEBUG>
 
+    /**
+     * Get loop information based on detected head and tail nodes.
+     * @param {Node} head Loop entry node
+     * @param {Node} tail Circle-back node
+     * @param {Graph.Directed} cfg Function control flow graph
+     * @returns {LoopInfo} Loop information object
+     */
     var _construct_loop = function(head, tail, cfg) {
         // the loop body consists of all the nodes that can reach back the
         // loop head. to know whether there is a path from some node S to another
