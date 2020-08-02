@@ -194,6 +194,14 @@
         var sreg = arch.STACK_REG.clone();
         sreg.idx = 0;
 
+        // is this expression a stack pointer adjustment?
+        // assuming svexpr was already verified to be a stack var
+        var _is_stack_ptr_adj = function(svexpr) {
+            var p = svexpr.parent;
+
+            return (p instanceof Expr.Assign) && arch.is_stack_reg(p.operands[0]);
+        };
+
         if (sreg in ctx.defs) {
             // locate all uses of stack register and get their parent expressions
             var stack_refs = ctx.defs[sreg].uses.map(function(u) {
@@ -203,7 +211,7 @@
             stack_refs.forEach(function(expr) {
                 var vlist = null;
 
-                if (arch.is_stack_var(expr)) {
+                if (arch.is_stack_var(expr) && !_is_stack_ptr_adj(expr)) {
                     if (expr instanceof Expr.Sub) {
                         vlist = vitems;
                     } else if (expr instanceof Expr.Add) {
