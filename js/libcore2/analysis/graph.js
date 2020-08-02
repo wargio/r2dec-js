@@ -87,12 +87,16 @@
     }
 
     Directed.prototype.toString = function(opt) {
+        var _array_toString = function(arr) {
+            return '[' + arr.join(', ') + ']';
+        };
+
         return this.nodes.map(function(n) {
             var outs = this.successors(n).map(function(succ) {
                 return succ.toString(opt);
             });
 
-            return [n.toString(opt), '->', '[' + outs.join(', ') + ']'].join(' ');
+            return [n.toString(opt), '->', _array_toString(outs)].join(' ');
         }, this).join('\n');
     };
 
@@ -460,7 +464,7 @@
         return this.dominates(v, u.idom);
     };
 
-    DominatorTree.prototype.all_dominated = function(v) {
+    DominatorTree.prototype.allDominated = function(v) {
         var dominated = [];
         var _this = this;
 

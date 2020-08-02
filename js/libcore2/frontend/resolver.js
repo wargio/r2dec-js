@@ -18,7 +18,7 @@
 (function() {
 
     var _r2_get_fname = function(addr) {
-        return Global.r2cmd('afn', '@', addr);
+        return Global.r2cmd('afn.', '@', addr);
     };
 
     var _r2_get_flag = function(addr) {
