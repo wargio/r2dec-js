@@ -163,9 +163,9 @@ static void duk_r2dec(RCore* core, const char* input)
 
 	snprintf(stub, sizeof(stub),
 		"if (typeof r2dec_main === 'function') {"
-		"	r2dec_main(\"%s\".split(/\\s+/).filter(Boolean));"
+		"    r2dec_main(\"%s\".split(/\\s+/).filter(Boolean));"
 		"} else {"
-		"	console.log('Fatal error. Cannot use R2_HOME_DATADIR.');"
+		"    console.log('Fatal error. Cannot use R2_HOME_DATADIR.');"
 		"}", input);
 
 	duk_eval_string_noresult(ctx, stub);
@@ -177,10 +177,10 @@ static void duk_r2dec(RCore* core, const char* input)
 static void usage(const RCore* const core)
 {
 	const char* help[] = {
-		"Usage: pdd[j]", "", "# Decompile current function",
+		"Usage: pdd[gj]", "", "# Decompile current function",
 		"pdd",	"",	"decompile current function",
+		"pddg",	"",	"decompile and show as a graph",
 		"pddj",	"",	"decompile to json",
-		// "pddg",	"",	"decompile and show as a graph",
 		NULL
 	};
 
@@ -195,6 +195,7 @@ static void _cmd_pdd(RCore* core, const char* input)
 	{
 	case '\0':
 	case 'j':
+	case 'g':
 		duk_r2dec(core, trimmed);
 		break;
 	case '?':
@@ -232,10 +233,10 @@ int r_cmd_pdd_init(void* user, const char* cmd)
 
 	// output settings
 	SETPREFS("pdd.out.offsets", "true", "prefix each line with its offset");
-	SETPREFI("pdd.out.guides", 1, "scope guidelines [0: none, 1: solid, 2: dashed]");
+	SETPREFI("pdd.out.guides", 1, "scope guidelines [0: none, 1: solid, 2: dashed, 3: dotted]");
 	SETPREFS("pdd.out.newline", "true", "add a new line before an opening curly bracket");
 	SETPREFI("pdd.out.tabsize", 4, "indent size");
-	SETPREFS("pdd.out.theme", "dark+", "syntax highlighting palette [\"none\", \"default\", \"dark+\"");
+	SETPREFS("pdd.out.theme", "dark+", "syntax highlighting palette [\"none\", \"default\", \"dark+\"]");
 
 	// optimization settings
 	SETPREFS("pdd.opt.noalias", "false", "assume no pointer aliasing");
@@ -243,11 +244,8 @@ int r_cmd_pdd_init(void* user, const char* cmd)
 
 	// autocomplete here
 	(void) r_core_autocomplete_add(core->autocomplete, "pdd",  R_CORE_AUTOCMPLT_DFLT, true);
-
-	// (void) r_core_autocomplete_add(core->autocomplete, "pdda", R_CORE_AUTOCMPLT_DFLT, true);
-	// (void) r_core_autocomplete_add(core->autocomplete, "pddb", R_CORE_AUTOCMPLT_DFLT, true);
-	// (void) r_core_autocomplete_add(core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
-	// (void) r_core_autocomplete_add(core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
+	(void) r_core_autocomplete_add(core->autocomplete, "pddj", R_CORE_AUTOCMPLT_DFLT, true);
+	(void) r_core_autocomplete_add(core->autocomplete, "pddg", R_CORE_AUTOCMPLT_DFLT, true);
 
 	return true;
 }
