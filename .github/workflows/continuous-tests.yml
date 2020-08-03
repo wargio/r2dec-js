@@ -1,9 +1,9 @@
-name: Continuous Build
+name: continuous-tests
 on: [push]
 
 jobs:
-  tests-eslint:
-    name: eslinting and tests
+  eslint:
+    name: eslint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -12,5 +12,11 @@ jobs:
           node-version: '12'
       - name: eslint
         run: chmod +x .ci-scripts/ci-eslint.sh && .ci-scripts/ci-eslint.sh ${GITHUB_REF##*/}
+
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
       - name: tests
         run: chmod +x .ci-scripts/ci-tests.sh && .ci-scripts/ci-tests.sh ${GITHUB_REF##*/}

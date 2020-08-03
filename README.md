@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/radareorg/r2dec-js.svg?branch=master)](https://travis-ci.org/radareorg/r2dec-js)
+![Build Status](https://github.com/radareorg/r2dec-js/workflows/continuous-tests/badge.svg)
 [![CodeFactor](https://www.codefactor.io/repository/github/radareorg/r2dec-js/badge)](https://www.codefactor.io/repository/github/radareorg/r2dec-js)
 [![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/radareorg/r2dec-js.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/radareorg/r2dec-js/context:javascript)
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/radareorg/r2dec-js.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/radareorg/r2dec-js/alerts/)
