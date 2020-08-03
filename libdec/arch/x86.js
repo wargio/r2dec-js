@@ -652,6 +652,7 @@
      * @param {Array<Object>} instrs Array of instructions preceding the function call
      * @param {number} nargs Number of arguments expected for this function call
      * @param {Object} context Context object (not used)
+     * @param {Object} regs Registers mapping.
      * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
      */
     var _populate_generic_amd64_call_args = function(instrs, nargs, context, regs) {
@@ -714,16 +715,31 @@
         });
     };
 
+    /**
+     * Return a list of the amd64 systemv function call arguments.
+     * @param {Array<Object>} instrs Array of instructions preceding the function call
+     * @param {number} nargs Number of arguments expected for this function call
+     * @param {Object} context Context object (not used)
+     * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
+     */
     var _populate_systemv_amd64_call_args = function(instrs, nargs, context) {
         var regs = {
             regs64: [ /**/ 'rdi', /**/ 'rsi', /**/ 'rdx', /* */ 'rcx', /* */ 'r8', /* */ 'r9'],
             regs32: [ /**/ 'edi', /**/ 'esi', /**/ 'edx', /* */ 'ecx', /**/ 'r8d', /**/ 'r9d'],
-            krnl64: [ /*     */ , /*     */ , /*     */ , /* */ 'r10', /*     */ , /*     */ ], // kernel interface uses r10 instead of rcx
-            krnl32: [ /*     */ , /*     */ , /*     */ , /**/ 'r10d', /*     */ , /*     */ ],
+            krnl64: [ /* */ null, /* */ null, /* */ null, /* */ 'r10'], // kernel interface uses r10 instead of rcx
+            krnl32: [ /* */ null, /* */ null, /* */ null, /**/ 'r10d'],
         };
         return _populate_generic_amd64_call_args(instrs, nargs, context, regs);
     };
 
+
+    /**
+     * Return a list of the amd64 microsoft function call arguments.
+     * @param {Array<Object>} instrs Array of instructions preceding the function call
+     * @param {number} nargs Number of arguments expected for this function call
+     * @param {Object} context Context object (not used)
+     * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
+     */
     var _populate_ms_amd64_call_args = function(instrs, nargs, context) {
         var regs = {
             regs64: [ /**/ 'rcx', /**/ 'rdx', /* */ 'r8', /*  */ 'r9'],

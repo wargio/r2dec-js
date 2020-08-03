@@ -27,17 +27,15 @@ myroot:
 	mv .r root/$(R2PLUGDIR)/r2dec-js
 
 root:
-	cd ../.. && $(MAKE) clean ; \
-	$(DOCKCROSS) --image dockcross/linux-$(CROSSARCH) bash -c ' \
-wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2_$(VERSION)_amd64.deb ; \
-wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-dev_$(VERSION)_amd64.deb ; \
-sudo dpkg -i *.deb ; \
-sudo apt-get update ; \
-sudo apt-get upgrade --assume-yes; \
-sudo apt-get --assume-yes install libuv1-dev libssl-dev libc6 ; \
-r2 -H; \
-export CFLAGS=-DR2DEC_HOME=\"\\\"$(R2PLUGDIR)/r2dec-js\\\"\" ;\
- make'
+	cd ../.. && $(MAKE) clean
+	wget --quiet -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-$(DISTRIB)_$(VERSION)_amd64.deb
+	wget --quiet -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-dev-$(DISTRIB)_$(VERSION)_amd64.deb
+	sudo dpkg -i *.deb
+	sudo apt-get update
+	sudo apt-get upgrade --assume-yes;
+	sudo apt-get --assume-yes install libuv1-dev libssl-dev libc6
+	r2 -H
+	export CFLAGS=-DR2DEC_HOME=\"\\\"$(R2PLUGDIR)/r2dec-js\\\"\" && make
 	mkdir -p root/$(R2PLUGDIR)
 	cp -f ../../core_pdd.so root/$(R2PLUGDIR)
 	git clone ../../.. .r
