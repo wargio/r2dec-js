@@ -1,4 +1,4 @@
-name: Release
+name: release
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
   #        ninja -C build
 
   build-deb:
-    name: Build deb package for ${{ matrix.container }}
+    name: build deb package for ${{ matrix.name }}
     runs-on: ubuntu-latest
     container: ${{ matrix.container }}
     strategy:
@@ -63,19 +63,28 @@ jobs:
         shell: bash
         run: echo "##[set-output name=version;]$(echo ${GITHUB_REF##*/} | sed 's/release-//')"
         id: radare2
-      - name: Install requirements
-        run: apt-get update && apt-get install --yes wget pkg-config build-essential
-      - name: Build 
+      - name: install requirements
         run: |
-          VERSION=${{ steps.radare2.outputs.version }} \
-          DISTRIB=${{ matrix.name }} \
+          apt-get update -qq > /dev/null
+          apt-get install --yes sudo wget pkg-config build-essential libuv1-dev libssl-dev libc6 -qq > /dev/null
+      - name: install radare2 and radare2-dev
+        run: |
+          export VERSION=${{ steps.radare2.outputs.version }}
+          export DISTRIB=${{ matrix.name }}
+          export GH_URL="https://github.com/radareorg/radare2/releases/download/$VERSION"
+          wget --quiet -c "$GH_URL/radare2-""$DISTRIB""_""$VERSION""_amd64.deb"
+          wget --quiet -c "$GH_URL/radare2-dev-""$DISTRIB""_""$VERSION""_amd64.deb"
+          sudo dpkg -i *.deb
+          rm -rf *.deb || sleep 0
+      - name: build 
+        run: |
           make -C p/dist/debian
-          mv p/dist/debian/*.deb p/dist/debian/r2dec-amd64.deb
+          mv p/dist/debian/*.deb p/dist/debian/r2dec-${{ matrix.name }}_${{ steps.radare2.outputs.version }}_amd64.deb
       - name: upload .deb file
         uses: actions/upload-artifact@v2
         with:
-          name: r2dec-${{ matrix.name }}-deb
-          path: p/dist/debian/r2dec-amd64.deb
+          name: r2dec-${{ matrix.name }}-${{ steps.radare2.outputs.version }}-deb
+          path: p/dist/debian/r2dec-${{ matrix.name }}_${{ steps.radare2.outputs.version }}_amd64.deb
 
   create-release:
     runs-on: ubuntu-latest
@@ -87,6 +96,10 @@ jobs:
         run: echo "##[set-output name=version;]$(echo ${GITHUB_REF##*/} | sed 's/release-//')"
         id: radare2
 
+      - uses: actions/download-artifact@v2
+      - name: display structure of downloaded files
+        run: ls -R
+
       - name: create release
         id: create_release
         uses: actions/create-release@v1
@@ -95,7 +108,7 @@ jobs:
         with:
           tag_name: ${{ steps.radare2.outputs.version }}
           release_name: Release ${{ steps.radare2.outputs.version }}
-          draft: true
+          draft: false
           prerelease: false
 
       - name: upload debian:buster package
@@ -104,7 +117,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./r2dec-debian-buster-deb/r2dec_amd64.deb
+          asset_path: ./r2dec-debian-buster-${{ steps.radare2.outputs.version }}-deb/r2dec-debian-buster_${{ steps.radare2.outputs.version }}_amd64.deb
           asset_name: r2dec-debian-buster_${{ steps.radare2.outputs.version }}_amd64.deb
           asset_content_type: application/zip
 
@@ -114,6 +127,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./r2dec-ubuntu-1804-deb/r2dec_amd64.deb
+          asset_path: ./r2dec-ubuntu-1804-${{ steps.radare2.outputs.version }}-deb/r2dec-ubuntu-1804_${{ steps.radare2.outputs.version }}_amd64.deb
           asset_name: r2dec-ubuntu-1804_${{ steps.radare2.outputs.version }}_amd64.deb
           asset_content_type: application/zip
