@@ -722,17 +722,17 @@
             krnl32: [ /*     */ , /*     */ , /*     */ , /**/ 'r10d', /*     */ , /*     */ ],
         };
         return _populate_generic_amd64_call_args(instrs, nargs, context, regs);
-    }
+    };
 
     var _populate_ms_amd64_call_args = function(instrs, nargs, context) {
         var regs = {
             regs64: [ /**/ 'rcx', /**/ 'rdx', /* */ 'r8', /*  */ 'r9'],
             regs32: [ /**/ 'eax', /**/ 'ecx', /**/ 'edx'],
-            krnl64: [ /**/ 'rcx', /**/ 'rdx', /* */ 'r8', /*  */ 'r9'],
-            krnl32: [ /**/ 'eax', /**/ 'ecx', /**/ 'edx'],
+            krnl64: [],
+            krnl32: [],
         };
         return _populate_generic_amd64_call_args(instrs, nargs, context, regs);
-    }
+    };
 
     var _call_function = function(instr, context, instrs, is_pointer, cannot_return) {
         var call, start = instrs.indexOf(instr);
@@ -947,14 +947,14 @@
                 callee = _populate_cdecl_call_args;
                 if (nargs == -1) {
                     nargs = _guess_amd64_nargs(instrs.slice(0, start), context);
-                    callee = _populate_amd64_call_args;
+                    callee = _populate_systemv_amd64_call_args;
                 }
 
                 if (callee && nargs > -1) {
                     args = callee(instrs.slice(0, start), nargs, context);
                 }
             } else {
-                args = _populate_amd64_call_args(instrs.slice(0, start), nargs, context);
+                args = _populate_systemv_amd64_call_args(instrs.slice(0, start), nargs, context);
                 if (args.length < 1 && nargs > 0) {
                     _populate_cdecl_call_args(instrs.slice(0, start), nargs, context);
                 }
