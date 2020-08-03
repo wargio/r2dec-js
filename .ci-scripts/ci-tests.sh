@@ -12,12 +12,13 @@ fi
 
 ## r2dec-regression
 cd ..
-WORKINGDIR_CI=$(pwd)
-ls r2dec-js >/dev/null 2>&1 || git clone --depth 1 https://github.com/radareorg/r2dec-js
+CI_WORKDIR=$(pwd)
+echo "Work dir: $CI_WORKDIR"
+
 rm -rf r2dec-regression >/dev/null 2>&1 || echo "no need to clean.."
 git clone --branch "$CI_BRANCH" --depth 1 https://github.com/radareorg/r2dec-regression || git clone --depth 1 https://github.com/radareorg/r2dec-regression
 cd r2dec-regression
 chmod +x testall.sh
-./testall.sh "$WORKINGDIR_CI/r2dec-js" travis
+./testall.sh "$CI_WORKDIR/r2dec-js" travis
 ERRORED=$?
 cd ..
