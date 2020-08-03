@@ -11,6 +11,10 @@ matrix:
     - os: osx
       name: tests
       tag: true
+    # Build debs
+    #- os: osx
+    #  name: cydia32
+    #  tag: true
     - os: linux
       name: debian-buster
       dist: buster
@@ -22,28 +26,31 @@ matrix:
 
 script:
   - |
+    export R2_VERSION="4.5.0"
+    upload() {
+      if [ "$TRAVIS_BRANCH" == "master" ]; then
+        wget -q https://github.com/probonopd/uploadtool/raw/master/upload.sh
+        bash upload.sh $1*.deb
+      else
+        echo "Not pushing the deb to release since is not master (actual $TRAVIS_BRANCH)"
+      fi
+    }
     case "$TRAVIS_JOB_NAME" in
     tests)
       chmod +x travis-test.sh
       ./travis-test.sh
       ;;
-    debian-buster)
-      VERSION="4.5.0" DISTRIB="$TRAVIS_JOB_NAME" make -C p/dist/debian
-      wget -q https://github.com/probonopd/uploadtool/raw/master/upload.sh
-      if [ "$TRAVIS_BRANCH" == "master" ]; then
-          bash upload.sh p/dist/debian/*.deb
-      else
-          echo "Not pushing the deb to release since is not master (actual $TRAVIS_BRANCH)"
-      fi
+    cydia32)
+      VERSION="$R2_VERSION" DISTRIB="$TRAVIS_JOB_NAME" CPU="armv7" make -C p/dist/cydia || exit 1
+      upload p/dist/cydia/
       ;;
-    ubuntu-1804)
-      VERSION="4.5.0" DISTRIB="$TRAVIS_JOB_NAME" make -C p/dist/debian
-      wget -q https://github.com/probonopd/uploadtool/raw/master/upload.sh
-      if [ "$TRAVIS_BRANCH" == "master" ]; then
-          bash upload.sh p/dist/debian/*.deb
-      else
-          echo "Not pushing the deb to release since is not master (actual $TRAVIS_BRANCH)"
-      fi
+    cydia64)
+      VERSION="$R2_VERSION" DISTRIB="$TRAVIS_JOB_NAME" make -C p/dist/cydia || exit 1
+      upload p/dist/cydia/
+      ;;
+    *)
+      VERSION="$R2_VERSION" DISTRIB="$TRAVIS_JOB_NAME" make -C p/dist/debian || exit 1
+      upload p/dist/debian/
       ;;
     esac
 
