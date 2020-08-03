@@ -5,6 +5,8 @@ on:
     branches:
     - 'release-*'
 
+jobs:
+
   #build-osx:
   #  name: Macos build
   #  runs-on: macos-latest
