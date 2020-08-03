@@ -15,10 +15,12 @@ matrix:
     #- os: osx
     #  name: cydia32
     #  tag: true
+    # Debian Buster
     - os: linux
       name: debian-buster
       dist: buster
       tag: true
+    # Ubuntu Bionic
     - os: linux
       name: ubuntu-1804
       dist: bionic
@@ -26,6 +28,7 @@ matrix:
 
 script:
   - |
+    lsb_release -a
     export R2_VERSION="4.5.0"
     upload() {
       if [ "$TRAVIS_BRANCH" == "master" ]; then
