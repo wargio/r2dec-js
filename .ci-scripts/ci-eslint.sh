@@ -5,4 +5,4 @@ set -e
 npm install -s eslint
 
 ## NPM test
-find ./ -type f -name "*.js" | xargs node_modules/.bin/eslint --ignore-pattern '!node_modules/*'
+find ./ -type f -name "*.js" | xargs node_modules/.bin/eslint --ignore-pattern '!node_modules/*' -c ./.eslintrc.json
