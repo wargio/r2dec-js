@@ -1,0 +1,26 @@
+name: Greet Everyone
+# This workflow is triggered on pushes to the repository.
+on: [push]
+
+jobs:
+  eslint-linux:
+    name: Linux eslinting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12'
+      - name: Tests and eslint
+        run: chmod +x ci-tests.sh && ./ci-tests.sh ${GITHUB_REF##*/}
+
+  eslint-osx:
+    name: Macos eslinting
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12'
+      - name: Tests and eslint
+        run: chmod +x ci-tests.sh && ./ci-tests.sh ${GITHUB_REF##*/}

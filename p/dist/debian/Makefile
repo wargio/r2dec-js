@@ -28,8 +28,8 @@ myroot:
 
 root:
 	cd ../.. && $(MAKE) clean
-	wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-$(DISTRIB)_$(VERSION)_amd64.deb
-	wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-dev-$(DISTRIB)_$(VERSION)_amd64.deb
+	wget --quiet -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-$(DISTRIB)_$(VERSION)_amd64.deb
+	wget --quiet -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-dev-$(DISTRIB)_$(VERSION)_amd64.deb
 	sudo dpkg -i *.deb
 	sudo apt-get update
 	sudo apt-get upgrade --assume-yes;

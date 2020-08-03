@@ -29,6 +29,7 @@ matrix:
 script:
   - |
     lsb_release -a
+    ldd --version
     export R2_VERSION="4.5.0"
     upload() {
       if [ "$TRAVIS_BRANCH" == "master" ]; then
@@ -40,8 +41,8 @@ script:
     }
     case "$TRAVIS_JOB_NAME" in
     tests)
-      chmod +x travis-test.sh
-      ./travis-test.sh
+      chmod +x ci-tests.sh
+      ./ci-tests.sh "$TRAVIS_BRANCH"
       ;;
     cydia32)
       VERSION="$R2_VERSION" DISTRIB="$TRAVIS_JOB_NAME" CPU="armv7" make -C p/dist/cydia || exit 1
