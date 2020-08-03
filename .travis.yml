@@ -6,22 +6,34 @@ matrix:
   fast_finish: true
   include:
     - os: linux
-      name: Test
+      name: tests
     - os: osx
-      name: Test
+      name: tests
     - os: linux
-      name: Debian
-      dist: stable
+      name: debian-buster
+      dist: buster
+    - os: linux
+      name: ubuntu-1804
+      dist: bionic
 
 script:
   - |
     case "$TRAVIS_JOB_NAME" in
-    Test)
+    tests)
       chmod +x travis-test.sh
       ./travis-test.sh
       ;;
-    Debian)
-      VERSION="4.5.0" make -C p/dist/debian || exit 0
+    debian-buster)
+      VERSION="4.5.0" DISTRIB="$TRAVIS_JOB_NAME" make -C p/dist/debian
+      wget -q https://github.com/probonopd/uploadtool/raw/master/upload.sh
+      if [ "$TRAVIS_BRANCH" == "master" ]; then
+          bash upload.sh p/dist/debian/*.deb
+      else
+          echo "Not pushing the deb to release since is not master (actual $TRAVIS_BRANCH)"
+      fi
+      ;;
+    ubuntu-1804)
+      VERSION="4.5.0" DISTRIB="$TRAVIS_JOB_NAME" make -C p/dist/debian
       wget -q https://github.com/probonopd/uploadtool/raw/master/upload.sh
       if [ "$TRAVIS_BRANCH" == "master" ]; then
           bash upload.sh p/dist/debian/*.deb

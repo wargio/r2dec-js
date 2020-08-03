@@ -29,8 +29,8 @@ myroot:
 root:
 	cd ../.. && $(MAKE) clean ; \
 	$(DOCKCROSS) --image dockcross/linux-$(CROSSARCH) bash -c ' \
-wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2_$(VERSION)_amd64.deb ; \
-wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-dev_$(VERSION)_amd64.deb ; \
+wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-$(DISTRIBUTION)_$(VERSION)_amd64.deb ; \
+wget -c https://github.com/radareorg/radare2/releases/download/$(VERSION)/radare2-$(DISTRIBUTION)-dev_$(VERSION)_amd64.deb ; \
 sudo dpkg -i *.deb ; \
 sudo apt-get update ; \
 sudo apt-get upgrade --assume-yes; \
