@@ -7,14 +7,18 @@ matrix:
   include:
     - os: linux
       name: tests
+      tag: true
     - os: osx
       name: tests
+      tag: true
     - os: linux
       name: debian-buster
       dist: buster
+      tag: true
     - os: linux
       name: ubuntu-1804
       dist: bionic
+      tag: true
 
 script:
   - |
