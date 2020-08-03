@@ -1,26 +1,16 @@
-name: Greet Everyone
-# This workflow is triggered on pushes to the repository.
+name: Continuous Build
 on: [push]
 
 jobs:
-  eslint-linux:
-    name: Linux eslinting
+  tests-eslint:
+    name: eslinting and tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
         with:
           node-version: '12'
-      - name: Tests and eslint
-        run: chmod +x ci-tests.sh && ./ci-tests.sh ${GITHUB_REF##*/}
-
-  eslint-osx:
-    name: Macos eslinting
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
-        with:
-          node-version: '12'
-      - name: Tests and eslint
-        run: chmod +x ci-tests.sh && ./ci-tests.sh ${GITHUB_REF##*/}
+      - name: eslint
+        run: chmod +x .ci-scripts/ci-eslint.sh && .ci-scripts/ci-eslint.sh ${GITHUB_REF##*/}
+      - name: tests
+        run: chmod +x .ci-scripts/ci-tests.sh && .ci-scripts/ci-tests.sh ${GITHUB_REF##*/}

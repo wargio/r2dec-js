@@ -1,5 +1,8 @@
 #!/bin/bash
+set -e
+
 CI_BRANCH="$1"
+
 echo "Branch: $CI_BRANCH"
 make --no-print-directory testbin -C p
 ERRORED=$?
@@ -18,11 +21,3 @@ chmod +x testall.sh
 ./testall.sh "$WORKINGDIR_CI/r2dec-js" travis
 ERRORED=$?
 cd ..
-
-## NPM eslint
-npm install -s eslint
-
-## NPM test
-find r2dec-js/ -type f -name "*.js" | xargs node_modules/.bin/eslint || ERRORED=1
-
-exit $ERRORED
