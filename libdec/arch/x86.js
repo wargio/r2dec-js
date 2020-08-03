@@ -648,17 +648,17 @@
     };
 
     /**
-     * Return a list of the amd64 systemv function call arguments.
+     * Return a list of the amd64 function call arguments.
      * @param {Array<Object>} instrs Array of instructions preceding the function call
      * @param {number} nargs Number of arguments expected for this function call
      * @param {Object} context Context object (not used)
      * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
      */
-    var _populate_amd64_call_args = function(instrs, nargs, context) {
-        var _regs64 = [ /**/ 'rdi', /**/ 'rsi', /**/ 'rdx', /* */ 'rcx', /* */ 'r8', /* */ 'r9'];
-        var _regs32 = [ /**/ 'edi', /**/ 'esi', /**/ 'edx', /* */ 'ecx', /**/ 'r8d', /**/ 'r9d'];
-        var _krnl64 = [ /*     */ , /*     */ , /*     */ , /* */ 'r10', /*     */ , /*     */ ]; // kernel interface uses r10 instead of rcx
-        var _krnl32 = [ /*     */ , /*     */ , /*     */ , /**/ 'r10d', /*     */ , /*     */ ];
+    var _populate_generic_amd64_call_args = function(instrs, nargs, context, regs) {
+        var _regs64 = regs['regs64'];
+        var _regs32 = regs['regs32'];
+        var _krnl64 = regs['krnl64'];
+        var _krnl32 = regs['krnl32'];
 
 
         var amd64 = Array.prototype.concat(_regs64, _regs32, _krnl64, _krnl32);
@@ -713,6 +713,26 @@
             return !!x;
         });
     };
+
+    var _populate_systemv_amd64_call_args = function(instrs, nargs, context) {
+        var regs = {
+            regs64: [ /**/ 'rdi', /**/ 'rsi', /**/ 'rdx', /* */ 'rcx', /* */ 'r8', /* */ 'r9'],
+            regs32: [ /**/ 'edi', /**/ 'esi', /**/ 'edx', /* */ 'ecx', /**/ 'r8d', /**/ 'r9d'],
+            krnl64: [ /*     */ , /*     */ , /*     */ , /* */ 'r10', /*     */ , /*     */ ], // kernel interface uses r10 instead of rcx
+            krnl32: [ /*     */ , /*     */ , /*     */ , /**/ 'r10d', /*     */ , /*     */ ],
+        };
+        return _populate_generic_amd64_call_args(instrs, nargs, context, regs);
+    }
+
+    var _populate_ms_amd64_call_args = function(instrs, nargs, context) {
+        var regs = {
+            regs64: [ /**/ 'rcx', /**/ 'rdx', /* */ 'r8', /*  */ 'r9'],
+            regs32: [ /**/ 'eax', /**/ 'ecx', /**/ 'edx'],
+            krnl64: [ /**/ 'rcx', /**/ 'rdx', /* */ 'r8', /*  */ 'r9'],
+            krnl32: [ /**/ 'eax', /**/ 'ecx', /**/ 'edx'],
+        };
+        return _populate_generic_amd64_call_args(instrs, nargs, context, regs);
+    }
 
     var _call_function = function(instr, context, instrs, is_pointer, cannot_return) {
         var call, start = instrs.indexOf(instr);
@@ -898,8 +918,8 @@
 
             var populate_call_args = {
                 'cdecl': _populate_cdecl_call_args,
-                'amd64': _populate_amd64_call_args,
-                'ms': _populate_amd64_call_args
+                'amd64': _populate_systemv_amd64_call_args,
+                'ms': _populate_ms_amd64_call_args
             }[callee.calltype];
 
             // every non-import callee has a known number of arguments
