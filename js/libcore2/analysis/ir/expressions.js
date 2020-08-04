@@ -948,6 +948,10 @@
         Intrinsic:  Intrinsic,
 
         // unordinary
-        Unknown:    Asm
+        Unknown:    Asm,
+
+        subscript: function(n) {
+            return typeof n === 'number' ? subscript(n) : '';
+        }
     };
 });

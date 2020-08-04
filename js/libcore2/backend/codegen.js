@@ -388,7 +388,15 @@
         }
 
         else if (expr instanceof Expr.Reg) {
-            return [[Tag.VARNAME, expr.toString()]];
+            var tok_reg = [Tag.VARNAME, expr.name];
+
+            if (expr.idx !== undefined) {
+                var tok_ridx = [Tag.VARNAME, Expr.subscript(expr.idx)];
+
+                return [tok_reg, tok_ridx];
+            }
+
+            return [tok_reg];
         }
 
         else if (expr instanceof Expr.UExpr) {
@@ -399,6 +407,16 @@
                 'Neg'       : [Tag.OPRTOR, '-'],
                 'BoolNot'   : [Tag.OPRTOR, '!']
             }[tname] || [Tag.INVALID, expr.operator || tname];
+
+            if ((expr instanceof Expr.Deref) && (expr.idx !== undefined)) {
+                var tok_didx = [Tag.VARNAME, Expr.subscript(expr.idx)];
+
+                return Array.prototype.concat(
+                    [_uexpr_op],
+                    parenthesize(this.emitExpression(expr.operands[0])),
+                    [tok_didx]
+                );
+            }
 
             return _emit_uexpr.call(this, expr, _uexpr_op);
         }
