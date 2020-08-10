@@ -642,6 +642,7 @@
     SSA.prototype.get_local_contexts = function(ignore_weak) {
         var func = this.func;
         var cfg = this.cfg;
+        var dom = this.dom;
         var uninit = this.context.uninit;
 
         var contexts = {};
@@ -669,8 +670,18 @@
             // so subsequent calls would not re-enter this function
             contexts[container].__entry = [];
 
+            // normally entry would consist of the intersection of all predecessors' exits. due to
+            // its recursive nature, loop heads would lose pre-loop exits in that intersection. to
+            // avoid that, exits are not collected from back-edges to make sure they do not mess up
+            var non_dominated_preds = preds.filter(function(pred) {
+                var n = dom.getNode(node.key);
+                var p = dom.getNode(pred.key);
+
+                return !dom.dominates(n, p);
+            });
+
             // collect incoming definitions; i.e. exit contexts of predecessors
-            var incoming = preds.map(function(pred) {
+            var incoming = non_dominated_preds.map(function(pred) {
                 return contexts[node_to_container(pred)].exit;
             });
 
