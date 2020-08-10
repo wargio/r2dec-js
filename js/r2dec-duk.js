@@ -250,10 +250,7 @@ var load_r2_evars = function(ns) {
 /**
  * TODO:
  *   bugfixes:
- *      o deref ssa indices don't show on output
  *      o func args may appear not in order
- *      o orphan 'if' conditions                        [fixed]
- *      o propagate based on liveness and interference  [fixed]
  *      o fix ssa out translation
  * 
  *   features:
@@ -268,7 +265,6 @@ var load_r2_evars = function(ns) {
  *      o redesign analyzer
  *
  *   functionality:
- *      o trim empty scopes
  *      o use an 'undefined' literal to cut def-use chain?
  *      o treat mem derefs in fcalls as out parameters?
  */
