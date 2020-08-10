@@ -19,6 +19,7 @@
     const Expr = require('js/libcore2/analysis/ir/expressions');
     const Stmt = require('js/libcore2/analysis/ir/statements');
     const Tag = require('js/libcore2/backend/tags');
+    const Types = require('js/libcore2/frontend/types');
 
     /**
      * Subscriptable code listing object that maps containers addresses to scopes.
@@ -233,11 +234,11 @@
         return _is_token(a) && (a[0] === RPAREN[0]) && (a[1] === RPAREN[1]);
     };
 
-    var auto_paren = function(s) {
-        var complex = s.length > 1;
-        var has_paren = _is_lparen(s[0]) && _is_rparen(s[s.length - 1]);
+    var auto_paren = function(tokens) {
+        var complex = tokens.indexOf(SPACE) !== (-1);
+        var has_paren = _is_lparen(tokens[0]) && _is_rparen(tokens[tokens.length - 1]);
 
-        return (complex && !has_paren) ? parenthesize(s) : s;
+        return (complex && !has_paren) ? parenthesize(tokens) : tokens;
     };
 
     // const uc_digits = [
@@ -274,43 +275,6 @@
 
         // emit a generic unary expression
         var _emit_uexpr = function(uexpr, op) {
-            // // a temporary method to display pointers as indexed arrays
-            // if (uexpr instanceof Expr.Deref) {
-            //     var operand = uexpr.operands[0];
-            //
-            //     if (operand instanceof Expr.Add) {
-            //         var ptr = operand.operands[0];
-            //         var idx = operand.operands[1];
-            //
-            //         if (ptr instanceof Expr.Var) {
-            //             var cast_tok = [];
-            //
-            //             // prepend casting if variable size does not match the dereference size
-            //             if (ptr.size !== uexpr.size) {
-            //                 var cast = {
-            //                     8: 'char*',
-            //                    16: 'short*',
-            //                    32: 'int*',
-            //                    64: 'long long*'
-            //                 }[uexpr.size];
-            //
-            //                 cast_tok = [LPAREN, [Tag.VARTYPE, cast], RPAREN, SPACE];
-            //             }
-            //
-            //             // adjust index according to pointer arithmetic
-            //             if (idx instanceof Expr.Val) {
-            //                 idx.value = idx.value.div(uexpr.size / 8);
-            //             }
-            //
-            //             return Array.prototype.concat(
-            //                 cast_tok,
-            //                 this.emitExpression(ptr),
-            //                 [[Tag.PAREN, '[']], this.emitExpression(idx), [[Tag.PAREN, ']']]
-            //             );
-            //         }
-            //     }
-            // }
-
             return Array.prototype.concat(
                 [op],
                 auto_paren(this.emitExpression(uexpr.operands[0]))
@@ -388,15 +352,15 @@
         }
 
         else if (expr instanceof Expr.Reg) {
-            var tok_reg = [Tag.VARNAME, expr.name];
+            var tok_reg = [[Tag.VARNAME, expr.name]];
 
             if (expr.idx !== undefined) {
                 var tok_ridx = [Tag.VARNAME, Expr.subscript(expr.idx)];
 
-                return [tok_reg, tok_ridx];
+                tok_reg = tok_reg.concat([tok_ridx]);
             }
 
-            return [tok_reg];
+            return tok_reg;
         }
 
         else if (expr instanceof Expr.UExpr) {
@@ -408,17 +372,49 @@
                 'BoolNot'   : [Tag.OPRTOR, '!']
             }[tname] || [Tag.INVALID, expr.operator || tname];
 
-            if ((expr instanceof Expr.Deref) && (expr.idx !== undefined)) {
-                var tok_didx = [Tag.VARNAME, Expr.subscript(expr.idx)];
+            var tok_uexpr = _emit_uexpr.call(this, expr, _uexpr_op);
 
-                return Array.prototype.concat(
-                    [_uexpr_op],
-                    parenthesize(this.emitExpression(expr.operands[0])),
-                    [tok_didx]
-                );
+            // var _emitArrayRef = function(aexpr) {
+            //     var base;
+            //     var index;
+            // 
+            //     if (aexpr instanceof Expr.Var) {
+            //         base = aexpr;
+            //         index = new Expr.Val(0, aexpr.size);
+            //     }
+            // 
+            //     else if (aexpr instanceof Expr.Add) {
+            //         var lexpr = aexpr.operands[0];
+            //         var rexpr = aexpr.operands[1];
+            // 
+            //         if (lexpr instanceof Expr.Var) {
+            //             base = lexpr;
+            //             index = rexpr;
+            //         }
+            //     }
+            // 
+            //     if (base && index) {
+            //         return Array.prototype.concat([
+            //             [Tag.VARNAME, base.name],
+            //             [Tag.PAREN, '[']],
+            //             this.emitExpression(index), // TODO: ptr arith
+            //             [[Tag.PAREN, ']']]);
+            //     }
+            // 
+            //     return null;
+            // };
+
+            if (expr instanceof Expr.Deref) {
+                // tok_uexpr = _emitArrayRef.call(this, expr.operands[0]) || tok_uexpr;
+
+                if (expr.idx !== undefined) {
+                    var tok_didx = [Tag.VARNAME, Expr.subscript(expr.idx)];
+
+                    tok_uexpr = tok_uexpr.concat([tok_didx]);
+                }
             }
 
-            return _emit_uexpr.call(this, expr, _uexpr_op);
+            return tok_uexpr;
         }
 
         else if (expr instanceof Expr.BExpr) {
@@ -654,17 +650,66 @@
         c.locals.forEach(function(v) {
             var vdecl = scope.makeLine(null);
 
-            vdecl.extend([
-                [Tag.VARTYPE, v.type], SPACE,
-                [Tag.VARNAME, v.name], SEMIC
-            ]);
-        });
+            vdecl.extend(this.emitVariable(v));
+            vdecl.append(SEMIC);
+        }, this);
 
         c.statements.forEach(function(s) {
             this.emitStatement(s, scope);
         }, this);
 
         return scope;
+    };
+
+    var emitType = function(t) {
+        var _emit_baseType = function(bt) {
+            var toks = bt.elems.map(function(e) {
+                return [SPACE, [Tag.KEYWORD, e]];
+            });
+
+            return Array.prototype.concat.apply([], toks).slice(1);
+        };
+
+        var pre = [];
+        var post = [];
+
+        if (t instanceof Types.Primitive) {
+            pre = _emit_baseType(t);
+        }
+
+        else if (t instanceof Types.UserDef) {
+            pre = _emit_baseType(t);
+
+            if (pre.length > 0) {
+                pre.push(SPACE);
+            }
+
+            pre.push([Tag.VARTYPE, t.identifier]);
+        }
+
+        else if (t instanceof Types.Ptr) {
+            var p = emitType(t.ptype);
+
+            pre = Array.prototype.concat(p.pre, p.post, [[Tag.PUNCT, '*']]);
+        }
+
+        else if (t instanceof Types.Arr) {
+            var a = emitType(t.itype);
+
+            pre = a.pre;
+            post = Array.prototype.concat(a.post, [[Tag.PAREN, '['], [Tag.NUMBER, t.nitems || ''], [Tag.PAREN, ']']]);
+        }
+
+        return {
+            pre: pre,
+            post: post
+        };
+    };
+
+    CodeGen.prototype.emitVariable = function(v) {
+        var tobj = emitType(v.type);
+
+        return Array.prototype.concat(tobj.pre, [SPACE, [Tag.VARNAME, v.name]], tobj.post);
     };
 
     /**
@@ -677,12 +722,11 @@
         var entry = listing.makeScope('entry');
         var decl = entry.makeLine(blanks(f), [f]);
 
-        // emit function return type and name
-        decl.extend([
-            [Tag.VARTYPE, f.rettype], SPACE,
-            [Tag.FNNAME, f.name]
-        ]);
+        var ftype = emitType(Types.make_type(f.rettype)).pre;
+        var fname = [[Tag.FNNAME, f.name]];
 
+        // emit function return type and name
+        decl.extend(Array.prototype.concat(ftype, [SPACE], fname));
         decl.append(LPAREN);
 
         // emit arguments list
@@ -692,19 +736,13 @@
             var a = f.args[0];
 
             // handle first arg
-            decl.extend([
-                [Tag.VARTYPE, a.type], SPACE,
-                [Tag.VARNAME, a.name]
-            ]);
+            decl.extend(this.emitVariable(a));
 
             // handle rest of the args
             f.args.slice(1).forEach(function(a) {
-                decl.extend([
-                    COMMA,                 SPACE,
-                    [Tag.VARTYPE, a.type], SPACE,
-                    [Tag.VARNAME, a.name]
-                ]);
-            });
+                decl.extend([COMMA, SPACE]);
+                decl.extend(this.emitVariable(a));
+            }, this);
         }
 
         decl.append(RPAREN);
