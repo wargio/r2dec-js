@@ -16,6 +16,7 @@
  */
 
  (function() {
+    const Types = require('js/libcore2/frontend/types');
     const Flags = require('js/libcore2/frontend/arch/x86/flags');
     const CallConv = require('js/libcore2/frontend/arch/x86/cconv');
     const Expr = require('js/libcore2/analysis/ir/expressions');
@@ -234,7 +235,7 @@
             return {
                 name: vobj.name,
                 disp: /*Math.abs*/(vobj.ref.offset.toInt()),
-                type: vobj.type
+                type: Types.make_type(vobj.type)
             };
         };
 
@@ -285,7 +286,7 @@
 
                             // TODO: this is an experimental method to identify arrays on stack and
                             // make their references show appropriately
-                            if ((vitem.type.endsWith('*')) && (vlist === vitems)) {
+                            if ((vitem.type instanceof Types.Ptr) && (vlist === vitems)) {
                                 // this memory deref comes solely to match the address of, hence
                                 // the undefined size - which is irrelevant
                                 vexpr = new Expr.Deref(vexpr, undefined);
@@ -301,6 +302,11 @@
                 }
             });
         }
+
+        return {
+            vars: vitems,
+            args: aitems
+        };
     };
 
     // turn bp-based variables and arguments references into Variable expressions
@@ -321,7 +327,7 @@
             return {
                 name: vobj.name,
                 disp: Math.abs(vobj.ref.offset.toInt()),
-                type: vobj.type,
+                type: Types.make_type(vobj.type),
                 maxsize: undefined
             };
         };
@@ -341,6 +347,10 @@
         // include stack alignment. this is relevant mostly for locally allocated arrays
         vitems.reduce(function(prev_disp, vitem) {
             vitem.maxsize = vitem.disp - prev_disp;
+
+            if (vitem.type instanceof Types.Arr) {
+                vitem.type.update_nitems(vitem.maxsize);
+            }
 
             return vitem.disp;
         }, 0);
@@ -387,7 +397,7 @@
 
                             // TODO: this is an experimental method to identify arrays on stack and
                             // make their references show appropriately
-                            if ((vitem.type.endsWith('*')) && (vlist === vitems)) {
+                            if (((vitem.type instanceof Types.Ptr) || (vitem.type instanceof Types.Arr)) && (vlist === vitems)) {
                                 // this memory deref comes solely to match the address of, hence
                                 // the undefined size - which is irrelevant
                                 vexpr = new Expr.Deref(vexpr, undefined);
@@ -407,6 +417,11 @@
                 }
             });
         }
+
+        return {
+            vars: vitems,
+            args: aitems
+        };
     };
 
     // TODO: extract and move it somewhere else
@@ -634,8 +649,11 @@
     };
 
     Analyzer.prototype.ssa_step_regs = function(func, context) {
-        rename_sp_vars(func, context, this.arch);
-        rename_bp_vars(func, context, this.arch);
+        var sp = rename_sp_vars(func, context, this.arch);
+        var bp = rename_bp_vars(func, context, this.arch);
+
+        func.vars = Array.prototype.concat(sp.vars, bp.vars);
+        func.args = Array.prototype.concat(sp.args, bp.args);
 
         propagate_stack_reg(context, this.arch);
         propagate_flags_reg(context, this.arch);
