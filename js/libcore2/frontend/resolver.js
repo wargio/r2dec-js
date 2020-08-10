@@ -63,7 +63,8 @@
         this.prefixes = [
             'sym.',
             'imp.',
-            'reloc.'
+            'reloc.',
+            'section.'
         ].concat(_r2_get_libs_names());
 
         // functions names cache
