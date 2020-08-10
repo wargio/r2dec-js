@@ -327,6 +327,10 @@
         return value && new Expr.Val(value, size);
     };
 
+    var _add_exprs = function(expr0, expr1) {
+        return new Expr.Add(expr0, expr1);
+    };
+
     /**
      * Analyze a textual assembly operand and create a matching IR expression for it.
      * @inner
@@ -351,35 +355,27 @@
             var scale = _make_new_val(op.mem.scale, bsize);
             var disp  = _make_new_val(op.mem.disp,  bsize);       
 
-            // [base + index*scale + disp]
-            if (base && index && disp) {
-                expr = new Expr.Add(base, new Expr.Add(scale ? new Expr.Mul(index, scale) : index, disp));
+            // memory operands may consist all or some of the following elements, where
+            // the calculation is [base + index*scale + disp]
+            //
+            // base  : a register (ignored if undefined)
+            // index : a register (ignored if undefined)
+            // scale : a number, either 1, 2, 4 or 8 (ignored if 1)
+            // disp  : a number (ignored if 0)
+
+            // generate an expression for index*scale. do not generate if either index is
+            // not defined or scale = 1
+            if (index && scale.value.gt(1)) {
+                index = new Expr.Mul(index, scale);
             }
 
-            // [base + index*scale]
-            else if (base && index) {
-                expr = new Expr.Add(base, scale ? new Expr.Mul(index, scale) : index);
-            }
+            // filter out all ignoreable elements
+            var elems = [base, index, disp].filter(Boolean);
 
-            // [base + disp]
-            else if (base && disp) {
-                expr = new Expr.Add(base, disp);
-            }
+            // at least one element must remain
+            console.assert(elems.length > 0, 'unexpected memory operand');
 
-            // [base]
-            else if (base) {
-                expr = base;
-            }
-
-            // [disp]
-            else if (disp) {
-                expr = disp;
-            }
-
-            // unexpected
-            else {
-                throw new Error('unknown memory operand');
-            }
+            expr = elems.reduce(_add_exprs, elems.shift());
 
             expr = new Expr.Deref(expr, op.size);
             break;
