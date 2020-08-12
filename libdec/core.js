@@ -122,6 +122,10 @@
             session.ascodeline();
             Global.context.printLog('[r2dec] new code lines applied for "' + session.routine_name + '".');
             return;
+        } else if (Global.evars.extra.ascodeline) {
+            session.ascodeline();
+            Global.context.printLog('[r2dec] new code lines applied for "' + session.routine_name + '".');
+            return;
         }
         if (!Global.evars.extra.allfunctions) {
             var t = Global.printer.theme;

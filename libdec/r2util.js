@@ -77,7 +77,8 @@
         "--highlight-current": "highlights the current address.",
         "--as-comment": "the decompiled code is returned to r2 as comment (via CCu)",
         "--as-code-line": "the decompiled code is returned to r2 as 'file:line code' (via CL)",
-        "--as-json": "the decompiled code lines are returned as JSON"
+        "--as-json": "the decompiled code lines are returned as JSON",
+        "--annotation": "the decompiled code lines are returned with the annotation format"
     };
 
     function has_option(args, name) {
@@ -160,6 +161,7 @@
                 offset: Long.ZERO,
                 slow: true,
                 theme: 'default',
+                annotation: false,
             };
         },
         dataTestSuite: function(x) {
@@ -221,6 +223,7 @@
                 offset: r2pipe.long('s'),
                 slow: r2pipe.bool('e r2dec.slow'),
                 theme: r2pipe.string('e r2dec.theme'),
+                annotation: has_option(args, '--annotation'),
             };
             this.add_comment = function(comment, offset) {
                 if (!comment || comment.length < 1) {
@@ -244,6 +247,7 @@
                 this.extra.json = false;
                 this.honor.color = false;
                 this.extra.highlights = false;
+                this.extra.annotation = false;
             }
 
             if (this.extra.allfunctions) {
@@ -254,6 +258,19 @@
                 this.honor.offsets = false;
                 this.extra.json = false;
                 this.extra.highlights = false;
+                this.extra.annotation = false;
+            }
+
+            if (this.extra.annotation) {
+                this.extra.ascodeline = false;
+                this.extra.ascomment = false;
+                this.extra.highlights = false;
+                this.extra.html = false;
+                this.extra.json = false;
+                this.honor.assembly = false;
+                this.honor.blocks = false;
+                this.honor.color = false;
+                this.honor.offsets = false;
             }
 
             if (this.sanitize.html || !this.honor.color) {
