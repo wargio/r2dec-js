@@ -10,16 +10,21 @@ Installation is as simple as:
 
     r2pm install r2dec2
 
+r2dec2 and r2dec may coexist on the same radare2 installation, but not on the same session as some resources conflict. 
 Reinstallation is recommended whenever radare2 is updated.
 
 ## Usage
-In order to be able to decompile a function, it has to be analyzed first. Either analyze the requested function (`af`) or the whole binary (`aaa`) and run `pdd`.
+Enabling r2dec2 on a radare2 session requires executing radare2 with the `R2DEC_HOME` variable set:
+
+    R2DEC_HOME=$(r2pm -H R2PM_GITDIR)r2dec2 r2
+
+To decompile a function, analyze it first either by analyzing it specifically (`af`) or having the whole binary analyzed (`aaa`), and then run `pdd`.
 
     [0x08048330]> pdd @ main
 
 ## Arguments
 While `pdd` produces a formatted output to the console, it may be followed by an optional suffix to determine an alternate output format:
-* `pddg` - Decompile and show as a graph. Graph output disables control flow constructs like loops and converged conditions. All conditional branching would appear as simple `if` statements
+* `pddg` - Decompile and show as a graph. Graph output disables control flow constructs like loops and converged conditions, therefore conditional branching would appear as simple `if` statements
 * `pddj` - Decompile to JSON
 
 ## Evars
@@ -31,7 +36,7 @@ The following radare2 evars may be used to customize r2dec2 analysis and output:
 * `pdd.out.offsets` - Prefix each line with its offset (default: `true`)
 * `pdd.out.tabsize` - Code indentation size (default: `4`)
 * `pdd.out.theme` - Syntax highlighting coloring scheme. Possible values:
-  -  `"none"` : No syntax highlighting; useful when redirecting `pdd` output to a non-tty device, or for getting cleaner `pddj` output
+  - `"none"` : No syntax highlighting; useful when redirecting `pdd` output to a non-tty device, or for getting cleaner `pddj` output
   - `"default"` : Use current radare2 eco colors
   - `"dark+"` : VS Code Dark+ theme
 
@@ -57,4 +62,4 @@ This example uses `crackme0x01` of the `IOLI` serries.
 <img width="360" height="444" border=2 src="assets/pdd.png">
 
 #### Decompilation to graph
-<img width="550" height="500" border=2 src="assets/pddg.png">
+<img width="550" height="470" border=2 src="assets/pddg.png">
