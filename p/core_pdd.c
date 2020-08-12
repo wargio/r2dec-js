@@ -184,6 +184,7 @@ static void usage(const RCore* const core) {
 		"pddb",	"",        "decompile current function but show only scopes",
 		"pddo",	"",        "decompile current function side by side with offsets",
 		"pddj", "",        "decompile current function as json",
+		"pddA", "",        "decompile current function with annotation output",
 		"pddf", "",        "decompile all functions",
 		"pddu",	"",        "upgrade r2dec via r2pm",
 		"pdds", " branch", "switch r2dec branch",
@@ -271,6 +272,10 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	case 'j':
 		// --as-json
 		duk_r2dec (core, "--as-json");
+		break;
+	case 'A':
+		// --as-json
+		duk_r2dec (core, "--annotation");
 		break;
 	case '?':
 	default:
