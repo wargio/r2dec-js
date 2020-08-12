@@ -111,7 +111,7 @@ e scr.color         | enables syntax colors.
 
 # Developing on r2dec
 
-[Read DEVELOPERS.md](https://github.com/wargio/r2dec-js/blob/master/DEVELOPERS.md)
+[Read DEVELOPERS.md](https://github.com/radareorg/r2dec-js/blob/master/DEVELOPERS.md)
 
 ## Example
 

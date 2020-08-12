@@ -294,7 +294,7 @@
                 return 'Exception: ' + exception.stack;
             } else {
                 return '\n\nr2dec has crashed (info: ' + r2pipe.string('i~^file[1:0]') + ' @ ' + r2pipe.string('s') + ').\n' +
-                    'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
+                    'Please report the bug at https://github.com/radareorg/r2dec-js/issues\n' +
                     'Use the option \'--issue\' or the command \'pddi\' to generate \n' +
                     'the needed data for the issue.';
             }
