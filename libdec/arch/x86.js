@@ -1511,10 +1511,13 @@
                 }
 
                 var ijmp = _get_jump_instruction(instr, instructions);
-                if (ijmp && ijmp.parsed.mnem == 'call' && instructions[instructions.indexOf(ijmp) - 1].parsed.mnem == 'push') {
-                    instr.parsed = ijmp.parsed;
-                    var r = _call_function(instr, context, instructions, false, true);
-                    return r ? Base.composed([r]) : null;
+                if (ijmp && ijmp.parsed.mnem == 'call') {
+                    var prev = instructions[instructions.indexOf(ijmp) - 1]
+                    if (prev && prev.parsed.mnem == 'push') {
+                        instr.parsed = ijmp.parsed;
+                        var r = _call_function(instr, context, instructions, false, true);
+                        return r ? Base.composed([r]) : null;
+                    }
                 }
 
                 var ref = dst.token.split(' ');
