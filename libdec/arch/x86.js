@@ -1512,7 +1512,7 @@
 
                 var ijmp = _get_jump_instruction(instr, instructions);
                 if (ijmp && ijmp.parsed.mnem == 'call') {
-                    var prev = instructions[instructions.indexOf(ijmp) - 1]
+                    var prev = instructions[instructions.indexOf(ijmp) - 1];
                     if (prev && prev.parsed.mnem == 'push') {
                         instr.parsed = ijmp.parsed;
                         var r = _call_function(instr, context, instructions, false, true);
