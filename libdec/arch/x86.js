@@ -76,13 +76,15 @@
 
     var _value_at = function(address) {
         if (r2cmd && address) {
-            //this is truly an hack
-            var bytes = Global.evars.archbits > 32 ? 8 : 4;
-            var p = JSON.parse(r2cmd('pxj ' + bytes + ' @ 0x' + address.toString(16)).trim()).reverse().map(function(x) {
-                x = x.toString(16);
-                return x.length > 1 ? x : '0' + x;
-            }).join('');
-            return Long.fromString(p, true, 16);
+            try {
+                //this is truly an hack
+                var bytes = Global.evars.archbits > 32 ? 8 : 4;
+                var p = JSON.parse(r2cmd('pxj ' + bytes + ' @ 0x' + address.toString(16)).trim()).reverse().map(function(x) {
+                    x = x.toString(16);
+                    return x.length > 1 ? x : '0' + x;
+                }).join('');
+                return Long.fromString(p, true, 16);
+            } catch (e) {}
         }
         return null;
     };
