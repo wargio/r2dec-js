@@ -16,6 +16,7 @@
  */
 
 (function() { // lgtm [js/useless-expression]
+    const Anno = require('libdec/annotation');
     const Long = require('libdec/long');
     const Condition = require('libdec/core/condition');
     const Extra = require('libdec/core/extra');
@@ -92,10 +93,27 @@
         } else {
             if (instr.code && instr.code.composed) {
                 for (i = 0; i < instr.code.composed.length; i++) {
-                    Global.context.printLine(Global.context.identfy() + instr.code.composed[i] + ';', instr.location);
+                    if (Global.evars.extra.annotation) {
+                        Global.context.addAnnotation(Global.context.identfy(), instr.location);
+                        Global.context.addAnnotation();
+                        Anno.auto(instr.code.composed[i], instr.location).forEach(function(x){
+                            Global.context.addAnnotation(x);
+                        });
+                        Global.context.addAnnotation(';\n', instr.location);
+                    } else {
+                        Global.context.printLine(Global.context.identfy() + instr.code.composed[i] + ';', instr.location);
+                    }
                 }
             } else if (_printable(instr)) {
-                Global.context.printLine(Global.context.identfy() + instr.code + ';', instr.location);
+                if (Global.evars.extra.annotation) {
+                    Global.context.addAnnotation(Global.context.identfy(), instr.location);
+                    Anno.auto(instr.code, instr.location).forEach(function(x){
+                        Global.context.addAnnotation(x);
+                    });
+                    Global.context.addAnnotation(';\n', instr.location);
+                } else {
+                    Global.context.printLine(Global.context.identfy() + instr.code + ';', instr.location);
+                }
             }
         }
     };
@@ -146,15 +164,36 @@
             var t = Global.printer.theme;
             var empty = Global.context.identfy();
             if (this.comments.length == 1) {
-                Global.context.printLine(empty + t.comment('/* ' + this.comments[0] + ' */', this.location));
+                if (Global.evars.extra.annotation) {
+                    Global.context.addAnnotation(empty, this.location);
+                    Global.context.addAnnotation(Anno.comment('/* ' + this.comments[0] + ' */\n', this.location));
+                } else {
+                    Global.context.printLine(empty + t.comment('/* ' + this.comments[0] + ' */', this.location));
+                }
             } else if (this.comments.length > 1) {
-                Global.context.printLine(empty + t.comment('/* ' + this.comments[0]), this.location);
+                if (Global.evars.extra.annotation) {
+                    Global.context.addAnnotation(empty, this.location);
+                    Global.context.addAnnotation(Anno.comment('/* ' + this.comments[0] + '\n', this.location));
+                } else {
+                    Global.context.printLine(empty + t.comment('/* ' + this.comments[0]), this.location);
+                }
                 for (var i = 1; i < this.comments.length; i++) {
-                    Global.context.printLine(empty + t.comment(' * ' + this.comments[i] + (i == this.comments.length - 1 ? ' */' : '')), this.location);
+                    var comment = ' * ' + this.comments[i] + (i == this.comments.length - 1 ? ' */' : '');
+                    if (Global.evars.extra.annotation) {
+                        Global.context.addAnnotation(empty, this.location);
+                        Global.context.addAnnotation(Anno.comment(comment + '\n', this.location));
+                    } else {
+                        Global.context.printLine(empty + t.comment(comment), this.location);
+                    }
                 }
             }
             if (this.label) {
-                Global.context.printLine(Global.context.identfy(null, null, true) + this.label + ':', this.location);
+                if (Global.evars.extra.annotation) {
+                    Global.context.addAnnotation(Global.context.identfy(null, null, true), this.location);
+                    Global.context.addAnnotation(Anno.keyword(this.label + ':\n', this.location));
+                } else {
+                    Global.context.printLine(Global.context.identfy(null, null, true) + this.label + ':', this.location);
+                }
             }
             _asm_view(this);
         };

@@ -17,10 +17,29 @@
 
 (function() { // lgtm [js/useless-expression]
     const Extra = require('libdec/core/extra');
-
+    const Anno = require('libdec/annotation');
     var __debug = false;
 
-    var _print_locals = function(locals, address, spaced) {
+    function  _annotate_var(local, address) {
+        var space = Global.context.identfy();
+        if (space.length > 0) {
+            Global.context.addAnnotation(space, address);
+        }
+        if (Extra.is.string(local)) {
+            Global.context.addAnnotation(Anno.localvar(local, address));
+        } else {
+            Global.context.addAnnotations(local.toAnnotation(address));
+        }
+    }
+
+    function _annotate_locals(locals, address) {
+        for (var i = 0; i < locals.length; i++) {
+            _annotate_var(locals[i], address);
+            Global.context.addAnnotation(';\n', address);
+        }
+    }
+
+    function _print_locals(locals, address, spaced) {
         if (Global.evars.honor.blocks) {
             return;
         }
@@ -32,16 +51,16 @@
         if (spaced && locals.length > 0) {
             Global.context.printLine(Global.context.identfy(), address);
         }
-    };
+    }
 
-    var _print_block_data = function(block) {
+    function _print_block_data(block) {
         if (Global.evars.honor.blocks) {
             var t = Global.printer.theme;
             var ident = Global.context.identfy();
             var addr = block.address.toString(16);
             Global.context.printLine(ident + t.comment('/* address 0x' + addr + ' */'));
         }
-    };
+    }
 
     return {
         brace: function(address) {
@@ -71,6 +90,22 @@
         routine: function(address, extra) {
             this.address = address;
             this.extra = extra;
+            this.addAnnotation = function() {
+                var e = this.extra;
+                Global.context.addAnnotations([
+                    Anno.datatype(e.returns, this.address),
+                    Anno.offset(' ', this.address),
+                    Anno.funcname(e.routine_name, this.address),
+                    Anno.offset(' (', this.address),
+                ]);
+                e.args.forEach(function(x, i, a) {
+                    _annotate_var(x, this.address);
+                    if ((i + 1) < a.length) {
+                        Global.context.addAnnotation(', ', this.address);
+                    }
+                });
+                Global.context.addAnnotation(') {\n', this.address);
+            };
             this.toString = function() {
                 var e = this.extra;
                 var t = Global.printer.theme;
@@ -80,6 +115,13 @@
                 }).join(', ') + ') {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
             };
             this.print = function() {
+                if (Global.evars.extra.annotation) {
+                    _annotate_locals(this.extra.globals, this.address);
+                    this.addAnnotation();
+                    Global.context.identIn();
+                    _annotate_locals(this.extra.locals, this.address);
+                    return;
+                }
                 var e = this.extra;
                 var t = Global.printer.theme;
                 _print_locals(e.globals, this.address, true);
@@ -96,11 +138,29 @@
             this.address = address;
             this.condition = condition;
             this.locals = locals || [];
+            this.addAnnotation = function() {
+                Global.context.addAnnotations([
+                    Anno.offset(Global.context.identfy(), this.address),
+                    Anno.keyword('if', this.address),
+                    Anno.offset(' ( ', this.address),
+                ]);
+                Anno.auto(this.condition, this.address).forEach(function(x) {
+                    Global.context.addAnnotation(x);
+                });
+                Global.context.addAnnotation(' ) {\n', this.address);
+            };
             this.toString = function() {
                 var t = Global.printer.theme;
                 return t.flow('if') + ' (' + this.condition + ') {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
             };
             this.print = function() {
+                if (Global.evars.extra.annotation) {
+                    Global.context.identOut();
+                    this.addAnnotation();
+                    Global.context.identIn();
+                    _annotate_locals(this.locals, this.address);
+                    return;
+                }
                 var offset = Global.evars.honor.offsets ? Extra.align_address(this.address) : '';
                 Global.context.printLine(Global.context.identfy(offset.length, Global.printer.theme.integers(offset)) + this.toString(), this.address);
                 Global.context.identIn();
@@ -112,11 +172,25 @@
             this.isElse = true;
             this.address = address;
             this.locals = locals || [];
+            this.addAnnotation = function() {
+                Global.context.addAnnotations([
+                    Anno.offset(Global.context.identfy() + '} ', this.address),
+                    Anno.keyword('else', this.address),
+                    Anno.offset(' {\n', this.address),
+                ]);
+            };
             this.toString = function() {
                 var t = Global.printer.theme;
                 return '} ' + t.flow('else') + ' {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
             };
             this.print = function() {
+                if (Global.evars.extra.annotation) {
+                    Global.context.identOut();
+                    this.addAnnotation();
+                    Global.context.identIn();
+                    _annotate_locals(this.locals, this.address);
+                    return;
+                }
                 Global.context.identOut();
                 var offset = Global.evars.honor.offsets ? Extra.align_address(this.address) : '';
                 Global.context.printLine(Global.context.identfy(offset.length, Global.printer.theme.integers(offset)) + this.toString());
@@ -128,11 +202,24 @@
         do: function(address, locals) {
             this.address = address;
             this.locals = locals || [];
+            this.addAnnotation = function() {
+                Global.context.addAnnotations([
+                    Anno.offset(Global.context.identfy(), this.address),
+                    Anno.keyword('do', this.address),
+                    Anno.offset(' {\n', this.address),
+                ]);
+            };
             this.toString = function() {
                 var t = Global.printer.theme;
                 return t.flow('do') + ' {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
             };
             this.print = function() {
+                if (Global.evars.extra.annotation) {
+                    this.addAnnotation();
+                    Global.context.identIn();
+                    _annotate_locals(this.locals, this.address);
+                    return;
+                }
                 Global.context.printLine(Global.context.identfy() + this.toString(), this.address);
                 Global.context.identIn();
                 _print_block_data(this);
@@ -143,6 +230,17 @@
             this.address = address;
             this.condition = condition;
             this.locals = locals || [];
+            this.addAnnotation = function() {
+                Global.context.addAnnotations([
+                    Anno.offset(Global.context.identfy(), this.address),
+                    Anno.keyword('while', this.address),
+                    Anno.offset(' (', this.address),
+                ]);
+                Anno.auto(this.condition, this.address).forEach(function(x) {
+                    Global.context.addAnnotation(x);
+                });
+                Global.context.addAnnotation(' ) {\n', this.address);
+            };
             this.toString = function() {
                 var t = Global.printer.theme;
                 return t.flow('while') + ' (' + this.condition + ') {' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
@@ -158,23 +256,53 @@
         whileEnd: function(address, condition) {
             this.address = address;
             this.condition = condition;
+            this.addAnnotation = function() {
+                Global.context.addAnnotations([
+                    Anno.offset(Global.context.identfy() + '} ', this.address),
+                    Anno.keyword('while', this.address),
+                    Anno.offset(' (', this.address),
+                ]);
+                Anno.auto(this.condition, this.address).forEach(function(x) {
+                    Global.context.addAnnotation(x);
+                });
+                Global.context.addAnnotation(');\n', this.address);
+            };
             this.toString = function() {
                 var t = Global.printer.theme;
                 return '} ' + t.flow('while') + ' (' + this.condition + ');' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
             };
             this.print = function() {
                 Global.context.identOut();
+                if (Global.evars.extra.annotation) {
+                    this.addAnnotation();
+                    return;
+                }
                 Global.context.printLine(Global.context.identfy() + this.toString(), this.address);
             };
         },
         whileInline: function(address, condition) {
             this.address = address;
             this.condition = condition;
+            this.addAnnotation = function() {
+                Global.context.addAnnotations([
+                    Anno.offset(Global.context.identfy(), this.address),
+                    Anno.keyword('while', this.address),
+                    Anno.offset(' (', this.address),
+                ]);
+                Anno.auto(this.condition, this.address).forEach(function(x) {
+                    Global.context.addAnnotation(x);
+                });
+                Global.context.addAnnotation(');\n', this.address);
+            };
             this.toString = function() {
                 var t = Global.printer.theme;
                 return t.flow('while') + ' (' + this.condition + ');' + (__debug ? t.comment(' // 0x' + this.address.toString(16)) : '');
             };
             this.print = function() {
+                if (Global.evars.extra.annotation) {
+                    this.addAnnotation();
+                    return;
+                }
                 _print_block_data(this);
                 var offset = Global.evars.honor.offsets ? Extra.align_address(this.address) : '';
                 Global.context.printLine(Global.context.identfy(offset.length, Global.printer.theme.integers(offset)) + this.toString(), this.address);

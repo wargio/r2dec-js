@@ -16,10 +16,31 @@
  */
 
 (function() { // lgtm [js/useless-expression]
+    const Anno = require('libdec/annotation');
     return function() {
         this.lines = [];
         this.errors = [];
         this.log = [];
+
+        /**
+         * Adds an annotation line of decompiled code.
+         * @param Annotation|String annotation The annotated code
+         * @param Long              offset     The annotated code offset
+         */
+        this.addAnnotation = function(annotation, offset) {
+            if (typeof(annotation) === 'string') {
+                annotation = Anno.offset(annotation, offset);
+            }
+            this.lines.push(annotation);
+        };
+
+        /**
+         * Adds several annotations of decompiled code.
+         * @param Array annotations The annotated code
+         */
+        this.addAnnotations = function(annotations) {
+            Array.prototype.push.apply(this.lines, annotations);
+        };
 
         /**
          * Print a line of decompiled code.
@@ -71,10 +92,19 @@
             if (!Global.evars.honor.blocks) {
                 var t = Global.printer.theme;
                 for (var i = 0; i < this.macros.length; i++) {
-                    this.printLine(this.identfy() + t.macro(this.macros[i]));
+                    if (Global.evars.extra.annotation) {
+                        this.addAnnotation(Anno.comment(this.macros[i]));
+                        this.addAnnotation('\n');
+                    } else {
+                        this.printLine(this.identfy() + t.macro(this.macros[i]));
+                    }
                 }
             }
-            this.printLine(this.identfy() + ' ');
+            if (Global.evars.extra.annotation) {
+                this.addAnnotation('\n');
+            } else {
+                this.printLine(this.identfy() + ' ');
+            }
         };
 
         /**
@@ -101,11 +131,16 @@
             if (Global.evars.honor.blocks) {
                 return;
             }
+
             this.dependencies.forEach(function(x) {
                 x.print();
             });
             if (this.dependencies.length > 0) {
-                this.printLine(this.identfy() + ' ');
+                if (Global.evars.extra.annotation) {
+                    this.addAnnotation(Anno.offset('\n'));
+                } else {
+                    this.printLine(this.identfy() + ' ');
+                }
             }
         };
 
