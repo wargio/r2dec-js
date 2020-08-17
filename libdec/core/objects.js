@@ -16,13 +16,29 @@
  */
 
 (function() { // lgtm [js/useless-expression]
-	var Extra = require('libdec/core/extra');
+	const Extra = require('libdec/core/extra');
+    const Anno = require('libdec/annotation');
 
 	const _java = {
 		array: function(type, size, create, init) {
 			this.size = size || 0;
 			this.type = Extra.replace.object(type);
 			this.init = init;
+			this.toAnnotation = function(location) {
+				var a = [
+					Anno.keyword('new', location),
+					Anno.offset(' ', location),
+					Anno.datatype(this.type, location),
+					Anno.offset(' [', location),
+					Anno.constvar(this.size, location)
+				];
+				if (this.init) {
+					a.push(Anno.offset(']{' + this.init.join(', ') + '}', location));
+				} else {
+					a.push(Anno.offset(']', location));
+				}
+				return a;
+			};
 			this.toString = function() {
 				var t = [Global.printer.theme.flow('new'), Global.printer.theme.callname(this.type), '[' + this.size + ']'];
 				if (this.init && this.init.length > 0) {
@@ -35,6 +51,18 @@
 			this.args = args || [];
 			this.type = Extra.replace.object(type);
 			this.create = create || false;
+			this.toAnnotation = function(location) {
+				var a = [];
+				if (this.create) {
+					a.push(Anno.keyword('new', location));
+					a.push(Anno.offset(' ', location));
+				}
+				a.push(Anno.datatype(this.type, location));
+				if (this.args.length > 0) {
+					a.push(Anno.offset(' (' + this.args.join(', ') + ')', location));
+				}
+				return a;
+			};
 			this.toString = function() {
 				var a = this.args.length > 0 ? '(' + this.args.join(', ') + ')' : '';
 				if (this.create) {

@@ -16,12 +16,17 @@
  */
 
 (function() { // lgtm [js/useless-expression]
+    const Anno = require('libdec/annotation');
 	return function(data) {
 		this.data = data;
 		this.print = function() {
 			var t = Global.printer.theme;
 			for (var i = 0; i < this.data.length; i++) {
-				Global.context.printLine(Global.context.identfy() + t.macro(this.data[i]));
+				if (Global.evars.extra.annotation) {
+                    Global.context.addAnnotation(Anno.comment(this.data[i]));
+                } else {
+					Global.context.printLine(Global.context.identfy() + t.macro(this.data[i]));
+                }
 			}
 		};
 	};

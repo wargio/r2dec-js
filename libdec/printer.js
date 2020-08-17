@@ -173,7 +173,27 @@
      * @param useJSON - boolean whether to print as json
      */
     var _flush_output = function(lines, errors, log, evars) {
-        if (evars.json) {
+        if (evars.annotation) {
+            var result = {};
+            result.code = "";
+            result.annotations = [];
+            lines.forEach(function(x) {
+                if (!x.define) {
+                    console.log(x)
+                    return;
+                }
+                if (x.type == "offset") {
+                    result.annotations.push(x.define(result.code.length));
+                } else {
+                    if (["function_name", "function_parameter", "local_variable"].indexOf(x.type) >= 0) {
+                        result.annotations.push(x.define(result.code.length));
+                    }
+                    result.annotations.push(x.syntax(result.code.length));
+                }
+                result.code += x.value;
+            });
+            //console.log(json64.stringify(result));
+        } else if (evars.json) {
             var result = {};
             if (lines && lines.length > 0) {
                 result.lines = lines;
