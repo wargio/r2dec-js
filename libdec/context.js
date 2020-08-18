@@ -28,6 +28,13 @@
          * @param Long              offset     The annotated code offset
          */
         this.addAnnotation = function(annotation, offset) {
+            if (!annotation && ["undefined", "object"].indexOf(typeof(annotation)) >= 0) {
+                throw new Error("WOAH COWBOY!")
+            }
+            if (!annotation._annotation_ && typeof(annotation) !== 'string') {
+                console.log(annotation)
+                throw new Error("WOAH COWBOY!")
+            }
             if (typeof(annotation) === 'string') {
                 annotation = Anno.offset(annotation, offset);
             }
@@ -39,7 +46,12 @@
          * @param Array annotations The annotated code
          */
         this.addAnnotations = function(annotations) {
-            Array.prototype.push.apply(this.lines, annotations);
+            if (!annotations && ["undefined", "object"].indexOf(typeof(annotations)) >= 0) {
+                throw new Error("WOAH COWBOY!")
+            }
+            if (Array.isArray(annotations)) {
+                Array.prototype.push.apply(this.lines, annotations);
+            }
         };
 
         /**

@@ -107,7 +107,7 @@
             } else if (_printable(instr)) {
                 if (Global.evars.extra.annotation) {
                     Global.context.addAnnotation(Global.context.identfy(), instr.location);
-                    Anno.auto(instr.code, instr.location).forEach(function(x){
+                    Anno.auto(instr.code, instr.location).forEach(function(x) {
                         Global.context.addAnnotation(x);
                     });
                     Global.context.addAnnotation(';\n', instr.location);

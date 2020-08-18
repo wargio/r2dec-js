@@ -173,13 +173,13 @@
      * @param useJSON - boolean whether to print as json
      */
     var _flush_output = function(lines, errors, log, evars) {
-        if (evars.annotation) {
+        if (evars.annotation && lines) {
             var result = {};
             result.code = "";
             result.annotations = [];
             lines.forEach(function(x) {
                 if (!x.define) {
-                    console.log(x)
+                    console.log("NYA", x)
                     return;
                 }
                 if (x.type == "offset") {
@@ -192,7 +192,7 @@
                 }
                 result.code += x.value;
             });
-            //console.log(json64.stringify(result));
+            console.log(json64.stringify(result));
         } else if (evars.json) {
             var result = {};
             if (lines && lines.length > 0) {

@@ -18,7 +18,7 @@
 (function() { // lgtm [js/useless-expression]
     const Cpp = require('libdec/db/cpp');
     const CCalls = require('libdec/db/c_calls');
-
+    const Anno = require('libdec/annotation');
     const Extra = require('libdec/core/extra');
     const Variable = require('libdec/core/variable');
     const Long = require('libdec/long');
@@ -50,6 +50,13 @@
     var _generic_asm = function(asm) {
         this.asm = asm;
 
+        this.toAnnotation = function(location) {
+            return [
+                Anno.keyword('__asm'),
+                Anno.offset(' ("' + this.asm + '")', location)
+            ];
+        };
+
         this.toString = function() {
             return Global.printer.theme.callname('__asm') + ' (' + Global.printer.theme.text('"' + this.asm + '"') + ')';
         };
@@ -67,6 +74,10 @@
             autoString(operand)
         ];
 
+        this.toAnnotation = function(location) {
+            return Anno.offset(this.toString(), location);
+        };
+
         /** @returns {!string} */
         this.toString = function() {
             return [
@@ -83,6 +94,10 @@
      */
     var _uexpr_pf = function(operator, operand) {
         _uexpr.call(this, operator, [operand]);
+
+        this.toAnnotation = function(location) {
+            return Anno.offset(this.toString(), location);
+        };
 
         /** @returns {!string} */
         this.toString = function() {
@@ -108,6 +123,10 @@
             autoString(rhand)
         ];
 
+        this.toAnnotation = function(location) {
+            return Anno.offset(this.toString(), location);
+        };
+
         /** @returns {!string} */
         this.toString = function() {
             return [
@@ -131,6 +150,10 @@
             autoParen(autoString(operand2)),
             autoParen(autoString(operand3))
         ];
+
+        this.toAnnotation = function(location) {
+            return Anno.offset(this.toString(), location);
+        };
 
         /** @returns {!string} */
         this.toString = function() {
@@ -166,7 +189,19 @@
 
     var _generic_call = function(function_name, args) {
         this.function_name = Extra.is.string(function_name) ? Cpp(Extra.replace.call(function_name)) : function_name;
-        this.arguments = args || [];
+        this.callargs = args || [];
+
+        this.toAnnotation = function(location) {
+            var a = [
+                Anno.funcname(this.function_name, location),
+                Anno.offset(' (', location)
+            ];
+            for (var i = 0; i < this.callargs.length; i++) {
+                a.push(this.callargs[i].toAnnotation());
+            }
+            a.push(Anno.offset(')', location));
+            return a;
+        };
 
         this.toString = function() {
             var fname = this.function_name;
@@ -175,14 +210,14 @@
                 fname = Global.printer.theme.callname(fname);
             }
 
-            return [fname, parenthesize(this.arguments.join(', '))].join(' ');
+            return [fname, parenthesize(this.callargs.join(', '))].join(' ');
         };
     };
 
     var _generic_method_call = function(object_this, function_name, args, method_sep, prefix, postfix) {
         this.object_this = Extra.is.string(object_this) ? Cpp(object_this) : object_this;
         this.function_name = Extra.is.string(function_name) ? Cpp(function_name) : function_name;
-        this.arguments = args || [];
+        this.callargs = args || [];
         this.method_sep = method_sep;
         this.prefix = prefix || "";
         this.postfix = postfix || "";
@@ -194,7 +229,7 @@
                 fname = Global.printer.theme.callname(fname);
             }
 
-            return this.prefix + this.object_this + this.method_sep + [fname, parenthesize(this.arguments.join(', '))].join(' ') + this.postfix;
+            return this.prefix + this.object_this + this.method_sep + [fname, parenthesize(this.callargs.join(', '))].join(' ') + this.postfix;
         };
     };
 
@@ -217,6 +252,14 @@
     var _generic_return = function(value) {
         this.value = value;
 
+        this.toAnnotation = function(location) {
+            var a = this.value.toAnnotation ? this.value.toAnnotation() : Anno.auto(this.value);
+            return [
+                Anno.keyword('return'),
+                Anno.offset(' ')
+            ].concat(a);
+        };
+
         this.toString = function(options) {
             var value = '';
 
@@ -231,6 +274,14 @@
     var _generic_goto = function(label_or_address) {
         this.value = label_or_address;
 
+        this.toAnnotation = function(location) {
+            var a = this.value.toAnnotation ? this.value.toAnnotation() : Anno.auto(this.value);
+            return [
+                Anno.keyword('goto'),
+                Anno.offset(' ')
+            ].concat(a);
+        };
+
         this.toString = function(options) {
             return [Global.printer.theme.flow('goto'), autoString(this.value)].join(' ');
         };
@@ -238,6 +289,10 @@
 
     var _generic_flow = function(name) {
         this.name = name;
+
+        this.toAnnotation = function(location) {
+            return Anno.keyword(this.name);
+        };
 
         this.toString = function(options) {
             return Global.printer.theme.flow(this.name);
