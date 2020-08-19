@@ -611,6 +611,7 @@
         } else if (callee) {
             var populate_call_args = {
                 'cdecl': _populate_cdecl_call_args,
+                'arm16': _populate_arm_call_args,
                 'arm32': _populate_arm_call_args,
                 'arm64': _populate_arm64_call_args
             }[callee.calltype];
@@ -751,7 +752,7 @@
     };
 
     var _conditional_instruction_list = [
-        'add', 'and', 'eor', 'ldr', 'ldrb', 'ldm', 'lsl', 'lsr',
+        'add', 'and', 'eor', 'ldr', 'ldrb', 'ldm', 'stm', 'lsl', 'lsr',
         'mov', 'mvn', 'mul', 'orr', 'pop', 'str', 'strb', 'sub', 'bx'
     ];
 
@@ -942,11 +943,24 @@
                 return _memory(Base.read_memory, instr, context, '8', true);
             },
             ldm: function(instr) {
-                for (var i = 1; i < instr.parsed.length; i++) {
-                    if (instr.parsed.opd[i] == 'pc') {
+                var e = instr.parsed;
+                for (var i = 1; i < e.opd.length; i++) {
+                    if (e.opd[i] == 'pc') {
                         return Base.return();
                     }
                 }
+                var a = [];
+                var offset = 0;
+                for (var i = 1; i < e.opd.length; i++) {
+                    var bits = _register_size(e.opd[i]);
+                    if (i < 2) {
+                        a.push(Base.read_memory(e.opd[0], e.opd[i], bits, false));
+                    } else {
+                        a.push(Base.read_memory(e.opd[0] + ' + ' + (offset / 8), e.opd[i], bits, false));
+                    }
+                    offset += bits;
+                }
+                return Base.composed(a);
                 instr.comments.push(instr.opcode);
                 return Base.nop();
             },
@@ -1166,6 +1180,21 @@
             },
             strh: function(instr, context) {
                 return _memory(Base.write_memory, instr, context, 8);
+            },
+            stm: function(instr) {
+                var e = instr.parsed;
+                var a = [];
+                var offset = 0;
+                for (var i = 1; i < e.opd.length; i++) {
+                    var bits = _register_size(e.opd[i]);
+                    if (i < 2) {
+                        a.push(Base.write_memory(e.opd[0], e.opd[i], bits, false));
+                    } else {
+                        a.push(Base.write_memory(e.opd[0] + ' + ' + (offset / 8), e.opd[i], bits, false));
+                    }
+                    offset += bits;
+                }
+                return Base.composed(a);
             },
             sub: function(instr) {
                 return _common_math(instr.parsed, Base.subtract);
