@@ -943,15 +943,16 @@
                 return _memory(Base.read_memory, instr, context, '8', true);
             },
             ldm: function(instr) {
+                var i;
                 var e = instr.parsed;
-                for (var i = 1; i < e.opd.length; i++) {
+                for (i = 1; i < e.opd.length; i++) {
                     if (e.opd[i] == 'pc') {
                         return Base.return();
                     }
                 }
                 var a = [];
                 var offset = 0;
-                for (var i = 1; i < e.opd.length; i++) {
+                for (i = 1; i < e.opd.length; i++) {
                     var bits = _register_size(e.opd[i]);
                     if (i < 2) {
                         a.push(Base.read_memory(e.opd[0], e.opd[i], bits, false));
@@ -961,8 +962,6 @@
                     offset += bits;
                 }
                 return Base.composed(a);
-                instr.comments.push(instr.opcode);
-                return Base.nop();
             },
             lsl: function(instr) {
                 return _common_math(instr.parsed, Base.shift_left);
