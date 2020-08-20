@@ -20,8 +20,17 @@
     const Anno = require('libdec/annotation');
     var __debug = false;
 
-    function  _annotate_var(local, address) {
+    function _annotate_var(local, address) {
         if (Extra.is.string(local)) {
+            if (local.indexOf(" ") > 0 && !local.startsWith('"')) {
+                var u = local.split(" ");
+                Global.context.addAnnotation(Anno.datatype(u.shift(), this.address));
+                while (u.length > 1) {
+                    Global.context.addAnnotation(" " + u.shift(), this.address);
+                }
+                Global.context.addAnnotation(" ", this.address);
+                local = u[0];
+            }
             Global.context.addAnnotation(Anno.localvar(local, address));
         } else {
             Global.context.addAnnotations(local.toAnnotation(address));
