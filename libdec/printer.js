@@ -175,21 +175,30 @@
     var _flush_output = function(lines, errors, log, evars) {
         if (evars.annotation && lines) {
             var result = {};
+            var last = {};
+            var anno = [];
             result.code = "";
-            result.annotations = [];
             lines.forEach(function(x) {
                 if (!x.define) {
-                    console.log("NYA", x)
+                    throw new Error("invalid object");
                     return;
                 }
                 if (x.type == "offset") {
-                    result.annotations.push(x.define(result.code.length));
+                    var def = x.define(result.code.length);
+                    if (last.type != "offset") {
+                        anno.push(def);
+                        last = x;
+                    } else {
+                        anno[anno.length - 1].end = def.end;
+                    }
                 } else {
                     if (["function_name", "function_parameter", "local_variable"].indexOf(x.type) >= 0) {
-                        result.annotations.push(x.define(result.code.length));
+                        anno.push(x.define(result.code.length));
                     }
-                    result.annotations.push(x.syntax(result.code.length));
+                    anno.push(x.syntax(result.code.length));
+                    last = x;
                 }
+                result.annotations = anno;
                 result.code += x.value;
             });
             console.log(json64.stringify(result));
