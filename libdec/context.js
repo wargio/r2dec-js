@@ -48,7 +48,7 @@
             if (!annotations && ["undefined", "object"].indexOf(typeof(annotations)) >= 0) {
                 throw new Error("undefined object in annotation.");
             }
-            if (annotations.map(function(x) { return !x._annotation_; }).length > 0) {
+            if (annotations.filter(function(x) { return !x._annotation_; }).length > 0) {
                 throw new Error("found some non Annotation objects.");
             }
             if (Array.isArray(annotations)) {
