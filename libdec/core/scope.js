@@ -31,7 +31,9 @@
                 Global.context.addAnnotation(" ", this.address);
                 local = u[0];
             }
-            Global.context.addAnnotation(Anno.localvar(local, address));
+            if (local) {
+                Global.context.addAnnotation(Anno.localvar(local, address));
+            }
         } else {
             Global.context.addAnnotations(local.toAnnotation(address));
         }

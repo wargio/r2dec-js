@@ -95,10 +95,7 @@
                 for (i = 0; i < instr.code.composed.length; i++) {
                     if (Global.evars.extra.annotation) {
                         Global.context.addAnnotation(Global.context.identfy(), instr.location);
-                        Global.context.addAnnotation();
-                        Anno.auto(instr.code.composed[i], instr.location).forEach(function(x){
-                            Global.context.addAnnotation(x);
-                        });
+                        Global.context.addAnnotations(Anno.auto(instr.code.composed[i], instr.location));
                         Global.context.addAnnotation(';\n', instr.location);
                     } else {
                         Global.context.printLine(Global.context.identfy() + instr.code.composed[i] + ';', instr.location);
@@ -107,9 +104,7 @@
             } else if (_printable(instr)) {
                 if (Global.evars.extra.annotation) {
                     Global.context.addAnnotation(Global.context.identfy(), instr.location);
-                    Anno.auto(instr.code, instr.location).forEach(function(x) {
-                        Global.context.addAnnotation(x);
-                    });
+                    Global.context.addAnnotations(Anno.auto(instr.code, instr.location));
                     Global.context.addAnnotation(';\n', instr.location);
                 } else {
                     Global.context.printLine(Global.context.identfy() + instr.code + ';', instr.location);
