@@ -196,17 +196,7 @@
                 Anno.funcname(this.function_name, location),
                 Anno.offset(' (', location)
             ];
-            for (var i = 0; i < this.callargs.length; i++) {
-                if (Extra.is.string(this.callargs[i])) {
-                    a.push(Anno.offset(this.callargs[i], location));
-                } else {
-                    a.push(this.callargs[i].toAnnotation(location));
-                }
-                if (i + 1 < this.callargs.length) {
-                    a.push(Anno.offset(', ', location));
-                }
-            }
-            a.push(Anno.offset(')', location));
+            Array.prototype.push.apply(a, Anno.auto(this.callargs.join(', ') + ')', location));
             return a;
         };
 
@@ -232,18 +222,7 @@
         this.toAnnotation = function(location) {
             var a = Anno.auto(this.prefix + this.object_this + this.method_sep, location);
             a.push(Anno.funcname(this.function_name.toString(), location));
-            a.push(Anno.offset('(', location));
-            for (var i = 0; i < this.callargs.length; i++) {
-                if (Extra.is.string(this.callargs[i])) {
-                    a.push(Anno.offset(this.callargs[i], location));
-                } else {
-                    a.push(this.callargs[i].toAnnotation(location));
-                }
-                if (i + 1 < this.callargs.length) {
-                    a.push(Anno.offset(', ', location));
-                }
-            }
-            Array.prototype.push.apply(a, Anno.auto(') ' + this.postfix, location));
+            Array.prototype.push.apply(a, Anno.auto('(' + this.callargs.join(', ') + ') ' + this.postfix, location));
             return a;
         };
 
