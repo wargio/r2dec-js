@@ -197,7 +197,11 @@
                 Anno.offset(' (', location)
             ];
             for (var i = 0; i < this.callargs.length; i++) {
-                a.push(this.callargs[i].toAnnotation(location));
+                if (Extra.is.string(this.callargs[i])) {
+                    a.push(Anno.offset(this.callargs[i], location));
+                } else {
+                    a.push(this.callargs[i].toAnnotation(location));
+                }
                 if (i + 1 < this.callargs.length) {
                     a.push(Anno.offset(', ', location));
                 }
@@ -230,7 +234,11 @@
             a.push(Anno.funcname(this.function_name.toString(), location));
             a.push(Anno.offset('(', location));
             for (var i = 0; i < this.callargs.length; i++) {
-                a.push(this.callargs[i].toAnnotation(location));
+                if (Extra.is.string(this.callargs[i])) {
+                    a.push(Anno.offset(this.callargs[i], location));
+                } else {
+                    a.push(this.callargs[i].toAnnotation(location));
+                }
                 if (i + 1 < this.callargs.length) {
                     a.push(Anno.offset(', ', location));
                 }

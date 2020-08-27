@@ -72,7 +72,7 @@
 				d.name = this.value;
 			}
 			if (["function_name", "offset"].indexOf(this.type) >= 0) {
-				d.offset = this.location;
+				d.offset = this.location.toString();
 			}
 			return d;
 		};
