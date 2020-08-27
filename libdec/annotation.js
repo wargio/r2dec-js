@@ -58,9 +58,9 @@
 	 * @param string type     Type of the annotation
 	 */
 	function Annotation(value, location, type) {
-		this.value = value;
+		this.value = value || "";
 		this.location = location || Global.evars.extra.offset;
-		this.type = type;
+		this.type = this.value.length > 0 ? type : 'offset';
 		this._annotation_ = true
 		this.define = function(current) {
 			var d = {
