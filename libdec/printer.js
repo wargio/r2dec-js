@@ -174,17 +174,16 @@
      */
     var _flush_output = function(lines, errors, log, evars) {
         if (evars.annotation && lines) {
-            var result = {};
+            var jdan = {};
             var last = {};
             var anno = [];
-            result.code = "";
+            jdan.code = "";
             lines.forEach(function(x) {
                 if (!x.define) {
                     throw new Error("invalid object");
-                    return;
                 }
                 if (x.type == "offset") {
-                    var def = x.define(result.code.length);
+                    var def = x.define(jdan.code.length);
                     if (last.type != "offset") {
                         anno.push(def);
                         last = x;
@@ -193,27 +192,27 @@
                     }
                 } else {
                     if (["function_name", "function_parameter", "local_variable"].indexOf(x.type) >= 0) {
-                        anno.push(x.define(result.code.length));
+                        anno.push(x.define(jdan.code.length));
                     }
-                    anno.push(x.syntax(result.code.length));
+                    anno.push(x.syntax(jdan.code.length));
                     last = x;
                 }
-                result.annotations = anno;
-                result.code += x.value;
+                jdan.annotations = anno;
+                jdan.code += x.value;
             });
-            console.log(json64.stringify(result));
+            console.log(json64.stringify(jdan));
         } else if (evars.json) {
-            var result = {};
+            var jdata = {};
             if (lines && lines.length > 0) {
-                result.lines = lines;
+                jdata.lines = lines;
             }
             if (errors && errors.length > 0) {
-                result.errors = errors;
+                jdata.errors = errors;
             }
             if (log && log.length > 0) {
-                result.log = log;
+                jdata.log = log;
             }
-            console.log(json64.stringify(result));
+            console.log(json64.stringify(jdata));
         } else {
             var prefix = evars.allfunctions ? "// " : "";
             if (lines && lines.length > 0) {

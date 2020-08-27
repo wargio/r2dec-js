@@ -29,11 +29,10 @@
          */
         this.addAnnotation = function(annotation, offset) {
             if (!annotation && ["undefined", "object"].indexOf(typeof(annotation)) >= 0) {
-                throw new Error("WOAH COWBOY!")
+                throw new Error("undefined object in annotation.");
             }
             if (!annotation._annotation_ && typeof(annotation) !== 'string') {
-                console.log(annotation)
-                throw new Error("WOAH COWBOY!")
+                throw new Error("not an Annotation object.");
             }
             if (typeof(annotation) === 'string') {
                 annotation = Anno.offset(annotation, offset);
@@ -47,7 +46,10 @@
          */
         this.addAnnotations = function(annotations) {
             if (!annotations && ["undefined", "object"].indexOf(typeof(annotations)) >= 0) {
-                throw new Error("WOAH COWBOY!")
+                throw new Error("undefined object in annotation.");
+            }
+            if (annotations.map(function(x) { return !x._annotation_; }).length > 0) {
+                throw new Error("found some non Annotation objects.");
             }
             if (Array.isArray(annotations)) {
                 Array.prototype.push.apply(this.lines, annotations);
