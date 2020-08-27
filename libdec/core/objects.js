@@ -17,7 +17,7 @@
 
 (function() { // lgtm [js/useless-expression]
 	const Extra = require('libdec/core/extra');
-    const Anno = require('libdec/annotation');
+	const Anno = require('libdec/annotation');
 
 	const _java = {
 		array: function(type, size, create, init) {
