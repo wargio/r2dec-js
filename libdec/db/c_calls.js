@@ -44,9 +44,10 @@
                     }
                     _unique_print.rotate_left.push(this.bits);
                     var i;
-                    var call = this.name.replace(/###/g, this.bits);
-                    var type = this.returns.replace(/###/g, this.bits);
-                    var args = this.args.map(function(x) { return x.replace(/###/g, this.bits); });
+                    var bits = this.bits;
+                    var call = this.name.replace(/###/g, bits);
+                    var type = this.returns.replace(/###/g, bits);
+                    var args = this.args.map(function(x) { return x.replace(/###/g, bits); });
                     if (Global.evars.extra.annotation) {
                         Global.context.addAnnotations([
                             Anno.datatype(type),
@@ -101,9 +102,10 @@
                     }
                     _unique_print.rotate_right.push(this.bits);
                     var i;
-                    var call = this.name.replace(/###/g, this.bits);
-                    var type = this.returns.replace(/###/g, this.bits);
-                    var args = this.args.map(function(x) { return x.replace(/###/g, this.bits); });
+                    var bits = this.bits;
+                    var call = this.name.replace(/###/g, bits);
+                    var type = this.returns.replace(/###/g, bits);
+                    var args = this.args.map(function(x) { return x.replace(/###/g, bits); });
                     if (Global.evars.extra.annotation) {
                         Global.context.addAnnotations([
                             Anno.datatype(type),
