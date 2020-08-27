@@ -61,7 +61,7 @@
 		this.value = value || "";
 		this.location = location || Global.evars.extra.offset;
 		this.type = this.value.length > 0 ? type : 'offset';
-		this._annotation_ = true
+		this._annotation_ = true;
 		this.define = function(current) {
 			var d = {
 				start: current,
