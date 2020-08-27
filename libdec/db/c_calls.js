@@ -74,7 +74,7 @@
                         args = args[0] + ' ' + args[1] + ', ' + args[2] + ' ' + args[3];
                         var a = Global.printer.auto;
                         var t = Global.printer.theme;
-                        Global.context.printLine(Global.context.identfy() + t.types(type) + ' ' + t.callname(call) + ' (' + args + ' ) {');
+                        Global.context.printLine(Global.context.identfy() + t.types(type) + ' ' + t.callname(call) + ' (' + args + ') {');
                         for (i = 0; i < this.data.length; i++) {
                             Global.context.printLine(Global.context.identfy() + a(this.data[i].replace(/###/g, this.bits)));
                         }
@@ -131,7 +131,8 @@
                     } else {
                         var a = Global.printer.auto;
                         var t = Global.printer.theme;
-                        Global.context.printLine(Global.context.identfy() + t.types(type) + ' ' + t.callname(call) + ' (' + args + ' ) {');
+                        args = args[0] + ' ' + args[1] + ', ' + args[2] + ' ' + args[3];
+                        Global.context.printLine(Global.context.identfy() + t.types(type) + ' ' + t.callname(call) + ' (' + args + ') {');
                         for (i = 0; i < this.data.length; i++) {
                             Global.context.printLine(Global.context.identfy() + a(this.data[i].replace(/###/g, this.bits)));
                         }
