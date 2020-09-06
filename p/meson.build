@@ -25,6 +25,7 @@ deps += cc.find_library('m', required: false)
 
 if r2_incdir != ''
   incs += r2_incdir
+  incs += r2_incdir + '/sdb'
 endif
 
 incs += 'duktape'
