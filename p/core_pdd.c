@@ -136,8 +136,8 @@ R2DecCtx *r2dec_ctx_get(duk_context *ctx) {
 //}
 
 static void eval_file(duk_context* ctx, const char* file) {
-    //fprintf (stderr, "REQUIRE: %s\n", file);
-    //fflush (stderr);
+	// fprintf (stderr, "REQUIRE: %s\n", file);
+	// fflush (stderr);
 	char* text = r2dec_read_file (file);
 	if (text) {
 		duk_push_lstring (ctx, file, strlen (file));
@@ -164,9 +164,9 @@ static void duk_r2dec(RCore *core, const char *input) {
 	eval_file (ctx, "require.js");
 	eval_file (ctx, "r2dec-duk.js");
 	if (*input) {
-		snprintf (args, sizeof(args), "try{if(typeof r2dec_main == 'function'){r2dec_main(\"%s\".split(/\\s+/));}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}}catch(_____e){console.log(_____e.stack||_____e);}", input);
+		snprintf (args, sizeof(args), "try{if(typeof r2dec_main == 'function'){r2dec_main(\"%s\".split(/\\s+/));}else{console.log('Fatal error. Invalid path in R2DEC_HOME env var?');}}catch(_____e){console.log(_____e.stack||_____e);}", input);
 	} else {
-		snprintf (args, sizeof(args), "try{if(typeof r2dec_main == 'function'){r2dec_main([]);}else{console.log('Fatal error. Cannot use R2_HOME_DATADIR.');}}catch(_____e){console.log(_____e.stack||_____e);}");
+		snprintf (args, sizeof(args), "try{if(typeof r2dec_main == 'function'){r2dec_main([]);}else{console.log('Fatal error. Invalid path in R2DEC_HOME env var?');}}catch(_____e){console.log(_____e.stack||_____e);}");
 	}
 	duk_eval_string_noresult (ctx, args);
 	//duk_r2_debug_stack(ctx);
