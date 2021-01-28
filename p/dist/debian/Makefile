@@ -3,8 +3,9 @@ include ./CONFIG
 DEPENDS=
 CROSSARCH=x64
 PWD=$(shell pwd)
-PACKAGE_DIR?=${PWD}
+PACKAGE_DIR?=$(PWD)
 R2_PLUGIN_DIR=$(shell radare2 -H R2_LIBR_PLUGINS)
+R2_LIBEXT=$(shell r2 -HR2_LIBEXT)
 
 
 all: root
@@ -18,7 +19,7 @@ all: root
 root:
 	export CFLAGS=-DR2DEC_HOME=\"\\\"$(R2_PLUGIN_DIR)/r2dec-js\\\"\" && make -C ../..
 	mkdir -p root/$(R2_PLUGIN_DIR)/r2dec-js
-	cp -vf ../../core_pdd.so root/$(R2_PLUGIN_DIR)
+	cp -vf ../../core_pdd.$(R2_LIBEXT) root/$(R2_PLUGIN_DIR)
 	cp -vfr ../../../libdec root/$(R2_PLUGIN_DIR)/r2dec-js
 
 purge: clean
