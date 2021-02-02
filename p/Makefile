@@ -5,6 +5,7 @@ LDFLAGS+=-lm
 LDFLAGS_PKG=$(shell pkg-config --libs r_util r_io r_cons r_core)
 
 LIBEXT=$(shell r2 -H LIBEXT)
+# PLUGDIR=$(shell r2 -H R2_LIBR_PLUGINS)
 PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
 
 V=@
@@ -16,6 +17,7 @@ MKDIR=mkdir -p
 SRCS=duktape/duktape.c duktape/duk_console.c core_pdd.c
 OBJS=$(SRCS:.c=.o)
 BIN=core_pdd.$(LIBEXT)
+DESTDIR?=
 
 all: clean build install
 
@@ -29,15 +31,19 @@ $(BIN): $(OBJS)
 	$(V)$(ECHO) "[CC] $@"
 	$(V)$(CC) $(CFLAGS) $(CFLAGS_PKG) -c $< -o $@
 
-$(PLUGDIR):
+$(DESTDIR)$(PLUGDIR):
 	$(V)$(MKDIR) $@
 
-install: uninstall $(PLUGDIR) $(BIN)
-	$(V)$(RM) $(PLUGDIR)/$(BIN)
-	$(V)$(CP) $(BIN) $(PLUGDIR)
+install: uninstall $(DESTDIR)$(PLUGDIR) $(BIN)
+	$(V)$(RM) $(DESTDIR)$(PLUGDIR)/$(BIN)
+	$(V)$(CP) $(BIN) $(DESTDIR)$(PLUGDIR)
+
+install-libdec: $(DESTDIR)$(PLUGDIR) $(BIN)
+	$(V)$(CP) $(BIN) $(DESTDIR)$(PLUGDIR)
+	$(CP) -r ../libdec $(DESTDIR)$(PLUGDIR)
 
 uninstall:
-	$(V)$(RM) $(PLUGDIR)/$(BIN)
+	$(V)$(RM) $(DESTDIR)$(PLUGDIR)/$(BIN)
 
 clean:
 	$(V)$(RM) $(BIN) $(OBJS) || sleep 0
