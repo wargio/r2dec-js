@@ -36,7 +36,7 @@ jobs:
       run: make -C p install && r2 -qc 'af;pdd' /bin/ls
     - uses: actions/upload-artifact@v2
       with:
-        name: r2dec-${R2V}_amd64.deb
+        name: r2dec-${{env.R2V}}_amd64.deb
         path: p/dist/debian/*.deb
   macos:
     runs-on: macos-latest
@@ -58,7 +58,7 @@ jobs:
       run: make -C p/dist/macos
     - uses: actions/upload-artifact@v2
       with:
-        name: r2dec-${R2V}_mac.pkg
+        name: r2dec-${{env.R2V}}_mac.pkg
         path: p/dist/macos/r2dec*.pkg
   w64:
     runs-on: windows-latest
@@ -103,5 +103,5 @@ jobs:
         zip -r ..\r2dec-w64.zip *
     - uses: actions/upload-artifact@v2
       with:
-        name: r2dec-${R2V}_w64.zip
+        name: r2dec-${{env.R2V}}_w64.zip
         path: r2dec-w64.zip
