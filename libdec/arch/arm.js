@@ -1661,7 +1661,7 @@
 
     var _apply_math = {
         adrp: function(marker, instr) {
-            if (!instr.parsed.opd[1].startsWith('0x')) {
+            if (!instr.parsed.opd[1].match(/(0x)?[a-fA-F\d]+/)) {
                 return;
             }
             _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);
