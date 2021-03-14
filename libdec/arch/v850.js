@@ -91,6 +91,9 @@
             add: function(instr) {
                 return _common_math(instr.parsed, Base.add);
             },
+            addi: function(instr) {
+                return Base.add(instr.parsed.opd[2], instr.parsed.opd[1], instr.parsed.opd[0]);
+            },
             and: function(instr) {
                 return _common_math(instr.parsed, Base.and);
             },
@@ -141,6 +144,13 @@
                     arg = Variable.functionPointer(arg);
                 }
                 return Base.call(arg, []);
+            },
+            br: function(instr, context, instructions) {
+                if ((instructions.length - 1) == instructions.indexOf(instr)) {
+                    //name, args, is_pointer, returns, bits
+                    return Base.call(instr.parsed.opd[0], [], true, 'return');
+                }
+                return Base.nop();
             },
             jmp: function(instr, context, instructions) {
                 if ((instructions.length - 1) == instructions.indexOf(instr)) {
