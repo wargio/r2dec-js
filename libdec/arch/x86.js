@@ -939,6 +939,9 @@
                 'amd64': _populate_systemv_amd64_call_args,
                 'ms': _populate_ms_amd64_call_args
             }[callee.calltype];
+            if (typeof populate_call_args === 'undefined') {
+              populate_call_args = _populate_cdecl_call_args;
+            }
 
             // every non-import callee has a known number of arguments
             // for imported libc functions, get the number of arguments out of a predefined list
