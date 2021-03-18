@@ -21,6 +21,18 @@
     const Long = require('libdec/long');
     var __line_cnt = 0;
 
+    function r2_arch() {
+        var arch = r2pipe.string('e asm.arch');
+        if (arch === 'r2ghidra') {
+            arch = r2pipe.string('e asm.cpu');
+            const colon = arch.indexOf(':');
+            if (colon !== -1) {
+                arch = arch.substring(0, colon);
+            }
+        }
+        return r2_sanitize(arch);
+    }
+
     function r2_sanitize(value, expected) {
         return value.length == 0 ? expected : value;
     }
@@ -110,7 +122,7 @@
         var classes = r2_sanitize(r2pipe.string('icj'), '[]');
         var data = r2_sanitize(r2pipe.string('agj'), '[]');
         var farguments = r2_sanitize(r2pipe.string('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
-        var arch = r2_sanitize(r2pipe.string('e asm.arch'), '');
+        var arch = r2_arch();
         var archbits = r2_sanitize(r2pipe.string('e asm.bits'), '32');
         var database = r2_sanitize(r2pipe.custom('afcfj @@@i', /^\[\]\n/g, merge_arrays), '[]');
         console.log('{"name":"issue_' + (new Date()).getTime() +
@@ -194,7 +206,7 @@
             };
         },
         evars: function(args) {
-            this.arch = r2pipe.string('e asm.arch');
+            this.arch = r2_arch();
             this.archbits = r2pipe.int('e asm.bits', 32);
             this.honor = {
                 casts: r2pipe.bool('e r2dec.casts') || has_option(args, '--casts'),
@@ -279,7 +291,7 @@
         },
         data: function() {
             var isfast = !r2pipe.bool('e r2dec.slow');
-            this.arch = r2pipe.string('e asm.arch');
+            this.arch = r2_arch();
             this.bits = r2pipe.int('e asm.bits', 32);
             this.xrefs = {
                 symbols: (isfast ? [] : r2pipe.json64('isj', [])),
