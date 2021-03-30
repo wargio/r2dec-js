@@ -60,6 +60,8 @@
     ];
 
     var _REGEX_STACK_REG = /^[re]?sp$/;
+    var _FP_STATUS_REG = 'fp_status';
+    var _FP_STACK = 'fp_stack';
 
     /**
      * Indicates whether a register name is the system's stack pointer.
@@ -1276,6 +1278,96 @@
         };
     };
 
+    var _nop = function() {
+        return Base.nop();
+    };
+
+    var _fp_n_opd = function(opd) {
+        return opd.filter(function(x) {
+            return x.token;
+        }).length;
+    };
+
+    var _fp_parse_index = function(s) {
+        return s && s.match(/^st\(\d+\)$/) ? parseInt(s.replace(/^st\(|\)$/g, '')) : NaN;
+    };
+
+    var _fp_stack_at = function(idx) {
+        if (isNaN(idx)) {
+            idx = '?';
+        }
+        return [_FP_STACK, '[', idx, ']'].join('');
+    };
+
+    var _fp_resolve_opd = function(opd) {
+        if (opd.mem_access) {
+            return Variable.pointer(opd.token, opd.mem_access, true);
+        }
+        opd = _fp_parse_index(opd.token);
+        if (isNaN(opd)) {
+            return '?';
+        }
+        return _fp_stack_at(opd);
+    };
+
+    var _fp_math_special = function(op, dst, src) {
+        return Base.assign(_fp_stack_at(dst), op + '(' + _fp_stack_at(src) + ')');
+    };
+
+    var _fp_compare = function(instr, context, instructions, pops) {
+        if (_fp_n_opd(instr.parsed.opd) < 1) {
+            return Base.assign(_FP_STATUS_REG, "fp_compare(" + _fp_stack_at(0) + ", " + _fp_stack_at(1) + ")");
+        }
+        var arg = _fp_resolve_opd(instr.parsed.opd[0]);
+        var rop = Base.assign(_FP_STATUS_REG, "fp_compare(" + _fp_stack_at(0) + ", " + arg + ")");
+        return pops > 0 ? Base.composed([rop, Base.increase(_FP_STACK, pops)]) : rop;
+    };
+
+    /**
+     * Handles most of arithmetic floating point operations.
+     * @param {Object} p Parsed instruction structure
+     * @param {Object} context Context object
+     * @param {Object} pops How many fp_stack values has to pop
+     * @param {Object} op Operator constructor to use
+     * @returns {Object} Instruction instance representing the required operation
+     */
+    var _fp_math_common = function(p, context, pops, op) {
+        var rop;
+        if (_fp_n_opd(p.opd) == 0) {
+            rop = op(_fp_stack_at(1), _fp_stack_at(1), _fp_stack_at(0));
+        } else if (_fp_n_opd(p.opd) == 1) {
+            rop = op(_fp_stack_at(0), _fp_stack_at(0), _fp_resolve_opd(p.opd[0]));
+        } else {
+            var a = _fp_resolve_opd(p.opd[0]);
+            var b = _fp_resolve_opd(p.opd[1]);
+            rop = op(a, a, b);
+        }
+        return pops > 0 ? Base.composed([rop, Base.increase(_FP_STACK, pops)]) : rop;
+    };
+
+    /**
+     * Handles most of arithmetic floating point operations (reverse).
+     * @param {Object} p Parsed instruction structure
+     * @param {Object} context Context object
+     * @param {Object} pops How many fp_stack values has to pop
+     * @param {Object} op Operator constructor to use
+     * @returns {Object} Instruction instance representing the required operation
+     */
+    var _fp_math_common_rev = function(p, context, pops, op) {
+        var rop;
+        if (_fp_n_opd(p.opd) == 0) {
+            rop = op(_fp_stack_at(0), _fp_stack_at(0), _fp_stack_at(1));
+        } else if (_fp_n_opd(p.opd) == 1) {
+            var value = _fp_resolve_opd(p.opd[0]);
+            rop = op(value, value, _fp_stack_at(0));
+        } else {
+            var a = _fp_stack_at(_fp_parse_index(p.opd[0].token));
+            var b = _fp_stack_at(_fp_parse_index(p.opd[1].token));
+            rop = op(b, b, a);
+        }
+        return pops > 0 ? Base.composed([rop, Base.increase(_FP_STACK, pops)]) : rop;
+    };
+
     const x86x64 = {
         instructions: {
             inc: function(instr, context) {
@@ -1288,9 +1380,7 @@
 
                 return _math_common(instr.parsed, Base.subtract, true, context);
             },
-            cld: function(instr, context) {
-                return Base.nop();
-            },
+            cld: _nop,
             add: function(instr, context) {
                 return _math_common(instr.parsed, Base.add, true, context);
             },
@@ -1477,12 +1567,8 @@
             setne: function(instr, context) {
                 return _setcc_common(instr.parsed, context.returns.signed, 'NE', context);
             },
-            nop: function(instr, context) {
-                return Base.nop();
-            },
-            leave: function(instr, context) {
-                return Base.nop();
-            },
+            nop: _nop,
+            leave: _nop,
             rol: function(instr, context) {
                 return _bitwise_rotate(instr.parsed, Base.rotate_left, context);
             },
@@ -1663,8 +1749,20 @@
             jno: function(i, c) {
                 return _jcc_common(i, c, 'NO');
             },
+            jnp: function(i, c) {
+                return _jcc_common(i, c, 'NE');
+            },
             jne: function(i, c) {
                 return _jcc_common(i, c, 'NE');
+            },
+            jpo: function(i, c) {
+                return _jcc_common(i, c, 'NE');
+            },
+            jp: function(i, c) {
+                return _jcc_common(i, c, 'EQ');
+            },
+            jpe: function(i, c) {
+                return _jcc_common(i, c, 'EQ');
             },
             je: function(i, c) {
                 return _jcc_common(i, c, 'EQ');
@@ -1735,9 +1833,283 @@
             hlt: function() {
                 return Base.return(Base.call('_hlt', []));
             },
-            invalid: function() {
+            /* FPU ops */
+            // Push +1.0 onto the FPU register stack.
+            fld1: function(instr, context, instrs) {
+                return Base.write_memory(_FP_STACK + '--', '1.0', 64, true);
+            },
+            // Push log_2(10) onto the FPU register stack.
+            fldl2t: function(instr, context, instrs) {
+                return Base.write_memory(_FP_STACK + '--', 'log_2(10)', 64, true);
+            },
+            // Push log_2(e) onto the FPU register stack.
+            fldl2e: function(instr, context, instrs) {
+                return Base.write_memory(_FP_STACK + '--', 'log_2(e)', 64, true);
+            },
+            // Push pi onto the FPU register stack.
+            fldpi: function(instr, context, instrs) {
+                return Base.write_memory(_FP_STACK + '--', 'pi', 64, true);
+            },
+            // Push log_10(2) onto the FPU register stack.
+            fldlg2: function(instr, context, instrs) {
+                return Base.write_memory(_FP_STACK + '--', 'log_10(2)', 64, true);
+            },
+            // Push log_e(2) onto the FPU register stack.
+            fldln2: function(instr, context, instrs) {
+                return Base.write_memory(_FP_STACK + '--', 'log_e(2)', 64, true);
+            },
+            // Push +0.0 onto the FPU register stack.
+            fldz: function(instr, context, instrs) {
+                return Base.write_memory(_FP_STACK + '--', '0.0', 64, true);
+            },
+            fild: function(instr, context, instrs) {
+                var arg = instr.parsed.opd[0];
+                var value = Variable.pointer(arg.token, arg.mem_access, true);
+                return Base.write_memory(_FP_STACK + '--', value, 64, true);
+            },
+            fbld: function(instr, context, instrs) {
+                var arg = instr.parsed.opd[0];
+                var value = Variable.pointer(arg.token, arg.mem_access, true);
+                return Base.write_memory(_FP_STACK + '--', value, 64, true);
+            },
+            fld: function(instr, context, instrs) {
+                var arg = instr.parsed.opd[0];
+                var value = arg.mem_access ? Variable.pointer(arg.token, arg.mem_access, true) : _fp_stack_at(_fp_parse_index(arg.token));
+                return Base.write_memory(_FP_STACK + '--', value, 64, true);
+            },
+            fbstp: function(instr, context, instrs) {
+                var arg = instr.parsed.opd[0];
+                return Base.composed([
+                    Base.write_memory(arg.token, _fp_stack_at(0), arg.mem_access, true),
+                    Base.decrease(_FP_STACK, 1)
+                ]);
+            },
+            fst: function(instr, context, instrs) {
+                return Base.assign(_fp_resolve_opd(instr.parsed.opd[0]), _fp_stack_at(0));
+            },
+            fstp: function(instr, context, instrs) {
+                var arg = instr.parsed.opd[0];
+                if (_fp_parse_index(arg.token) == 0) {
+                    return Base.increase(_FP_STACK, 1);
+                }
+                arg = _fp_resolve_opd(arg);
+                return Base.composed([Base.assign(arg, _fp_stack_at(0)), Base.decrease(_FP_STACK, 1)]);
+            },
+            fdecstp: function() {
+                return Base.increase(_FP_STACK, 1);
+            },
+            fincstp: function() {
+                return Base.decrease(_FP_STACK, 1);
+            },
+            fist: function(instr, context, instrs) {
+                var arg = instr.parsed.opd[0];
+                return Base.write_memory(arg.token, _fp_stack_at(0), arg.mem_access, true);
+            },
+            fisttp: function(instr, context, instrs) {
+                var arg = instr.parsed.opd[0];
+                return Base.composed([
+                    Base.write_memory(arg.token, _fp_stack_at(0), arg.mem_access, true),
+                    Base.decrease(_FP_STACK, 1)
+                ]);
+            },
+            fistp: function(instr, context, instrs) {
+                var arg = instr.parsed.opd[0];
+                return Base.composed([
+                    Base.write_memory(arg.token, _fp_stack_at(0), arg.mem_access, true),
+                    Base.decrease(_FP_STACK, 1)
+                ]);
+            },
+            fxch: function(instr, context) {
+                var idx = 1;
+                if (_fp_n_opd(instr.parsed.opd) > 0) {
+                    idx = _fp_parse_index(instr.parsed.opd[0].token);
+                }
+                var tmp = Variable.uniqueName('fp_tmp');
+                var src = _fp_stack_at(0);
+                var dest = _fp_stack_at(idx);
+
+                return Base.composed([
+                    Base.assign(tmp, dest), // tmp = dest
+                    Base.assign(dest, src), // dest = src
+                    Base.assign(src, tmp) // src = tmp
+                ]);
+            },
+            // Compares the value in the ST(0) register with 0.0 and sets the condition code flags
+            ftst: function(instr, context, instructions) {
+                context.cond.a = _fp_stack_at(0);
+                context.cond.b = '0.0';
                 return Base.nop();
-            }
+            },
+            // Compare Floating Point Values and Set EFLAGS
+            fcomi: function(instr, context, instructions) {
+                context.cond.a = _fp_stack_at(0);
+                context.cond.b = _fp_resolve_opd(instr.parsed.opd[0]);
+                return Base.nop();
+            },
+            fucomi: function(instr, context, instructions) {
+                context.cond.a = _fp_stack_at(0);
+                context.cond.b = _fp_resolve_opd(instr.parsed.opd[0]);
+                return Base.nop();
+            },
+            // Compare Floating Point Values and Set EFLAGS and pop
+            fcomip: function(instr, context, instructions) {
+                context.cond.a = _fp_stack_at(0);
+                context.cond.b = _fp_resolve_opd(instr.parsed.opd[0]);
+                return Base.decrease(_FP_STACK, 1);
+            },
+            fucomip: function(instr, context, instructions) {
+                context.cond.a = _fp_stack_at(0);
+                context.cond.b = _fp_resolve_opd(instr.parsed.opd[0]);
+                return Base.decrease(_FP_STACK, 1);
+            },
+            // m32fp/m64fp/ST(i)/<none> Compare ST(0) with m32fp/m64fp/ST(i)/ST(1).
+            fcom: function(instr, context, instructions) {
+                return _fp_compare(instr, context, instructions, 0);
+            },
+            // m32fp/m64fp/ST(i)/<none> Compare ST(0) with m32fp/m64fp/ST(i)/ST(1) and pop register stack once.
+            fcomp: function(instr, context, instructions) {
+                return _fp_compare(instr, context, instructions, 1);
+            },
+            // m32fp/m64fp/ST(i)/<none> Compare ST(0) with m32fp/m64fp/ST(i)/ST(1) and pop register stack once.
+            fucomp: function(instr, context, instructions) {
+                return _fp_compare(instr, context, instructions, 1);
+            },
+            // Compare ST(0) with ST(1) and pop register stack twice.
+            fcompp: function(instr, context, instructions) {
+                return _fp_compare(instr, context, instructions, 2);
+            },
+            // Compare ST(0) with ST(1) and pop register stack twice.
+            fucompp: function(instr, context, instructions) {
+                return _fp_compare(instr, context, instructions, 2);
+            },
+            fstsw: function(instr, context) {
+                var v = instr.parsed.opd[0];
+                return Base.assign(v.token, _FP_STATUS_REG);
+            },
+            fnstsw: function(instr, context) {
+                var v = instr.parsed.opd[0];
+                return Base.assign(v.token, _FP_STATUS_REG);
+            },
+            fadd: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 0, Base.add);
+            },
+            fiadd: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 0, Base.add);
+            },
+            faddp: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 1, Base.add);
+            },
+            fsub: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 0, Base.subtract);
+            },
+            fisub: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 0, Base.subtract);
+            },
+            fsubp: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 1, Base.subtract);
+            },
+            fsubr: function(instr, context) {
+                return _fp_math_common_rev(instr.parsed, context, 0, Base.subtract);
+            },
+            fisubr: function(instr, context) {
+                return _fp_math_common_rev(instr.parsed, context, 0, Base.subtract);
+            },
+            fsubrp: function(instr, context) {
+                return _fp_math_common_rev(instr.parsed, context, 1, Base.subtract);
+            },
+            fmul: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 0, Base.multiply);
+            },
+            fimul: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 0, Base.multiply);
+            },
+            fmulp: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 1, Base.multiply);
+            },
+            fdiv: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 0, Base.divide);
+            },
+            fidiv: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 0, Base.divide);
+            },
+            fdivp: function(instr, context) {
+                return _fp_math_common(instr.parsed, context, 1, Base.divide);
+            },
+            fdivr: function(instr, context) {
+                return _fp_math_common_rev(instr.parsed, context, 0, Base.divide);
+            },
+            fidivr: function(instr, context) {
+                return _fp_math_common_rev(instr.parsed, context, 0, Base.divide);
+            },
+            fdivrp: function(instr, context) {
+                return _fp_math_common_rev(instr.parsed, context, 1, Base.divide);
+            },
+            fabs: function(instr, context) {
+                return _fp_math_special('abs', 0, 0);
+            },
+            fchs: function(instr, context) {
+                return Base.negate(_fp_stack_at(0), _fp_stack_at(0));
+            },
+            fsqrt: function(instr, context) {
+                return _fp_math_special('sqrt', 0, 0);
+            },
+            fprem: function(instr, context) {
+                return Base.module(_fp_stack_at(0), _fp_stack_at(0), _fp_stack_at(1));
+            },
+            fprem1: function(instr, context) {
+                return Base.module(_fp_stack_at(0), _fp_stack_at(0), _fp_stack_at(1));
+            },
+            fcos: function(instr, context) {
+                return _fp_math_special('cos', 0, 0);
+            },
+            fsin: function(instr, context) {
+                return _fp_math_special('sin', 0, 0);
+            },
+            fsincos: function(instr, context) {
+                return Base.composed([
+                    _fp_math_special('sin', 0, 0),
+                    Base.write_memory(_FP_STACK + '--', 'cos(' + _fp_stack_at(0) + ')', 64, true)
+                ]);
+            },
+            fptan: function(instr, context) {
+                return Base.composed([
+                    _fp_math_special('tan', 0, 0),
+                    Base.write_memory(_FP_STACK + '--', '1.0', 64, true)
+                ]);
+            },
+            fpatan: function(instr, context) {
+                return Base.composed([
+                    Base.assign(_fp_stack_at(1), 'arctan(' + _fp_stack_at(1) + '/' + _fp_stack_at(0) + ')'),
+                    Base.decrease(_FP_STACK, 1)
+                ]);
+            },
+            frndint: function(instr, context) {
+                return _fp_math_special('round', 0, 0);
+            },
+            f2xm1: function(instr, context) {
+                return Base.assign(_fp_stack_at(0), 'pow(2, ' + _fp_stack_at(0) + ') - 1.0');
+            },
+            fyl2x: function(instr, context) {
+                return Base.assign(_fp_stack_at(1), _fp_stack_at(1) + ' * log_2(' + _fp_stack_at(0) + ')');
+            },
+            fyl2xp1: function(instr, context) {
+                return Base.assign(_fp_stack_at(1), _fp_stack_at(1) + ' * log_2(' + _fp_stack_at(0) + ' + 1.0)');
+            },
+            ffree: _nop, // free floating-point register
+            finit: _nop, // initialize floating-point unit
+            fldcw: _nop, // load x87 fpu control word
+            fldenv: _nop, // load x87 fpu environment
+            fnclex: _nop, // clear exceptions
+            fnop: _nop,
+            fnsave: _nop, // store x87 fpu state
+            fnstcw: _nop, // store x87 fpu control word
+            fnstenv: _nop, // store x87 fpu environment
+            frstor: _nop, // restore x87 fpu state
+            fsave: _nop, // store x87 fpu state
+            fwait: _nop, // wait fpu
+            fxrstor: _nop, // restore x87 fpu, mmx, xmm, and mxcsr state
+            fxsave: _nop, // save x87 fpu, mmx technology, and sse state
+            invalid: _nop
         },
         preanalisys: function(instrs, context) {
             instrs.forEach(function(i) {
