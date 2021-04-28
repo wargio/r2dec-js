@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 deroad, elicn
+ * Copyright (C) 2017-2021 deroad, elicn
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
