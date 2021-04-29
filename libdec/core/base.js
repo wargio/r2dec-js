@@ -550,6 +550,17 @@
 
             return _assign(returns, new _generic_call('SWAP' + bits, [value]));
         },
+        swap: function(source_a, source_b, bits) {
+            var t = Variable.uniqueName('tmp');
+            var ops = [
+                _assign(Extra.to.type(bits, false) + ' ' + t, source_a),
+                _assign(source_a, source_b),
+                _assign(source_b, t),
+            ];
+            return new function(composed) {
+                this.composed = composed;
+            }(ops);
+        },
         bit_mask: function(destination, source_a, source_b) {
             Global.context.addDependency(new CCalls.bit_mask.fcn());
 
