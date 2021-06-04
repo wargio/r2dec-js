@@ -20,7 +20,7 @@
     var Long = require('libdec/long');
 
     function r2custom(value, regex, function_fix) {
-        var x = r2cmd(value);
+        var x = r2cmd(value) || '';
         if (regex) {
             x = x.replace(regex, '');
         }
@@ -28,7 +28,7 @@
     }
 
     function r2str(value, multiline) {
-        var x = r2cmd(value);
+        var x = r2cmd(value) || '';
         if (multiline) {
             x = x.replace(/\n/g, '');
         }
