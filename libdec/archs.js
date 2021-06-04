@@ -18,6 +18,7 @@
 (function() { // lgtm [js/useless-expression]
 	return {
 		'6502': require('libdec/arch/6502'),
+		'8051': require('libdec/arch/8051'),
 		arm: require('libdec/arch/arm'),
 		avr: require('libdec/arch/avr'),
 		dalvik: require('libdec/arch/dalvik'),

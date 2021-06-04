@@ -131,7 +131,7 @@
             swap: function(instr, context, instructions) {
                 var dst = _arg(instr, 0);
                 var src = _arg(instr, 1);
-                return Base.swap(dst, src);
+                return Base.swap(dst, src, 32);
             },
             /*
             xtrct: function(instr, context, instructions) {
