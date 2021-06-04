@@ -1,5 +1,5 @@
 /* 
- * Copyright (C) 2017-2018 deroad
+ * Copyright (C) 2017-2021 deroad
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -69,34 +69,12 @@
         return Base.assign(e.opd[0], reg);
     };
 
-    var _value_at = function(address, bits) {
-        if ((bits == 32 || bits == 64) && r2cmd) {
-            //this is truly an hack
-            var p = JSON.parse(r2cmd('?j [0x' + address.toString(16) + ']').trim());
-            return Long.fromString(p['int' + bits], true, 10);
-        }
-        return address;
-    };
-
     var load_bits = function(instr, bits, unsigned) {
         instr.setBadJump();
         var e = instr.parsed;
-
-        if (instr.refs.length > 0) {
-            var addr = _value_at(instr.refs[0].addr, bits);
-            instr.string = Global.xrefs.find_string(addr);
-            instr.symbol = Global.xrefs.find_symbol(addr);
-            if (instr.string || instr.symbol) {
-                return Base.assign(e.opd[0], instr.string ? Variable.string(instr.string) : instr.symbol);
-            }
-            //pointer, register, bits, is_signed
-            return Base.read_memory(addr, e.opd[0], bits, !unsigned);
-        }
-
         var arg = e.opd[1].replace(/\)/, '').split('(');
-        if (arg[1] == '0') {
-            //pointer, register, bits, is_signed
-            return Base.read_memory(arg[0], e.opd[0], bits, !unsigned);
+        if (arg[0].indexOf('-sym.') == 0 && arg[1] == 'gp') {
+            return Base.assign(e.opd[0], arg[0].replace(/^-/, ''));
         } else if (arg[0] == '0') {
             //pointer, register, bits, is_signed
             return Base.read_memory(arg[1], e.opd[0], bits, !unsigned);
@@ -164,9 +142,9 @@
                 if (e.mnem == 'nop') {
                     return true;
                 }
-                return (e.mnem == 'ori' && e.opd[0] == r && e.opd[1] == r) ||
-                    (e.mnem == 'addi' && e.opd[0] == r && e.opd[1] == r) ||
-                    (e.mnem == 'addiu' && e.opd[0] == r && e.opd[1] == r);
+                return (e.mnem == 'ori' && (e.opd[0] == r || e.opd[0].indexOf('a') == 0) && e.opd[1] == r) ||
+                    (e.mnem == 'addi' && (e.opd[0] == r || e.opd[0].indexOf('a') == 0) && e.opd[1] == r) ||
+                    (e.mnem == 'addiu' && (e.opd[0] == r || e.opd[0].indexOf('a') == 0) && e.opd[1] == r);
             },
         ];
         var address = [
@@ -188,13 +166,60 @@
             }
             addr = address[step](elem, addr);
             step++;
-            instructions[i].valid = false;
+            if (instr.parsed.opd[0] == instructions[i].parsed.opd[0]) {
+                instructions[i].valid = false;
+            } else {
+                instr.valid = true;
+                instr = instructions[i];
+            }
         }
         --i;
-        instr.string = Global.xrefs.find_string(addr);
-        instr.symbol = Global.xrefs.find_symbol(addr);
-        addr = instr.string ? Variable.string(instr.string) : (instr.symbol || ('0x' + addr.toString(16)).replace(/0x-/, '-0x'));
+        if (instr.parsed.opd[0] != 'gp') {
+            instr.string = Global.xrefs.find_string(addr);
+            instr.symbol = Global.xrefs.find_symbol(addr);
+            addr = instr.string ? Variable.string(instr.string) : (instr.symbol || ('0x' + addr.toString(16)).replace(/0x-/, '-0x'));
+            instr.valid = true;
+        } else {
+            addr = ('0x' + addr.toString(16)).replace(/0x-/, '-0x');
+            instr.valid = false;
+        }
         instr.code = Base.assign(instr.parsed.opd[0], addr);
+        return i;
+    };
+
+
+    var lw_jalr = function(instr, start, instructions, context) {
+        var check = [
+            function(e, r) {
+                if (e.mnem != 'lw' || e.opd[0].indexOf('t') != 0) {
+                    return false;
+                }
+                var arg = e.opd[1].replace(/\)/, '').split('(');
+                return arg[0].indexOf('-sym.') == 0 && arg[1] == 'gp';
+            },
+            function(e, r) {
+                return e.mnem == 'nop';
+            },
+            function(e, r) {
+                return e.mnem == 'jalr' && instr.parsed.opd[0] == e.opd[0];
+            }
+        ];
+        var step = 0;
+        var i;
+        for (i = start; i < instructions.length && step < check.length; ++i, step++) {
+            var elem = instructions[i].parsed;
+            if (!check[step](elem, instr.parsed.opd[0])) {
+                break;
+            } else if (i > start) {
+                instructions[i].valid = false;
+            }
+        }
+        if (step != check.length) {
+            return start;
+        }
+        --i;
+        var symbol = instr.parsed.opd[1].split('(')[0].replace(/^-/, '');
+        instr.code = Base.call(symbol, [], true);
         instr.valid = true;
         return i;
     };
@@ -216,7 +241,7 @@
             'j': function(instr) {
                 return Base.nop();
             },
-            'lui': function(instr) {
+            'lui': function(instr, context) {
                 return _move(instr, null, null, true);
             },
             'move': function(instr) {
@@ -368,7 +393,7 @@
                     /*
                       _delayed_branch (instr, context, instructions);
                     */
-                    return Base.return();
+                    return Base.call(instr.parsed.opd);
                 }
                 var reg = null;
                 for (var i = instructions.length - 1; i >= 0; i--) {
@@ -376,7 +401,7 @@
                     if (!e) {
                         continue;
                     }
-                    if (e.opd.indexOf('v0') == 1 || e.opd.indexOf('v1') == 1) {
+                    if (e.opd[0] == 'v0' || e.opd[0] == 'v1') {
                         reg = e.opd[0];
                         break;
                     }
@@ -486,8 +511,13 @@
         postanalisys: function(instructions, context) {
             /* simplifies any load address 32/64 bit */
             for (var i = 0; i < instructions.length; i++) {
+                if (['sp'].indexOf(instructions[i].parsed.opd[0]) >= 0) {
+                    instructions[i].valid = false;
+                }
                 if (instructions[i].parsed.mnem == 'lui') {
                     i = lui32(instructions[i], i, instructions);
+                } else if (instructions[i].parsed.mnem == 'lw') {
+                    i = lw_jalr(instructions[i], i, instructions);
                 }
             }
         },

@@ -10,7 +10,7 @@ First of all when you need to add a new architecture, you need to create a new `
 
 For example `libdec/arch/arch9999.js` and it needs to follow the minimal base javascript template:
 ```js
-(function() {
+(function() { // lgtm [js/useless-expression]
     const Base = require('libdec/core/base');
     const Variable = require('libdec/core/variable');
     const Extra = require('libdec/core/extra');
