@@ -581,6 +581,17 @@
                 }
                 return Base.nop();
             },
+            sbrs: function(instr, context, instructions) {
+                instr.setBadJump();
+                var next = instructions[instructions.indexOf(instr) + 1];
+                if (next) {
+                    _compare('(' + instr.parsed.opd[0] + ' & (1 << ' + instr.parsed.opd[1] + '))', '1', context);
+                    context.cond.instr = instr;
+                    _conditional_next(next, context, instructions, 'EQ');
+                    return Base.or(instr.parsed.opd[0], instr.parsed.opd[1]);
+                }
+                return Base.nop();
+            },
             sei: function(instr) {
                 instr.setBadJump();
                 return Base.macro('ENABLE_INTERRUPTS', '#define ENABLE_INTERRUPTS __asm(sei)');
@@ -643,6 +654,7 @@
             }
         },
         parse: function(asm) {
+            asm = asm.toLowerCase();
             var ret = asm.replace(/\[|\]/g, ' ').replace(/,/g, ' ');
             ret = ret.replace(/\{|\}/g, ' ').replace(/\s+/g, ' ');
             ret = ret.trim().replace(/0x00/, '0').split(' ');
