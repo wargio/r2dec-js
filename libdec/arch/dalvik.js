@@ -685,6 +685,12 @@
 				context.returntype = JavaObject;
 				return Base.return(Variable.local(p.opd[0], instr.bits, true));
 			},
+			'return-wide': function(instr, context) {
+				var p = instr.parsed;
+				instr.setBadJump();
+				context.returntype = JavaObject;
+				return Base.return(Variable.local(p.opd[0], instr.bits, true));
+			},
 			'return-void': function(instr, context) {
 				instr.setBadJump();
 				context.returntype = 'void';
