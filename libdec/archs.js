@@ -25,6 +25,7 @@
 		m68k: require('libdec/arch/m68k'),
 		mips: require('libdec/arch/mips'),
 		ppc: require('libdec/arch/ppc'),
+		riscv: require('libdec/arch/riscv'),
 		sh: require('libdec/arch/sh'),
 		sparc: require('libdec/arch/sparc'),
 		v850: require('libdec/arch/v850'),

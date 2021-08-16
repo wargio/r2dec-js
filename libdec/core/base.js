@@ -506,6 +506,9 @@
         not: function(destination, source) {
             return _assign(destination, new _uexpr('~', source));
         },
+        extend: function(destination, source, bits) {
+            return _assign(destination, new _uexpr('(int' + bits + '_t) ', source));
+        },
         subtract: function(destination, source_a, source_b) {
             if ((destination == source_a) && (source_b == '0')) {
                 return null;
