@@ -941,8 +941,11 @@
                 'amd64': _populate_systemv_amd64_call_args,
                 'ms': _populate_ms_amd64_call_args
             }[callee.calltype];
-            if (typeof populate_call_args === 'undefined') {
+            if (!populate_call_args) {
               populate_call_args = _populate_cdecl_call_args;
+            }
+            if (!guess_nargs) {
+              guess_nargs = _guess_cdecl_nargs;
             }
 
             // every non-import callee has a known number of arguments
