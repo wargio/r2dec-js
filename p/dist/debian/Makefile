@@ -17,10 +17,8 @@ all: root
 	${MAKE} deb
 
 root:
-	export CFLAGS=-DR2DEC_HOME=\"\\\"$(R2_PLUGIN_DIR)/r2dec-js\\\"\" && make -C ../..
-	mkdir -p root/$(R2_PLUGIN_DIR)/r2dec-js
-	cp -vf ../../core_pdd.$(R2_LIBEXT) root/$(R2_PLUGIN_DIR)
-	cp -vfr ../../../libdec root/$(R2_PLUGIN_DIR)/r2dec-js
+	export CFLAGS=-DR2DEC_HOME=\"\\\"$(R2_PLUGIN_DIR)/r2decjs\\\"\" && make -C ../..
+	make -C ../.. install DESTDIR=$(shell pwd)/root
 
 purge: clean
 	rm -rf root

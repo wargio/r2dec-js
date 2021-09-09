@@ -12,13 +12,15 @@ LDFLAGS_PKG=$(shell pkg-config --libs r_util r_io r_cons r_core 2> /dev/null)
 endif
 
 LIBEXT=$(shell r2 -H LIBEXT)
-# PLUGDIR=$(shell r2 -H R2_LIBR_PLUGINS)
-PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
+PLUGDIR=$(shell r2 -H R2_LIBR_PLUGINS)
+
+R2DEC_HOME=$(PLUGDIR)/r2decjs
 
 V=@
 ECHO=echo
 RM=rm -f
 CP=cp -f
+LN=ln -fs
 MKDIR=mkdir -p
 
 SRCS=duktape/duktape.c duktape/duk_console.c core_pdd.c
@@ -26,7 +28,7 @@ OBJS=$(SRCS:.c=.o)
 BIN=core_pdd.$(LIBEXT)
 DESTDIR?=
 
-all: clean build install
+all: clean build
 
 build: $(BIN)
 
@@ -38,22 +40,40 @@ $(BIN): $(OBJS)
 	$(V)$(ECHO) "[CC] $@"
 	$(V)$(CC) $(CFLAGS) $(CFLAGS_PKG) -c $< -o $@
 
-$(DESTDIR)$(PLUGDIR):
+$(DESTDIR)$(R2DEC_HOME) $(DESTDIR)$(R2DEC_HOME)/libdec $(DESTDIR)$(PLUGDIR):
 	$(V)$(MKDIR) $@
 
-install: uninstall $(DESTDIR)$(PLUGDIR) $(BIN)
-	$(V)$(RM) $(DESTDIR)$(PLUGDIR)/$(BIN)
+install-plugin: $(DESTDIR)$(R2DEC_HOME)/libdec $(DESTDIR)$(PLUGDIR) $(BIN)
 	$(V)$(CP) $(BIN) $(DESTDIR)$(PLUGDIR)
 
-install-libdec: $(DESTDIR)$(PLUGDIR) $(BIN)
-	$(V)$(CP) $(BIN) $(DESTDIR)$(PLUGDIR)
-	$(CP) -r ../libdec $(DESTDIR)$(PLUGDIR)
+symstall symlink: $(DESTDIR)$(PLUGDIR) $(DESTDIR)/$(R2DEC_HOME)/libdec
+	$(V)$(LN) $(shell pwd)/$(BIN) $(DESTDIR)$(PLUGDIR)
+	$(V)$(RM) $(DESTDIR)$(R2DEC_HOME)
+	$(V)$(LN) $(shell pwd) $(DESTDIR)$(R2DEC_HOME)
+
+install:
+	$(V)$(MAKE) install-plugin
+	$(V)$(MAKE) install-libdec
+
+user-install:
+	$(V)$(MAKE) install-plugin PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
+	$(V)$(MAKE) install-libdec PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
+
+install-libdec: $(DESTDIR)$(R2DEC_HOME)
+	$(V)$(CP) -r ../r2dec-duk.js ../require.js ../libdec "$(DESTDIR)$(R2DEC_HOME)"
+
+user-install-libdec:
+	$(V)$(MAKE) install-libdec PLUGDIR=$(shell r2 -H R2_USER_PLUGINS) R2DEC_HOME=$(shell r2 -H R2_USER_PLUGINS)/r2decjs
 
 uninstall:
 	$(V)$(RM) $(DESTDIR)$(PLUGDIR)/$(BIN)
+	$(V)$(RM) -r $(DESTDIR)$(PLUGDIR)/r2decjs
+
+user-uninstall:
+	$(V)$(MAKE) uninstall PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
 
 clean:
-	$(V)$(RM) $(BIN) $(OBJS) || sleep 0
+	-$(V)$(RM) $(BIN) $(OBJS)
 
 testbin:
 	$(V)$(CC) $(CFLAGS) -DUSE_RCONS=0 -o r2dec-test duktape/duktape.c duktape/duk_console.c r2dec-test.c $(LDFLAGS)
