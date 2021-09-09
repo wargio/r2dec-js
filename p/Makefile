@@ -1,8 +1,15 @@
 CFLAGS+=-g -O3 -std=c99 -Wall -fPIC -I./duktape
-CFLAGS_PKG=$(shell pkg-config --cflags r_util r_io r_cons r_core)
-
 LDFLAGS+=-lm
-LDFLAGS_PKG=$(shell pkg-config --libs r_util r_io r_cons r_core)
+
+HAVE_PKGCONFIG=$(shell pkg-config --help 2> /dev/null)
+
+ifeq ($(HAVE_PKGCONFIG),)
+CFLAGS_PKG+=-I$(shell r2 -H R2_INCDIR) -I$(shell r2 -H R2_INCDIR)/sdb
+LDFLAGS_PKG+=-L$(shell r2 -H R2_LIBDIR) -lr_util -lr_io -lr_cons -lr_core
+else
+CFLAGS_PKG=$(shell pkg-config --cflags r_util r_io r_cons r_core 2> /dev/null)
+LDFLAGS_PKG=$(shell pkg-config --libs r_util r_io r_cons r_core 2> /dev/null)
+endif
 
 LIBEXT=$(shell r2 -H LIBEXT)
 # PLUGDIR=$(shell r2 -H R2_LIBR_PLUGINS)
