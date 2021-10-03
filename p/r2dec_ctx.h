@@ -3,10 +3,9 @@
 #define R2DEC_CTX_H
 
 #include <duktape.h>
-#include <r_core.h>
 
 typedef struct r2dec_ctx_t {
-	RCore *core;
+	void *core;
 	void *bed;
 } R2DecCtx;
 
