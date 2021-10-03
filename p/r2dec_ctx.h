@@ -3,8 +3,7 @@
 #define R2DEC_CTX_H
 
 #include <duktape.h>
-
-typedef struct r_core_t RCore;
+#include <r_core.h>
 
 typedef struct r2dec_ctx_t {
 	RCore *core;
