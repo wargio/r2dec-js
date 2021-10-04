@@ -9,16 +9,17 @@
 #ifndef USE_RCONS
 #define USE_RCONS 1
 #endif
-#if USE_RCONS
-#include <r_cons.h>
-#endif
 
 #include <stdio.h>
 #include <stdarg.h>
 #include "duktape.h"
 #include "duk_console.h"
 
+#if USE_RCONS
+#include <r_cons.h>
 #include "../r2dec_ctx.h"
+#endif
+
 
 /* XXX: Add some form of log level filtering. */
 
