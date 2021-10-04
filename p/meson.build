@@ -8,12 +8,12 @@ deps = []
 
 r2_incdir = get_option('r2_incdir')
 if r2_incdir == '' and r2.found()
-  r2_incdir = run_command(r2, '-H', 'INCDIR').stdout().strip()
+  r2_incdir = run_command(r2, '-H', 'R2_INCDIR').stdout().strip()
 endif
 
 r2_libdir = get_option('r2_libdir')
 if r2_libdir == '' and r2.found()
-  r2_libdir = run_command(r2, '-H', 'LIBDIR').stdout().strip()
+  r2_libdir = run_command(r2, '-H', 'R2_LIBDIR').stdout().strip()
 endif
 
 libs = ['r_core', 'r_util', 'r_cons', 'r_config', 'r_io']
