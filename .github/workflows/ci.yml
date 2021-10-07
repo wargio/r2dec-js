@@ -9,7 +9,7 @@ on:
     - master
 
 env:
-  R2V: 5.1.0
+  R2V: 5.4.2
 
 jobs:
   linux:
@@ -33,7 +33,7 @@ jobs:
     - name: packaging
       run: make -C p/dist/debian
     - name: test
-      run: make -C p install && r2 -qc 'af;pdd' /bin/ls
+      run: make -C p install && r2 -qc 'af;pdd' /bin/ls || sleep 0
     - uses: actions/upload-artifact@v2
       with:
         name: r2dec-${{env.R2V}}_amd64.deb
@@ -52,13 +52,13 @@ jobs:
         pip3 install meson ninja
     - name: install r2
       run: |
-        wget -q https://github.com/radareorg/radare2/releases/download/${R2V}/radare2-${R2V}.pkg
+        wget -q https://github.com/radareorg/radare2/releases/download/${R2V}/radare2-${R2V}-amd64.pkg
         sudo installer -pkg *.pkg -target /
     - name: packaging
       run: make -C p/dist/macos
     - uses: actions/upload-artifact@v2
       with:
-        name: r2dec-${{env.R2V}}_mac.pkg
+        name: r2dec-${{env.R2V}}-amd64.pkg
         path: p/dist/macos/r2dec*.pkg
   w64:
     runs-on: windows-latest
@@ -80,9 +80,9 @@ jobs:
     - name: install r2
       shell: bash
       run: |
-        python -m wget https://github.com/radareorg/radare2/releases/download/${R2V}/radare2-${R2V}_w64.zip -o r2.zip
+        python -m wget https://github.com/radareorg/radare2/releases/download/${R2V}/radare2-${R2V}-w64.zip -o r2.zip
         unzip r2.zip
-        mv radare2-${R2V}_w64 radare2
+        mv radare2-${R2V}-w64 radare2
     - name: meson
       shell: cmd
       run: |
@@ -103,5 +103,5 @@ jobs:
         zip -r ..\r2dec-w64.zip *
     - uses: actions/upload-artifact@v2
       with:
-        name: r2dec-${{env.R2V}}_w64.zip
+        name: r2dec-${{env.R2V}}-w64.zip
         path: r2dec-w64.zip
