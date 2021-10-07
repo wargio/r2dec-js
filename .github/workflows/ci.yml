@@ -33,7 +33,7 @@ jobs:
     - name: packaging
       run: make -C p/dist/debian
     - name: test
-      run: make -C p install && r2 -qc 'af;pdd' /bin/ls || sleep 0
+      run: make -C p install && r2 -Qc 'af;pdd' /bin/ls
     - uses: actions/upload-artifact@v2
       with:
         name: r2dec-${{env.R2V}}_amd64.deb
