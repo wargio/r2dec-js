@@ -166,13 +166,21 @@ R2DecCtx *r2dec_ctx_get(duk_context *ctx) {
 //	duk_pop(ctx);
 //}
 
-static void eval_file(duk_context* ctx, const char* file) {
-	// eprintf ("REQUIRE: %s\n", file);
-	char* text = r2dec_read_file (file);
-	if (text) {
-		duk_push_lstring (ctx, file, strlen (file));
-		duk_eval_file_noresult (ctx, text);
-		free (text);
+
+static void eval_file(duk_context *ctx, const char *file) {
+	//fprintf (stderr, "REQUIRE: %s\n", file);
+	//fflush (stderr);
+#ifdef USE_JSC
+	const char *js = r2dec_jsc(file);
+#else
+	char *js = r2dec_read_file(file);
+#endif
+	if (js) {
+		duk_push_lstring(ctx, file, strlen(file));
+		duk_eval_file_noresult(ctx, js);
+#ifndef USE_JSC
+		free(js);
+#endif
 	}
 }
 
