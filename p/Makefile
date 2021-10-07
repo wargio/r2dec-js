@@ -14,7 +14,7 @@ endif
 LIBEXT=$(shell r2 -H LIBEXT)
 PLUGDIR=$(shell r2 -H R2_LIBR_PLUGINS)
 
-R2DEC_HOME=$(PLUGDIR)/r2decjs
+R2DEC_HOME=$(PLUGDIR)/r2dec-js
 
 V=@
 ECHO=echo
@@ -28,13 +28,16 @@ OBJS=$(SRCS:.c=.o)
 BIN=core_pdd.$(LIBEXT)
 DESTDIR?=
 
-all: clean build
+all: build
 
 build: $(BIN)
 
 $(BIN): $(OBJS)
 	$(V)$(ECHO) "[CC] $@"
 	$(V)$(CC) $(LDFLAGS) $(LDFLAGS_PKG) -shared $^ -o $@
+
+asan:
+	$(MAKE) $(BIN) CFLAGS=-fsanitize=address
 
 %.o: %.c
 	$(V)$(ECHO) "[CC] $@"
@@ -63,11 +66,11 @@ install-libdec: $(DESTDIR)$(R2DEC_HOME)
 	$(V)$(CP) -r ../r2dec-duk.js ../require.js ../libdec "$(DESTDIR)$(R2DEC_HOME)"
 
 user-install-libdec:
-	$(V)$(MAKE) install-libdec PLUGDIR=$(shell r2 -H R2_USER_PLUGINS) R2DEC_HOME=$(shell r2 -H R2_USER_PLUGINS)/r2decjs
+	$(V)$(MAKE) install-libdec PLUGDIR=$(shell r2 -H R2_USER_PLUGINS) R2DEC_HOME=$(shell r2 -H R2_USER_PLUGINS)/r2dec-js
 
 uninstall:
 	$(V)$(RM) $(DESTDIR)$(PLUGDIR)/$(BIN)
-	$(V)$(RM) -r $(DESTDIR)$(PLUGDIR)/r2decjs
+	$(V)$(RM) -r $(DESTDIR)$(PLUGDIR)/r2dec-js
 
 user-uninstall:
 	$(V)$(MAKE) uninstall PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)

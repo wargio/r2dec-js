@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2018,2019 - pancake, deroad */
+/* radare - LGPL - Copyright 2018,2021 - pancake, deroad */
 
 #include <stdlib.h>
 #include <string.h>
@@ -21,10 +21,17 @@
 #define SETDESC(x,y) r_config_node_desc (x,y)
 #define SETPREF(x,y,z) SETDESC (r_config_set (cfg,x,y), z)
 
-/* for compatibility. */
-#ifndef R2_HOME_DATADIR
-#define R2_HOME_DATADIR R2_HOMEDIR
-#endif
+static char *slurp_at(char *env, const char *file) {
+	if (R_STR_ISEMPTY (env) || R_STR_ISEMPTY (file)) {
+		return NULL;
+	}
+	size_t len = 0;
+	char *filepath = r_str_newf ("%s"R_SYS_DIR"%s", env, file);
+	char *text = r_file_slurp (filepath, &len);
+	free (filepath);
+	free (env);
+	return (text && len > 0)? text: NULL;
+}
 
 #ifdef USE_JSC
 #include "r2dec_jsc.c"
@@ -34,31 +41,46 @@ static char* r2dec_read_file(const char* file) {
 	if (!file) {
 		return 0;
 	}
-	char *r2dec_home;
-	char *env = r_sys_getenv ("R2DEC_HOME");
-	if (env) {
-		r2dec_home = env;
-	} else {
-#ifdef R2DEC_HOME
-		r2dec_home = r_str_new (R2DEC_HOME);
-#else
-		r2dec_home = r_str_home (R2_HOME_DATADIR R_SYS_DIR
-			"r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js");
-#endif
+	// env
+	{
+		char *env = r_sys_getenv ("R2DEC_HOME");
+		char *res = slurp_at (env, file);
+		if (res) {
+			return res;
+		}
 	}
-	size_t len = 0;
-	if (!r2dec_home) {
-		return 0;
+	char *user_home = r_str_home (NULL);
+	// r2pm
+	{
+		char *env = r_str_newf ("%s"R_SYS_DIR"%s"R_SYS_DIR"%s"R_SYS_DIR"%s"R_SYS_DIR"%s",
+				user_home, R2_HOME_DATADIR, "r2pm", "git", "r2dec-js");
+		char *res = slurp_at (env, file);
+		if (res) {
+			free (user_home);
+			return res;
+		}
 	}
-	char *filepath = r_str_newf ("%s"R_SYS_DIR"%s", r2dec_home, file);
-	free (r2dec_home);
-	char* text = r_file_slurp (filepath, &len);
-	if (text && len > 0) {
-		free (filepath);
-		return text;
+	// user-install
+	{
+		char *env = r_str_newf ("%s"R_SYS_DIR"%s"R_SYS_DIR"%s",
+				user_home, R2_HOME_PLUGINS, "r2dec-js");
+		char *res = slurp_at (env, file);
+		if (res) {
+			free (user_home);
+			return res;
+		}
+		free (user_home);
 	}
-	free (filepath);
-	return 0;
+	// system-install
+	{
+		char *env = r_str_newf ("%s"R_SYS_DIR"%s"R_SYS_DIR"%s",
+				R2_PREFIX, R2_PLUGINS, "r2dec-js");
+		char *res = slurp_at (env, file);
+		if (res) {
+			return res;
+		}
+	}
+	return NULL;
 }
 
 static duk_ret_t duk_r2cmd(duk_context *ctx) {
@@ -145,8 +167,7 @@ R2DecCtx *r2dec_ctx_get(duk_context *ctx) {
 //}
 
 static void eval_file(duk_context* ctx, const char* file) {
-	// fprintf (stderr, "REQUIRE: %s\n", file);
-	// fflush (stderr);
+	// eprintf ("REQUIRE: %s\n", file);
 	char* text = r2dec_read_file (file);
 	if (text) {
 		duk_push_lstring (ctx, file, strlen (file));
