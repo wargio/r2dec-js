@@ -32,8 +32,8 @@ def main(argc, argv):
 	print('\n#define R2_JSC_SIZE ({})\n\n'.format(len(js_files)))
 	print('const R2JSC r_jsc_file[R2_JSC_SIZE] = {')
 	for file in js_files:
-		name = file[path_len + 1:]
-		vname = const_var_name(name)
+		name = file[path_len + 1:].replace(os.sep, '/')
+		vname = const_var_name(file[path_len + 1:])
 		print('\t{ .name = "' + name + '", .code = (const char *)' + vname + ' },')
 	print('};')
 
