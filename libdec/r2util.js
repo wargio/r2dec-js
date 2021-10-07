@@ -76,6 +76,7 @@
     var padding = '                   ';
     var usages = {
         "--help": "this help message",
+        "--architectures": "lists the supported architectures",
         "--all-functions": "decompile all functions",
         "--assembly": "shows pseudo next to the assembly",
         "--blocks": "shows only scopes blocks",
@@ -136,6 +137,14 @@
             ',"afcfj":' + database +
             ',"aflj":' + functions + '}');
     }
+
+    function print_archs() {
+        var libdec = require('libdec/libdec');
+        var archs = Object.keys(libdec.archs);
+        archs.sort()
+        console.log('Supported architectures: ' + archs.join(', '));
+    }
+
     var r2util = {
         check_args: function(args) {
             if (has_invalid_args(args)) {
@@ -147,6 +156,10 @@
             }
             if (has_option(args, '--issue')) {
                 print_issue();
+                return true;
+            }
+            if (has_option(args, '--architectures')) {
+                print_archs();
                 return true;
             }
             return false;

@@ -26,6 +26,10 @@
 #define R2_HOME_DATADIR R2_HOMEDIR
 #endif
 
+#ifdef USE_JSC
+#include "r2dec_jsc.c"
+#endif
+
 static char* r2dec_read_file(const char* file) {
 	if (!file) {
 		return 0;
@@ -91,20 +95,25 @@ static duk_ret_t duk_internal_load(duk_context *ctx) {
 
 static duk_ret_t duk_internal_require(duk_context *ctx) {
 	char fullname[256];
-	if (duk_is_string (ctx, 0)) {
-		snprintf (fullname, sizeof(fullname), "%s.js", duk_safe_to_string (ctx, 0));
-		char* text = r2dec_read_file (fullname);
-		if (text) {
-			duk_push_lstring (ctx, fullname, strlen (fullname));
-			duk_eval_file (ctx, text);
-			free (text);
-		} else {
-			printf("Error: '%s' not found.\n", fullname);
-			return DUK_RET_TYPE_ERROR;
-		}
-		return 1;
+	if (!duk_is_string(ctx, 0)) {
+		return DUK_RET_TYPE_ERROR;
 	}
-	return DUK_RET_TYPE_ERROR;
+	snprintf(fullname, sizeof(fullname), "%s.js", duk_safe_to_string(ctx, 0));
+#ifdef USE_JSC
+	const char *js = r2dec_jsc(fullname);
+#else
+	char *js = r2dec_read_file(fullname);
+#endif
+	if (!js) {
+		printf("Error: '%s' not found.\n", fullname);
+		return DUK_RET_TYPE_ERROR;
+	}
+	duk_push_lstring(ctx, fullname, strlen(fullname));
+	duk_eval_file(ctx, js);
+#ifndef USE_JSC
+	free(js);
+#endif
+	return 1;
 }
 
 static void duk_r2_init(duk_context* ctx, R2DecCtx *r2dec_ctx) {
@@ -178,6 +187,7 @@ static void usage(const RCore* const core) {
 	const char* help[] = {
 		"Usage: pdd[*abousi]", "",	"# Core plugin for r2dec",
 		"pdd",	"",        "decompile current function",
+		"pddt",	"",        "lists the supported architectures",
 		"pdd*",	"",        "decompiled code is returned to r2 as comment (via CCu)",
 		"pddc",	"",        "decompiled code is returned to r2 as 'file:line code' (via CL)",
 		"pdda",	"",        "decompile current function with side assembly",
@@ -241,6 +251,10 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	case 's':
 		// switch branch
 		switch_git_branch (core, input + 1);
+		break;
+	case 't':
+		// --architectures
+		duk_r2dec (core, "--architectures");
 		break;
 	case 'i':
 		// --issue

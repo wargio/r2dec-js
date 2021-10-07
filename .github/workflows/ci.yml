@@ -29,7 +29,7 @@ jobs:
     - name: make build
       run: CFLAGS=-DR2DEC_HOME="\\\"$(r2 -H R2_LIBR_PLUGINS)\\\"" make -j -C p
     - name: meson build
-      run: cd p ; meson b && ninja -C b
+      run: cd p ; meson -Djsc_folder=".." b && ninja -C b
     - name: packaging
       run: make -C p/dist/debian
     - name: test
@@ -90,18 +90,15 @@ jobs:
         set CFLAGS=-I%CD%\radare2\include
         set LDFLAGS=-L%CD%\radare2\lib
         set PATH=%CD%\radare2\bin;%PATH%
-        set DESTDIR=%CD%\destdir
+        set DESTDIR=%CD%\r2dec-plugin
         set ARCH=x64
         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
         cd p
-        meson b --prefix=/
+        meson -Djsc_folder=".." b --prefix=/
         ninja -C b
         mkdir %DESTDIR%
         copy b\*.dll %DESTDIR%
-        xcopy /E ..\libdec %DESTDIR%
-        cd %DESTDIR%
-        zip -r ..\r2dec-w64.zip *
     - uses: actions/upload-artifact@v2
       with:
         name: r2dec-${{env.R2V}}-w64.zip
-        path: r2dec-w64.zip
+        path: r2dec-plugin
