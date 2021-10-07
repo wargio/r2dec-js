@@ -92,7 +92,7 @@ static duk_ret_t duk_r2cmd(duk_context *ctx) {
 		r_cons_sleep_end (r2dec_ctx->bed);
 		char* output = r_core_cmd_str (r2dec_ctx->core, command);
 		r2dec_ctx->bed = r_cons_sleep_begin ();
-		duk_push_string (ctx, output);
+		duk_push_string (ctx, output ? output : "");
 		free (output);
 		return 1;
 	}
