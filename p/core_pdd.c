@@ -179,20 +179,8 @@ static void eval_file(duk_context *ctx, const char *file) {
 		duk_eval_file_noresult(ctx, js);
 #ifndef USE_JSC
 		free(js);
-#endifstatic void eval_file(duk_context *ctx, const char *file) {
-	//fprintf (stderr, "REQUIRE: %s\n", file);
-	//fflush (stderr);
-#ifdef USE_JSC
-	const char *js = r2dec_jsc(file);
-#else
-	char *js = r2dec_read_file(file);
-#endif
-	if (js) {
-		duk_push_lstring(ctx, file, strlen(file));
-		duk_eval_file_noresult(ctx, js);
-#ifndef USE_JSC
-		free(js);
-#endif
+	}
+}
 
 static void r2dec_fatal_function (void *udata, const char *msg) {
     fprintf (stderr, "*** FATAL ERROR: %s\n", (msg ? msg : "no message"));
