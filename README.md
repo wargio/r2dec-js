@@ -22,12 +22,10 @@ Follow the following steps to install r2dec via r2pm
 
 ### Windows users only:
 
- - clone
- - For cygwin or msys2
-    - run `make -C p` from inside the `r2dec` folder
- - For everything else
-    - Build via meson.
- - Set `R2DEC_HOME` env variable or copy whole r2dec-js dir to `%R2_RDATAHOME%\r2pm\git\` where `%R2_RDATAHOME%` is path returned by `radare2.exe -H R2_RDATAHOME`.
+ - clone this repository
+ - Run `cd p`
+ - Run `meson -Djsc_folder=".." build` to create the build folder
+ - Run `ninja -C build install` to build the shared library and to install it 
 
 # Usage
 

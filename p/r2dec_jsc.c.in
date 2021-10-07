@@ -1,0 +1,16 @@
+
+typedef struct {
+	const char *name;
+	const char *code;
+} R2JSC;
+
+@JSC_SOURCES@
+
+static const char *r2dec_jsc(const char *fullname) {
+	for (ut32 i = 0; i < R2_JSC_SIZE; ++i) {
+		if (!strcmp(fullname, r_jsc_file[i].name)) {
+			return r_jsc_file[i].code;
+		}
+	}
+	return NULL;
+}

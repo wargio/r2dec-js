@@ -1,31 +1,41 @@
 project('r2dec', 'c', meson_version: '>=0.46.0')
 
-r2 = find_program('radare2', required: false)
+pyth = import('python').find_installation()
+radare2 = find_program('radare2', required: false)
 cc = meson.get_compiler('c')
 
-incs = []
+incs = ['.']
 deps = []
+c_args = []
 
-r2_incdir = get_option('r2_incdir')
-if r2_incdir == '' and r2.found()
-  r2_incdir = run_command(r2, '-H', 'R2_INCDIR').stdout().strip()
+radare2_incdir = get_option('r2_incdir')
+if radare2_incdir == '' and radare2.found()
+  radare2_incdir = run_command(radare2, '-H', 'R2_INCDIR').stdout().strip()
 endif
 
-r2_libdir = get_option('r2_libdir')
-if r2_libdir == '' and r2.found()
-  r2_libdir = run_command(r2, '-H', 'R2_LIBDIR').stdout().strip()
+radare2_libdir = get_option('r2_libdir')
+if radare2_libdir == '' and radare2.found()
+  radare2_libdir = run_command(radare2, '-H', 'R2_LIBDIR').stdout().strip()
+endif
+
+radare2_plugdir = get_option('r2_plugdir')
+if radare2_plugdir == '' and radare2.found()
+  radare2_plugdir = run_command(radare2, '-H', 'R2_LIBR_PLUGINS').stdout().strip()
+  if radare2_plugdir == ''
+    radare2_plugdir = get_option('libdir')
+  endif
 endif
 
 libs = ['r_core', 'r_util', 'r_cons', 'r_config', 'r_io']
 foreach lib : libs
-  deps += cc.find_library(lib, dirs: r2_libdir)
+  deps += cc.find_library(lib, dirs: radare2_libdir)
 endforeach
 
 deps += cc.find_library('m', required: false)
 
-if r2_incdir != ''
-  incs += r2_incdir
-  incs += r2_incdir + '/sdb'
+if radare2_incdir != ''
+  incs += radare2_incdir
+  incs += radare2_incdir + '/sdb'
 endif
 
 incs += 'duktape'
@@ -36,16 +46,44 @@ files = [
   'duktape/duk_console.c'
 ]
 
+jsc_folder = get_option('jsc_folder')
+
+if jsc_folder != ''
+  c_args += '-DUSE_JSC'
+  generator_jsc = files('make_jsc.py')
+  rc = run_command(pyth, generator_jsc, jsc_folder)
+  if rc.returncode() != 0
+    error('failed to generate jsc files.')
+  endif
+  r2dec_jsc = configuration_data()
+  r2dec_jsc.set('JSC_SOURCES', rc.stdout())
+  rz_version_h = configure_file(
+    input: 'r2dec_jsc.c.in',
+    output: 'r2dec_jsc.c',
+    configuration: r2dec_jsc,
+  )
+endif
+
+message('Radare2 Include Dir: ' + radare2_incdir)
+message('Radare2 Library Dir: ' + radare2_libdir)
+message('Radare2 Plugin Dir:  ' + radare2_plugdir)
+if jsc_folder != ''
+  message('JS to C Folder:    ' + jsc_folder)
+endif
+
 shared_library('core_pdd', files,
+  c_args : c_args,
   dependencies: deps,
   include_directories: include_directories(incs),
   implicit_include_directories: false,
   install: true,
-  install_dir: get_option('libdir')
+  install_dir: radare2_plugdir
 )
 
-dst = join_paths(get_option('datadir'), 'r2dec-js')
-install_subdir(join_paths('..', 'libdec'), install_dir: dst)
-install_subdir(join_paths('..', 'themes'), install_dir: dst)
-install_data(join_paths('..', 'r2dec-duk.js'), install_dir: dst)
-install_data(join_paths('..', 'require.js'), install_dir: dst)
+if jsc_folder == ''
+  dst = join_paths(get_option('datadir'), 'r2dec')
+  install_subdir(join_paths('..', 'libdec'), install_dir: dst)
+  install_subdir(join_paths('..', 'themes'), install_dir: dst)
+  install_data(join_paths('..', 'r2dec-duk.js'), install_dir: dst)
+  install_data(join_paths('..', 'require.js'), install_dir: dst)
+endif

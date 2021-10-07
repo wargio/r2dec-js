@@ -1,2 +1,4 @@
-option('r2_libdir', type: 'string', value: '')
-option('r2_incdir', type: 'string', value: '')
+option('r2_libdir', type: 'string', value: '', description: 'radare2 library directory')
+option('r2_incdir', type: 'string', value: '', description: 'radare2 include directory')
+option('r2_plugdir', type: 'string', value: '', description: 'radare2 install directory')
+option('jsc_folder', type: 'string', value: '', description: 'When a path is defined, the js code, found in its subfolders, is embedded into the C code.')
