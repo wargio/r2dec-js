@@ -33,17 +33,21 @@ endforeach
 
 deps += cc.find_library('m', required: false)
 
+if cc.has_argument('/MD')
+  add_project_arguments('/MD', language: ['c'])
+endif
+
 if radare2_incdir != ''
   incs += radare2_incdir
-  incs += radare2_incdir + '/sdb'
+  incs += join_paths(radare2_incdir, 'sdb')
 endif
 
 incs += 'duktape'
 
 files = [
   'core_pdd.c',
-  'duktape/duktape.c',
-  'duktape/duk_console.c'
+  join_paths('duktape', 'duktape.c'),
+  join_paths('duktape', 'duk_console.c'),
 ]
 
 jsc_folder = get_option('jsc_folder')
