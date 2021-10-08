@@ -46,8 +46,8 @@ incs += 'duktape'
 
 files = [
   'core_pdd.c',
-  join_paths('duktape', 'duktape.c')
-  join_paths('duktape', 'duk_console.c')
+  join_paths('duktape', 'duktape.c'),
+  join_paths('duktape', 'duk_console.c'),
 ]
 
 jsc_folder = get_option('jsc_folder')
