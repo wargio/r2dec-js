@@ -8,9 +8,13 @@ incs = ['.']
 deps = []
 c_args = []
 
-radare2_incdir = get_option('r2_incdir')
-if radare2_incdir == '' and radare2.found()
-  radare2_incdir = run_command(radare2, '-H', 'R2_INCDIR').stdout().strip()
+if host_machine.system() == 'windows'
+  radare2_incdir = join_paths('..', 'prefix', 'include', 'libr')
+else
+  radare2_incdir = get_option('r2_incdir')
+  if radare2_incdir == '' and radare2.found()
+    radare2_incdir = run_command(radare2, '-H', 'R2_INCDIR').stdout().strip()
+  endif
 endif
 
 radare2_libdir = get_option('r2_libdir')
@@ -70,8 +74,6 @@ message('Radare2 Plugin Dir:  ' + radare2_plugdir)
 if jsc_folder != ''
   message('JS to C Folder:    ' + jsc_folder)
 endif
-
-incs=[ '.', 'duktape', join_paths('..', 'prefix', 'include', 'libr'), join_paths('..', 'prefix', 'include', 'libr', 'sdb') ]
 
 shared_library('core_pdd', files,
   c_args : c_args,
