@@ -23,14 +23,26 @@
 
 static char *slurp_at(char *env, const char *file) {
 	if (R_STR_ISEMPTY (env) || R_STR_ISEMPTY (file)) {
+		free (env);
 		return NULL;
 	}
+
 	size_t len = 0;
 	char *filepath = r_str_newf ("%s"R_SYS_DIR"%s", env, file);
+	if (!filepath) {
+		free (env);
+		return NULL;
+	}
+
 	char *text = r_file_slurp (filepath, &len);
 	free (filepath);
 	free (env);
-	return (text && len > 0)? text: NULL;
+
+	if (R_STR_ISEMPTY(text)) {
+		free(text);
+		text = NULL;
+	}
+	return text;
 }
 
 #ifdef USE_JSC
@@ -65,11 +77,10 @@ static char* r2dec_read_file(const char* file) {
 		char *env = r_str_newf ("%s"R_SYS_DIR"%s"R_SYS_DIR"%s",
 				user_home, R2_HOME_PLUGINS, "r2dec-js");
 		char *res = slurp_at (env, file);
+		free (user_home);
 		if (res) {
-			free (user_home);
 			return res;
 		}
-		free (user_home);
 	}
 	// system-install
 	{
@@ -86,8 +97,6 @@ static char* r2dec_read_file(const char* file) {
 static duk_ret_t duk_r2cmd(duk_context *ctx) {
 	if (duk_is_string (ctx, 0)) {
 		const char* command = duk_safe_to_string (ctx, 0);
-	    //fprintf (stderr, "R2CMD: %s\n", command);
-	    //fflush (stderr);
 		R2DecCtx *r2dec_ctx = r2dec_ctx_get (ctx);
 		r_cons_sleep_end (r2dec_ctx->bed);
 		char* output = r_core_cmd_str (r2dec_ctx->core, command);
@@ -100,19 +109,18 @@ static duk_ret_t duk_r2cmd(duk_context *ctx) {
 }
 
 static duk_ret_t duk_internal_load(duk_context *ctx) {
-	if (duk_is_string (ctx, 0)) {
-		const char* fullname = duk_safe_to_string (ctx, 0);
-		char* text = r2dec_read_file (fullname);
-		if (text) {
-			duk_push_string (ctx, text);
-			free (text);
-		} else {
-			printf("Error: '%s' not found.\n", fullname);
-			return DUK_RET_TYPE_ERROR;
-		}
-		return 1;
+	if (!duk_is_string (ctx, 0)) {
+		return DUK_RET_TYPE_ERROR;
 	}
-	return DUK_RET_TYPE_ERROR;
+	const char *fullname = duk_safe_to_string (ctx, 0);
+	char *text = r2dec_read_file (fullname);
+	if (!text) {
+		printf("Error: '%s' not found.\n", fullname);
+		return DUK_RET_TYPE_ERROR;
+	}
+	duk_push_string (ctx, text);
+	free (text);
+	return 1;
 }
 
 static duk_ret_t duk_internal_require(duk_context *ctx) {
@@ -179,6 +187,7 @@ static void eval_file(duk_context *ctx, const char *file) {
 		duk_eval_file_noresult(ctx, js);
 #ifndef USE_JSC
 		free(js);
+#endif
 	}
 }
 
