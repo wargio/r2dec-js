@@ -28,6 +28,7 @@ static char *slurp_at(char *env, const char *file) {
 	size_t len = 0;
 	char *filepath = r_str_newf ("%s"R_SYS_DIR"%s", env, file);
 	char *text = r_file_slurp (filepath, &len);
+	if (len == 0) { return NULL; }
 	free (filepath);
 	free (env);
 	return (text && len > 0)? text: NULL;
@@ -39,7 +40,7 @@ static char *slurp_at(char *env, const char *file) {
 
 static char* r2dec_read_file(const char* file) {
 	if (!file) {
-		return 0;
+		return NULL;
 	}
 	// env
 	{
@@ -50,11 +51,14 @@ static char* r2dec_read_file(const char* file) {
 		}
 	}
 	char *user_home = r_str_home (NULL);
+eprintf ("HOME(%s)\n", user_home);
 	// r2pm
 	{
 		char *env = r_str_newf ("%s"R_SYS_DIR"%s"R_SYS_DIR"%s"R_SYS_DIR"%s"R_SYS_DIR"%s",
 				user_home, R2_HOME_DATADIR, "r2pm", "git", "r2dec-js");
+eprintf ("TRY(%s)\n", env);
 		char *res = slurp_at (env, file);
+eprintf ("RES(%s)\n", res);
 		if (res) {
 			free (user_home);
 			return res;
@@ -86,8 +90,7 @@ static char* r2dec_read_file(const char* file) {
 static duk_ret_t duk_r2cmd(duk_context *ctx) {
 	if (duk_is_string (ctx, 0)) {
 		const char* command = duk_safe_to_string (ctx, 0);
-	    //fprintf (stderr, "R2CMD: %s\n", command);
-	    //fflush (stderr);
+		// eprintf ("R2CMD: %s\n", command);
 		R2DecCtx *r2dec_ctx = r2dec_ctx_get (ctx);
 		r_cons_sleep_end (r2dec_ctx->bed);
 		char* output = r_core_cmd_str (r2dec_ctx->core, command);
@@ -106,35 +109,34 @@ static duk_ret_t duk_internal_load(duk_context *ctx) {
 		if (text) {
 			duk_push_string (ctx, text);
 			free (text);
-		} else {
-			printf("Error: '%s' not found.\n", fullname);
-			return DUK_RET_TYPE_ERROR;
+			return 1;
 		}
-		return 1;
+		eprintf ("Error: '%s' not found.\n", fullname);
 	}
 	return DUK_RET_TYPE_ERROR;
 }
 
 static duk_ret_t duk_internal_require(duk_context *ctx) {
-	char fullname[256];
-	if (!duk_is_string(ctx, 0)) {
+	if (!duk_is_string (ctx, 0)) {
 		return DUK_RET_TYPE_ERROR;
 	}
-	snprintf(fullname, sizeof(fullname), "%s.js", duk_safe_to_string(ctx, 0));
+	char *fullname = r_str_newf ("%s.js", duk_safe_to_string(ctx, 0));
 #ifdef USE_JSC
-	const char *js = r2dec_jsc(fullname);
+	const char *js = r2dec_jsc (fullname);
 #else
-	char *js = r2dec_read_file(fullname);
+	char *js = r2dec_read_file (fullname);
 #endif
 	if (!js) {
 		printf("Error: '%s' not found.\n", fullname);
+		free (fullname);
 		return DUK_RET_TYPE_ERROR;
 	}
-	duk_push_lstring(ctx, fullname, strlen(fullname));
-	duk_eval_file(ctx, js);
+	duk_push_lstring (ctx, fullname, strlen (fullname));
+	duk_eval_file (ctx, js);
 #ifndef USE_JSC
-	free(js);
+	free (js);
 #endif
+	free (fullname);
 	return 1;
 }
 
@@ -170,15 +172,15 @@ static void eval_file(duk_context *ctx, const char *file) {
 	//fprintf (stderr, "REQUIRE: %s\n", file);
 	//fflush (stderr);
 #ifdef USE_JSC
-	const char *js = r2dec_jsc(file);
+	const char *js = r2dec_jsc (file);
 #else
-	char *js = r2dec_read_file(file);
+	char *js = r2dec_read_file (file);
 #endif
 	if (js) {
-		duk_push_lstring(ctx, file, strlen(file));
-		duk_eval_file_noresult(ctx, js);
+		duk_push_lstring (ctx, file, strlen (file));
+		duk_eval_file_noresult (ctx, js);
 #ifndef USE_JSC
-		free(js);
+		free (js);
 #endif
 	}
 }
@@ -208,7 +210,7 @@ static void duk_r2dec(RCore *core, const char *input) {
 	duk_eval_string_noresult (ctx, args);
 	//duk_r2_debug_stack(ctx);
 	duk_destroy_heap (ctx);
-	r_cons_sleep_end(r2dec_ctx.bed);
+	r_cons_sleep_end (r2dec_ctx.bed);
 }
 
 static void usage(const RCore* const core) {
@@ -329,7 +331,7 @@ static void _cmd_pdd(RCore *core, const char *input) {
 static int r_cmd_pdd(void *user, const char *input) {
 	RCore *core = (RCore *) user;
 	if (!strncmp (input, "pdd", 3)) {
-		_cmd_pdd (core, input + 3);
+	 	_cmd_pdd (core, input + 3);
 		return true;
 	}
 	return false;

@@ -8,19 +8,18 @@ incs = ['.']
 deps = []
 c_args = []
 
-if host_machine.system() == 'windows'
-  radare2_incdir = join_paths('..', 'prefix', 'include', 'libr')
-else
-  radare2_incdir = get_option('r2_incdir')
-  if radare2_incdir == '' and radare2.found()
+radare2_incdir = get_option('r2_incdir')
+if radare2_incdir == '' and radare2.found()
+  if host_machine.system() == 'windows'
+    radare2_incdir = join_paths('..', 'prefix', 'include', 'libr')
+  else
     radare2_incdir = run_command(radare2, '-H', 'R2_INCDIR').stdout().strip()
   endif
 endif
-
-radare2_libdir = get_option('r2_libdir')
-if radare2_libdir == '' and radare2.found()
-  radare2_libdir = run_command(radare2, '-H', 'R2_LIBDIR').stdout().strip()
-endif
+  radare2_libdir = get_option('r2_libdir')
+  if radare2_libdir == '' and radare2.found()
+    radare2_libdir = run_command(radare2, '-H', 'R2_LIBDIR').stdout().strip()
+  endif
 
 radare2_plugdir = get_option('r2_plugdir')
 if radare2_plugdir == '' and radare2.found()
