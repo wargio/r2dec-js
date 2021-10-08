@@ -91,6 +91,8 @@ jobs:
         set LDFLAGS=-L%CD%\radare2\lib
         set PATH=%CD%\radare2\bin;%PATH%
         set DESTDIR=%CD%\r2dec-plugin
+        set BINDIR=%CD%\radare2\bin
+        set PLUGINDIR=%CD%\radare2\lib\plugins
         set ARCH=x64
         set R2_DEBUG=1
         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
@@ -99,9 +101,9 @@ jobs:
         ninja -C b
         mkdir %DESTDIR%
         copy b\*.dll %DESTDIR%
-        mkdir "%CD%\radare2\lib\plugins"
-        copy b\*.dll "%CD%\radare2\lib\plugins"
-        cd %CD%\radare2\bin\
+        mkdir "%PLUGINDIR%"
+        copy b\*.dll "%PLUGINDIR%"
+        cd %BINDIR%
         radare2.exe -Qc "pdd? ; aa ; pdd" radare2.exe
     - uses: actions/upload-artifact@v2
       with:
