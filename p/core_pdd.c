@@ -179,6 +179,7 @@ static void eval_file(duk_context *ctx, const char *file) {
 		duk_eval_file_noresult(ctx, js);
 #ifndef USE_JSC
 		free(js);
+#endif
 	}
 }
 
@@ -401,3 +402,4 @@ _R_API RLibStruct radare_plugin = {
 #endif
 };
 #endif
+

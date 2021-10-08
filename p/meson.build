@@ -35,15 +35,15 @@ deps += cc.find_library('m', required: false)
 
 if radare2_incdir != ''
   incs += radare2_incdir
-  incs += radare2_incdir + '/sdb'
+  incs += join_paths(radare2_incdir, 'sdb')
 endif
 
 incs += 'duktape'
 
 files = [
   'core_pdd.c',
-  'duktape/duktape.c',
-  'duktape/duk_console.c'
+  join_paths('duktape', 'duktape.c'),
+  join_paths('duktape', 'duk_console.c')
 ]
 
 jsc_folder = get_option('jsc_folder')
@@ -70,6 +70,8 @@ message('Radare2 Plugin Dir:  ' + radare2_plugdir)
 if jsc_folder != ''
   message('JS to C Folder:    ' + jsc_folder)
 endif
+
+incs=[ '.', 'duktape', join_paths('..', 'prefix', 'include', 'libr'), join_paths('..', 'prefix', 'include', 'libr', 'sdb') ]
 
 shared_library('core_pdd', files,
   c_args : c_args,
