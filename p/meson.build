@@ -4,6 +4,7 @@ pyth = import('python').find_installation()
 radare2 = find_program('radare2', required: false)
 cc = meson.get_compiler('c')
 
+    add_project_arguments('/MD', language: 'c')
 incs = ['.']
 deps = []
 c_args = []

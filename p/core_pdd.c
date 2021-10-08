@@ -169,8 +169,7 @@ R2DecCtx *r2dec_ctx_get(duk_context *ctx) {
 //}
 
 static void eval_file(duk_context *ctx, const char *file) {
-	//fprintf (stderr, "REQUIRE: %s\n", file);
-	//fflush (stderr);
+	//eprintf ("REQUIRE: %s\n", file);
 #ifdef USE_JSC
 	const char *js = r2dec_jsc (file);
 #else
