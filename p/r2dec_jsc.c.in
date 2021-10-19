@@ -1,4 +1,4 @@
-
+#include <string.h>
 typedef struct {
 	const char *name;
 	const char *code;
@@ -7,7 +7,8 @@ typedef struct {
 @JSC_SOURCES@
 
 static const char *r2dec_jsc(const char *fullname) {
-	for (ut32 i = 0; i < R2_JSC_SIZE; ++i) {
+	int i;
+	for (i = 0; i < R2_JSC_SIZE; ++i) {
 		if (!strcmp(fullname, r_jsc_file[i].name)) {
 			return r_jsc_file[i].code;
 		}
