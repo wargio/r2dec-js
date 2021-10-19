@@ -3,6 +3,8 @@ LDFLAGS+=-lm
 
 HAVE_PKGCONFIG=$(shell pkg-config --help 2> /dev/null)
 
+USE_JSC?=0
+
 ifeq ($(HAVE_PKGCONFIG),)
 CFLAGS_PKG+=-I$(shell r2 -H R2_INCDIR) -I$(shell r2 -H R2_INCDIR)/sdb
 LDFLAGS_PKG+=-L$(shell r2 -H R2_LIBDIR) -lr_util -lr_io -lr_cons -lr_core
@@ -24,11 +26,16 @@ LN=ln -fs
 MKDIR=mkdir -p
 
 SRCS=duktape/duktape.c duktape/duk_console.c core_pdd.c
+ifeq ($(USE_JSC),1)
+CFLAGS+=-DUSE_JSC=1
+PRE=r2dec_jsc.c
+endif
 OBJS=$(SRCS:.c=.o)
 BIN=core_pdd.$(LIBEXT)
 DESTDIR?=
 
-all: build
+all: $(PRE)
+	$(MAKE) build
 
 build: $(BIN)
 
@@ -38,6 +45,13 @@ $(BIN): $(OBJS)
 
 asan:
 	$(MAKE) $(BIN) CFLAGS=-fsanitize=address
+
+ifeq ($(USE_JSC),1)
+r2dec_jsc.c:
+	head -n 6 r2dec_jsc.c.in > r2dec_jsc.c
+	python make_jsc.py .. >> r2dec_jsc.c
+	tail -n 9 r2dec_jsc.c.in >> r2dec_jsc.c
+endif
 
 %.o: %.c
 	$(V)$(ECHO) "[CC] $@"
@@ -76,7 +90,7 @@ user-uninstall:
 	$(V)$(MAKE) uninstall PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
 
 clean:
-	-$(V)$(RM) $(BIN) $(OBJS)
+	-$(V)$(RM) $(BIN) $(OBJS) r2dec_jsc.c
 
 testbin:
 	$(V)$(CC) $(CFLAGS) -DUSE_RCONS=0 -o r2dec-test duktape/duktape.c duktape/duk_console.c r2dec-test.c $(LDFLAGS)
