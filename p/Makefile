@@ -13,7 +13,7 @@ CFLAGS_PKG=$(shell pkg-config --cflags r_util r_io r_cons r_core 2> /dev/null)
 LDFLAGS_PKG=$(shell pkg-config --libs r_util r_io r_cons r_core 2> /dev/null)
 endif
 
-LIBEXT=$(shell r2 -H LIBEXT)
+LIBEXT=$(shell r2 -H R2_LIBEXT)
 PLUGDIR=$(shell r2 -H R2_LIBR_PLUGINS)
 
 R2DEC_HOME=$(PLUGDIR)/r2dec-js
@@ -47,7 +47,7 @@ asan:
 	$(MAKE) $(BIN) CFLAGS=-fsanitize=address
 
 ifeq ($(USE_JSC),1)
-r2dec_jsc.c:
+r2dec_jsc.c: r2dec_jsc.c.in
 	head -n 6 r2dec_jsc.c.in > r2dec_jsc.c
 	python make_jsc.py .. >> r2dec_jsc.c
 	tail -n 9 r2dec_jsc.c.in >> r2dec_jsc.c
@@ -76,11 +76,16 @@ user-install:
 	$(V)$(MAKE) install-plugin PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
 	$(V)$(MAKE) install-libdec PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
 
+ifeq ($(USE_JSC),1)
 install-libdec: $(DESTDIR)$(R2DEC_HOME)
 	$(V)$(CP) -r ../r2dec-duk.js ../require.js ../libdec "$(DESTDIR)$(R2DEC_HOME)"
 
 user-install-libdec:
 	$(V)$(MAKE) install-libdec PLUGDIR=$(shell r2 -H R2_USER_PLUGINS) R2DEC_HOME=$(shell r2 -H R2_USER_PLUGINS)/r2dec-js
+else
+install-libdec user-install-libdec:
+	@
+endif
 
 uninstall:
 	$(V)$(RM) $(DESTDIR)$(PLUGDIR)/$(BIN)
