@@ -69,7 +69,8 @@
      * @returns {boolean}
      */
     var _is_stack_reg = function(name) {
-        return name && _REGEX_STACK_REG.test(name);
+        name = (name || "").replace(/([re]?sp).+/, "$1");
+        return _REGEX_STACK_REG.test(name);
     };
 
     var _is_xmm = function(op) {
@@ -567,11 +568,12 @@
     /**
      * Return a list of the cdecl function call arguments.
      * @param {Array<Object>} instrs Array of instructions preceding the function call
-     * @param {number} nargs Number of arguments expected for this function call
+     * @param {number} nargs   Number of arguments expected for this function call
      * @param {Object} context Context object
+     * @param {Object} instr   Instruction object
      * @returns {Array<Variable>} An array of arguments instances, ordered as declared in callee
      */
-    var _populate_cdecl_call_args = function(instrs, nargs, context) {
+    var _populate_cdecl_call_args = function(instrs, nargs, context, instr) {
         var args = [];
         var argidx = 0;
         var arg;
@@ -617,10 +619,9 @@
                     // an irrelevant 'mov' instruction; nothing to do here
                     continue;
                 }
-
                 arg = instrs[i].string ?
                     Variable.string(instrs[i].string) :
-                    Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                    Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access || context.arch_bits, false));
 
                 instrs[i].valid = false;
                 args[offset] = arg;
@@ -634,11 +635,11 @@
                     opd2 = instrs[i - 1].parsed.opd[1];
                     arg = instrs[i - 1].string ?
                         Variable.string(instrs[i - 1].string) :
-                        Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access, false));
+                        Variable[opd2.mem_access ? 'pointer' : 'local'](opd2.token, Extra.to.type(opd2.mem_access || context.arch_bits, false));
                 } else {
                     arg = instrs[i].string ?
                         Variable.string(instrs[i].string) :
-                        Variable[opd1.mem_access ? 'pointer' : 'local'](opd1.token, Extra.to.type(opd1.mem_access, false));
+                        Variable[opd1.mem_access ? 'pointer' : 'local'](opd1.token, Extra.to.type(opd1.mem_access || context.arch_bits, false));
                 }
                 instrs[i].valid = false;
                 args[argidx++] = arg;
@@ -705,7 +706,7 @@
                     // initialization value.
                     var arg = instrs[i].string ?
                         Variable.string(instrs[i].string) :
-                        Variable[opd2.mem_access ? 'pointer' : 'local'](argvalue, Extra.to.type(argsize, false));
+                        Variable[opd2.mem_access ? 'pointer' : 'local'](argvalue, Extra.to.type(argsize || context.arch_bits, false));
 
                     instrs[i].valid = !notseen;
                     args[argidx] = arg;
@@ -950,7 +951,7 @@
 
             // every non-import callee has a known number of arguments
             // for imported libc functions, get the number of arguments out of a predefined list
-            nargs = callee.name.startsWith('sym.') || callname.startsWith('reloc.') ?
+            nargs = callee.name.startsWith('sym.') || callname.startsWith('reloc.') || callname.startsWith('sub.') ?
                 Extra.find.arguments_number(callee.name) :
                 callee.nargs;
 
@@ -960,7 +961,7 @@
                 nargs = guess_nargs(instrs.slice(0, start), context);
             }
 
-            args = populate_call_args(instrs.slice(0, start), nargs, context);
+            args = populate_call_args(instrs.slice(0, start), nargs, context, instr);
         } else {
             // trying to identify the fcn..
             nargs = callname.startsWith('sym.') || callname.startsWith('reloc.') ?
@@ -977,17 +978,17 @@
                 }
 
                 if (callee && nargs > -1) {
-                    args = callee(instrs.slice(0, start), nargs, context);
+                    args = callee(instrs.slice(0, start), nargs, context, instr);
                 }
             } else {
                 args = _populate_systemv_amd64_call_args(instrs.slice(0, start), nargs, context);
                 if (args.length < 1 && nargs > 0) {
-                    _populate_cdecl_call_args(instrs.slice(0, start), nargs, context);
+                    _populate_cdecl_call_args(instrs.slice(0, start), nargs, context, instr);
                 }
             }
         }
 
-        if (callname.startsWith('0x') || (!callname.startsWith('imp.') && !callname.startsWith('sym.imp.') && callsite.mem_access)) {
+        if (callname.startsWith('0x') || (!callname.startsWith('imp.') && !callname.startsWith('sym.imp.') && !callname.startsWith('reloc.') && callsite.mem_access)) {
             callname = Variable.functionPointer(callname, callsite.mem_access, args);
         } else if (is_pointer || (!callsite.mem_access && _x86_x64_registers.indexOf(callname) > (-1))) {
             callname = Variable.functionPointer(callname, 0, args);
@@ -2115,6 +2116,7 @@
             fwait: _nop, // wait fpu
             fxrstor: _nop, // restore x87 fpu, mmx, xmm, and mxcsr state
             fxsave: _nop, // save x87 fpu, mmx technology, and sse state
+            endbr64: _nop,
             invalid: _nop
         },
         preanalisys: function(instrs, context) {
@@ -2257,6 +2259,7 @@
                     bits: 0,
                     signed: true
                 },
+                arch_bits: data.bits,
                 vars: vars_args.filter(function(e) {
                     return (e.kind === 'var');
                 }) || [],
