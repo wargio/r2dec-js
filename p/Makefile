@@ -1,3 +1,4 @@
+PYTHON?=python
 CFLAGS+=-g -O3 -std=c99 -Wall -fPIC -I./duktape
 LDFLAGS+=-lm
 
@@ -49,7 +50,7 @@ asan:
 ifeq ($(USE_JSC),1)
 r2dec_jsc.c: r2dec_jsc.c.in
 	awk '{if(/@JSC_SOURCES@/)exit;print}' < r2dec_jsc.c.in > r2dec_jsc.c
-	python make_jsc.py .. >> r2dec_jsc.c
+	$(PYTHON) make_jsc.py .. >> r2dec_jsc.c
 	awk 'BEGIN{A=0}{if(A==1){print}if(/@JSC_SOURCES@/)A=1}' < r2dec_jsc.c.in >> r2dec_jsc.c
 endif
 
