@@ -48,9 +48,9 @@ asan:
 
 ifeq ($(USE_JSC),1)
 r2dec_jsc.c: r2dec_jsc.c.in
-	head -n 6 r2dec_jsc.c.in > r2dec_jsc.c
+	awk '{if(/@JSC_SOURCES@/)exit;print}' < r2dec_jsc.c.in > r2dec_jsc.c
 	python make_jsc.py .. >> r2dec_jsc.c
-	tail -n 9 r2dec_jsc.c.in >> r2dec_jsc.c
+	awk 'BEGIN{A=0}{if(A==1){print}if(/@JSC_SOURCES@/)A=1}' < r2dec_jsc.c.in >> r2dec_jsc.c
 endif
 
 %.o: %.c
@@ -70,11 +70,15 @@ symstall symlink: $(DESTDIR)$(PLUGDIR) $(DESTDIR)/$(R2DEC_HOME)/libdec
 
 install:
 	$(V)$(MAKE) install-plugin
+ifeq ($(USE_JSC),0)
 	$(V)$(MAKE) install-libdec
+endif
 
 user-install:
 	$(V)$(MAKE) install-plugin PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
+ifeq ($(USE_JSC),0)
 	$(V)$(MAKE) install-libdec PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
+endif
 
 ifeq ($(USE_JSC),1)
 install-libdec: $(DESTDIR)$(R2DEC_HOME)

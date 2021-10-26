@@ -13,7 +13,17 @@ def main(argc, argv):
 	path = os.path.join(argv[1])
 	path_len = len(argv[1])
 
-	js_files = glob.glob(os.path.join(path, '**/*.js'), recursive=True)
+	js_files = []
+	if sys.version_info >= (3,5):
+		js_files += glob.glob(os.path.join(path, 'libdec/**/*.js'), recursive=True)
+		js_files += glob.glob(os.path.join(path, '*.js'))
+	else:
+		js_files += glob.glob(os.path.join(path, '*.js'))
+		js_files += glob.glob(os.path.join(path, 'libdec', '*.js'))
+		js_files += glob.glob(os.path.join(path, 'libdec', 'arch', '*.js'))
+		js_files += glob.glob(os.path.join(path, 'libdec', 'colors', '*.js'))
+		js_files += glob.glob(os.path.join(path, 'libdec', 'core', '*.js'))
+		js_files += glob.glob(os.path.join(path, 'libdec', 'db', '*.js'))
 	js_files.remove(os.path.join(path, 'r2dec-test.js'))
 
 	for file in js_files:

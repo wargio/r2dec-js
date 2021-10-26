@@ -10,20 +10,20 @@ R2_LIBEXT=$(shell r2 -HR2_LIBEXT)
 
 all: root
 	sudo rm -rf control data
-	${MAKE} clean
+	$(MAKE) clean
 	mkdir -p data
 	cp -rf root/* data
-	${MAKE} control
-	${MAKE} deb
+	$(MAKE) control
+	$(MAKE) deb
 
 root:
-	export CFLAGS=-DR2DEC_HOME=\"\\\"$(R2_PLUGIN_DIR)/r2decjs\\\"\" && make -C ../..
-	make -C ../.. install DESTDIR=$(shell pwd)/root
+	$(MAKE) -C ../.. USE_JSC=1
+	$(MAKE) -C ../.. install USE_JSC=1 DESTDIR=$(PWD)/root
 
 purge: clean
 	rm -rf root
 
 summary:
-	echo $(VERSION)
+	@echo $(VERSION)
 
 include deb.mk
