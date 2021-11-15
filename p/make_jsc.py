@@ -35,7 +35,10 @@ def main(argc, argv):
 			for byte in raw:
 				if count > 0 and count % 32 == 0:
 					code += "\n\t"
-				code += "{}, ".format(int(byte & 0xFF))
+				if sys.version_info >= (3,0):
+					code += "{}, ".format(byte)
+				else:
+					code += "{}, ".format(ord(byte))
 				count += 1
 		print('const unsigned char ' + vname + '[' + str(count + 1) + '] = {\n\t' + code + ' 0\n};\n')
 
