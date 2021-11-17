@@ -115,3 +115,52 @@ jobs:
       with:
         name: r2dec-${{env.R2V}}-w64.zip
         path: r2dec-plugin
+  w32:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v1
+      with:
+        python-version: 3.7.x
+    - name: Preparing msvc toolchain
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x86
+    - name: dependencies
+      shell: bash
+      run: |
+        pip install ninja meson wget
+        choco install winflexbison3
+        choco install zip
+    - name: install r2
+      shell: bash
+      run: |
+        python -m wget https://github.com/radareorg/radare2/releases/download/${R2V}/radare2-${R2V}-w32.zip -o r2.zip
+        unzip r2.zip
+        mv radare2-${R2V}-w32 radare2
+    - name: meson
+      shell: cmd
+      run: |
+        set PKG_CONFIG_PATH=%CD%\radare2\lib\pkgconfig
+        set CFLAGS=-I%CD%\radare2\include
+        set LDFLAGS=-L%CD%\radare2\lib
+        set PATH=%CD%\radare2\bin;%PATH%
+        set DESTDIR=%CD%\r2dec-plugin
+        set BINDIR=%CD%\radare2\bin
+        set PLUGINDIR=%CD%\radare2\lib\plugins
+        set ARCH=x86
+        set R2_DEBUG=1
+        call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
+        cd p
+        meson --buildtype=release -Djsc_folder=".." b
+        ninja -C b
+        mkdir %DESTDIR%
+        copy b\*.dll %DESTDIR%
+        mkdir "%PLUGINDIR%"
+        copy b\*.dll "%PLUGINDIR%"
+        cd %BINDIR%
+        radare2.exe -Qc "pdd? ; aa ; pdd" radare2.exe
+    - uses: actions/upload-artifact@v2
+      with:
+        name: r2dec-${{env.R2V}}-w32.zip
+        path: r2dec-plugin
