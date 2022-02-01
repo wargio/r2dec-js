@@ -9,7 +9,7 @@ Converts asm to pseudo-C code.
 
 # Software Requirements
 
-Requires radare2 version 5.1.0 or newer.
+Requires radare2
 
 # Install
 
