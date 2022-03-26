@@ -57,6 +57,14 @@
         return _JSON.parse(merge_arrays(input));
     }
 
+    function compare_offsets(a, b) {
+        return a.ref.offset.compare(b.ref.offset);
+    }
+
+    function compare_reg(a, b) {
+        return (a.name < b.name ? -1 : (a.name > b.name ? 1 : 0));
+    }
+
     function offset_long(vars) {
         var p = function(x) {
             if (x.ref && typeof x.ref.offset == 'string') {
@@ -68,8 +76,11 @@
             return vars;
         }
         vars.bp = vars.bp.map(p);
+        vars.bp.sort(compare_offsets);
         vars.reg = vars.reg.map(p);
+        vars.reg.sort(compare_reg);
         vars.sp = vars.sp.map(p);
+        vars.sp.sort(compare_offsets);
         return vars;
     }
 
