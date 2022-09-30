@@ -21,6 +21,15 @@
 #define SETDESC(x,y) r_config_node_desc (x,y)
 #define SETPREF(x,y,z) SETDESC (r_config_set (cfg,x,y), z)
 
+static char *gethomedir(void) {
+#if R2_VERSION_NUMBER < 50709
+	return r_str_home (R2_HOME_DATADIR R_SYS_DIR
+			"r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js");
+#else
+	return r_xdg_datadir ("r2pm/git/r2dec-js");
+#endif
+}
+
 static char *slurp_at(char *env, const char *file) {
 	if (R_STR_ISEMPTY (env) || R_STR_ISEMPTY (file)) {
 		free (env);
@@ -64,8 +73,7 @@ static char* r2dec_read_file(const char* file) {
 	char *user_home = r_str_home (NULL);
 	// r2pm
 	{
-		char *env = r_str_newf ("%s"R_SYS_DIR"%s"R_SYS_DIR"%s"R_SYS_DIR"%s"R_SYS_DIR"%s",
-				user_home, R2_HOME_DATADIR, "r2pm", "git", "r2dec-js");
+		char *env = gethomedir ();
 		char *res = slurp_at (env, file);
 		if (res) {
 			free (user_home);
@@ -74,8 +82,12 @@ static char* r2dec_read_file(const char* file) {
 	}
 	// user-install
 	{
+#if R2_VERSION_NUMBER < 50709
 		char *env = r_str_newf ("%s"R_SYS_DIR"%s"R_SYS_DIR"%s",
 				user_home, R2_HOME_PLUGINS, "r2dec-js");
+#else
+		char *env = r_xdg_datadir ("plugins/r2dec-js");
+#endif
 		char *res = slurp_at (env, file);
 		free (user_home);
 		if (res) {
@@ -260,8 +272,7 @@ static void switch_git_branch(RCore *core, const char* branch) {
 	}
 	char *env = r_sys_getenv ("R2DEC_HOME");
 	if (!env) {
-		env = r_str_home (R2_HOME_DATADIR R_SYS_DIR
-			"r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js");
+		env = gethomedir ();
 	}
 	if (!env) {
 		r_cons_printf ("[r2dec] Fail to get home directory.\n");
