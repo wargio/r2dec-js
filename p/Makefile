@@ -88,8 +88,11 @@ install-libdec: $(DESTDIR)$(R2DEC_HOME)
 user-install-libdec:
 	$(V)$(MAKE) install-libdec PLUGDIR=$(shell r2 -H R2_USER_PLUGINS) R2DEC_HOME=$(shell r2 -H R2_USER_PLUGINS)/r2dec-js
 else
-install-libdec user-install-libdec:
-	@
+install-libdec:
+	$(V)$(CP) -r ../r2dec-duk.js ../require.js ../libdec "$(DESTDIR)$(R2DEC_HOME)"
+
+user-install-libdec:
+	$(V)$(CP) -r ../r2dec-duk.js ../require.js ../libdec "$(shell r2 -H R2_USER_PLUGINS)"/r2dec-js
 endif
 
 uninstall:
@@ -104,3 +107,6 @@ clean:
 
 testbin:
 	$(V)$(CC) $(CFLAGS) -DUSE_RCONS=0 -o r2dec-test duktape/duktape.c duktape/duk_console.c r2dec-test.c $(LDFLAGS)
+
+PHONY: install-libdec user-install user-uninstall user-install-libdec
+PHONY: install uninstall asan all build clean testbin
