@@ -1,13 +1,7 @@
 /* radare - LGPL - Copyright 2018,2021 - pancake, deroad */
 
-#include <stdlib.h>
-#include <string.h>
 #include <r_types.h>
-#include <r_lib.h>
-#include <r_cmd.h>
 #include <r_core.h>
-#include <r_cons.h>
-#include <r_anal.h>
 #include "duktape.h"
 #include "duk_console.h"
 #include "duk_missing.h"
@@ -26,6 +20,7 @@ static char *gethomedir(void) {
 	return r_str_home (R2_HOME_DATADIR R_SYS_DIR
 			"r2pm" R_SYS_DIR "git" R_SYS_DIR "r2dec-js");
 #else
+	// return r_xdg_datadir ("plugins/r2dec-js");
 	return r_xdg_datadir ("r2pm/git/r2dec-js");
 #endif
 }
@@ -70,26 +65,37 @@ static char* r2dec_read_file(const char* file) {
 			return res;
 		}
 	}
-	char *user_home = r_str_home (NULL);
+#if R2_VERSION_NUMBER >= 50709
+	// r2pm
+	{
+		char *env = r_xdg_datadir ("r2pm/git/r2dec-js");
+		char *res = slurp_at (env, file);
+		if (res) {
+			return res;
+		}
+	}
+#else
 	// r2pm
 	{
 		char *env = gethomedir ();
 		char *res = slurp_at (env, file);
 		if (res) {
-			free (user_home);
 			return res;
 		}
 	}
+#endif
 	// user-install
 	{
 #if R2_VERSION_NUMBER < 50709
-		char *env = r_str_newf ("%s"R_SYS_DIR"%s"R_SYS_DIR"%s",
-				user_home, R2_HOME_PLUGINS, "r2dec-js");
+		char *user_home = r_str_home (NULL);
+		// char *env = r_str_newf ("%s"R_SYS_DIR"%s"R_SYS_DIR"%s",
+		//		user_home, R2_HOME_PLUGINS, "r2dec-js");
+		char *env = r_file_new (user_home, R2_HOME_PLUGINS, "r2dec-js", NULL);
+		free (user_home);
 #else
 		char *env = r_xdg_datadir ("plugins/r2dec-js");
 #endif
 		char *res = slurp_at (env, file);
-		free (user_home);
 		if (res) {
 			return res;
 		}
