@@ -70,7 +70,6 @@ static char* r2dec_read_file(const char* file) {
 	{
 		char *env = r_xdg_datadir ("r2pm/git/r2dec-js");
 		char *res = slurp_at (env, file);
-		free (env);
 		if (res) {
 			return res;
 		}
@@ -80,7 +79,6 @@ static char* r2dec_read_file(const char* file) {
 	{
 		char *env = gethomedir ();
 		char *res = slurp_at (env, file);
-		free (env);
 		if (res) {
 			return res;
 		}
@@ -98,7 +96,6 @@ static char* r2dec_read_file(const char* file) {
 		char *env = r_xdg_datadir ("plugins/r2dec-js");
 #endif
 		char *res = slurp_at (env, file);
-		free (env);
 		if (res) {
 			return res;
 		}
