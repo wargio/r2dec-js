@@ -1322,11 +1322,13 @@
     };
 
     var _fp_compare = function(instr, context, instructions, pops) {
+        var rop = null;
         if (_fp_n_opd(instr.parsed.opd) < 1) {
-            return Base.assign(_FP_STATUS_REG, "fp_compare(" + _fp_stack_at(0) + ", " + _fp_stack_at(1) + ")");
+            rop = Base.assign(_FP_STATUS_REG, "fp_compare(" + _fp_stack_at(0) + ", " + _fp_stack_at(1) + ")");
+        } else {
+            var arg = _fp_resolve_opd(instr.parsed.opd[0]);
+            rop = Base.assign(_FP_STATUS_REG, "fp_compare(" + _fp_stack_at(0) + ", " + arg + ")");
         }
-        var arg = _fp_resolve_opd(instr.parsed.opd[0]);
-        var rop = Base.assign(_FP_STATUS_REG, "fp_compare(" + _fp_stack_at(0) + ", " + arg + ")");
         return pops > 0 ? Base.composed([rop, Base.increase(_FP_STACK, pops)]) : rop;
     };
 
