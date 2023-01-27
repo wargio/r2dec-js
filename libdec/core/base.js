@@ -444,6 +444,9 @@
         return: function(value) {
             return new _generic_return(value);
         },
+        breakpoint: function(value) {
+            return new _generic_flow('breakpoint');
+        },
         break: function(value) {
             return new _generic_flow('break');
         },

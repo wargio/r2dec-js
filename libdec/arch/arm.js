@@ -899,6 +899,7 @@
             cmp: _compare,
             cmn: _compare,
             fcmp: _compare,
+            ccmp: _compare, // XXX (ccmp w8, 0, 4, ne) vs (cmp w8, 0)
             cbz: function(instr, context, instructions) {
                 context.cond.a = instr.parsed.opd[0];
                 context.cond.b = '0';
@@ -928,6 +929,9 @@
                 return _memory(Base.read_memory, instr, context, '32');
             },
             ldrh: function(instr, context) {
+                return _memory(Base.read_memory, instr, context, '16');
+            },
+            ldurh: function(instr, context) {
                 return _memory(Base.read_memory, instr, context, '16');
             },
             ldrb: function(instr, context) {
@@ -1092,6 +1096,33 @@
                 }
                 return _common_math(instr.parsed, Base.multiply);
             },
+            autibsp: function(instr) {
+                return Base.nop();
+            },
+            paciza: function(instr) {
+                return Base.nop();
+            },
+            pacia: function(instr) {
+                return Base.nop();
+            },
+            paciasp: function(instr) {
+                return Base.nop();
+            },
+            paciaz: function(instr) {
+                return Base.nop();
+            },
+            pacizb: function(instr) {
+                return Base.nop();
+            },
+            pacib: function(instr) {
+                return Base.nop();
+            },
+            pacibsp: function(instr) {
+                return Base.nop();
+            },
+            pacibz: function(instr) {
+                return Base.nop();
+            },
             nop: function(instr) {
                 return Base.nop();
             },
@@ -1134,6 +1165,30 @@
             },
             rol: function(instr) {
                 return Base.rotate_left(instr.parsed.opd[0], instr.parsed.opd[1], parseInt(instr.parsed.opd[2], 16).toString(), 32);
+            },
+            retab: function(instr, context, instructions) {
+                var start = instructions.indexOf(instr);
+                var returnval = null;
+                if (['r0', 'w0', 'x0'].indexOf(instructions[start - 1].parsed.opd[0]) >= 0) {
+                    returnval = instructions[start - 1].parsed.opd[0];
+                } else if (context.markers[instr.marker]) {
+                    if (context.markers[instr.marker]['r0'] && context.markers[instr.marker]['r0'].instr.valid) {
+                        //context.markers[instr.marker]['r0'].instr.valid = false;
+                        returnval = '0x' + context.markers[instr.marker]['r0'].value.toString(16);
+                    } else if (context.markers[instr.marker]['w0'] && context.markers[instr.marker]['w0'].instr.valid) {
+                        //context.markers[instr.marker]['w0'].instr.valid = false;
+                        returnval = '0x' + context.markers[instr.marker]['w0'].value.toString(16);
+                    } else if (context.markers[instr.marker]['x0'] && context.markers[instr.marker]['x0'].instr.valid) {
+                        //context.markers[instr.marker]['x0'].instr.valid = false;
+                        returnval = '0x' + context.markers[instr.marker]['x0'].value.toString(16);
+                    }
+                }
+                context.retreg = returnval;
+                return Base.return(returnval);
+            },
+            brk: function(instr, context, instructions) {
+                const breakvalue = instr.parsed.opd[0];
+                return Base.breakpoint(breakvalue);
             },
             ret: function(instr, context, instructions) {
                 var start = instructions.indexOf(instr);
