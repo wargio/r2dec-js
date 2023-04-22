@@ -34,6 +34,7 @@
             //pointer, register, bits, is_signed
             return Base.read_memory(arg[1], e.opd[0], bits, !unsigned);
         }
+        arg[0] = arg[0].length > 0 ? parseInt(arg[0]) : NaN;
         if (!isNaN(arg[0])) {
             if (arg[0] < 0) {
                 arg[0] = " - 0x" + Math.abs(arg[0]).toString(16);
@@ -138,7 +139,7 @@
         ];
         var address = [
             function(e, addr) {
-                var imm32 = parseInt(instr.parsed.opd[1]).toString(16) << 12;
+                var imm32 = instr.parsed.opd[1] << 12;
                 return Long.fromNumber(imm32, true);
             },
             function(e, addr) {
@@ -187,7 +188,7 @@
             },
             lui: function(instr) {
                 var dst = instr.parsed.opd[0];
-                var imm20 = parseInt(instr.parsed.opd[1]).toString(16) << 12;
+                var imm20 = instr.parsed.opd[1] << 12;
                 return Base.assign(dst, '0x' + imm20.toString(16)) ;
             },
             lb: function(instr) {
