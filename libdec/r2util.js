@@ -75,11 +75,11 @@
         if (!vars) {
             return vars;
         }
-        vars.bp = vars.bp.map(p);
+        vars.bp = (vars.bp || []).map(p);
         vars.bp.sort(compare_offsets);
-        vars.reg = vars.reg.map(p);
+        vars.reg = (vars.reg || []).map(p);
         vars.reg.sort(compare_reg);
-        vars.sp = vars.sp.map(p);
+        vars.sp = (vars.sp || []).map(p);
         vars.sp.sort(compare_offsets);
         return vars;
     }
