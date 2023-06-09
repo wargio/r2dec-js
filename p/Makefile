@@ -97,7 +97,7 @@ endif
 
 uninstall:
 	$(V)$(RM) $(DESTDIR)$(PLUGDIR)/$(BIN)
-	$(V)$(RM) -r $(DESTDIR)$(PLUGDIR)/r2dec-js
+	$(V)$(RM) -r $(DESTDIR)$(R2DEC_HOME)
 
 user-uninstall:
 	$(V)$(MAKE) uninstall PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
