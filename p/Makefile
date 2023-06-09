@@ -84,10 +84,10 @@ endif
 
 ifeq ($(USE_JSC),1)
 install-libdec: $(DESTDIR)$(R2DEC_HOME)
-	$(V)$(CP) -rv ../r2dec-duk.js ../require.js ../libdec "$(DESTDIR)$(R2DEC_HOME)"
+	$(V)$(ECHO) "ignoring installing js files."
 
 user-install-libdec:
-	$(V)$(MAKE) install-libdec PLUGDIR=$(shell r2 -H R2_USER_PLUGINS) R2DEC_HOME=$(shell r2 -H R2_USER_PLUGINS)/r2dec-js
+	$(V)$(ECHO) "ignoring installing js files."
 else
 install-libdec:
 	$(V)$(CP) -rv ../r2dec-duk.js ../require.js ../libdec "$(DESTDIR)$(R2DEC_HOME)"
