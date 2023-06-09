@@ -72,7 +72,7 @@ jobs:
         if [ -z "$CHECK" ]; then
            exit 1
         fi
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: r2dec-${{env.R2V}}_amd64.deb
         path: p/dist/debian/*.deb
