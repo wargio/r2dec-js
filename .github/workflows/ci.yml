@@ -32,18 +32,22 @@ jobs:
       run: |
         sudo make -C p install
         r2 -Qc 'af;pdd' /bin/ls
+        sudo make -C p uninstall
     - name: make jsc build
       run: make -C p clean && CFLAGS=-DR2DEC_HOME="\\\"$(r2 -H R2_LIBR_PLUGINS)\\\"" make -j -C p USE_JSC=1
     - name: test with jsc
       run: |
         sudo make -C p install
         r2 -Qc 'af;pdd' /bin/ls
+        sudo make -C p uninstall
     - name: meson build
       run: cd p ; meson -Djsc_folder=".." b && ninja -C b
     - name: packaging
       run: make -C p/dist/debian
-    - name: test
-      run: make -C p install && r2 -Qc 'af;pdd' /bin/ls
+    - name: test packaging
+      run: |
+        sudo dpkg -i *.deb
+        r2 -Qc 'af;pdd' /bin/ls
     - uses: actions/upload-artifact@v2
       with:
         name: r2dec-${{env.R2V}}_amd64.deb
