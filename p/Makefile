@@ -83,7 +83,7 @@ ifeq ($(USE_JSC),0)
 endif
 
 ifeq ($(USE_JSC),1)
-install-libdec: $(DESTDIR)$(R2DEC_HOME)
+install-libdec:
 	$(V)$(ECHO) "ignoring installing js files."
 
 user-install-libdec:
