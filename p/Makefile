@@ -59,10 +59,11 @@ endif
 	$(V)$(CC) $(CFLAGS) $(CFLAGS_PKG) -c $< -o $@
 
 $(DESTDIR)$(R2DEC_HOME) $(DESTDIR)$(R2DEC_HOME)/libdec $(DESTDIR)$(PLUGDIR):
+	$(V)$(ECHO) "[MKDIR] $@"
 	$(V)$(MKDIR) $@
 
 install-plugin: $(DESTDIR)$(R2DEC_HOME)/libdec $(DESTDIR)$(PLUGDIR) $(BIN)
-	$(V)$(CP) $(BIN) $(DESTDIR)$(PLUGDIR)
+	$(V)$(CP) -v $(BIN) $(DESTDIR)$(PLUGDIR)
 
 symstall symlink: $(DESTDIR)$(PLUGDIR) $(DESTDIR)/$(R2DEC_HOME)/libdec
 	$(V)$(LN) $(shell pwd)/$(BIN) $(DESTDIR)$(PLUGDIR)
@@ -82,22 +83,22 @@ ifeq ($(USE_JSC),0)
 endif
 
 ifeq ($(USE_JSC),1)
-install-libdec: $(DESTDIR)$(R2DEC_HOME)
-	$(V)$(CP) -r ../r2dec-duk.js ../require.js ../libdec "$(DESTDIR)$(R2DEC_HOME)"
+install-libdec:
+	$(V)$(ECHO) "ignoring installing js files."
 
 user-install-libdec:
-	$(V)$(MAKE) install-libdec PLUGDIR=$(shell r2 -H R2_USER_PLUGINS) R2DEC_HOME=$(shell r2 -H R2_USER_PLUGINS)/r2dec-js
+	$(V)$(ECHO) "ignoring installing js files."
 else
 install-libdec:
-	$(V)$(CP) -r ../r2dec-duk.js ../require.js ../libdec "$(DESTDIR)$(R2DEC_HOME)"
+	$(V)$(CP) -rv ../r2dec-duk.js ../require.js ../libdec "$(DESTDIR)$(R2DEC_HOME)"
 
 user-install-libdec:
-	$(V)$(CP) -r ../r2dec-duk.js ../require.js ../libdec "$(shell r2 -H R2_USER_PLUGINS)"/r2dec-js
+	$(V)$(CP) -rv ../r2dec-duk.js ../require.js ../libdec "$(shell r2 -H R2_USER_PLUGINS)"/r2dec-js
 endif
 
 uninstall:
-	$(V)$(RM) $(DESTDIR)$(PLUGDIR)/$(BIN)
-	$(V)$(RM) -r $(DESTDIR)$(PLUGDIR)/r2dec-js
+	$(V)$(RM) -v $(DESTDIR)$(PLUGDIR)/$(BIN)
+	$(V)$(RM) -rv $(DESTDIR)$(R2DEC_HOME)
 
 user-uninstall:
 	$(V)$(MAKE) uninstall PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)

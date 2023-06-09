@@ -8,8 +8,13 @@ on:
     branches:
     - master
 
+# Automatically cancel any previous workflow on new push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
 env:
-  R2V: 5.7.8
+  R2V: 5.8.8
 
 jobs:
   linux:
@@ -28,19 +33,46 @@ jobs:
         sudo dpkg -i *.deb
     - name: make build
       run: CFLAGS=-DR2DEC_HOME="\\\"$(r2 -H R2_LIBR_PLUGINS)\\\"" make -j -C p
-    - name: test
-      run: make -C p install && r2 -Qc 'af;pdd' /bin/ls
+    - name: test with javascript files
+      run: |
+        sudo make -C p install
+        r2 -Qc 'Lc' malloc://10
+        OUTPUT=$(r2 -Qc 'af;pdd' /bin/ls)
+        CHECK=$(echo -e "$OUTPUT" | grep "r2dec pseudo code output")
+        echo -e "$OUTPUT"
+        if [ -z "$CHECK" ]; then
+           exit 1
+        fi
+        sudo make -C p uninstall
     - name: make jsc build
       run: make -C p clean && CFLAGS=-DR2DEC_HOME="\\\"$(r2 -H R2_LIBR_PLUGINS)\\\"" make -j -C p USE_JSC=1
-    - name: test
-      run: make -C p install && r2 -Qc 'af;pdd' /bin/ls
+    - name: test with jsc
+      run: |
+        sudo make -C p install
+        r2 -Qc 'Lc' malloc://10
+        OUTPUT=$(r2 -Qc 'af;pdd' /bin/ls)
+        CHECK=$(echo -e "$OUTPUT" | grep "r2dec pseudo code output")
+        echo -e "$OUTPUT"
+        if [ -z "$CHECK" ]; then
+           exit 1
+        fi
+        sudo make -C p uninstall
     - name: meson build
       run: cd p ; meson -Djsc_folder=".." b && ninja -C b
     - name: packaging
       run: make -C p/dist/debian
-    - name: test
-      run: make -C p install && r2 -Qc 'af;pdd' /bin/ls
-    - uses: actions/upload-artifact@v2
+    - name: test deb
+      run: |
+        sudo dpkg -i p/dist/debian/*.deb
+        dpkg-query -L r2dec
+        r2 -Qc 'Lc' malloc://10
+        OUTPUT=$(r2 -Qc 'af;pdd' /bin/ls)
+        CHECK=$(echo -e "$OUTPUT" | grep "r2dec pseudo code output")
+        echo -e "$OUTPUT"
+        if [ -z "$CHECK" ]; then
+           exit 1
+        fi
+    - uses: actions/upload-artifact@v3
       with:
         name: r2dec-${{env.R2V}}_amd64.deb
         path: p/dist/debian/*.deb
@@ -62,7 +94,7 @@ jobs:
         sudo installer -pkg *.pkg -target /
     - name: packaging
       run: make -C p/dist/macos
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: r2dec-${{env.R2V}}-amd64.pkg
         path: p/dist/macos/r2dec*.pkg
@@ -111,7 +143,7 @@ jobs:
         copy b\*.dll "%PLUGINDIR%"
         cd %BINDIR%
         radare2.exe -Qc "pdd? ; aa ; pdd" radare2.exe
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: r2dec-${{env.R2V}}-w64.zip
         path: r2dec-plugin
@@ -160,7 +192,7 @@ jobs:
         copy b\*.dll "%PLUGINDIR%"
         cd %BINDIR%
         radare2.exe -Qc "pdd? ; aa ; pdd" radare2.exe
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: r2dec-${{env.R2V}}-w32.zip
         path: r2dec-plugin
