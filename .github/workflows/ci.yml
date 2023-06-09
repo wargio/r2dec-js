@@ -28,12 +28,16 @@ jobs:
         sudo dpkg -i *.deb
     - name: make build
       run: CFLAGS=-DR2DEC_HOME="\\\"$(r2 -H R2_LIBR_PLUGINS)\\\"" make -j -C p
-    - name: test
-      run: make -C p install && r2 -Qc 'af;pdd' /bin/ls
+    - name: test with javascript files
+      run: |
+        sudo make -C p install
+        r2 -Qc 'af;pdd' /bin/ls
     - name: make jsc build
       run: make -C p clean && CFLAGS=-DR2DEC_HOME="\\\"$(r2 -H R2_LIBR_PLUGINS)\\\"" make -j -C p USE_JSC=1
-    - name: test
-      run: make -C p install && r2 -Qc 'af;pdd' /bin/ls
+    - name: test with jsc
+      run: |
+        sudo make -C p install
+        r2 -Qc 'af;pdd' /bin/ls
     - name: meson build
       run: cd p ; meson -Djsc_folder=".." b && ninja -C b
     - name: packaging
