@@ -62,7 +62,7 @@ jobs:
         sudo installer -pkg *.pkg -target /
     - name: packaging
       run: make -C p/dist/macos
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: r2dec-${{env.R2V}}-amd64.pkg
         path: p/dist/macos/r2dec*.pkg
@@ -111,7 +111,7 @@ jobs:
         copy b\*.dll "%PLUGINDIR%"
         cd %BINDIR%
         radare2.exe -Qc "pdd? ; aa ; pdd" radare2.exe
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: r2dec-${{env.R2V}}-w64.zip
         path: r2dec-plugin
@@ -160,7 +160,7 @@ jobs:
         copy b\*.dll "%PLUGINDIR%"
         cd %BINDIR%
         radare2.exe -Qc "pdd? ; aa ; pdd" radare2.exe
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: r2dec-${{env.R2V}}-w32.zip
         path: r2dec-plugin
