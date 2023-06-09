@@ -38,8 +38,8 @@ jobs:
         sudo make -C p install
         r2 -Qc 'Lc' malloc://10
         OUTPUT=$(r2 -Qc 'af;pdd' /bin/ls)
-        CHECK=$(echo -e $OUTPUT | grep "r2dec pseudo code output")
-        echo -e $OUTPUT
+        CHECK=$(echo -e "$OUTPUT" | grep "r2dec pseudo code output")
+        echo -e "$OUTPUT"
         if [ -z "$CHECK" ]; then
            exit 1
         fi
@@ -51,8 +51,8 @@ jobs:
         sudo make -C p install
         r2 -Qc 'Lc' malloc://10
         OUTPUT=$(r2 -Qc 'af;pdd' /bin/ls)
-        CHECK=$(echo -e $OUTPUT | grep "r2dec pseudo code output")
-        echo -e $OUTPUT
+        CHECK=$(echo -e "$OUTPUT" | grep "r2dec pseudo code output")
+        echo -e "$OUTPUT"
         if [ -z "$CHECK" ]; then
            exit 1
         fi
@@ -64,10 +64,12 @@ jobs:
     - name: test deb
       run: |
         sudo dpkg -i *.deb
+        dpkg-query -L r2dec
+        r2 -H
         r2 -Qc 'Lc' malloc://10
         OUTPUT=$(r2 -Qc 'af;pdd' /bin/ls)
-        CHECK=$(echo -e $OUTPUT | grep "r2dec pseudo code output")
-        echo -e $OUTPUT
+        CHECK=$(echo -e "$OUTPUT" | grep "r2dec pseudo code output")
+        echo -e "$OUTPUT"
         if [ -z "$CHECK" ]; then
            exit 1
         fi
