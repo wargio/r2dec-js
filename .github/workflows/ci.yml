@@ -36,8 +36,11 @@ jobs:
     - name: test with javascript files
       run: |
         sudo make -C p install
-        ACTUAL=$(r2 -Qc 'af;pdd' /bin/ls | grep "libc_start_main")
-        if [ -z "$ACTUAL" ]; then
+        r2 -Qc 'Lc'
+        OUTPUT=$(r2 -Qc 'af;pdd' /bin/ls)
+        CHECK=$(echo $OUTPUT | grep "r2dec pseudo code output")
+        echo $OUTPUT
+        if [ -z "$CHECK" ]; then
            exit 1
         fi
         sudo make -C p uninstall
@@ -46,8 +49,11 @@ jobs:
     - name: test with jsc
       run: |
         sudo make -C p install
-        ACTUAL=$(r2 -Qc 'af;pdd' /bin/ls | grep "libc_start_main")
-        if [ -z "$ACTUAL" ]; then
+        r2 -Qc 'Lc'
+        OUTPUT=$(r2 -Qc 'af;pdd' /bin/ls)
+        CHECK=$(echo $OUTPUT | grep "r2dec pseudo code output")
+        echo $OUTPUT
+        if [ -z "$CHECK" ]; then
            exit 1
         fi
         sudo make -C p uninstall
@@ -58,8 +64,11 @@ jobs:
     - name: test deb
       run: |
         sudo dpkg -i *.deb
-        ACTUAL=$(r2 -Qc 'af;pdd' /bin/ls | grep "libc_start_main")
-        if [ -z "$ACTUAL" ]; then
+        r2 -Qc 'Lc'
+        OUTPUT=$(r2 -Qc 'af;pdd' /bin/ls)
+        CHECK=$(echo $OUTPUT | grep "r2dec pseudo code output")
+        echo $OUTPUT
+        if [ -z "$CHECK" ]; then
            exit 1
         fi
     - uses: actions/upload-artifact@v2
