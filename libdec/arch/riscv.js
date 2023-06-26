@@ -182,8 +182,8 @@
         instructions: {
             auipc: function(instr) {
                 var dst = instr.parsed.opd[0];
-                var imm32 = parseInt(instr.parsed.opd[1]);
-                var src = instr.location.add(imm32);
+                var imm20 = instr.parsed.opd[1] << 12;
+                var src = instr.location.add(imm20);
                 return Base.assign(dst, '0x' + src.toString(16)) ;
             },
             lui: function(instr) {
