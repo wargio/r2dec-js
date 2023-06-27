@@ -139,8 +139,10 @@
         ];
         var address = [
             function(e, addr) {
-                var imm32 = instr.parsed.opd[1] << 12;
-                return Long.fromNumber(imm32, true);
+                var imm = parseInt(instr.parsed.opd[1]);
+                var imm20 = imm << 12;
+                var n = new Long(imm20, ((Global.evars.archbits > 32) && imm & 0x80000) ? -1 : 0, true);
+                return n;
             },
             function(e, addr) {
                 var n = Long.fromString(_hex(e.opd[2]), e.mnem.indexOf('u') > 0, 16);
@@ -188,8 +190,10 @@
             },
             lui: function(instr) {
                 var dst = instr.parsed.opd[0];
-                var imm20 = instr.parsed.opd[1] << 12;
-                return Base.assign(dst, '0x' + imm20.toString(16)) ;
+                var imm = parseInt(instr.parsed.opd[1]);
+                var imm20 = imm << 12;
+                var n = new Long(imm20, ((Global.evars.archbits > 32) && imm & 0x80000) ? -1 : 0, true);
+                return Base.assign(dst, '0x' + n.toString(16)) ;
             },
             lb: function(instr) {
                 return load_bits(instr, 8, false);
