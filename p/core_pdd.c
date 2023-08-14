@@ -404,9 +404,17 @@ int r_cmd_pdd_init(void *user, const char *cmd) {
 }
 
 RCorePlugin r_core_plugin_test = {
+#if R2_VERSION_NUMBER > 50808
+	.meta = {
+		.name = "r2dec",
+		.desc = "Pseudo-code decompiler for radare2",
+		.license = "GPL3",
+	},
+#else
 	.name = "r2dec",
 	.desc = "Pseudo-code decompiler for radare2",
 	.license = "GPL3",
+#endif
 	.call = r_cmd_pdd,
 	.init = r_cmd_pdd_init
 };
