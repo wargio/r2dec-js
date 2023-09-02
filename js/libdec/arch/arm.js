@@ -842,6 +842,9 @@ var _arm = {
         ble: function(instr, context) {
             return _conditional(instr, context, 'LE');
         },
+        'b.le': function(instr, context) {
+            return _conditional(instr, context, 'LE');
+        },
         blo: function(instr, context) {
             return _conditional(instr, context, 'LE');
         },
