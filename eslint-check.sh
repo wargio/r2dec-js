@@ -1,3 +1,3 @@
 #!/bin/sh
 
-find . -type f -name "*.js" | xargs eslint 
+find js/ -type f -name "*.js" | xargs eslint -c .eslintrc.json

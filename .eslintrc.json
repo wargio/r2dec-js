@@ -1,7 +1,7 @@
 {
     "parserOptions": {
-        "ecmaVersion": 6,
-        "sourceType": "script",
+        "ecmaVersion": "latest",
+        "sourceType": "module",
         "ecmaFeatures": {}
     },
     "extends": "eslint:recommended",
@@ -26,19 +26,17 @@
         "no-constant-condition": ["error", {
             "checkLoops": false
         }],
-	"no-control-regex": "warn"
+    "no-control-regex": "warn"
     },
     "globals": {
+        "process": true,
+        "BigInt": true,
         "Global": true,
-        "Duktape": true,
-        "TextDecoder": true,
-        "require": true,
-        "include": true,
-        "read_file": true,
-        "module": true,
-        "console": true,
-        "r2cmd": true,
-        "___internal_load": true,
-        "___internal_require": true
+        "Limits": true,
+        "radare2": true,
+        "atob": true,
+        "btoa": true,
+        "unit": true,
+        "console": true
     }
 }
