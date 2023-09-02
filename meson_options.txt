@@ -1,0 +1,4 @@
+option('r2_libdir', type: 'string', value: '', description: 'radare2 library directory')
+option('r2_incdir', type: 'string', value: '', description: 'radare2 include directory')
+option('r2_plugdir', type: 'string', value: '', description: 'radare2 install directory')
+option('standalone', type: 'boolean', value: false, description: 'enables/disables building only the standalone executable for testing purposes')

@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: '16'
       - name: eslint
-        run: chmod +x .ci-scripts/ci-eslint.sh && .ci-scripts/ci-eslint.sh ${GITHUB_REF##*/}
+        run: chmod +x .ci-scripts/ci-eslint.sh && .ci-scripts/ci-eslint.sh
 
   tests:
     name: tests
