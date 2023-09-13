@@ -1,14 +1,17 @@
 #!/bin/bash
 set -e
 
-CI_BRANCH="$1"
+sudo apt update > /dev/null
+sudo apt -y install meson ninja-build
 
-echo "Branch: $CI_BRANCH"
+CI_BRANCH="$1"
 
 ## r2dec-regression
 cd ..
 CI_WORKDIR=$(pwd)
-echo "Work dir: $CI_WORKDIR"
+
+echo "CI_BRANCH: $CI_BRANCH"
+echo "CI_WORKDIR:  $CI_WORKDIR"
 
 rm -rf r2dec-regression >/dev/null 2>&1 || echo "no need to clean.."
 git clone --branch "$CI_BRANCH" --depth 1 https://github.com/wargio/r2dec-regression || git clone --depth 1 https://github.com/wargio/r2dec-regression
