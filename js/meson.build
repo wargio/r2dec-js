@@ -9,14 +9,14 @@ if get_option('standalone')
       'bytecode.h',
       output : 'bytecode.h',
       input : r2dec_testsuite,
-      command : [qjsc, '@INPUT@', '-m', '-N', 'main_bytecode', '-c', '-o', '@OUTPUT@'],
+      command : [qjsc, '-m', '-N', 'main_bytecode', '-c', '-o', '@OUTPUT@', '@INPUT@'],
   )
 else
   bytecode_h = custom_target(
       'bytecode.h',
       output : 'bytecode.h',
       input : r2dec_plugin,
-      command : [qjsc, '@INPUT@', '-m', '-N', 'main_bytecode', '-c', '-o', '@OUTPUT@'],
+      command : [qjsc, '-m', '-N', 'main_bytecode', '-c', '-o', '@OUTPUT@', '@INPUT@'],
   )
 endif
 
