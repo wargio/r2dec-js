@@ -120,7 +120,6 @@ jobs:
         set ARCH=x64
         set R2_DEBUG=1
         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-        cd p
         meson --buildtype=release -Dc_args=-DDUK_USE_DATE_NOW_WINDOWS -Djsc_folder=".." b
         ninja -C b
         mkdir %DESTDIR%
@@ -169,7 +168,6 @@ jobs:
         set ARCH=x86
         set R2_DEBUG=1
         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-        cd p
         meson --buildtype=release -Dc_args=-DDUK_USE_DATE_NOW_WINDOWS -Djsc_folder=".." b
         ninja -C b
         mkdir %DESTDIR%
