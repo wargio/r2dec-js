@@ -45,7 +45,7 @@ function _new_data(issue) {
     return {
         arch: issue.arch,
         bits: bits,
-        graph: issue.agj || [],
+        graph: issue.agj || issue.graph || [],
         xrefs: {
             symbols: issue.isj || [],
             strings: issue.Csj || issue.izj || [],
