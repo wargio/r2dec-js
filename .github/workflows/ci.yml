@@ -118,14 +118,13 @@ jobs:
         set BINDIR=%CD%\radare2\bin
         set PLUGINDIR=%CD%\radare2\lib\plugins
         set ARCH=x64
-        set R2_DEBUG=1
         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-        meson --buildtype=release -Dc_args=-DDUK_USE_DATE_NOW_WINDOWS -Djsc_folder=".." b
-        ninja -C b
+        meson --buildtype=release -Dr2_incdir="radare2\include\libr" build || exit /b 666
+        ninja -C build || exit /b 666
         mkdir %DESTDIR%
-        copy b\*.dll %DESTDIR%
+        copy build\*.dll %DESTDIR% || exit /b 666
         mkdir "%PLUGINDIR%"
-        copy b\*.dll "%PLUGINDIR%"
+        copy build\*.dll "%PLUGINDIR%" || exit /b 666
         cd %BINDIR%
         radare2.exe -Qc "pdd? ; aa ; pdd" radare2.exe
     - uses: actions/upload-artifact@v3
@@ -166,14 +165,13 @@ jobs:
         set BINDIR=%CD%\radare2\bin
         set PLUGINDIR=%CD%\radare2\lib\plugins
         set ARCH=x86
-        set R2_DEBUG=1
         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-        meson --buildtype=release -Dc_args=-DDUK_USE_DATE_NOW_WINDOWS -Djsc_folder=".." b
-        ninja -C b
+        meson --buildtype=release -Dr2_incdir="radare2\include\libr" build || exit /b 666
+        ninja -C build || exit /b 666
         mkdir %DESTDIR%
-        copy b\*.dll %DESTDIR%
+        copy build\*.dll %DESTDIR% || exit /b 666
         mkdir "%PLUGINDIR%"
-        copy b\*.dll "%PLUGINDIR%"
+        copy build\*.dll "%PLUGINDIR%" || exit /b 666
         cd %BINDIR%
         radare2.exe -Qc "pdd? ; aa ; pdd" radare2.exe
     - uses: actions/upload-artifact@v3
