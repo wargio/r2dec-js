@@ -49,17 +49,17 @@ else
 
   radare2_incdir = get_option('r2_incdir')
   if radare2_incdir == '' and radare2.found()
-    radare2_incdir = run_command(radare2, '-H', 'R2_INCDIR').stdout().strip()
+    radare2_incdir = run_command(radare2, '-H', 'R2_INCDIR', check: true).stdout().strip()
   endif
 
   radare2_libdir = get_option('r2_libdir')
   if radare2_libdir == '' and radare2.found()
-    radare2_libdir = run_command(radare2, '-H', 'R2_LIBDIR').stdout().strip()
+    radare2_libdir = run_command(radare2, '-H', 'R2_LIBDIR', check: true).stdout().strip()
   endif
 
   radare2_plugdir = get_option('r2_plugdir')
   if radare2_plugdir == '' and radare2.found()
-    radare2_plugdir = run_command(radare2, '-H', 'R2_LIBR_PLUGINS').stdout().strip()
+    radare2_plugdir = run_command(radare2, '-H', 'R2_LIBR_PLUGINS', check: true).stdout().strip()
     if radare2_plugdir == ''
       radare2_plugdir = get_option('libdir')
     endif
