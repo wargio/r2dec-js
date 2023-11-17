@@ -1377,7 +1377,7 @@ var _arm = {
             var opds = instr.parsed.opd;
             var ops = [];
             var val = Long.from(opds[1], true, opds[1].indexOf('0x') == 0 ? 16 : 10);
-            var mask = Long.fromValue(0xffff, true);
+            var mask = Long.from(0xffff, true);
 
 
             if (instr.parsed.opd.length != 2) {
