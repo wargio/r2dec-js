@@ -721,6 +721,27 @@ var _it_to_boolean_array = function(value) {
     return value == 't' ? true : false;
 };
 
+var _arm_ret = function(instr, context, instructions) {
+    var start = instructions.indexOf(instr);
+    var returnval = null;
+    if (['r0', 'w0', 'x0'].indexOf(instructions[start - 1].parsed.opd[0]) >= 0) {
+        returnval = instructions[start - 1].parsed.opd[0];
+    } else if (context.markers[instr.marker]) {
+        if (context.markers[instr.marker]['r0'] && context.markers[instr.marker]['r0'].instr.valid) {
+            //context.markers[instr.marker]['r0'].instr.valid = false;
+            returnval = '0x' + context.markers[instr.marker]['r0'].value.toString(16);
+        } else if (context.markers[instr.marker]['w0'] && context.markers[instr.marker]['w0'].instr.valid) {
+            //context.markers[instr.marker]['w0'].instr.valid = false;
+            returnval = '0x' + context.markers[instr.marker]['w0'].value.toString(16);
+        } else if (context.markers[instr.marker]['x0'] && context.markers[instr.marker]['x0'].instr.valid) {
+            //context.markers[instr.marker]['x0'].instr.valid = false;
+            returnval = '0x' + context.markers[instr.marker]['x0'].value.toString(16);
+        }
+    }
+    context.retreg = returnval;
+    return Base.return(returnval);
+};
+
 var _stack_store = function(instr, context) {
     var src = instr.parsed.opd[0];
     var dst = instr.parsed.opd[1];
@@ -1154,26 +1175,12 @@ var _arm = {
         rol: function(instr) {
             return Base.rotate_left(instr.parsed.opd[0], instr.parsed.opd[1], parseInt(instr.parsed.opd[2], 16).toString(), 32);
         },
-        ret: function(instr, context, instructions) {
-            var start = instructions.indexOf(instr);
-            var returnval = null;
-            if (['r0', 'w0', 'x0'].indexOf(instructions[start - 1].parsed.opd[0]) >= 0) {
-                returnval = instructions[start - 1].parsed.opd[0];
-            } else if (context.markers[instr.marker]) {
-                if (context.markers[instr.marker]['r0'] && context.markers[instr.marker]['r0'].instr.valid) {
-                    //context.markers[instr.marker]['r0'].instr.valid = false;
-                    returnval = '0x' + context.markers[instr.marker]['r0'].value.toString(16);
-                } else if (context.markers[instr.marker]['w0'] && context.markers[instr.marker]['w0'].instr.valid) {
-                    //context.markers[instr.marker]['w0'].instr.valid = false;
-                    returnval = '0x' + context.markers[instr.marker]['w0'].value.toString(16);
-                } else if (context.markers[instr.marker]['x0'] && context.markers[instr.marker]['x0'].instr.valid) {
-                    //context.markers[instr.marker]['x0'].instr.valid = false;
-                    returnval = '0x' + context.markers[instr.marker]['x0'].value.toString(16);
-                }
-            }
-            context.retreg = returnval;
-            return Base.return(returnval);
-        },
+        ret: _arm_ret,
+        retaa: _arm_ret,
+        retab: _arm_ret,
+        eret: _arm_ret,
+        eretaa: _arm_ret,
+        eretab: _arm_ret,
         stp: function(instr) {
             var e = instr.parsed.opd;
             var bits = _reg_bits[e[0][0]] || 64;
