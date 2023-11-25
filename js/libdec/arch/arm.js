@@ -1088,6 +1088,32 @@ var _arm = {
         nop: function(instr) {
             return Base.nop();
         },
+        autda: Base.nop,
+        autdb: Base.nop,
+        autdza: Base.nop,
+        autdzb: Base.nop,
+        autia: Base.nop,
+        autib: Base.nop,
+        autiaz: Base.nop,
+        autibz: Base.nop,
+        autiasp: Base.nop,
+        autibsp: Base.nop,
+        autiza: Base.nop,
+        autizb: Base.nop,
+        pacibsp: Base.nop,
+        pacia: Base.nop,
+        pacib: Base.nop,
+        pacda: Base.nop,
+        pacdb: Base.nop,
+        pacdza: Base.nop,
+        pacdzb: Base.nop,
+        paciza: Base.nop,
+        pacizb: Base.nop,
+        paciasp: Base.nop,
+        pacibsp: Base.nop,
+        xpacd: Base.nop,
+        xpaci: Base.nop,
+        xpaclri: Base.nop,
         orr: function(instr) {
             if (instr.parsed.opd[1] == '0') {
                 return Base.assign(instr.parsed.opd[0], instr.parsed.opd[2] || '0');
