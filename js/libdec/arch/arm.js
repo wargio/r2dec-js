@@ -938,6 +938,9 @@ var _arm = {
         ldurb: function(instr, context) {
             return _memory(Base.read_memory, instr, context, '8');
         },
+        ldurh: function(instr, context) {
+            return _memory(Base.read_memory, instr, context, '16');
+        },
         ldur: function(instr, context) {
             return _memory(Base.read_memory, instr, context, '32');
         },
