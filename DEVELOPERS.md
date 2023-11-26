@@ -1,54 +1,50 @@
 # Developing on r2dec
 
-r2dec is mostly written in javascript and the engine is duktape.
-
-Duktape APIs: https://duktape.org/api.html
+r2dec is mostly written in javascript and the engine is [quickjs](https://github.com/frida/quickjs.git).
 
 ## Extending r2dec arch
 
-First of all when you need to add a new architecture, you need to create a new `.js` file inside `libdec/arch/`.
+First of all when you need to add a new architecture, you need to create a new `.js` file inside `js/libdec/arch/`.
 
-For example `libdec/arch/arch9999.js` and it needs to follow the minimal base javascript template:
+For example `js/libdec/arch/arch9999.js` and it needs to follow the minimal base javascript template:
 ```js
-(function() { // lgtm [js/useless-expression]
-    const Base = require('libdec/core/base');
-    const Variable = require('libdec/core/variable');
-    const Extra = require('libdec/core/extra');
-    return {
-        instructions: {
-            add: function(instr, context, instructions) {
-                return Base.add(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[2]);
-            },
-            nop: function() {
-                return Base.nop();
-            },
-            invalid: function(instr, context, instructions) {
-                return Base.nop();
-            }
+import Base from '../core/base.js';
+
+export default {
+    instructions: {
+        add: function(instr, context, instructions) {
+            return Base.add(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[2]);
         },
-        parse: function(assembly) {
-            var tokens = assembly.trim().split(' ');
-            return { mnem: tokens.shift(), opd: tokens };
+        nop: function() {
+            return Base.nop();
         },
-        context: function() {
-            return { cond: { a: '?', b: '?' } };
-        },
-        preanalisys: function(instructions, context) {},
-        postanalisys: function(instructions, context) {},
-        localvars: function(context) {
-            return [];
-        },
-        globalvars: function(context) {
-            return [];
-        },
-        arguments: function(context) {
-            return [];
-        },
-        returns: function(context) {
-            return 'void';
+        invalid: function(instr, context, instructions) {
+            return Base.nop();
         }
-    };
-});
+    },
+    parse: function(assembly) {
+        var tokens = assembly.trim().split(' ');
+        return { mnem: tokens.shift(), opd: tokens };
+    },
+    context: function() {
+        return { cond: { a: '?', b: '?' } };
+    },
+    preanalisys: function(instructions, context) {},
+    postanalisys: function(instructions, context) {},
+    localvars: function(context) {
+        return [];
+    },
+    globalvars: function(context) {
+        return [];
+    },
+    arguments: function(context) {
+        return [];
+    },
+    returns: function(context) {
+        return 'void';
+    }
+};
+
 ```
 After saving the new arch (`arch9999.js` in the example), you need to add this arch to the file `libdec/Archs.js`.
 
@@ -63,6 +59,17 @@ For example:
         x86: require('libdec/arch/x86')
     };
 });
+
+import arm from './arch/arm.js';
+import arch9999 from './arch/arch9999.js';
+import x86 from './arch/x86.js';
+
+export default {
+    arm: arm,
+    arch9999: arch9999,
+    x86: x86
+};
+
 ```
 
 ## Codebase:
@@ -91,5 +98,3 @@ One last thing:
   - the returned object is available under `instr.parsed`, meanwhile the original string can still be found under `instr.assembly` or `instr.simplified`.
 
 Deroad.
-
-
