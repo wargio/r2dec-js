@@ -117,7 +117,7 @@ export default (function() {
 
 	function print_issue() {
 		var xrefs = r2_sanitize(r2pipe.string('isj'), '[]');
-		var strings = r2_sanitize(r2pipe.string('Cslj'), '[]');
+		var strings = r2_sanitize(r2pipe.string('Csj'), '[]');
 		var functions = r2_sanitize(r2pipe.string('aflj'), '[]');
 		var classes = r2_sanitize(r2pipe.string('icj'), '[]');
 		var data = r2_sanitize(r2pipe.string('agj'), '[]');
