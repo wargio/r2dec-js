@@ -1112,32 +1112,84 @@ var _arm = {
         nop: function(instr) {
             return Base.nop();
         },
-        autda: Base.nop,
-        autdb: Base.nop,
-        autdza: Base.nop,
-        autdzb: Base.nop,
-        autia: Base.nop,
-        autib: Base.nop,
-        autiaz: Base.nop,
-        autibz: Base.nop,
-        autiasp: Base.nop,
-        autibsp: Base.nop,
-        autiza: Base.nop,
-        autizb: Base.nop,
-        pacibsp: Base.nop,
-        pacia: Base.nop,
-        pacib: Base.nop,
-        pacda: Base.nop,
-        pacdb: Base.nop,
-        pacdza: Base.nop,
-        pacdzb: Base.nop,
-        paciza: Base.nop,
-        pacizb: Base.nop,
-        paciasp: Base.nop,
-        pacibsp: Base.nop,
-        xpacd: Base.nop,
-        xpaci: Base.nop,
-        xpaclri: Base.nop,
+        autda: function(instr) {
+            return Base.nop();
+        },
+        autdb: function(instr) {
+            return Base.nop();
+        },
+        autdza: function(instr) {
+            return Base.nop();
+        },
+        autdzb: function(instr) {
+            return Base.nop();
+        },
+        autia: function(instr) {
+            return Base.nop();
+        },
+        autib: function(instr) {
+            return Base.nop();
+        },
+        autiaz: function(instr) {
+            return Base.nop();
+        },
+        autibz: function(instr) {
+            return Base.nop();
+        },
+        autiasp: function(instr) {
+            return Base.nop();
+        },
+        autibsp: function(instr) {
+            return Base.nop();
+        },
+        autiza: function(instr) {
+            return Base.nop();
+        },
+        autizb: function(instr) {
+            return Base.nop();
+        },
+        pacibsp: function(instr) {
+            return Base.nop();
+        },
+        pacia: function(instr) {
+            return Base.nop();
+        },
+        pacib: function(instr) {
+            return Base.nop();
+        },
+        pacda: function(instr) {
+            return Base.nop();
+        },
+        pacdb: function(instr) {
+            return Base.nop();
+        },
+        pacdza: function(instr) {
+            return Base.nop();
+        },
+        pacdzb: function(instr) {
+            return Base.nop();
+        },
+        paciza: function(instr) {
+            return Base.nop();
+        },
+        pacizb: function(instr) {
+            return Base.nop();
+        },
+        paciasp: function(instr) {
+            return Base.nop();
+        },
+        pacibsp: function(instr) {
+            return Base.nop();
+        },
+        xpacd: function(instr) {
+            return Base.nop();
+        },
+        xpaci: function(instr) {
+            return Base.nop();
+        },
+        xpaclri: function(instr) {
+            return Base.nop();
+        },
         orr: function(instr) {
             if (instr.parsed.opd[1] == '0') {
                 return Base.assign(instr.parsed.opd[0], instr.parsed.opd[2] || '0');
