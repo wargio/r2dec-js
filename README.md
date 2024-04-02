@@ -1,7 +1,5 @@
 ![Build Status](https://github.com/wargio/r2dec-js/workflows/continuous-tests/badge.svg)
 [![CodeFactor](https://www.codefactor.io/repository/github/wargio/r2dec-js/badge)](https://www.codefactor.io/repository/github/wargio/r2dec-js)
-[![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/wargio/r2dec-js.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/wargio/r2dec-js/context:javascript)
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/wargio/r2dec-js.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/wargio/r2dec-js/alerts/)
 
 ![r2dec](https://raw.githubusercontent.com/wargio/r2dec-js/image/r2dec200.png)
 
@@ -15,16 +13,19 @@ Requires radare2
 
 Follow the following steps to install r2dec via r2pm
 
-### *nix users (Linux/OSX/etc..):
+### Install using r2pm:
 
-    r2pm init
-    r2pm install r2dec
+```bash
+# initialize the r2pm database
+$ r2pm -U
+# install r2dec via r2pm
+$ r2pm -i r2dec
+```
 
-### Windows users only:
+### Manual build & install:
 
  - clone this repository
- - Run `cd p`
- - Run `meson -Djsc_folder=".." build` to create the build folder
+ - Run `meson setup build` to create the build folder
  - Run `ninja -C build install` to build the shared library and to install it 
 
 # Usage
@@ -36,7 +37,8 @@ Follow the following steps to install r2dec via r2pm
 # Arguments
 
 ```
-[0x00000000]> pdd?Usage: pdd [args] - core plugin for r2dec
+[0x00000000]> pdd?
+Usage: pdd [args] - core plugin for r2dec
  pdd           - decompile current function
  pdd?          - show this help
  pdd*          - the decompiled code is returned to r2 as comment (via CCu)
