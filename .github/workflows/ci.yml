@@ -31,7 +31,12 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: r2dec-${{env.R2V}}-src-with-deps.zip
-        path: .
+        path: |
+          .
+          !.git/
+          !.github/
+          !.ci-scripts/
+          !subprojects/libquickjs/.git/
   linux:
     runs-on: ubuntu-latest
     steps:
