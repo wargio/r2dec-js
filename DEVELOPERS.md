@@ -52,14 +52,6 @@ The new architecture needs to have the same name as the cmd `e asm.arch`, becaus
 
 For example:
 ```js
-(function() {
-    return {
-        arm: require('libdec/arch/arm'),
-        arch9999: require('libdec/arch/arch9999'),
-        x86: require('libdec/arch/x86')
-    };
-});
-
 import arm from './arch/arm.js';
 import arch9999 from './arch/arch9999.js';
 import x86 from './arch/x86.js';
