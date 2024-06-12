@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  R2V: 5.9.0
+  R2V: 5.9.2
 
 jobs:
   sources:
@@ -65,6 +65,14 @@ jobs:
            exit 1
         fi
         sudo ninja -C build uninstall
+    - name: zip it up
+      run: |
+        cp -f build/libcore_pdd.so .
+        zip r2dec_${{env.R2V}}_linux_amd64.zip libcore_pdd.so
+    - uses: actions/upload-artifact@v4
+      with:
+        name: r2dec_${{env.R2V}}_linux_amd64.zip
+        path: r2dec_${{env.R2V}}_linux_amd64.zip
 #    - name: packaging
 #      run: make -C p/dist/debian
 #    - name: test deb
