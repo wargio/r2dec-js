@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  R2V: 5.9.0
+  R2V: 5.9.2
 
 jobs:
   sources:
