@@ -199,6 +199,7 @@ const _tryas = {
 	int: function(x) {
 		try {
 			return Long.from(x.trim(), false, (x.trim().indexOf('0x') == 0 ? 16 : 10));
+			// eslint-disable-next-line no-unused-vars
 		} catch (e) {}
 		return x;
 	}

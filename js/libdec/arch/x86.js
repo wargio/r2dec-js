@@ -73,6 +73,7 @@ var _value_at = function(address) {
                 return x.length > 1 ? x : '0' + x;
             }).join('');
             return Long.from(p, true, 16);
+            // eslint-disable-next-line no-unused-vars
         } catch (e) {}
     }
     return null;
