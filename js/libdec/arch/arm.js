@@ -1077,6 +1077,13 @@ var _arm = {
         fmov: function(instr, context) {
             return Base.assign(instr.parsed.opd[0], instr.parsed.opd[1]);
         },
+        madd: function(instr) {
+            var vararg = Variable.uniqueName();
+            return Base.composed([
+                Base.multiply(vararg, instr.parsed.opd[1], instr.parsed.opd[2]),
+                Base.add(instr.parsed.opd[0], vararg, instr.parsed.opd[3])
+            ]);
+        },
         mul: function(instr) {
             return _common_math(instr.parsed, Base.multiply);
         },
