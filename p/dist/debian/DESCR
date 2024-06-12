@@ -1,2 +1,0 @@
-r2dec plugin for radare2
-This plugin enables r2 to converts assembly to pseudo-C code.
