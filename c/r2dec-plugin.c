@@ -199,8 +199,12 @@ static void _cmd_pdd(RCore *core, const char *input) {
 
 static int r_cmd_pdd(void *user, const char *input) {
 	RCore *core = (RCore *) user;
-	if (!strncmp (input, "pdd", 3)) {
+	if (r_str_startswith (input, "pdd")) {
+		ut64 addr = core->offset;
 		_cmd_pdd (core, input + 3);
+		if (core->offset != addr) {
+			r_core_seek (core, addr, true);
+		}
 		return true;
 	}
 	return false;
