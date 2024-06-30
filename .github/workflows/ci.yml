@@ -154,8 +154,7 @@ jobs:
         mkdir "%PLUGINDIR%"
         copy build\*.dll "%PLUGINDIR%" || exit /b 666
         cd %BINDIR%
-      # deroad: disabled due inf loop in latest radare2
-      # radare2.exe -qc "pdd? ; af ; pdd" radare2.exe
+        radare2.exe -qc "pdd? ; af ; pdd" radare2.exe
     - uses: actions/upload-artifact@v4
       with:
         name: r2dec-${{env.R2V}}-w64.zip
@@ -202,8 +201,7 @@ jobs:
         mkdir "%PLUGINDIR%"
         copy build\*.dll "%PLUGINDIR%" || exit /b 666
         cd %BINDIR%
-      # deroad: disabled due inf loop in latest radare2
-      # radare2.exe -qc "pdd? ; af ; pdd" radare2.exe
+        radare2.exe -qc "pdd? ; af ; pdd" radare2.exe
     - uses: actions/upload-artifact@v4
       with:
         name: r2dec-${{env.R2V}}-w32.zip
