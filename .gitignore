@@ -2,3 +2,6 @@ build*/
 subprojects/libquick*/
 *.so
 old/
+node_modules/
+package.json
+package-lock.json
