@@ -24,7 +24,6 @@ function r2json(m, def) {
 	var x = r2str(m, true);
 	try {
 		return x.length > 0 ? JSONex.parse(x) : def;
-		// eslint-disable-next-line no-unused-vars
 	} catch(e){}
 	return def;
 }
@@ -34,7 +33,6 @@ function r2int(value, def) {
 	if (x != '') {
 		try {
 			return parseInt(x);
-			// eslint-disable-next-line no-unused-vars
 		} catch (e) {}
 	}
 	return def || 0;
@@ -45,7 +43,6 @@ function r2long(value, def) {
 	if (x != '') {
 		try {
 			return Long.from(x, true);
-			// eslint-disable-next-line no-unused-vars
 		} catch (e) {}
 	}
 	return def || Long.UZERO;

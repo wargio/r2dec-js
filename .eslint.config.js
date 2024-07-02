@@ -31,6 +31,7 @@ module.exports = {
 		}],
 		"no-unused-vars": ["error", {
 			"varsIgnorePattern": "r2dec_|\\binclude\\b",
+			"caughtErrors": "none",
 			"args": "none"
 		}],
 		"curly": "error",
