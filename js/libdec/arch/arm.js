@@ -1749,7 +1749,7 @@ function _apply_marker_math(instr, context) {
 
 var _apply_math = {
     adrp: function(marker, instr) {
-        if (!instr.parsed.opd[1].match(/(0x)?[a-fA-F\d]+/)) {
+        if (!instr.parsed.opd[1].match(/^(0x)?[a-fA-F\d]+/)) {
             return;
         }
         _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);
