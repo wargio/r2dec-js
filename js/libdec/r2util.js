@@ -34,15 +34,23 @@ export default (function() {
     }
 
     function merge_arrays(input) {
-        input = input.split('\n').map(function(x) {
-            return x.length > 2 ? x.trim().substr(1, x.length).substr(0, x.length - 2) : '';
+        return input.trim().split('\n').filter(function(x) {
+        	x = x.trim();
+        	if (x.charAt(0) == '[') {
+        		x = x.substr(1, x.length - 2);
+        	}
+        	return x.length > 2;
+        }).map(function(x) {
+        	x = x.trim();
+        	if (x.charAt(0) == '[') {
+        		x = x.substr(1, x.length - 2);
+        	}
+            return JSONex.parse(x);
         });
-        var array = '[' + input.filter(Boolean).join(',') + ']';
-        return array;
     }
 
-    function merge_arrays_json(input) {
-        return JSONex.parse(merge_arrays(input));
+    function merge_arrays_stringify(input) {
+        return JSONex.stringify(merge_arrays(input));
     }
 
     function compare_offsets(a, b) {
@@ -124,7 +132,7 @@ export default (function() {
 		var farguments = r2_sanitize(r2pipe.string('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
 		var arch = r2_sanitize(r2pipe.string('e asm.arch'), '');
 		var archbits = r2_sanitize(r2pipe.string('e asm.bits'), '32');
-		var database = r2_sanitize(r2pipe.custom('afsj @@i', null, merge_arrays), '[]');
+		var database = r2_sanitize(r2pipe.custom('afsj @@i', merge_arrays_stringify), '[]');
 		console.log('{"name":"issue_' + (new Date()).getTime() +
 			'","arch":"' + arch +
 			'","archbits":' + archbits +
@@ -263,7 +271,7 @@ export default (function() {
                 }))
             };
             this.graph = r2pipe.json('agj', []);
-            this.argdb = r2pipe.custom('afcfj @@@i', /^\[\]\n/g, merge_arrays_json);
+            this.argdb = r2pipe.custom('afcfj @@@i', merge_arrays);
 		},
 		sanitize: function(enable, evars) {
 			if (!evars) {
