@@ -1431,6 +1431,17 @@ var _arm = {
             }
             return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, '1', '0');
         },
+        cinc: function(instr, context) {
+            var opds = instr.parsed.opd;
+            var cond = 'EQ';
+            for (var i = 0; i < _conditional_list.length; i++) {
+                if (_conditional_list[i].ext == opds[3]) {
+                    cond = _conditional_list[i].type;
+                    break;
+                }
+            }
+            return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, opds[1], opds[2] + " + 1");
+        },
         csinc: function(instr, context) {
             var opds = instr.parsed.opd;
             var cond = 'EQ';
