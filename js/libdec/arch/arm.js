@@ -629,7 +629,7 @@ var _call = function(instr, context, instructions) {
         }
         var op, reg, reg32, reg64, start, arg0 = null;
         start = current;
-        for (i = start - 1; i >= 0 && (regnum >= 0 || varargs); i--) {
+        for (i = start - 1; i >= 0 && regnum >= 0; i--) {
             op = instructions[i].parsed.mnem;
             if (!op) {
                 break;
