@@ -106,6 +106,15 @@ function _hex(value) {
 	return parseInt(value).toString(16);
 }
 
+function _parse_lui_imm(value) {
+	var imm = parseInt(value);
+	if (imm & 0x80000) {
+		imm = ((-1 << 12) | imm);
+	}
+	var imm20 = imm << 12;
+	return Long.from(imm20, false);
+}
+
 function lui32(instr, start, instructions, context) {
 	var addr = null;
 	var check = [
@@ -123,8 +132,7 @@ function lui32(instr, start, instructions, context) {
 	];
 	var address = [
 		function(e, addr) {
-			var imm32 = instr.parsed.opd[1] << 12;
-			return Long.from(imm32, true);
+			return _parse_lui_imm(instr.parsed.opd[1]);
 		},
 		function(e, addr) {
 			var n = Long.from(_hex(e.opd[2]), e.mnem.indexOf('u') > 0, 16);
@@ -172,8 +180,8 @@ export default {
 		},
 		lui: function(instr) {
 			var dst = instr.parsed.opd[0];
-			var imm20 = instr.parsed.opd[1] << 12;
-			return Base.assign(dst, '0x' + imm20.toString(16));
+			var n = _parse_lui_imm(instr.parsed.opd[1]);
+			return Base.assign(dst, '0x' + n.toString(16)) ;
 		},
 		lb: function(instr) {
 			return load_bits(instr, 8, false);

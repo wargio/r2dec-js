@@ -629,7 +629,7 @@ var _call = function(instr, context, instructions) {
         }
         var op, reg, reg32, reg64, start, arg0 = null;
         start = current;
-        for (i = start - 1; i >= 0 && (regnum >= 0 || varargs); i--) {
+        for (i = start - 1; i >= 0 && regnum >= 0; i--) {
             op = instructions[i].parsed.mnem;
             if (!op) {
                 break;
@@ -742,6 +742,16 @@ var _arm_ret = function(instr, context, instructions) {
     return Base.return(returnval);
 };
 
+var _branch_reg = function(instr, context, instructions) {
+    var callname = instr.parsed.opd[0];
+    instr.setBadJump();
+    callname = Variable.functionPointer(callname, _reg_bits[callname[0]] || 0, []);
+    if (instructions[instructions.length - 1] == instr) {
+        return Base.return(Base.call(callname, []));
+    }
+    return Base.call(callname, []);
+};
+
 var _stack_store = function(instr, context) {
     var src = instr.parsed.opd[0];
     var dst = instr.parsed.opd[1];
@@ -804,15 +814,11 @@ var _arm = {
         b: function() {
             return Base.nop();
         },
-        br: function(instr, context, instructions) {
-            var callname = instr.parsed.opd[0];
-            instr.setBadJump();
-            callname = Variable.functionPointer(callname, _reg_bits[callname[0]] || 0, []);
-            if (instructions[instructions.length - 1] == instr) {
-                return Base.return(Base.call(callname, []));
-            }
-            return Base.call(callname, []);
-        },
+        br: _branch_reg,
+        brab: _branch_reg,
+        braa: _branch_reg,
+        braaz: _branch_reg,
+        brabz: _branch_reg,
         bx: function(instr, context, instructions) {
             var callname = instr.parsed.opd[0];
             if (callname == 'lr') {
@@ -1425,6 +1431,17 @@ var _arm = {
             }
             return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, '1', '0');
         },
+        cinc: function(instr, context) {
+            var opds = instr.parsed.opd;
+            var cond = 'EQ';
+            for (var i = 0; i < _conditional_list.length; i++) {
+                if (_conditional_list[i].ext == opds[3]) {
+                    cond = _conditional_list[i].type;
+                    break;
+                }
+            }
+            return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, opds[1], opds[2] + " + 1");
+        },
         csinc: function(instr, context) {
             var opds = instr.parsed.opd;
             var cond = 'EQ';
@@ -1749,7 +1766,7 @@ function _apply_marker_math(instr, context) {
 
 var _apply_math = {
     adrp: function(marker, instr) {
-        if (!instr.parsed.opd[1].match(/(0x)?[a-fA-F\d]+/)) {
+        if (!instr.parsed.opd[1].match(/^(0x)?[a-fA-F\d]+/)) {
             return;
         }
         _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);

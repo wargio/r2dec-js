@@ -4,12 +4,10 @@
 import JSONex from './JSONex.js';
 import Long from './long.js';
 
-function r2custom(value, regex, function_fix) {
+function r2custom(value, function_fix) {
 	var x = radare2.command(value) || "";
-	if (regex) {
-		x = x.replace(regex, '');
-	}
-	return function_fix ? function_fix(x.trim()) : x.trim();
+	x = x.trim();
+	return function_fix ? function_fix(x) : x;
 }
 
 function r2str(value, multiline) {
