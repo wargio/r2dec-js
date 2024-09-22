@@ -742,6 +742,16 @@ var _arm_ret = function(instr, context, instructions) {
     return Base.return(returnval);
 };
 
+var _branch_reg = function(instr, context, instructions) {
+    var callname = instr.parsed.opd[0];
+    instr.setBadJump();
+    callname = Variable.functionPointer(callname, _reg_bits[callname[0]] || 0, []);
+    if (instructions[instructions.length - 1] == instr) {
+        return Base.return(Base.call(callname, []));
+    }
+    return Base.call(callname, []);
+};
+
 var _stack_store = function(instr, context) {
     var src = instr.parsed.opd[0];
     var dst = instr.parsed.opd[1];
@@ -804,15 +814,11 @@ var _arm = {
         b: function() {
             return Base.nop();
         },
-        br: function(instr, context, instructions) {
-            var callname = instr.parsed.opd[0];
-            instr.setBadJump();
-            callname = Variable.functionPointer(callname, _reg_bits[callname[0]] || 0, []);
-            if (instructions[instructions.length - 1] == instr) {
-                return Base.return(Base.call(callname, []));
-            }
-            return Base.call(callname, []);
-        },
+        br: _branch_reg,
+        brab: _branch_reg,
+        braa: _branch_reg,
+        braaz: _branch_reg,
+        brabz: _branch_reg,
         bx: function(instr, context, instructions) {
             var callname = instr.parsed.opd[0];
             if (callname == 'lr') {
