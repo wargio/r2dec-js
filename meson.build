@@ -71,10 +71,10 @@ else
   endforeach
 
   if cc.has_argument('-fvisibility=hidden')
-    add_project_arguments('-fvisibility=hidden', language: 'c')
+    r2dec_c_args += '-fvisibility=hidden'
   endif
   if cc.has_argument('-flto')
-    add_project_arguments('-flto', language: 'c')
+    r2dec_c_args += '-flto'
   endif
 
   r2dec_src += [
