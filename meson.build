@@ -70,6 +70,13 @@ else
     r2dec_deps += cc.find_library(lib, dirs: radare2_libdir)
   endforeach
 
+  if cc.has_argument('-fvisibility=hidden')
+    add_project_arguments('-fvisibility=hidden', language: 'c')
+  endif
+  if cc.has_argument('-flto')
+    add_project_arguments('-flto', language: 'c')
+  endif
+
   r2dec_src += [
     bytecode_h,
     bytecode_mod_h,
@@ -84,6 +91,7 @@ else
 
   shared_library('core_pdd', r2dec_src,
     c_args : r2dec_c_args,
+    link_args: ['-Wl,-Bsymbolic'],
     dependencies: r2dec_deps,
     include_directories: include_directories(r2dec_incs),
     implicit_include_directories: false,
