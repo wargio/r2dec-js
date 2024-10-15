@@ -10,7 +10,7 @@ libquickjs_dep = libquickjs_proj.get_variable('quickjs_dep')
 qjsc = libquickjs_proj.get_variable('qjsc')
 
 r2dec_incs = ['.', 'c']
-r2dec_c_args = []
+r2dec_c_args = ['-fvisibility=hidden', '-flto']
 r2dec_src = [
     'c' / 'r2dec.c',
     'c' / 'base64.c',
@@ -84,6 +84,7 @@ else
 
   shared_library('core_pdd', r2dec_src,
     c_args : r2dec_c_args,
+    link_args: ['-Wl,-Bsymbolic'],
     dependencies: r2dec_deps,
     include_directories: include_directories(r2dec_incs),
     implicit_include_directories: false,
