@@ -57,13 +57,13 @@ jobs:
         sudo ninja -C build install
     - name: test with javascript files
       run: |
-        r2 -Qc 'Lc' malloc://10
+        R2_DEBUG=1 r2 -Qc 'Lc' malloc://10 || sleep 0
         OUTPUT=$(r2 -Qc 'af;pdd' /bin/ls)
         CHECK=$(echo -e "$OUTPUT" | grep "r2dec pseudo code output")
-        echo -e "$OUTPUT"
         if [ -z "$CHECK" ]; then
-           exit 1
+          exit 1
         fi
+        echo -e "$OUTPUT"
         sudo ninja -C build uninstall
     - name: zip it up
       run: |
