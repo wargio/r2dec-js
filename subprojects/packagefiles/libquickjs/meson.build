@@ -88,7 +88,6 @@ quickjs_dep = declare_dependency(
 
 qjsc_sources = [
   'qjsc.c',
-  'quickjs-libc.c',
 ]
 
 qjsc = executable('qjsc', qjsc_sources,
