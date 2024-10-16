@@ -37,7 +37,7 @@
 #if defined(__APPLE__)
 #include <malloc/malloc.h>
 #include <sys/time.h>
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__HAIKU__)
 #include <malloc.h>
 #include <sys/time.h>
 #elif defined(__FreeBSD__)
