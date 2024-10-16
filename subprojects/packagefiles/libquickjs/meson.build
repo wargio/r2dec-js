@@ -1,5 +1,11 @@
 project('quickjs-ng', 'c',
   version: 'v0.6.1',
+  default_options: [
+    'buildtype=release',
+    'b_vscrt=from_buildtype',
+    'warning_level=1',
+    'c_std=c11'
+  ]
 )
 
 cc = meson.get_compiler('c')
@@ -70,7 +76,6 @@ foreach flag: compiler_flags
 endforeach
 
 quickjs = static_library('quickjs', sources,
-  c_std: 'c11',
   dependencies: [threads_dep, dl_dep, m_dep],
   implicit_include_directories: false,
   install: false,
