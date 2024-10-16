@@ -70,6 +70,7 @@ foreach flag: compiler_flags
 endforeach
 
 quickjs = static_library('quickjs', sources,
+  c_std: 'c11',
   dependencies: [threads_dep, dl_dep, m_dep],
   implicit_include_directories: false,
   install: false,
