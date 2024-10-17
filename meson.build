@@ -70,6 +70,13 @@ else
     r2dec_deps += cc.find_library(lib, dirs: radare2_libdir)
   endforeach
 
+  if cc.has_argument('-fvisibility=hidden')
+    r2dec_c_args += '-fvisibility=hidden'
+  endif
+  if cc.has_argument('-flto')
+    r2dec_c_args += '-flto'
+  endif
+
   r2dec_src += [
     bytecode_h,
     bytecode_mod_h,
