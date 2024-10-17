@@ -258,7 +258,7 @@ RCorePlugin core_plugin_r2dec = {
 #ifdef _MSC_VER
 #define _R_API __declspec(dllexport)
 #else
-#define _R_API
+#define _R_API __attribute__((visibility("default")))
 #endif
 
 #ifndef CORELIB
