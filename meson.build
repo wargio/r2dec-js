@@ -81,10 +81,20 @@ else
   message('radare2 include dir: ' + radare2_incdir)
   message('radare2 library dir: ' + radare2_libdir)
   message('radare2 plugin dir:  ' + radare2_plugdir)
+  link_args = []
+  if host_machine.system() == 'darwin'
+    link_args = ['-flat_namespace']
+  else
+    cc = meson.get_compiler('c')
+    linker_id = cc.get_linker_id()
+    if linker_id == 'ld.bfd' or linker_id == 'ld.gold'
+      link_args = ['-Wl,-Bsymbolic']
+    endif
+  endif
 
   shared_library('core_pdd', r2dec_src,
     c_args : r2dec_c_args,
-    link_args: ['-Wl,-Bsymbolic'],
+    link_args: link_args,
     dependencies: r2dec_deps,
     include_directories: include_directories(r2dec_incs),
     implicit_include_directories: false,
