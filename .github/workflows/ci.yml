@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  R2V: 5.9.4
+  R2V: 5.9.8
 
 jobs:
   sources:
@@ -23,7 +23,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
       with:
-        python-version: 3.7.x
+        python-version: 3.10.x
     - name: apt dependencies
       run: sudo pip3 install meson ninja
     - name: fetch dependencies via meson
@@ -43,7 +43,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
       with:
-        python-version: 3.7.x
+        python-version: 3.10.x
     - name: apt dependencies
       run: sudo pip3 install meson ninja
     - name: install r2
@@ -53,7 +53,7 @@ jobs:
         sudo dpkg -i *.deb
     - name: make build
       run: |
-        meson build
+        meson setup build
         sudo ninja -C build install
     - name: test with javascript files
       run: |
@@ -96,7 +96,7 @@ jobs:
 #    - uses: actions/checkout@v4
 #    - uses: actions/setup-python@v5
 #      with:
-#        python-version: 3.7.x
+#        python-version: 3.10.x
 #    - name: homebrew dependencies
 #      run: |
 #        brew update
@@ -118,7 +118,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
       with:
-        python-version: 3.7.x
+        python-version: 3.10.x
     - name: Preparing msvc toolchain
       uses: ilammy/msvc-dev-cmd@v1
       with:
@@ -147,7 +147,7 @@ jobs:
         set PLUGINDIR=%CD%\radare2\lib\plugins
         set ARCH=x64
         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-        meson --buildtype=release -Dr2_incdir="radare2\include\libr" build || exit /b 666
+        meson setup --buildtype=release -Dr2_incdir="radare2\include\libr" build || exit /b 666
         ninja -C build || exit /b 666
         mkdir %DESTDIR%
         copy build\*.dll %DESTDIR% || exit /b 666
@@ -165,7 +165,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
       with:
-        python-version: 3.7.x
+        python-version: 3.10.x
     - name: Preparing msvc toolchain
       uses: ilammy/msvc-dev-cmd@v1
       with:
@@ -194,7 +194,7 @@ jobs:
         set PLUGINDIR=%CD%\radare2\lib\plugins
         set ARCH=x86
         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-        meson --buildtype=release -Dr2_incdir="radare2\include\libr" build || exit /b 666
+        meson setup --buildtype=release -Dr2_incdir="radare2\include\libr" build || exit /b 666
         ninja -C build || exit /b 666
         mkdir %DESTDIR%
         copy build\*.dll %DESTDIR% || exit /b 666
