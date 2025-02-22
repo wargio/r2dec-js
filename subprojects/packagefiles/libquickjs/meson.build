@@ -11,6 +11,7 @@ project('quickjs-ng', 'c',
 cc = meson.get_compiler('c')
 
 threads_dep = dependency('threads')
+atomic_dep = cc.find_library('atomic', required: false)
 dl_dep = cc.find_library('dl', required: false)
 m_dep = cc.find_library('m', required: false)
 
@@ -73,7 +74,7 @@ foreach flag: compiler_flags
 endforeach
 
 quickjs = static_library('quickjs', sources,
-  dependencies: [threads_dep, dl_dep, m_dep],
+  dependencies: [atomic_dep, threads_dep, dl_dep, m_dep],
   c_args: quickjs_c_args,
   pic: true,
   gnu_symbol_visibility: 'hidden',
