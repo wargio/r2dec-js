@@ -1,5 +1,5 @@
 project('quickjs-ng', 'c',
-  version: 'v0.6.1',
+  version: 'v0.8.0',
   default_options: [
     'buildtype=release',
     'b_vscrt=from_buildtype',
@@ -14,10 +14,6 @@ threads_dep = dependency('threads')
 dl_dep = cc.find_library('dl', required: false)
 m_dep = cc.find_library('m', required: false)
 
-headers = [
-  'quickjs.h',
-]
-
 sources = [
   'cutils.c',
   'libbf.c',
@@ -28,6 +24,7 @@ sources = [
 
 compiler_flags = [
   '-fvisibility=hidden',
+  '-fvisibility-inlines-hidden',
   '-Wno-implicit-fallthrough',
   '-Wno-sign-compare',
   '-Wno-missing-field-initializers',
@@ -67,32 +64,24 @@ if cc.get_id() == 'msvc'
 endif
 
 # required on linux, but ignored by windows
-add_project_arguments('-D_GNU_SOURCE=1', language: 'c')
+quickjs_c_args = ['-D_GNU_SOURCE=1']
 
 foreach flag: compiler_flags
   if cc.has_argument(flag)
-    add_project_arguments(flag, language: 'c')
+    quickjs_c_args += flag
   endif
 endforeach
 
 quickjs = static_library('quickjs', sources,
   dependencies: [threads_dep, dl_dep, m_dep],
+  c_args: quickjs_c_args,
+  pic: true,
+  gnu_symbol_visibility: 'hidden',
   implicit_include_directories: false,
-  install: false,
+  install: false
 )
 
 quickjs_dep = declare_dependency(
   link_with: quickjs,
   include_directories: include_directories('.'),
-)
-
-qjsc_sources = [
-  'qjsc.c',
-]
-
-qjsc = executable('qjsc', qjsc_sources,
-  dependencies: quickjs_dep,
-  include_directories: include_directories('.'),
-  implicit_include_directories: false,
-  install: false,
 )
