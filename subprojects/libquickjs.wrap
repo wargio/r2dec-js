@@ -1,4 +1,6 @@
 [wrap-git]
-url = https://github.com/frida/quickjs.git
-revision = c81f05c9859cea5f83a80057416a0c7affe9b876
+url = https://github.com/quickjs-ng/quickjs.git
+revision = v0.8.0
+directory = libquickjs
 patch_directory = libquickjs
+depth = 1
