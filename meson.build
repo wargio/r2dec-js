@@ -43,7 +43,7 @@ if get_option('standalone')
   foreach flag: [
       '-Wl,--exclude-libs,ALL',
     ]
-    if cc.has_argument(flag)
+    if cc.has_link_argument(flag)
       r2dec_link_args += flag
     endif
   endforeach
