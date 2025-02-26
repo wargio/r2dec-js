@@ -919,6 +919,11 @@ var _arm = {
         cmp: _compare,
         cmn: _compare,
         fcmp: _compare,
+        ccmp: function(instr, context) {
+            context.cond.a = instr.parsed.opd[0];
+            context.cond.b = instr.parsed.opd[1];
+            return _conditional(instr, context, instr.parsed.opd[3].upper());
+        },
         cbz: function(instr, context, instructions) {
             context.cond.a = instr.parsed.opd[0];
             context.cond.b = '0';
@@ -1419,6 +1424,17 @@ var _arm = {
                 }
             }
             return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, '1', '0');
+        },
+        cneg: function(instr, context) {
+            var opds = instr.parsed.opd;
+            var cond = 'EQ';
+            for (var i = 0; i < _conditional_list.length; i++) {
+                if (_conditional_list[i].ext == opds[1]) {
+                    cond = _conditional_list[i].type;
+                    break;
+                }
+            }
+            return Base.conditional_assign(opds[0], context.cond.a, context.cond.b, cond, '-' + opds[1], opds[0]);
         },
         fcset: function(instr, context) {
             var opds = instr.parsed.opd;

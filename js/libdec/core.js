@@ -113,12 +113,15 @@ var _print = function(session) {
         var t = Global().printer.theme;
         var asm_header = Global().evars.honor.offsets ? '' : '; assembly';
         var details = '/* ' + Global().evars.extra.file + ' @ 0x' + Global().evars.extra.offset.toString(16) + ' */';
-        
+        var r2version = '';
+        if (Global().evars.version) {
+            r2version = ' (r2 ' + Global().evars.version + ')';
+        }
         if (Global().evars.extra.annotation) {
-            Global().context.addAnnotation(Anno.comment('/* r2dec pseudo code output */\n'));
+            Global().context.addAnnotation(Anno.comment('/* r2dec pseudo code output' + r2version + ' */\n'));
             Global().context.addAnnotation(Anno.comment(details + '\n'));
         } else {
-            Global().context.printLine(Global().context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo code output */'));
+            Global().context.printLine(Global().context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo code output' + r2version + ' */'));
             Global().context.printLine(Global().context.identfy() + t.comment(details));
         }
         if (['java', 'dalvik'].indexOf(Global().evars.arch) < 0) {

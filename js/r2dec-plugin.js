@@ -72,11 +72,15 @@ function main(args) {
 					decompile_offset(architecture, x.name);
 				});
 				r2pipe.string('s 0x' + current.toString(16));
+				var r2version = '';
+				if (Shared.evars.version) {
+				    r2version = ' (r2 ' + Shared.evars.version + ')';
+				}
 				var o = Shared.context;
 				Shared.context = new libdec.context();
 				Shared.context.macros = o.macros;
 				Shared.context.dependencies = o.dependencies;
-				Shared.context.printLine(Shared.printer.theme.comment('/* r2dec pseudo code output */'), current);
+				Shared.context.printLine(Shared.printer.theme.comment('/* r2dec pseudo code output' + r2version + ' */'), current);
 				Shared.context.printLine(Shared.printer.theme.comment('/* ' + Shared.evars.extra.file + ' */'), current);
 				if (['java', 'dalvik'].indexOf(Shared.evars.arch) < 0) {
 					Shared.context.printMacros(true);

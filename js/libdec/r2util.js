@@ -124,6 +124,7 @@ export default (function() {
 	}
 
 	function print_issue() {
+		var version = radare2 ? radare2.version : "";
 		var xrefs = r2_sanitize(r2pipe.string('isj'), '[]');
 		var strings = r2_sanitize(r2pipe.string('Csj'), '[]');
 		var functions = r2_sanitize(r2pipe.string('aflj'), '[]');
@@ -134,6 +135,7 @@ export default (function() {
 		var archbits = r2_sanitize(r2pipe.string('e asm.bits'), '32');
 		var database = r2_sanitize(r2pipe.custom('afsj @@i', merge_arrays_stringify), '[]');
 		console.log('{"name":"issue_' + (new Date()).getTime() +
+			'","version":"' + version +
 			'","arch":"' + arch +
 			'","archbits":' + archbits +
 			',"graph":' + data +
@@ -172,6 +174,7 @@ export default (function() {
 		},
 		evars: function(args) {
 			let o = {};
+			o.version = radare2 ? radare2.version : "";
 			o.arch = r2pipe.string('e asm.arch');
 			o.archbits = r2pipe.int('e asm.bits', 32);
 			o.honor = {
