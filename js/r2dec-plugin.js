@@ -76,7 +76,7 @@ function main(args) {
 				Shared.context = new libdec.context();
 				Shared.context.macros = o.macros;
 				Shared.context.dependencies = o.dependencies;
-				Shared.context.printLine(Shared.printer.theme.comment('/* r2dec pseudo code output */'), current);
+				Shared.context.printLine(Shared.printer.theme.comment('/* r2dec pseudo code output (r2 ' + Shared.evars.version + ') */'), current);
 				Shared.context.printLine(Shared.printer.theme.comment('/* ' + Shared.evars.extra.file + ' */'), current);
 				if (['java', 'dalvik'].indexOf(Shared.evars.arch) < 0) {
 					Shared.context.printMacros(true);

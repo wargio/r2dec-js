@@ -6,6 +6,7 @@ import JSONex from './JSONex.js';
 
 function _new_evars(issue) {
     let evars = {};
+    evars.version = issue.version ? issue.version : "unknown";
     evars.arch = issue.arch;
     evars.archbits = issue.bits;
     evars.honor = {

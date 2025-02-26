@@ -90,6 +90,7 @@ static r2dec_t *r2dec_create(ExecContext *ec, const char *arg) {
 	JSValue radare2 = JS_NewObject(ctx);
 	JS_SetPropertyStr(ctx, global, "radare2", radare2);
 	JS_SetPropertyStr(ctx, radare2, "command", JS_NewCFunction(ctx, js_command, "command", 1));
+	JS_SetPropertyStr(ctx, radare2, "version", JS_NewString(ctx, R2_VERSION));
 
 	JSValue process = JS_NewObject(ctx);
 	JS_SetPropertyStr(ctx, global, "process", process);
