@@ -109,6 +109,7 @@ e scr.color         | enables syntax colors.
     v850
     wasm (experimental)
     x86/x64
+    riscv (experimental)
 
 # Developing on r2dec
 
