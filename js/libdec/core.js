@@ -115,10 +115,10 @@ var _print = function(session) {
         var details = '/* ' + Global().evars.extra.file + ' @ 0x' + Global().evars.extra.offset.toString(16) + ' */';
         
         if (Global().evars.extra.annotation) {
-            Global().context.addAnnotation(Anno.comment('/* r2dec pseudo code output (r2 ' + Shared.evars.version + ') */\n'));
+            Global().context.addAnnotation(Anno.comment('/* r2dec pseudo code output (r2 ' + Global().evars.version + ') */\n'));
             Global().context.addAnnotation(Anno.comment(details + '\n'));
         } else {
-            Global().context.printLine(Global().context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo code output (r2 ' + Shared.evars.version + ') */'));
+            Global().context.printLine(Global().context.identfy(asm_header.length, t.comment(asm_header)) + t.comment('/* r2dec pseudo code output (r2 ' + Global().evars.version + ') */'));
             Global().context.printLine(Global().context.identfy() + t.comment(details));
         }
         if (['java', 'dalvik'].indexOf(Global().evars.arch) < 0) {
