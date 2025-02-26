@@ -922,7 +922,7 @@ var _arm = {
         ccmp: function(instr, context) {
             context.cond.a = instr.parsed.opd[0];
             context.cond.b = instr.parsed.opd[1];
-            return _conditional(instr, context, instr.parsed.opd[3].upper());
+            return _conditional(instr, context, instr.parsed.opd[3].toUpperCase());
         },
         cbz: function(instr, context, instructions) {
             context.cond.a = instr.parsed.opd[0];
