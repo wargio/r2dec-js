@@ -201,11 +201,19 @@ static void _cmd_pdd(RCore *core, const char *input) {
 static int r_cmd_pdd(void *user, const char *input) {
 	RCore *core = (RCore *) user;
 	if (r_str_startswith (input, "pdd")) {
-		ut64 addr = core->offset;
+#if R2_VERSION_NUMBER >= 50909
+		const ut64 addr = core->addr;
+		_cmd_pdd (core, input + 3);
+		if (core->addr != addr) {
+			r_core_seek (core, addr, true);
+		}
+#else
+		const ut64 addr = core->offset;
 		_cmd_pdd (core, input + 3);
 		if (core->offset != addr) {
 			r_core_seek (core, addr, true);
 		}
+#endif
 		return true;
 	}
 	return false;
