@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2018-2023 Giovanni Dante Grazioli <deroad@libero.it>
+// SPDX-FileCopyrightText: 2018-2025 Giovanni Dante Grazioli <deroad@libero.it>
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include <stdlib.h>
@@ -203,17 +203,11 @@ static int r_cmd_pdd(void *user, const char *input) {
 	if (r_str_startswith (input, "pdd")) {
 #if R2_VERSION_NUMBER >= 50909
 		const ut64 addr = core->addr;
-		_cmd_pdd (core, input + 3);
-		if (core->addr != addr) {
-			r_core_seek (core, addr, true);
-		}
 #else
 		const ut64 addr = core->offset;
-		_cmd_pdd (core, input + 3);
-		if (core->offset != addr) {
-			r_core_seek (core, addr, true);
-		}
 #endif
+		_cmd_pdd (core, input + 3);
+		r_core_seek (core, addr, true);
 		return true;
 	}
 	return false;
