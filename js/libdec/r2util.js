@@ -295,7 +295,9 @@ export default (function() {
 				var msg = exception.message + ' (' + exception.name + ')';
 				return 'Exception: ' + msg + '\n' + exception.stack;
             } else {
-                return '\n\nr2dec has crashed (info: ' + r2pipe.string('i~^file[1:0]') + ' @ ' + r2pipe.string('s') + ').\n' +
+                var msg = exception.message + ' (' + exception.name + ')';
+                return msg + ' (' + exception.name + ')\n' + exception.stack +
+                    '\n\nr2dec has crashed (info: ' + r2pipe.string('i~^file[1:0]') + ' @ ' + r2pipe.string('s') + ').\n' +
                     'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
                     'Use the command \'pddi\' to generate the needed data for the issue.';
             }
