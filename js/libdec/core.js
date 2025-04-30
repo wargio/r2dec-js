@@ -157,7 +157,11 @@ var _session = function(data, arch) {
     var max_length = 0;
     var max_address = 8;
     Global().xrefs = new XRefs(strings, symbols, classes);
-    data.graph[0].blocks.sort((a, b) => { return a.offset.compare(b.offset); });
+    if (data.graph[0].blocks[0].addr) {
+        data.graph[0].blocks.sort((a, b) => { return a.addr.compare(b.addr); });
+    } else {
+        data.graph[0].blocks.sort((a, b) => { return a.offset.compare(b.offset); });
+    }
     for (var i = 0; i < data.graph[0].blocks.length; i++) {
         var block = data.graph[0].blocks[i];
         // This is hacky but it is required by wasm..

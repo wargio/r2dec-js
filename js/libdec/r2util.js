@@ -262,10 +262,21 @@ export default (function() {
             var isfast = !r2pipe.bool('e r2dec.slow');
             this.arch = r2_arch();
             this.bits = r2pipe.int('e asm.bits', 32);
+            function aflj() {
+                const functions = r2pipe.json('aflj', []);
+                console.log(functions);
+                if (functions.length > 0 && functions[0].addr) {
+                    return functions.map((x) => {
+                            x.offset = x.addr?? x.offset;
+                            return x;
+                        });
+                }
+                return functions;
+            }
             this.xrefs = {
                 symbols: (isfast ? [] : r2pipe.json('isj', [])),
                 strings: (isfast ? [] : r2pipe.json('Csj', [])),
-                functions: (isfast ? [] : r2pipe.json('aflj', [])),
+                functions: (isfast ? [] : aflj()),
                 classes: r2pipe.json('icj', []),
                 arguments: offset_long(r2pipe.json('afvj', {
                     "sp": [],

@@ -26,9 +26,9 @@ var create_fcn_data = function(x) {
         return null;
     }
     return {
-        offset: x.offset,
+        offset: x.offset?? x.addr,
         name: x.name,
-        calltype: x.calltype,
+        calltype: x.calltype?? x.callconv,
         nargs: x.nargs
     };
 };
