@@ -21,6 +21,18 @@ export default (function() {
         return r2_sanitize(arch);
     }
 
+    function aflj() {
+        const functions = r2pipe.json('aflj', []);
+        console.log(functions);
+        if (functions.length > 0 && functions[0].addr) {
+            return functions.map((x) => {
+                    x.offset = x.addr?? x.offset;
+                    return x;
+                });
+        }
+        return functions;
+    }
+
     function r2_sanitize(value, expected) {
         return value.length == 0 ? expected : value;
     }
@@ -265,7 +277,7 @@ export default (function() {
             this.xrefs = {
                 symbols: (isfast ? [] : r2pipe.json('isj', [])),
                 strings: (isfast ? [] : r2pipe.json('Csj', [])),
-                functions: (isfast ? [] : r2pipe.json('aflj', [])),
+                functions: (isfast ? [] : aflj()),
                 classes: r2pipe.json('icj', []),
                 arguments: offset_long(r2pipe.json('afvj', {
                     "sp": [],
