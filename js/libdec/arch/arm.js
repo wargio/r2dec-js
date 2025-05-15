@@ -1785,9 +1785,15 @@ var _apply_math = {
         if (!instr.parsed.opd[1].match(/^(0x)?[a-fA-F\d]+/)) {
             return;
         }
+        try {
+            var opd1value = Long.from(instr.parsed.opd[1], true, 16);
+        } catch (e) {
+            const opd1 = instr.simplified.split(",")[1].trim();
+            opd1value = Long.from(opd1, true, 16);
+        }
         _apply_new_assign(instr.parsed.opd[0], marker[instr.parsed.opd[0]]);
         marker[instr.parsed.opd[0]] = {
-            value: Long.from(instr.parsed.opd[1], true, 16),
+            value: opd1value,
             instr: instr,
         };
     },
