@@ -1208,6 +1208,50 @@ var _arm = {
         xpaclri: function(instr) {
             return Base.nop();
         },
+        ldaxr: function(instr, context) {
+            return _memory(Base.read_memory, instr, context, _reg_bits[instr.parsed.opd[0][0]] || 32, true);
+        },
+        stlxr: function(instr, context) {
+            // stlxr format: stlxr w11, x10, [x8]
+            // w11 gets the result status (0 success, 1 failure)
+            var src = instr.parsed.opd[1];
+            var dst = instr.parsed.opd[2];
+            var status = instr.parsed.opd[0];
+            var bits = _reg_bits[src[0]] || 32;
+            // First write the value to memory
+            var write = _memory(Base.write_memory, {
+                parsed: {
+                    opd: [src, dst]
+                }
+            }, context, bits);
+            // Then assign the status to the first operand (0 for success)
+            return Base.composed([
+                write,
+                Base.assign(status, '0')
+            ]);
+        },
+        ldxr: function(instr, context) {
+            return _memory(Base.read_memory, instr, context, _reg_bits[instr.parsed.opd[0][0]] || 32, false);
+        },
+        stxr: function(instr, context) {
+            // stxr format: stxr w11, x10, [x8]
+            // w11 gets the result status (0 success, 1 failure)
+            var src = instr.parsed.opd[1];
+            var dst = instr.parsed.opd[2];
+            var status = instr.parsed.opd[0];
+            var bits = _reg_bits[src[0]] || 32;
+            // First write the value to memory
+            var write = _memory(Base.write_memory, {
+                parsed: {
+                    opd: [src, dst]
+                }
+            }, context, bits);
+            // Then assign the status to the first operand (0 for success)
+            return Base.composed([
+                write,
+                Base.assign(status, '0')
+            ]);
+        },
         orr: function(instr) {
             if (instr.parsed.opd[1] == '0') {
                 return Base.assign(instr.parsed.opd[0], instr.parsed.opd[2] || '0');
