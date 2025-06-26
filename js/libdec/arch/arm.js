@@ -1353,6 +1353,9 @@ var _arm = {
         bic: function(instr, context, instructions) {
             return Base.bit_mask(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[2]);
         },
+        bics: function(instr, context, instructions) {
+            return Base.bit_mask(instr.parsed.opd[0], instr.parsed.opd[1], instr.parsed.opd[2]);
+        },
         bfc: function(instr, context, instructions) {
             var arg0 = Variable.uniqueName();
             return Base.composed([
