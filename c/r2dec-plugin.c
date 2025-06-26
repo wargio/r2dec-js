@@ -36,31 +36,54 @@ static JSValue js_command(JSContext *ctx, JSValueConst jsThis, int argc, JSValue
 
 	ExecContext *ectx = (ExecContext *)JS_GetContextOpaque(ctx);
 	RCore *core = ectx->core;
+#if R2_VERSION_NUMBER >= 50909
+	r_cons_sleep_end(core->cons, ectx->bed);
+#else
 	r_cons_sleep_end(ectx->bed);
+#endif
 
 	char *output = r_core_cmd_str(core, command);
 	JS_FreeCString(ctx, command);
 	JSValue result = JS_NewString(ctx, output ? output : "");
 	free(output);
 
+#if R2_VERSION_NUMBER >= 50909
+	ectx->bed = r_cons_sleep_begin(core->cons);
+#else
 	ectx->bed = r_cons_sleep_begin();
+#endif
 	return result;
 }
 
 static JSValue js_console_log(JSContext *ctx, JSValueConst jsThis, int argc, JSValueConst *argv) {
+	ExecContext *ectx = (ExecContext *)JS_GetContextOpaque(ctx);
+	RCore *core = ectx->core;
 	for (int i = 0; i < argc; ++i) {
 		if (i != 0) {
+#if R2_VERSION_NUMBER >= 50909
+			r_cons_print(core->cons, " ");
+#else
 			r_cons_print(" ");
+#endif
 		}
 		const char *str = JS_ToCString(ctx, argv[i]);
 		if (!str) {
 			return JS_EXCEPTION;
 		}
+#if R2_VERSION_NUMBER >= 50909
+		r_cons_print(core->cons, str);
+#else
 		r_cons_print(str);
+#endif
 		JS_FreeCString(ctx, str);
 	}
+#if R2_VERSION_NUMBER >= 50909
+	r_cons_newline(core->cons);
+	r_cons_flush(core->cons);
+#else
 	r_cons_newline();
 	r_cons_flush();
+#endif
 	return JS_UNDEFINED;
 }
 
@@ -119,9 +142,15 @@ static bool r2dec_main(RCore *core, const char *arg) {
 		return false;
 	}
 
+#if R2_VERSION_NUMBER >= 50909
+	ectx.bed = r_cons_sleep_begin(core->cons);
+	bool ret = r2dec_run(dec);
+	r_cons_sleep_end(core->cons, ectx.bed);
+#else
 	ectx.bed = r_cons_sleep_begin();
 	bool ret = r2dec_run(dec);
 	r_cons_sleep_end(ectx.bed);
+#endif
 
 	r2dec_destroy(dec, &ectx);
 	return ret;
@@ -144,7 +173,11 @@ static void usage(const RCore* const core) {
 		NULL
 	};
 
+#if R2_VERSION_NUMBER >= 50909
+	r_cons_cmd_help(core->cons, help, core->print->flags & R_PRINT_FLAGS_COLOR);
+#else
 	r_cons_cmd_help(help, core->print->flags & R_PRINT_FLAGS_COLOR);
+#endif
 }
 
 static void _cmd_pdd(RCore *core, const char *input) {
