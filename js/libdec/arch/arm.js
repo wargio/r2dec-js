@@ -1323,6 +1323,10 @@ var _arm = {
         strh: function(instr, context) {
             return _memory(Base.write_memory, instr, context, 8);
         },
+        'str.w': function(instr, context) {
+            // Explicitly map str.w to str handler for proper parsing
+            return _memory(Base.write_memory, instr, context, 32);
+        },
         stm: function(instr) {
             var e = instr.parsed;
             var a = [];
@@ -1686,7 +1690,8 @@ var _arm = {
         var ret = asm.replace(/(\[|\])/g, ' $1 ').replace(/,/g, ' ');
         ret = ret.replace(/\{|\}/g, ' ').replace(/#/g, ' ');
         ret = ret.replace(/\s+/g, ' ');
-        ret = ret.replace(/str\./g, 'str_');
+        // Preserve str.w but convert other str.* patterns
+        ret = ret.replace(/str\.(?!w)/g, 'str_');
         //constant zero regs wz[rw]/xz[rw]
         //ret = ret.replace(/\bwzr\b|\bwzw\b|\bxzw|\bxzr\b/g, "0");
         ret = ret.replace(/aav\.0x/g, "aav_");
@@ -1715,7 +1720,14 @@ var _arm = {
             ops[0] = ops[0].substr(0, 2);
         }
         return {
-            mnem: ops.shift().replace(/\.w$/, ''),
+            mnem: (function() {
+                var op = ops.shift();
+                // Preserve str.w but remove .w from all other instructions
+                if (op === 'str.w') {
+                    return op;
+                }
+                return op.replace(/\.w$/, '');
+            })(),
             opd: ops.map(function(x) {
                 return _zero_regs.indexOf(x) < 0 ? x : '0';
             })
@@ -1948,7 +1960,15 @@ var _apply_math = {
             }
             number = data.value.add(Long.UZERO);
             if (Array.isArray(instr.parsed.opd[1]) && instr.parsed.opd[1][1]) {
-                number = number.add(Long.from(instr.parsed.opd[1][1], true, 16));
+                // Check if operand[1] is a register name (not a number)
+                if (typeof instr.parsed.opd[1][1] === 'string' && isNaN(parseInt(instr.parsed.opd[1][1])) && 
+                    instr.parsed.opd[1][1].match(/^[rwx]\d+$/)) {
+                    // This is a register-based addressing mode, like [r3, r4, lsl, 2]
+                    // Let the _memory function handle these cases, so we skip offset calculation here
+                } else {
+                    // Original case: numeric offset
+                    number = number.add(Long.from(instr.parsed.opd[1][1], true, 16));
+                }
             }
 
             v = _value_at(number);
