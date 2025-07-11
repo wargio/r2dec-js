@@ -8,8 +8,6 @@
 
 #include "r2dec.h"
 
-typedef struct r_core_t RCore;
-
 typedef struct exec_context_t {
 	RCore *core;
 	void *bed;
@@ -231,21 +229,57 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	}
 }
 
-static int r_cmd_pdd(void *user, const char *input) {
-	RCore *core = (RCore *) user;
-	if (r_str_startswith (input, "pdd")) {
 #if R2_VERSION_NUMBER >= 50909
+static bool r_cmd_pdd(RCorePluginSession *cps, const char *input) {
+	if (r_str_startswith (input, "pdd")) {
+		RCore *core = cps->core;
 		const ut64 addr = core->addr;
-#else
-		const ut64 addr = core->offset;
-#endif
 		_cmd_pdd (core, input + 3);
 		r_core_seek (core, addr, true);
 		return true;
 	}
 	return false;
 }
+#else
+static int r_cmd_pdd(void *user, const char *input) {
+	RCore *core = (RCore *) user;
+	if (r_str_startswith (input, "pdd")) {
+		const ut64 addr = core->offset;
+		_cmd_pdd (core, input + 3);
+		r_core_seek (core, addr, true);
+		return 1;
+	}
+	return 0;
+}
+#endif
 
+#if R2_VERSION_NUMBER >= 50909
+static bool r_cmd_pdd_init(RCorePluginSession *cps) {
+	RConfig *cfg = cps->core->config;
+	r_config_lock (cfg, false);
+	SETPREF("r2dec.asm", "false", "if true, shows pseudo next to the assembly.");
+	SETPREF("r2dec.blocks", "false", "if true, shows only scopes blocks.");
+	SETPREF("r2dec.casts", "false", "if false, hides all casts in the pseudo code.");
+	SETPREF("r2dec.debug", "false", "do not catch exceptions in r2dec.");
+	SETPREF("r2dec.highlight", "default", "highlights the current address.");
+	SETPREF("r2dec.paddr", "false", "if true, all xrefs uses physical addresses compare.");
+	SETPREF("r2dec.slow", "false", "load all the data before to avoid multirequests to r2.");
+	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code.");
+	r_config_lock (cfg, true);
+
+	const char *commands[] = {
+		"pdd", "pdd?", "pdd*", "pdda", "pddb",
+		"pddc", "pddf", "pddi", "pdds", "pddu",
+		NULL
+	};
+	RCoreAutocomplete *a = cps->core->autocomplete;
+	for (const char **cmd = commands; *cmd; cmd++) {
+		r_core_autocomplete_add(a, *cmd, R_CORE_AUTOCMPLT_DFLT, true);
+		cmd++;
+	}
+	return true;
+}
+#else
 static int r_cmd_pdd_init(void *user, const char *cmd) {
 	RCmd *rcmd = (RCmd*) user;
 	RCore *core = (RCore *) rcmd->data;
@@ -274,6 +308,7 @@ static int r_cmd_pdd_init(void *user, const char *cmd) {
 	r_core_autocomplete_add (core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
 	return true;
 }
+#endif
 
 RCorePlugin core_plugin_r2dec = {
 #if R2_VERSION_NUMBER > 50808
