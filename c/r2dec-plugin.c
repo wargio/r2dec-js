@@ -275,7 +275,6 @@ static bool r_cmd_pdd_init(RCorePluginSession *cps) {
 	RCoreAutocomplete *a = cps->core->autocomplete;
 	for (const char **cmd = commands; *cmd; cmd++) {
 		r_core_autocomplete_add(a, *cmd, R_CORE_AUTOCMPLT_DFLT, true);
-		cmd++;
 	}
 	return true;
 }
