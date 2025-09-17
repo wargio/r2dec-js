@@ -315,6 +315,12 @@ const sbf = {
         },
 
         // Loads (ldx*) and stores (stx*)
+        // lddw is eBPF's 64-bit immediate load into a register
+        lddw: function(instr) {
+            instr.setBadJump();
+            const [dst, imm] = instr.parsed.opd;
+            return Base.assign(dst, imm);
+        },
         ldx: function(instr, context) {
             instr.setBadJump();
             const bits = bits_from_mnem(instr.parsed.orig_mnem || instr.parsed.mnem);
@@ -344,6 +350,11 @@ const sbf = {
         },
 
         // Jumps
+        // Radare can emit unconditional jumps as 'jmp' (alias of 'ja').
+        jmp: function(instr) {
+            // unconditional jump; rely on control flow graph
+            return Base.nop();
+        },
         ja: function(instr) {
             // unconditional jump; rely on control flow graph
             return Base.nop();
