@@ -15,6 +15,7 @@ import sparc from './arch/sparc.js';
 import v850 from './arch/v850.js';
 import wasm from './arch/wasm.js';
 import x86 from './arch/x86.js';
+import sbf from './arch/sbf.js';
 
 export default {
 	'6502': _6502,
@@ -30,5 +31,9 @@ export default {
 	sparc: sparc,
 	v850: v850,
 	wasm: wasm,
-	x86: x86
+	x86: x86,
+	sbf: sbf,
+	bpf: sbf,
+	sbpf: sbf,
+	ebpf: sbf
 };
