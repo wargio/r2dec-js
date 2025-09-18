@@ -114,10 +114,18 @@ function helper_args_list() {
 function bits_from_mnem(mnem) {
     // ldx/stx variants typically encode size in suffix
     // e.g. ldxw/ldxh/ldxb/ldxdw, stxw/.., stxdw
-    if (/dw$/i.test(mnem)) return 64;
-    if (/w$/i.test(mnem)) return 32;
-    if (/h$/i.test(mnem)) return 16;
-    if (/b$/i.test(mnem)) return 8;
+    if (/dw$/i.test(mnem)) {
+        return 64;
+    }
+    if (/w$/i.test(mnem)) {
+        return 32;
+    }
+    if (/h$/i.test(mnem)) {
+        return 16;
+    }
+    if (/b$/i.test(mnem)) {
+        return 8;
+    }
     return 64; // default register width
 }
 
@@ -187,15 +195,6 @@ function ensure_stack_local(context, offset, bits) {
         }
     }
     return v;
-}
-
-function unary_assign(op, dst, src) {
-    switch (op) {
-        case 'neg':
-            return Base.assign(dst, Base.subtract(Variable.local('_tmp', 'uint64_t'), '0', src));
-        default:
-            return Base.assign(dst, src);
-    }
 }
 
 function binop(op) {
