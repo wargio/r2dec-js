@@ -100,6 +100,7 @@ e scr.color         | enables syntax colors.
     8051 (experimental)
     arm 16/32/64 bit
     avr
+    bpf (experimental)
     dalvik
     m68k (experimental)
     mips
