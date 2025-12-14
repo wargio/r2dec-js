@@ -20,7 +20,7 @@ jobs:
   sources:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: actions/setup-python@v5
       with:
         python-version: 3.10.x
@@ -40,7 +40,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: actions/setup-python@v5
       with:
         python-version: 3.10.x
@@ -93,7 +93,7 @@ jobs:
 #  macos:
 #    runs-on: macos-latest
 #    steps:
-#    - uses: actions/checkout@v4
+#    - uses: actions/checkout@v6
 #    - uses: actions/setup-python@v5
 #      with:
 #        python-version: 3.10.x
@@ -115,7 +115,7 @@ jobs:
   w64:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: actions/setup-python@v5
       with:
         python-version: 3.10.x
@@ -162,7 +162,7 @@ jobs:
   w32:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - uses: actions/setup-python@v5
       with:
         python-version: 3.10.x
