@@ -110,7 +110,8 @@ export default (function() {
         "--as-comment": "the decompiled code is returned to r2 as comment (via CCu)",
         "--as-code-line": "the decompiled code is returned to r2 as 'file:line code' (via CL)",
         "--as-json": "the decompiled code lines are returned as JSON",
-        "--annotation": "the decompiled code lines are returned with the annotation format"
+        "--annotation": "the decompiled code lines are returned with the annotation format",
+        "--optimize": "apply optimization pass to reduce clutter"
 	};
 
 	function has_option(args, name) {
@@ -206,16 +207,17 @@ export default (function() {
                 syntax: r2pipe.string('e asm.syntax'),
 			};
 			o.extra = {
-                allfunctions: has_option(args, '--all-functions'),
-                ascodeline: has_option(args, '--as-code-line'),
-                ascomment: has_option(args, '--as-comment'),
-                debug: r2pipe.bool('e r2dec.debug') || has_option(args, '--debug'),
-                file: r2pipe.string('i~^file[1:0]'),
-                highlights: r2pipe.bool('e r2dec.highlight') || has_option(args, '--highlight-current'),
-                json: has_option(args, '--as-json'),
-                offset: r2pipe.long('s'),
-                slow: r2pipe.bool('e r2dec.slow'),
-                annotation: has_option(args, '--annotation'),
+			allfunctions: has_option(args, '--all-functions'),
+			ascodeline: has_option(args, '--as-code-line'),
+			ascomment: has_option(args, '--as-comment'),
+			debug: r2pipe.bool('e r2dec.debug') || has_option(args, '--debug'),
+			file: r2pipe.string('i~^file[1:0]'),
+			highlights: r2pipe.bool('e r2dec.highlight') || has_option(args, '--highlight-current'),
+			json: has_option(args, '--as-json'),
+			offset: r2pipe.long('s'),
+			slow: r2pipe.bool('e r2dec.slow'),
+			annotation: has_option(args, '--annotation'),
+			optimize: r2pipe.bool('e r2dec.optimize') || has_option(args, '--optimize'),
 			};
 			o.add_comment = function(comment, offset) {
 				if (!comment || comment.length < 1) {

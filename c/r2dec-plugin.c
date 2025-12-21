@@ -262,6 +262,7 @@ static bool r_cmd_pdd_init(RCorePluginSession *cps) {
 	SETPREF("r2dec.casts", "false", "if false, hides all casts in the pseudo code.");
 	SETPREF("r2dec.debug", "false", "do not catch exceptions in r2dec.");
 	SETPREF("r2dec.highlight", "default", "highlights the current address.");
+	SETPREF("r2dec.optimize", "false", "if true, apply optimization pass to reduce clutter.");
 	SETPREF("r2dec.paddr", "false", "if true, all xrefs uses physical addresses compare.");
 	SETPREF("r2dec.slow", "false", "load all the data before to avoid multirequests to r2.");
 	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code.");
@@ -289,6 +290,7 @@ static int r_cmd_pdd_init(void *user, const char *cmd) {
 	SETPREF("r2dec.casts", "false", "if false, hides all casts in the pseudo code.");
 	SETPREF("r2dec.debug", "false", "do not catch exceptions in r2dec.");
 	SETPREF("r2dec.highlight", "default", "highlights the current address.");
+	SETPREF("r2dec.optimize", "false", "if true, apply optimization pass to reduce clutter.");
 	SETPREF("r2dec.paddr", "false", "if true, all xrefs uses physical addresses compare.");
 	SETPREF("r2dec.slow", "false", "load all the data before to avoid multirequests to r2.");
 	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code.");
