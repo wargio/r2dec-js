@@ -111,7 +111,7 @@ export default (function() {
         "--as-code-line": "the decompiled code is returned to r2 as 'file:line code' (via CL)",
         "--as-json": "the decompiled code lines are returned as JSON",
         "--annotation": "the decompiled code lines are returned with the annotation format",
-        "--optimize": "apply optimization pass to reduce clutter"
+        "--optimize": "apply optimizer passes to reduce clutter (use --optimize[=N])"
 	};
 
 	function has_option(args, name) {
@@ -120,6 +120,13 @@ export default (function() {
 
 	function has_invalid_args(args) {
 		for (var i = 0; i < args.length; i++) {
+            if (args[i] === '--optimize' && (i + 1) < args.length && /^\d+$/.test(args[i + 1])) {
+                i++;
+                continue;
+            }
+            if (args[i].startsWith('--optimize=') && /^--optimize=\d+$/.test(args[i])) {
+                continue;
+            }
 			if (args[i] != '' && !usages[args[i]]) {
 				console.log('Invalid argument \'' + args[i] + '\'\n');
 				return true;
@@ -127,6 +134,53 @@ export default (function() {
 		}
 		return false;
 	}
+
+    const DEFAULT_OPTIMIZE_PASSES = 6;
+    const MAX_OPTIMIZE_PASSES = 256;
+
+    function clamp_optimize_passes(value) {
+        var n = parseInt(value, 10);
+        if (!Number.isFinite(n)) {
+            return 0;
+        }
+        if (n < 0) {
+            return 0;
+        }
+        if (n > MAX_OPTIMIZE_PASSES) {
+            return MAX_OPTIMIZE_PASSES;
+        }
+        return n;
+    }
+
+    function parse_optimize_from_evar() {
+        var raw = r2pipe.string('e r2dec.optimize');
+        if (raw === 'true' || raw === '1') {
+            return DEFAULT_OPTIMIZE_PASSES;
+        }
+        if (raw === 'false' || raw === '0' || raw === '') {
+            return 0;
+        }
+        return clamp_optimize_passes(raw);
+    }
+
+    function parse_optimize_from_args(args) {
+        for (var i = 0; i < args.length; i++) {
+            if (args[i] === '--optimize') {
+                if ((i + 1) < args.length && /^\d+$/.test(args[i + 1])) {
+                    return clamp_optimize_passes(args[i + 1]);
+                }
+                return DEFAULT_OPTIMIZE_PASSES;
+            }
+            if (args[i].startsWith('--optimize=')) {
+                var m = args[i].match(/^--optimize=(\d+)$/);
+                if (!m) {
+                    return DEFAULT_OPTIMIZE_PASSES;
+                }
+                return clamp_optimize_passes(m[1]);
+            }
+        }
+        return null;
+    }
 
 	function usage() {
 		console.log("r2dec [options]");
@@ -217,7 +271,13 @@ export default (function() {
 			offset: r2pipe.long('s'),
 			slow: r2pipe.bool('e r2dec.slow'),
 			annotation: has_option(args, '--annotation'),
-			optimize: r2pipe.bool('e r2dec.optimize') || has_option(args, '--optimize'),
+			optimize: (function() {
+                var cli = parse_optimize_from_args(args);
+                if (cli !== null) {
+                    return cli;
+                }
+                return parse_optimize_from_evar();
+            })(),
 			};
 			o.add_comment = function(comment, offset) {
 				if (!comment || comment.length < 1) {
