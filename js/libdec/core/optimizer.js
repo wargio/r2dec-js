@@ -1131,7 +1131,7 @@ function pruneArgumentAliasLocals(session, aliasLines) {
 	return changed;
 }
 
-export default function optimize(instructions) {
+export default function optimize(instructions, maxPasses) {
 	const session = Array.isArray(instructions) ? null : instructions;
 	const instrs = Array.isArray(instructions) ? instructions : (instructions ? instructions.instructions : null);
 
@@ -1140,9 +1140,10 @@ export default function optimize(instructions) {
 	}
 
 	const argAlias = (session && session.routine) ? getArgumentAliasSeed(session) : null;
+	const max = Number.isFinite(maxPasses) ? Math.max(1, Math.min(256, Math.trunc(maxPasses))) : 6;
 
 	// Fixed-point iteration: stop when nothing changes.
-	for (let pass = 0; pass < 6; pass++) {
+	for (let pass = 0; pass < max; pass++) {
 		let changed = false;
 		changed = removeInvalidDereferences(instrs) || changed;
 		changed = propagateConstants(instrs, argAlias ? argAlias.seedEnv : null) || changed;
