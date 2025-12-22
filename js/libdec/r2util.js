@@ -193,6 +193,7 @@ export default (function() {
                 casts: r2pipe.bool('e r2dec.casts') || has_option(args, '--casts'),
                 assembly: r2pipe.bool('e r2dec.asm') || has_option(args, '--assembly'),
                 blocks: r2pipe.bool('e r2dec.blocks') || has_option(args, '--blocks'),
+                vars: r2pipe.bool('e r2dec.vars'),
                 xrefs: r2pipe.bool('e r2dec.xrefs') || has_option(args, '--xrefs'),
                 paddr: r2pipe.bool('e r2dec.paddr') || has_option(args, '--paddr'),
                 offsets: has_option(args, '--offsets'),

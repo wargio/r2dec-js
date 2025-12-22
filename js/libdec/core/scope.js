@@ -8,6 +8,9 @@ function _print_locals(locals, address, spaced) {
 	if (Global().evars.honor.blocks) {
 		return;
 	}
+	if (!Global().evars.honor.vars) {
+		return;
+	}
 	var a = Global().printer.auto;
 	for (var i = 0; i < locals.length; i++) {
 		var local = Extra.is.string(locals[i]) ? a(locals[i]) : locals[i].toString(true);

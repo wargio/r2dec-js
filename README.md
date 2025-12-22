@@ -82,6 +82,7 @@ r2dec.debug         | do not catch exceptions in r2dec.
 r2dec.paddr         | if true, all xrefs uses physical addresses compare.
 r2dec.slow          | if true load all the data before to avoid multirequests to r2.
 r2dec.theme         | defines the color theme to be used on r2dec.
+r2dec.vars          | if true, shows local variable definitions.
 r2dec.xrefs         | if true, shows all xrefs in the pseudo code.
 e scr.html          | outputs html data instead of text.
 e scr.color         | enables syntax colors.
