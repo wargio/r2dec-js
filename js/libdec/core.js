@@ -13,6 +13,22 @@ import Instruction from './core/instruction.js';
 import ControlFlow from './core/controlflow.js';
 import XRefs from './core/xrefs.js';
 import Anno from './annotation.js';
+import Optimizer from './core/optimizer.js';
+
+function getOptimizePasses() {
+    const v = Global()?.evars?.extra?.optimize;
+    if (v === true) {
+        return 6;
+    }
+    if (v === false || v === undefined || v === null) {
+        return 0;
+    }
+    const n = parseInt(String(v), 10);
+    if (Number.isFinite(n)) {
+        return n;
+    }
+    return 0;
+}
 
 /**
  * Fixes for known routine names that are standard (like main)
@@ -36,9 +52,32 @@ var _hardcoded_fixes = function(routine_name, return_type) {
  * @param  {Object} arch_context - Current architecture context object.
  */
 var _post_analysis = function(session, arch, arch_context) {
+    const optimizePasses = getOptimizePasses();
+    // Apply optimization pass BEFORE control flow analysis
+    // This ensures conditions are simplified before being captured in scope objects
+    if (optimizePasses > 0) {
+        try {
+            Optimizer(session, optimizePasses);
+        } catch (e) {
+            // Silently ignore optimizer errors - continue with unoptimized output
+            if (Global().evars.extra.debug) {
+                Global().context.printLog('[optimizer] error: ' + e.message);
+            }
+        }
+    }
     ControlFlow(session);
     if (arch.postanalisys) {
         arch.postanalisys(session.instructions, arch_context);
+    }
+    // Run the optimizer after ControlFlow+postanalisys, otherwise postanalisys may overwrite our edits.
+    if (optimizePasses > 0) {
+        try {
+            Optimizer(session, optimizePasses);
+        } catch (e) {
+            if (Global().evars.extra.debug) {
+                Global().context.printLog('[optimizer] error: ' + e.message);
+            }
+        }
     }
     var routine_name = arch.routine_name ? arch.routine_name(session.routine_name) : Extra.replace.call(session.routine_name);
     if (session.instructions.length < 1) {
@@ -53,6 +92,17 @@ var _post_analysis = function(session, arch, arch_context) {
         globals: arch.globalvars(arch_context) || []
     });
     session.routine = routine;
+    // Final optimizer run once the routine exists, so we can de-clutter local var aliases
+    // (e.g. `x0 = argc`) and propagate args into uses.
+    if (optimizePasses > 0) {
+        try {
+            Optimizer(session, optimizePasses);
+        } catch (e) {
+            if (Global().evars.extra.debug) {
+                Global().context.printLog('[optimizer] error: ' + e.message);
+            }
+        }
+    }
 };
 
 /**
