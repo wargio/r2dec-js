@@ -77,10 +77,8 @@ static JSValue js_console_log(JSContext *ctx, JSValueConst jsThis, int argc, JSV
 	}
 #if R2_VERSION_NUMBER >= 50909
 	r_cons_newline(core->cons);
-	r_cons_flush(core->cons);
 #else
 	r_cons_newline();
-	r_cons_flush();
 #endif
 	return JS_UNDEFINED;
 }
