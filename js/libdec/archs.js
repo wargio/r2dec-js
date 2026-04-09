@@ -8,6 +8,7 @@ import avr from './arch/avr.js';
 import dalvik from './arch/dalvik.js';
 import m68k from './arch/m68k.js';
 import mips from './arch/mips.js';
+import nds32 from './arch/nds32.js';
 import ppc from './arch/ppc.js';
 import riscv from './arch/riscv.js';
 import sh from './arch/sh.js';
@@ -25,6 +26,7 @@ export default {
 	dalvik: dalvik,
 	m68k: m68k,
 	mips: mips,
+	nds32: nds32,
 	ppc: ppc,
 	riscv: riscv,
 	sh: sh,
