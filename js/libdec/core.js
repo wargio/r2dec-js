@@ -13,6 +13,7 @@ import Instruction from './core/instruction.js';
 import ControlFlow from './core/controlflow.js';
 import XRefs from './core/xrefs.js';
 import Anno from './annotation.js';
+import Long from './long.js';
 
 /**
  * Fixes for known routine names that are standard (like main)
@@ -158,9 +159,17 @@ var _session = function(data, arch) {
     var max_address = 8;
     Global().xrefs = new XRefs(strings, symbols, classes);
     if (data.graph[0].blocks[0].addr) {
-        data.graph[0].blocks.sort((a, b) => { return a.addr.compare(b.addr); });
+        data.graph[0].blocks.sort((a, b) => {
+            var aa = Long.isLong(a.addr) ? a.addr : Long.from(a.addr, true);
+            var bb = Long.isLong(b.addr) ? b.addr : Long.from(b.addr, true);
+            return aa.compare(bb);
+        });
     } else {
-        data.graph[0].blocks.sort((a, b) => { return a.offset.compare(b.offset); });
+        data.graph[0].blocks.sort((a, b) => {
+            var aa = Long.isLong(a.offset) ? a.offset : Long.from(a.offset, true);
+            var bb = Long.isLong(b.offset) ? b.offset : Long.from(b.offset, true);
+            return aa.compare(bb);
+        });
     }
     for (var i = 0; i < data.graph[0].blocks.length; i++) {
         var block = data.graph[0].blocks[i];
