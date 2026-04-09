@@ -17,6 +17,8 @@ import Base from './base.js';
 
 const ANSI_RE = /\u001b\[[0-9;]*m/g;
 let _bpRegsCache = null;
+let _retRegsCache = null;
+let _regNamesCache = null;
 
 function stripAnsi(s) {
 	return (s || '').replace(ANSI_RE, '');
@@ -34,10 +36,7 @@ function getBasePointerRegisters() {
 	} catch (e) {
 		// ignore
 	}
-	// Fallbacks (in case `arp` isn't available or returns empty).
-	if (out.length === 0) {
-		out.push('x29', 'rbp', 'ebp');
-	}
+	// No hardcoded fallback — if the query fails, skip BP-related filtering (conservative).
 	_bpRegsCache = out;
 	return _bpRegsCache;
 }
@@ -124,8 +123,8 @@ function parseWriteStatement(plain) {
 	if (m) {
 		return { varName: m[1], kind: 'incdec' };
 	}
-	// x = y
-	m = plain.match(/^\s*([A-Za-z_]\w*)\s*=\s*(.+?)\s*$/);
+	// x = y (but not x == y)
+	m = plain.match(/^\s*([A-Za-z_]\w*)\s*=(?!=)\s*(.+?)\s*$/);
 	if (m) {
 		return { varName: m[1], kind: 'assign', rhs: m[2] };
 	}
@@ -180,10 +179,6 @@ function simplifyTrivialConstants(plain) {
 	while (changed) {
 		changed = false;
 		const before = out;
-
-		// Remove unnecessary parens around trivial constants.
-		out = out.replace(/\(\s*0\s*\)/g, '0');
-		out = out.replace(/\(\s*1\s*\)/g, '1');
 
 		// Fold comparisons between constants only.
 		out = out.replace(/\b0\s*==\s*0\b/g, '1');
@@ -253,37 +248,40 @@ function propagateConstants(instructions, seedEnv) {
 	let changed = false;
 	const events = collectEvents(instructions);
 
-	// Do not propagate across branch points (conditional jumps).
+	// Pre-compute basic block boundaries: jump targets and fall-throughs of branches.
+	// Facts must not leak across basic block boundaries.
+	// Exclude function call targets (instr.callee) — calls return to the next instruction.
 	let env = Object.create(null);
-	if (seedEnv) {
-		for (var k in seedEnv) {
-			if (Object.prototype.hasOwnProperty.call(seedEnv, k)) {
-				env[k] = seedEnv[k];
-			}
-		}
-	}
-
-	const resetEnvIfNeeded = (instr) => {
-		if (!instr) return;
-		if (instr.cond) {
-			// Being conservative: do not carry facts across branch points.
-			clearEnv(env);
-			if (seedEnv) {
-				for (var k in seedEnv) {
-					if (Object.prototype.hasOwnProperty.call(seedEnv, k)) {
-						env[k] = seedEnv[k];
-					}
+	// After seeing a conditional branch, stop accumulating new env entries.
+	// This prevents facts from inside conditional blocks from leaking past merge points.
+	// We can only safely propagate facts from straight-line code before the first branch.
+	let readOnly = false;
+	const resetEnvToSeed = () => {
+		clearEnv(env);
+		if (seedEnv) {
+			for (var k in seedEnv) {
+				if (Object.prototype.hasOwnProperty.call(seedEnv, k)) {
+					env[k] = seedEnv[k];
 				}
 			}
 		}
 	};
+	resetEnvToSeed();
 
+	let lastInstr = null;
 	for (let i = 0; i < events.length; i++) {
 		const ev = events[i];
-		resetEnvIfNeeded(ev.instr);
+		const instr = ev.instr;
+
+		if (instr && instr !== lastInstr) {
+			if (instr.cond) {
+				resetEnvToSeed();
+				readOnly = true;
+			}
+			lastInstr = instr;
+		}
 
 		if (ev.type === 'cond') {
-			const instr = ev.instr;
 			if (!instr.cond) continue;
 			const a0 = asPlainString(instr.cond.a);
 			const b0 = asPlainString(instr.cond.b);
@@ -318,6 +316,8 @@ function propagateConstants(instructions, seedEnv) {
 		if (w) {
 			// Any write kills previous knowledge.
 			delete env[w.varName];
+			// After the first branch, stop accumulating — we can't track merge points.
+			if (readOnly) continue;
 			// Avoid propagating frame-pointer style registers; it tends to make output worse
 			// (turns stack slots into raw `sp + ...` arithmetic and breaks readability).
 			if (isBasePointerRegister(w.varName)) {
@@ -327,252 +327,6 @@ function propagateConstants(instructions, seedEnv) {
 				env[w.varName] = w.rhs.trim();
 			}
 			continue;
-		}
-
-		// Non-assignment statement: if it reads a variable we track, keep it;
-		// if it contains an unknown write, we already ignored it (safe).
-	}
-
-	return changed;
-}
-
-function isStackChkFailStatement(plain) {
-	return /\bstack_chk_fail\s*\(/.test(plain) || /\b__stack_chk_fail\s*\(/.test(plain);
-}
-
-function matchStackSaveSlot(plain) {
-	// Common patterns:
-	//   *((x29 - 8)) = x8;
-	//   *(((sp + 0x40) - 8)) = x8;
-	const m = plain.match(/^\s*(\*\s*\(\s*\(\s*.+?\s*-\s*8\s*\)\s*\))\s*=\s*(.+?)\s*$/);
-	if (!m) return null;
-	return { slot: m[1].replace(/\s+/g, ''), rhs: m[2].trim() };
-}
-
-function buildGuardValueExprFromWindow(window) {
-	// Heuristic:
-	//   x8 = reloc.__stack_chk_fail;
-	//   x8 = *((x8 + 8));   OR x8 = *((reloc.__stack_chk_fail + 8));
-	//   x8 = *(x8);
-	// => guard value is *(*((reloc.__stack_chk_fail + 8))) or *(x8) if already folded.
-	const seq = window.slice().reverse().map(x => (x || '').trim()).filter(Boolean);
-
-	// Try the common folded form:
-	//   x8 = *((reloc.__stack_chk_fail + 8));
-	//   x8 = *(x8);   (sometimes present, but not required for reconstruction)
-	for (let i = 0; i < seq.length; i++) {
-		const s0 = seq[i];
-		const m = s0.match(/^\s*x8\s*=\s*(\*\s*\(\s*\(\s*reloc\.[A-Za-z_]\w*\s*\+\s*8\s*\)\s*\))\s*$/);
-		if (m) {
-			const ptrDeref = m[1].replace(/\s+/g, ' ');
-			return `*(${ptrDeref})`;
-		}
-	}
-
-	let base = null;
-	for (let i = seq.length - 1; i >= 0; i--) {
-		const s = seq[i];
-		const m = s.match(/^\s*x8\s*=\s*(reloc\.[A-Za-z_]\w*)\s*$/);
-		if (m) {
-			base = m[1];
-			break;
-		}
-	}
-	if (!base) return null;
-
-	let ptrDeref = null;
-	for (let i = seq.length - 1; i >= 0; i--) {
-		const s = seq[i];
-		let m = s.match(/^\s*x8\s*=\s*\*\s*\(\s*\(\s*x8\s*\+\s*8\s*\)\s*\)\s*$/);
-		if (m) {
-			ptrDeref = `*((${base} + 8))`;
-			break;
-		}
-		m = s.match(/^\s*x8\s*=\s*\*\s*\(\s*\(\s*reloc\.[A-Za-z_]\w*\s*\+\s*8\s*\)\s*\)\s*$/);
-		if (m) {
-			// Accept other reloc names too.
-			ptrDeref = s.replace(/^\s*x8\s*=\s*/, '').trim();
-			break;
-		}
-	}
-	if (!ptrDeref) return null;
-	return `*(${ptrDeref})`;
-}
-
-function simplifyStackCanaryChecks(instructions) {
-	let changed = false;
-	if (!instructions || instructions.length < 1) return false;
-
-	// Find "if (...) { stack_chk_fail(); }" blocks and rewrite their condition.
-	for (let idx = 0; idx < instructions.length; idx++) {
-		const instr = instructions[idx];
-		if (!instr || instr.valid === false) continue;
-		if (!instr.cond || !instr.code || !instr.code.composed || !Array.isArray(instr.code.composed)) continue;
-
-		const body = instr.code.composed.map(x => asPlainString(x).trim()).filter(Boolean);
-		if (body.length < 1) continue;
-		if (!body.every(isStackChkFailStatement)) continue;
-
-		// Only rewrite the noisy patterns (w8, & 0, == 0, etc.)
-		const condText = (asPlainString(instr.cond.a) + ' ' + asPlainString(instr.cond.b)).trim();
-		if (!/\bw8\b/.test(condText) && !/&\s*0/.test(condText) && !/\b==\s*0\b/.test(condText)) {
-			continue;
-		}
-
-		// Look backwards for the stack canary save slot.
-		let savedSlot = '*((x29-8))';
-		for (let j = idx - 1; j >= 0 && j >= idx - 25; j--) {
-			const prev = instructions[j];
-			if (!prev || prev.valid === false || !prev.code) continue;
-			const s = asPlainString(prev.code).trim();
-			const m = matchStackSaveSlot(s);
-			if (m) {
-				savedSlot = m.slot;
-				break;
-			}
-		}
-
-		// Build a best-effort guard expression from nearby statements.
-		const window = [];
-		for (let j = idx - 1; j >= 0 && j >= idx - 18; j--) {
-			const prev = instructions[j];
-			if (!prev || prev.valid === false || !prev.code) continue;
-			window.push(asPlainString(prev.code));
-		}
-		const guardExpr = buildGuardValueExprFromWindow(window);
-		if (!guardExpr) continue;
-
-		// Make the condition print as: if (guard != saved) { stack_chk_fail(); }
-		// ControlFlow typically prints `invert=true`, so using `EQ` yields `!=` in that common case.
-		instr.cond.a = guardExpr;
-		instr.cond.b = savedSlot;
-		instr.cond.type = 'EQ';
-		changed = true;
-
-		// Remove immediate-prelude temporary statements for the check (best-effort).
-		for (let j = idx - 1; j >= 0 && j >= idx - 10; j--) {
-			const prev = instructions[j];
-			if (!prev || prev.valid === false || !prev.code || !isInstructionRemovable(prev)) continue;
-			const s = asPlainString(prev.code).trim();
-			if (/^\s*w8\s*=/.test(s) ||
-				/^\s*x9\s*=/.test(s) ||
-				/^\s*x8\s*=/.test(s) ||
-				/^\s*x8\s*-=/.test(s)) {
-				prev.valid = false;
-				prev.code = null;
-				changed = true;
-			}
-		}
-	}
-
-	return changed;
-}
-
-function findInstructionIndexAtOrAfterAddress(instructions, address) {
-	if (!instructions || !address) return -1;
-	for (let i = 0; i < instructions.length; i++) {
-		if (instructions[i] && instructions[i].location && instructions[i].location.gte(address)) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-function simplifyStackCanaryScopes(session) {
-	if (!session || !session.blocks || !session.instructions) return false;
-	let changed = false;
-
-	for (let b = 0; b < session.blocks.length; b++) {
-		const block = session.blocks[b];
-		if (!block || !block.extraHead || !block.instructions) continue;
-
-		for (let h = 0; h < block.extraHead.length; h++) {
-			const head = block.extraHead[h];
-			if (!head || !head.condition || !head.address) continue;
-
-			// Only "if" scopes for now.
-			const headStr = asPlainString(head.toString ? head.toString() : '').trim();
-			if (!headStr.startsWith('if')) continue;
-
-			const condStr = asPlainString(head.condition.toString ? head.condition.toString() : '').trim();
-			if (!/\bw8\b/.test(condStr) && !/&\s*0/.test(condStr) && !/\b==\s*0\b/.test(condStr)) {
-				continue;
-			}
-			if (Global().evars && Global().evars.extra && Global().evars.extra.debug) {
-				Global().context.printLog('[optimizer] stackchk scope candidate @ 0x' + head.address.toString(16) + ' cond=' + condStr);
-			}
-
-			// Find the most recent "saved canary" slot assignment before this scope address.
-			let savedSlot = '*((x29-8))';
-			let saveInstr = null;
-			let saveIndex = -1;
-			for (let j = 0; j < session.instructions.length; j++) {
-				const prev = session.instructions[j];
-				if (!prev || prev.valid === false || !prev.code) continue;
-				const s = asPlainString(prev.code).trim();
-				const m = matchStackSaveSlot(s);
-				if (!m) continue;
-				savedSlot = m.slot;
-				saveInstr = prev;
-				saveIndex = j;
-			}
-
-			// Build a best-effort guard expression from the vicinity of the save.
-			const window = [];
-			if (saveIndex >= 0) {
-				const start = Math.max(0, saveIndex - 20);
-				const end = Math.min(session.instructions.length - 1, saveIndex + 10);
-				for (let j = start; j <= end; j++) {
-					const p = session.instructions[j];
-					if (!p || p.valid === false || !p.code) continue;
-					window.push(asPlainString(p.code));
-				}
-			}
-			const guardExpr = buildGuardValueExprFromWindow(window);
-			if (!guardExpr) {
-				if (Global().evars && Global().evars.extra && Global().evars.extra.debug) {
-					Global().context.printLog('[optimizer] stackchk: failed to build guard expression');
-				}
-				continue;
-			}
-
-			// If we found the save instruction, make it store the guard expression directly.
-			// This enables removing intermediate x8 assignments without leaving `savedSlot = x8` dangling.
-			if (saveInstr && saveInstr.code) {
-				const savePlain = asPlainString(saveInstr.code).trim();
-				const m = matchStackSaveSlot(savePlain);
-				if (m && m.rhs === 'x8') {
-					saveInstr.code = Base.special(`${savedSlot} = ${guardExpr}`);
-					saveInstr.valid = true;
-					changed = true;
-				}
-			}
-
-			// Rewrite: if (guard != saved) stack_chk_fail();
-			head.condition.a = guardExpr;
-			head.condition.b = savedSlot;
-			head.condition.condition = 'EQ';
-			changed = true;
-			if (Global().evars && Global().evars.extra && Global().evars.extra.debug) {
-				Global().context.printLog('[optimizer] stackchk rewrite: a=' + guardExpr + ' b=' + savedSlot);
-			}
-
-			// Remove the immediate-prelude "w8/x8/x9" computations (same heuristic as instruction pass).
-			const idx = findInstructionIndexAtOrAfterAddress(session.instructions, head.address);
-			for (let j = idx - 1; j >= 0 && j >= idx - 60; j--) {
-				const prev = session.instructions[j];
-				if (!prev || prev.valid === false || !prev.code || !isInstructionRemovable(prev)) continue;
-				if (saveInstr && prev.location && prev.location.lt(saveInstr.location)) continue;
-				const s = asPlainString(prev.code).trim();
-				if (/^\s*w8\s*=/.test(s) ||
-					/^\s*x9\s*=/.test(s) ||
-					/^\s*x8\s*=/.test(s) ||
-					/^\s*x8\s*-=/.test(s)) {
-					prev.valid = false;
-					prev.code = null;
-					changed = true;
-				}
-			}
 		}
 	}
 
@@ -687,6 +441,17 @@ function inlineSingleUseAssignments(instructions) {
 	let changed = false;
 	const events = collectEvents(instructions);
 
+	// Pre-compute which events are past a branch point.
+	// Events inside conditional blocks should not be inlined to code outside.
+	const eventPastBranch = [];
+	var seenBranch = false;
+	for (let idx = 0; idx < events.length; idx++) {
+		if (events[idx].instr && events[idx].instr.cond) {
+			seenBranch = true;
+		}
+		eventPastBranch[idx] = seenBranch;
+	}
+
 	for (let i = 0; i < events.length; i++) {
 		const ev = events[i];
 		if (ev.type !== 'stmt') continue;
@@ -748,6 +513,12 @@ function inlineSingleUseAssignments(instructions) {
 			continue;
 		}
 
+		// Don't inline if the def is past a branch — it may be in a conditional block
+		// and the use may be outside that block (different control flow path).
+		if (eventPastBranch[i]) {
+			continue;
+		}
+
 		const target = events[readEventIndex];
 		if (target.type !== 'stmt') continue;
 
@@ -778,19 +549,28 @@ function inlineSingleUseAssignments(instructions) {
 	return changed;
 }
 
-function isReturnRegisterName(name) {
-	// Heuristic list (covers the most common architectures in r2dec output).
-	return ['w0', 'x0', 'r0', 'eax', 'rax', 'v0'].includes(name);
+function getReturnRegisters() {
+	if (_retRegsCache) return _retRegsCache;
+	const out = [];
+	try {
+		if (typeof radare2 !== 'undefined' && radare2 && radare2.command) {
+			// R0 role = return value register.
+			const s = (radare2.command('arp~R0[1]') || '').trim();
+			s.split(/\r?\n/).map(x => x.trim()).filter(Boolean).forEach(x => out.push(x));
+		}
+	} catch (e) {
+		// ignore
+	}
+	_retRegsCache = out;
+	return _retRegsCache;
 }
 
-function hasSubsequentReturn(events, startIndex) {
-	for (let i = startIndex + 1; i < events.length; i++) {
-		const ev = events[i];
-		if (ev.type !== 'stmt') continue;
-		const s = (ev.getPlain() || '').trim();
-		if (s === 'return' || s.startsWith('return ')) {
-			return true;
-		}
+function isReturnRegisterName(name) {
+	if (!name) return false;
+	const n = String(name).trim();
+	const regs = getReturnRegisters();
+	for (let i = 0; i < regs.length; i++) {
+		if (regs[i] === n) return true;
 	}
 	return false;
 }
@@ -877,6 +657,16 @@ function removeDeadAssignments(instructions) {
 	let changed = false;
 	const events = collectEvents(instructions);
 
+	// Pre-compute which events are past a branch point.
+	const eventPastBranch = [];
+	var seenBranch = false;
+	for (let idx = 0; idx < events.length; idx++) {
+		if (events[idx].instr && events[idx].instr.cond) {
+			seenBranch = true;
+		}
+		eventPastBranch[idx] = seenBranch;
+	}
+
 	for (let i = 0; i < events.length; i++) {
 		const ev = events[i];
 		if (ev.type !== 'stmt') continue;
@@ -896,6 +686,7 @@ function removeDeadAssignments(instructions) {
 		}
 
 		let used = false;
+		let pastBranch = false;
 
 		for (let j = i + 1; j < events.length; j++) {
 			const next = events[j];
@@ -904,6 +695,12 @@ function removeDeadAssignments(instructions) {
 				if (!nextPlain) continue;
 				const w = parseWriteStatement(nextPlain);
 				if (w && w.varName === a.varName) {
+					// If the killing write is past a branch, the variable may still
+					// be live on the alternate path — conservatively mark as used.
+					if (pastBranch) {
+						used = true;
+						break;
+					}
 					// Boundary write may still read previous value (`x = f(x)`) or be compound/inc.
 					if (identifierReadCountInPlainStatement(nextPlain, a.varName) > 0) {
 						used = true;
@@ -915,6 +712,7 @@ function removeDeadAssignments(instructions) {
 					break;
 				}
 			} else if (next.type === 'cond') {
+				pastBranch = true;
 				const condPlain = getConditionReads(next.instr);
 				if (identifierReadCountInPlainStatement(condPlain, a.varName) > 0) {
 					used = true;
@@ -1047,8 +845,25 @@ function simplifyPointerIndexing(session) {
 	return changed;
 }
 
+function getAllRegisterNames() {
+	if (_regNamesCache) return _regNamesCache;
+	const names = Object.create(null);
+	try {
+		if (typeof radare2 !== 'undefined' && radare2 && radare2.command) {
+			const s = (radare2.command('arp~gpr[1]') || '').trim();
+			s.split(/\r?\n/).map(x => x.trim()).filter(Boolean).forEach(x => { names[x] = true; });
+		}
+	} catch (e) {
+		// ignore
+	}
+	_regNamesCache = names;
+	return _regNamesCache;
+}
+
 function isRegisterIdentifier(name) {
-	return /^[xw]\d+$/.test(name) || /^r\d+$/.test(name) || /^(e|r)?ax$/.test(name);
+	if (!name) return false;
+	const regs = getAllRegisterNames();
+	return !!regs[name];
 }
 
 function getArgumentAliasSeed(session) {
@@ -1149,11 +964,9 @@ export default function optimize(instructions, maxPasses) {
 		changed = propagateConstants(instrs, argAlias ? argAlias.seedEnv : null) || changed;
 		changed = simplifyStatementsAndConditions(instrs) || changed;
 		changed = inlineSingleUseAssignments(instrs) || changed;
-		changed = simplifyStackCanaryChecks(instrs) || changed;
 		changed = fixReturnStatements(instrs) || changed;
 		changed = removeDeadAssignments(instrs) || changed;
 		if (session) {
-			changed = simplifyStackCanaryScopes(session) || changed;
 			changed = simplifyPointerIndexing(session) || changed;
 		}
 		if (session && session.routine && argAlias) {
