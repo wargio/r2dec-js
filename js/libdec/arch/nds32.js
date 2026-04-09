@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 pancake <pancake@nopcode.org>
+// SPDX-FileCopyrightText: 2026 pancake <pancake@nopcode.org>
 // SPDX-License-Identifier: BSD-3-Clause
 
 import Base from '../core/base.js';
