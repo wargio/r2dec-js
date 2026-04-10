@@ -51,34 +51,32 @@ var _hardcoded_fixes = function(routine_name, return_type) {
  * @param  {Object} arch         - Current architecture object
  * @param  {Object} arch_context - Current architecture context object.
  */
-var _post_analysis = function(session, arch, arch_context) {
-    const optimizePasses = getOptimizePasses();
-    // Apply optimization pass BEFORE control flow analysis
-    // This ensures conditions are simplified before being captured in scope objects
-    if (optimizePasses > 0) {
-        try {
-            Optimizer(session, optimizePasses);
-        } catch (e) {
-            // Silently ignore optimizer errors - continue with unoptimized output
-            if (Global().evars.extra.debug) {
-                Global().context.printLog('[optimizer] error: ' + e.message);
-            }
+var _runOptimizer = function(session, passes) {
+    if (passes <= 0) {
+        return;
+    }
+    try {
+        Optimizer(session, passes);
+    } catch (e) {
+        // Silently ignore optimizer errors - continue with unoptimized output
+        if (Global().evars.extra.debug) {
+            Global().context.printLog('[optimizer] error: ' + e.message);
         }
     }
+};
+
+var _post_analysis = function(session, arch, arch_context) {
+    const optimizePasses = getOptimizePasses();
+    // A single pre-pass is enough to simplify conditions before ControlFlow captures them
+    // in scope objects; the final run below does the heavy lifting on the settled IR.
+    const prePasses = optimizePasses > 0 ? 1 : 0;
+    _runOptimizer(session, prePasses);
     ControlFlow(session);
     if (arch.postanalisys) {
         arch.postanalisys(session.instructions, arch_context);
     }
-    // Run the optimizer after ControlFlow+postanalisys, otherwise postanalisys may overwrite our edits.
-    if (optimizePasses > 0) {
-        try {
-            Optimizer(session, optimizePasses);
-        } catch (e) {
-            if (Global().evars.extra.debug) {
-                Global().context.printLog('[optimizer] error: ' + e.message);
-            }
-        }
-    }
+    // One pass to undo any clutter postanalisys may have reintroduced.
+    _runOptimizer(session, prePasses);
     var routine_name = arch.routine_name ? arch.routine_name(session.routine_name) : Extra.replace.call(session.routine_name);
     if (session.instructions.length < 1) {
         return;
@@ -93,16 +91,8 @@ var _post_analysis = function(session, arch, arch_context) {
     });
     session.routine = routine;
     // Final optimizer run once the routine exists, so we can de-clutter local var aliases
-    // (e.g. `x0 = argc`) and propagate args into uses.
-    if (optimizePasses > 0) {
-        try {
-            Optimizer(session, optimizePasses);
-        } catch (e) {
-            if (Global().evars.extra.debug) {
-                Global().context.printLog('[optimizer] error: ' + e.message);
-            }
-        }
-    }
+    // (e.g. `x0 = argc`) and propagate args into uses. This one gets the full pass budget.
+    _runOptimizer(session, optimizePasses);
 };
 
 /**
