@@ -101,6 +101,15 @@ var json_parse = function(options) {
 				while (next()) {
 					if (ch === '"') {
 						next();
+						if (string.match(/^(0x)?[a-f\d]+$/)) {
+							try {
+								return Long.from(string, true);
+							} catch (e) {
+								console.log(e.message);
+								console.log(e.stack);
+								return string;
+							}
+						}
 						return string;
 					}
 					if (ch === '\\') {
