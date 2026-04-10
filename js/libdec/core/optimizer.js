@@ -16,7 +16,6 @@ import Base from './base.js';
  */
 
 const ANSI_RE = /\u001b\[[0-9;]*m/g;
-let _bpRegsCache = null;
 let _retRegsCache = null;
 let _regNamesCache = null;
 
@@ -24,8 +23,7 @@ function stripAnsi(s) {
 	return (s || '').replace(ANSI_RE, '');
 }
 
-function getBasePointerRegisters() {
-	if (_bpRegsCache) return _bpRegsCache;
+function queryBasePointerRegisters() {
 	const out = [];
 	try {
 		if (typeof radare2 !== 'undefined' && radare2 && radare2.command) {
@@ -37,16 +35,14 @@ function getBasePointerRegisters() {
 		// ignore
 	}
 	// No hardcoded fallback — if the query fails, skip BP-related filtering (conservative).
-	_bpRegsCache = out;
-	return _bpRegsCache;
+	return out;
 }
 
-function isBasePointerRegister(name) {
-	if (!name) return false;
+function isBasePointerRegister(name, bpRegs) {
+	if (!name || !bpRegs) return false;
 	const n = String(name).trim();
-	const regs = getBasePointerRegisters();
-	for (let i = 0; i < regs.length; i++) {
-		if (regs[i] === n) return true;
+	for (let i = 0; i < bpRegs.length; i++) {
+		if (bpRegs[i] === n) return true;
 	}
 	return false;
 }
@@ -244,7 +240,7 @@ function clearEnv(env) {
 	}
 }
 
-function propagateConstants(instructions, seedEnv) {
+function propagateConstants(instructions, seedEnv, bpRegs) {
 	let changed = false;
 	const events = collectEvents(instructions);
 
@@ -320,7 +316,7 @@ function propagateConstants(instructions, seedEnv) {
 			if (readOnly) continue;
 			// Avoid propagating frame-pointer style registers; it tends to make output worse
 			// (turns stack slots into raw `sp + ...` arithmetic and breaks readability).
-			if (isBasePointerRegister(w.varName)) {
+			if (isBasePointerRegister(w.varName, bpRegs)) {
 				continue;
 			}
 			if (w.kind === 'assign' && isSimplePropagatableRhs(w.rhs)) {
@@ -437,7 +433,7 @@ function simplifyStatementsAndConditions(instructions) {
 	return changed;
 }
 
-function inlineSingleUseAssignments(instructions) {
+function inlineSingleUseAssignments(instructions, bpRegs) {
 	let changed = false;
 	const events = collectEvents(instructions);
 
@@ -463,7 +459,7 @@ function inlineSingleUseAssignments(instructions) {
 		if (!a) continue;
 
 		// Avoid inlining frame-pointer style registers; it turns stack vars into raw SP arithmetic.
-		if (isBasePointerRegister(a.varName)) {
+		if (isBasePointerRegister(a.varName, bpRegs)) {
 			continue;
 		}
 
@@ -946,13 +942,17 @@ function pruneArgumentAliasLocals(session, aliasLines) {
 	return changed;
 }
 
-export default function optimize(instructions, maxPasses) {
+export default function optimize(instructions, maxPasses, bpRegs) {
 	const session = Array.isArray(instructions) ? null : instructions;
 	const instrs = Array.isArray(instructions) ? instructions : (instructions ? instructions.instructions : null);
 
 	if (!instrs || instrs.length === 0) {
 		return;
 	}
+
+	// Resolve BP register list once per invocation; avoids stale module-level
+	// state when the same process decompiles across different architectures.
+	const bp = Array.isArray(bpRegs) ? bpRegs : queryBasePointerRegisters();
 
 	const argAlias = (session && session.routine) ? getArgumentAliasSeed(session) : null;
 	const max = Number.isFinite(maxPasses) ? Math.max(1, Math.min(256, Math.trunc(maxPasses))) : 6;
@@ -961,9 +961,9 @@ export default function optimize(instructions, maxPasses) {
 	for (let pass = 0; pass < max; pass++) {
 		let changed = false;
 		changed = removeInvalidDereferences(instrs) || changed;
-		changed = propagateConstants(instrs, argAlias ? argAlias.seedEnv : null) || changed;
+		changed = propagateConstants(instrs, argAlias ? argAlias.seedEnv : null, bp) || changed;
 		changed = simplifyStatementsAndConditions(instrs) || changed;
-		changed = inlineSingleUseAssignments(instrs) || changed;
+		changed = inlineSingleUseAssignments(instrs, bp) || changed;
 		changed = fixReturnStatements(instrs) || changed;
 		changed = removeDeadAssignments(instrs) || changed;
 		if (session) {
