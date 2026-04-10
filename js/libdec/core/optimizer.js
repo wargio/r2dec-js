@@ -125,12 +125,8 @@ function parseWriteStatement(plain) {
 		return { varName: m[1], kind: 'assign', rhs: m[2] };
 	}
 	// x op= y
-	m = plain.match(/^\s*([A-Za-z_]\w*)\s*([^\s=]{1,2})=\s*(.+?)\s*$/);
+	m = plain.match(/^\s*([A-Za-z_]\w*)\s*(<<|>>|[-+*/%&|^])=\s*(.+?)\s*$/);
 	if (!m) return null;
-	const op = m[2];
-	if (!['+', '-', '*', '/', '%', '&', '|', '^', '<<', '>>'].includes(op)) {
-		return null;
-	}
 	return { varName: m[1], kind: 'compound', rhs: m[3] };
 }
 
