@@ -39,10 +39,10 @@ function queryBasePointerRegisters() {
 }
 
 function isBasePointerRegister(name, bpRegs) {
-	if (!name || !bpRegs) return false;
+	if (!name || !bpRegs) {return false;}
 	const n = String(name).trim();
 	for (let i = 0; i < bpRegs.length; i++) {
-		if (bpRegs[i] === n) return true;
+		if (bpRegs[i] === n) {return true;}
 	}
 	return false;
 }
@@ -79,7 +79,7 @@ function replaceIdentifierReadsOnly(statementPlain, identifier, replacement) {
 	if (w && w.varName === identifier) {
 		// Only support `x = rhs` here; caller should have filtered out compound/incdec.
 		const m = statementPlain.match(/^\s*([A-Za-z_]\w*)(\s*=\s*)(.+?)\s*$/);
-		if (!m) return statementPlain;
+		if (!m) {return statementPlain;}
 		const rhsReplaced = replaceIdentifier(m[3], identifier, replacement);
 		return `${m[1]}${m[2]}${rhsReplaced}`;
 	}
@@ -88,14 +88,14 @@ function replaceIdentifierReadsOnly(statementPlain, identifier, replacement) {
 
 function parenthesizeIfNeeded(expr) {
 	const e = (expr || '').trim();
-	if (!e) return e;
+	if (!e) {return e;}
 	return e.indexOf(' ') > -1 ? `(${e})` : e;
 }
 
 function isInvalidDereferenceStatement(plain) {
 	// Pattern: *(envp...) = ... or *(argp...) = ...
 	const m = plain.match(/^\s*\*\s*\(\s*([A-Za-z_]\w*)/);
-	if (!m) return false;
+	if (!m) {return false;}
 	const name = m[1];
 	return name.startsWith('envp') || name.startsWith('argp') || /^arg\d+$/.test(name);
 }
@@ -103,8 +103,8 @@ function isInvalidDereferenceStatement(plain) {
 function hasSideEffectsExpression(expr) {
 	// Conservative: treat any direct call as side-effecting.
 	// r2dec prints calls as: "name (args...)" (note the space).
-	if (/\b[A-Za-z_]\w*\s+\(/.test(expr)) return true;
-	if (/\+\+|--/.test(expr)) return true;
+	if (/\b[A-Za-z_]\w*\s+\(/.test(expr)) {return true;}
+	if (/\+\+|--/.test(expr)) {return true;}
 	return false;
 }
 
@@ -126,13 +126,13 @@ function parseWriteStatement(plain) {
 	}
 	// x op= y
 	m = plain.match(/^\s*([A-Za-z_]\w*)\s*(<<|>>|[-+*/%&|^])=\s*(.+?)\s*$/);
-	if (!m) return null;
+	if (!m) {return null;}
 	return { varName: m[1], kind: 'compound', rhs: m[3] };
 }
 
 function parseSimpleAssignment(plain) {
 	const w = parseWriteStatement(plain);
-	if (!w || w.kind !== 'assign') return null;
+	if (!w || w.kind !== 'assign') {return null;}
 	return { varName: w.varName, expression: (w.rhs || '').trim() };
 }
 
@@ -158,14 +158,14 @@ function identifierReadCountInPlainStatement(plain, identifier) {
 }
 
 function getConditionReads(instr) {
-	if (!instr || !instr.cond) return '';
+	if (!instr || !instr.cond) {return '';}
 	const a = asPlainString(instr.cond.a);
 	const b = asPlainString(instr.cond.b);
 	return `${a} ${b}`.trim();
 }
 
 function simplifyTrivialConstants(plain) {
-	if (!plain) return plain;
+	if (!plain) {return plain;}
 	let out = plain;
 	let changed = true;
 	while (changed) {
@@ -182,7 +182,7 @@ function simplifyTrivialConstants(plain) {
 		out = out.replace(/\b0\s*!=\s*1\b/g, '1');
 		out = out.replace(/\b1\s*!=\s*0\b/g, '1');
 
-		if (out !== before) changed = true;
+		if (out !== before) {changed = true;}
 	}
 	return out;
 }
@@ -190,30 +190,30 @@ function simplifyTrivialConstants(plain) {
 function isSimplePropagatableRhs(rhs) {
 	// Keep this intentionally conservative: it must help readability and not explode.
 	const s = (rhs || '').trim();
-	if (!s) return false;
-	if (hasSideEffectsExpression(s)) return false;
-	if (s.includes('*')) return false; // avoid inlining memory dereferences by default
-	if (s.includes('?') || s.includes(':')) return false; // ternary can get noisy quickly
-	if (s.length > 64) return false;
+	if (!s) {return false;}
+	if (hasSideEffectsExpression(s)) {return false;}
+	if (s.includes('*')) {return false;} // avoid inlining memory dereferences by default
+	if (s.includes('?') || s.includes(':')) {return false;} // ternary can get noisy quickly
+	if (s.length > 64) {return false;}
 	// Allow numbers, identifiers, and simple arithmetic/pointer expressions.
-	if (/^0x[0-9a-fA-F]+$/.test(s)) return true;
-	if (/^\d+$/.test(s)) return true;
-	if (/^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/.test(s)) return true; // vars or reloc.sym
-	if (/^[A-Za-z_]\w*(?:\s*(?:\\+|-|<<|>>)\s*[A-Za-z_0-9x][A-Za-z_0-9x]*)+$/.test(s)) return true;
+	if (/^0x[0-9a-fA-F]+$/.test(s)) {return true;}
+	if (/^\d+$/.test(s)) {return true;}
+	if (/^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/.test(s)) {return true;} // vars or reloc.sym
+	if (/^[A-Za-z_]\w*(?:\s*(?:\\+|-|<<|>>)\s*[A-Za-z_0-9x][A-Za-z_0-9x]*)+$/.test(s)) {return true;}
 	return false;
 }
 
 function isSimpleIdentifierLike(expr) {
 	const s = (expr || '').trim();
-	if (!s) return false;
-	if (/^0x[0-9a-fA-F]+$/.test(s) || /^\d+$/.test(s)) return true;
+	if (!s) {return false;}
+	if (/^0x[0-9a-fA-F]+$/.test(s) || /^\d+$/.test(s)) {return true;}
 	return /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/.test(s);
 }
 
 function applySubstitutionsToStatement(statementPlain, env) {
 	let out = statementPlain;
 	for (var name in env) {
-		if (!Object.prototype.hasOwnProperty.call(env, name)) continue;
+		if (!Object.prototype.hasOwnProperty.call(env, name)) {continue;}
 		out = replaceIdentifierReadsOnly(out, name, parenthesizeIfNeeded(env[name]));
 	}
 	return out;
@@ -222,7 +222,7 @@ function applySubstitutionsToStatement(statementPlain, env) {
 function applySubstitutionsToConditionOperand(operand, env) {
 	let out = simplifyTrivialConstants(asPlainString(operand));
 	for (var name in env) {
-		if (!Object.prototype.hasOwnProperty.call(env, name)) continue;
+		if (!Object.prototype.hasOwnProperty.call(env, name)) {continue;}
 		out = replaceIdentifier(out, name, parenthesizeIfNeeded(env[name]));
 	}
 	return out;
@@ -274,7 +274,7 @@ function propagateConstants(instructions, seedEnv, bpRegs) {
 		}
 
 		if (ev.type === 'cond') {
-			if (!instr.cond) continue;
+			if (!instr.cond) {continue;}
 			const a0 = asPlainString(instr.cond.a);
 			const b0 = asPlainString(instr.cond.b);
 			const a1 = applySubstitutionsToConditionOperand(a0, env);
@@ -290,9 +290,9 @@ function propagateConstants(instructions, seedEnv, bpRegs) {
 			continue;
 		}
 
-		if (ev.type !== 'stmt') continue;
+		if (ev.type !== 'stmt') {continue;}
 		const plain0 = ev.getPlain();
-		if (!plain0) continue;
+		if (!plain0) {continue;}
 
 		const simplified0 = simplifyTrivialConstants(plain0);
 		let plain1 = applySubstitutionsToStatement(simplified0, env);
@@ -309,7 +309,7 @@ function propagateConstants(instructions, seedEnv, bpRegs) {
 			// Any write kills previous knowledge.
 			delete env[w.varName];
 			// After the first branch, stop accumulating — we can't track merge points.
-			if (readOnly) continue;
+			if (readOnly) {continue;}
 			// Avoid propagating frame-pointer style registers; it tends to make output worse
 			// (turns stack slots into raw `sp + ...` arithmetic and breaks readability).
 			if (isBasePointerRegister(w.varName, bpRegs)) {
@@ -341,11 +341,11 @@ function compactInstructionCode(instr) {
 function collectEvents(instructions) {
 	const events = [];
 	for (const instr of instructions || []) {
-		if (!instr || instr.valid === false) continue;
+		if (!instr || instr.valid === false) {continue;}
 		if (instr.cond) {
 			events.push({ type: 'cond', instr });
 		}
-		if (!instr.code) continue;
+		if (!instr.code) {continue;}
 		if (instr.code.composed && Array.isArray(instr.code.composed)) {
 			for (let i = 0; i < instr.code.composed.length; i++) {
 				const refIndex = i;
@@ -382,9 +382,9 @@ function removeInvalidDereferences(instructions) {
 	let changed = false;
 	const events = collectEvents(instructions);
 	for (const ev of events) {
-		if (ev.type !== 'stmt') continue;
+		if (ev.type !== 'stmt') {continue;}
 		const plain = ev.getPlain();
-		if (!plain) continue;
+		if (!plain) {continue;}
 		if (isInvalidDereferenceStatement(plain)) {
 			ev.remove();
 			changed = true;
@@ -418,7 +418,7 @@ function simplifyStatementsAndConditions(instructions) {
 		}
 		if (ev.type === 'stmt') {
 			const plain0 = ev.getPlain();
-			if (!plain0) continue;
+			if (!plain0) {continue;}
 			const plain1 = simplifyTrivialConstants(plain0);
 			if (plain1 !== plain0) {
 				ev.setPlain(plain1);
@@ -446,13 +446,13 @@ function inlineSingleUseAssignments(instructions, bpRegs) {
 
 	for (let i = 0; i < events.length; i++) {
 		const ev = events[i];
-		if (ev.type !== 'stmt') continue;
+		if (ev.type !== 'stmt') {continue;}
 
 		const plain = ev.getPlain();
-		if (!plain) continue;
+		if (!plain) {continue;}
 
 		const a = parseSimpleAssignment(plain);
-		if (!a) continue;
+		if (!a) {continue;}
 
 		// Avoid inlining frame-pointer style registers; it turns stack vars into raw SP arithmetic.
 		if (isBasePointerRegister(a.varName, bpRegs)) {
@@ -460,10 +460,10 @@ function inlineSingleUseAssignments(instructions, bpRegs) {
 		}
 
 		const rhs = a.expression;
-		if (!rhs) continue;
-		if (rhs.length > 80) continue;
-		if (hasSideEffectsExpression(rhs)) continue;
-		if (new RegExp(`\\b${escapeRegExp(a.varName)}\\b`).test(rhs)) continue;
+		if (!rhs) {continue;}
+		if (rhs.length > 80) {continue;}
+		if (hasSideEffectsExpression(rhs)) {continue;}
+		if (new RegExp(`\\b${escapeRegExp(a.varName)}\\b`).test(rhs)) {continue;}
 
 		let reads = 0;
 		let readEventIndex = -1;
@@ -473,7 +473,7 @@ function inlineSingleUseAssignments(instructions, bpRegs) {
 			const next = events[j];
 			if (next.type === 'stmt') {
 				const nextPlain = next.getPlain();
-				if (!nextPlain) continue;
+				if (!nextPlain) {continue;}
 				const w = parseWriteStatement(nextPlain);
 				if (w && w.varName === a.varName) {
 					// The boundary write may still read the previous value (e.g. `x = f(x)`).
@@ -498,7 +498,7 @@ function inlineSingleUseAssignments(instructions, bpRegs) {
 				}
 			}
 
-			if (reads > 1) break;
+			if (reads > 1) {break;}
 		}
 
 		if (reads !== 1 || readEventIndex === -1 || readInConditionOnly) {
@@ -512,7 +512,7 @@ function inlineSingleUseAssignments(instructions, bpRegs) {
 		}
 
 		const target = events[readEventIndex];
-		if (target.type !== 'stmt') continue;
+		if (target.type !== 'stmt') {continue;}
 
 		const targetPlain = target.getPlain();
 		// Don’t inline into self-overwrites (`x = f(x)` / `x += ...` / `x++`):
@@ -527,8 +527,8 @@ function inlineSingleUseAssignments(instructions, bpRegs) {
 		}
 		const wrapped = parenthesizeIfNeeded(rhs);
 		const replaced = replaceIdentifierReadsOnly(targetPlain, a.varName, wrapped);
-		if (replaced === targetPlain) continue;
-		if (replaced.length > 200 || replaced.length > (targetPlain.length + 60)) continue;
+		if (replaced === targetPlain) {continue;}
+		if (replaced.length > 200 || replaced.length > (targetPlain.length + 60)) {continue;}
 
 		target.setPlain(replaced);
 		ev.remove();
@@ -542,7 +542,7 @@ function inlineSingleUseAssignments(instructions, bpRegs) {
 }
 
 function getReturnRegisters() {
-	if (_retRegsCache) return _retRegsCache;
+	if (_retRegsCache) {return _retRegsCache;}
 	const out = [];
 	try {
 		if (typeof radare2 !== 'undefined' && radare2 && radare2.command) {
@@ -558,11 +558,11 @@ function getReturnRegisters() {
 }
 
 function isReturnRegisterName(name) {
-	if (!name) return false;
+	if (!name) {return false;}
 	const n = String(name).trim();
 	const regs = getReturnRegisters();
 	for (let i = 0; i < regs.length; i++) {
-		if (regs[i] === n) return true;
+		if (regs[i] === n) {return true;}
 	}
 	return false;
 }
@@ -570,7 +570,7 @@ function isReturnRegisterName(name) {
 function hasSubsequentBareReturn(events, startIndex) {
 	for (let i = startIndex + 1; i < events.length; i++) {
 		const ev = events[i];
-		if (ev.type !== 'stmt') continue;
+		if (ev.type !== 'stmt') {continue;}
 		const s = (ev.getPlain() || '').trim();
 		if (s === 'return') {
 			return true;
@@ -585,23 +585,23 @@ function fixReturnStatements(instructions) {
 
 	for (let i = 0; i < events.length; i++) {
 		const ev = events[i];
-		if (ev.type !== 'stmt') continue;
+		if (ev.type !== 'stmt') {continue;}
 
 		const retPlain = (ev.getPlain() || '').trim();
-		if (retPlain !== 'return') continue;
+		if (retPlain !== 'return') {continue;}
 
 		// Search backwards for the nearest return-register assignment.
 		for (let j = i - 1; j >= 0; j--) {
 			const prev = events[j];
-			if (prev.type !== 'stmt') continue;
-			if (prev.instr && (prev.instr.jump || prev.instr.cond)) break;
-			if (ev.instr && (ev.instr.jump || ev.instr.cond)) break;
+			if (prev.type !== 'stmt') {continue;}
+			if (prev.instr && (prev.instr.jump || prev.instr.cond)) {break;}
+			if (ev.instr && (ev.instr.jump || ev.instr.cond)) {break;}
 
 			const prevPlain = (prev.getPlain() || '').trim();
 			const a = parseSimpleAssignment(prevPlain);
-			if (!a) continue;
-			if (!isReturnRegisterName(a.varName)) continue;
-			if (!a.expression) continue;
+			if (!a) {continue;}
+			if (!isReturnRegisterName(a.varName)) {continue;}
+			if (!a.expression) {continue;}
 
 			// Ensure the assigned value is not used between assignment and return.
 			let used = false;
@@ -615,9 +615,9 @@ function fixReturnStatements(instructions) {
 					}
 					continue;
 				}
-				if (mid.type !== 'stmt') continue;
+				if (mid.type !== 'stmt') {continue;}
 				const midPlain = mid.getPlain();
-				if (!midPlain) continue;
+				if (!midPlain) {continue;}
 				if (identifierReadCountInPlainStatement(midPlain, a.varName) > 0) {
 					used = true;
 					break;
@@ -629,7 +629,7 @@ function fixReturnStatements(instructions) {
 					break;
 				}
 			}
-			if (used) break;
+			if (used) {break;}
 
 			// Convert `return;` + `w0 = X;` into `return X;`.
 			ev.setPlain(`return ${a.expression}`);
@@ -661,15 +661,15 @@ function removeDeadAssignments(instructions) {
 
 	for (let i = 0; i < events.length; i++) {
 		const ev = events[i];
-		if (ev.type !== 'stmt') continue;
+		if (ev.type !== 'stmt') {continue;}
 
 		const plain = ev.getPlain();
-		if (!plain) continue;
+		if (!plain) {continue;}
 
 		const a = parseSimpleAssignment(plain);
-		if (!a) continue;
-		if (!a.expression) continue;
-		if (hasSideEffectsExpression(a.expression)) continue;
+		if (!a) {continue;}
+		if (!a.expression) {continue;}
+		if (hasSideEffectsExpression(a.expression)) {continue;}
 
 		// Keep final return-register writes: r2dec may print `return;` even for non-void.
 		// If we already have `return <expr>`, these become dead and should be removable.
@@ -684,7 +684,7 @@ function removeDeadAssignments(instructions) {
 			const next = events[j];
 			if (next.type === 'stmt') {
 				const nextPlain = next.getPlain();
-				if (!nextPlain) continue;
+				if (!nextPlain) {continue;}
 				const w = parseWriteStatement(nextPlain);
 				if (w && w.varName === a.varName) {
 					// If the killing write is past a branch, the variable may still
@@ -726,14 +726,14 @@ function removeDeadAssignments(instructions) {
 }
 
 function parseArgNamesFromRoutine(routine) {
-	if (!routine || !routine.extra || !Array.isArray(routine.extra.args)) return [];
+	if (!routine || !routine.extra || !Array.isArray(routine.extra.args)) {return [];}
 	const names = [];
 	for (let i = 0; i < routine.extra.args.length; i++) {
 		const s = asPlainString(routine.extra.args[i]).trim();
-		if (!s) continue;
+		if (!s) {continue;}
 		const parts = s.split(/\s+/);
 		const name = parts[parts.length - 1];
-		if (name) names.push(name);
+		if (name) {names.push(name);}
 	}
 	return names;
 }
@@ -743,13 +743,13 @@ function parseArgTypesFromRoutine(routine) {
 	// Examples:
 	//   "char ** argv" -> { argv: { pointerDepth: 2 } }
 	//   "int32_t argc" -> { argc: { pointerDepth: 0 } }
-	if (!routine || !routine.extra || !Array.isArray(routine.extra.args)) return Object.create(null);
+	if (!routine || !routine.extra || !Array.isArray(routine.extra.args)) {return Object.create(null);}
 	const info = Object.create(null);
 	for (let i = 0; i < routine.extra.args.length; i++) {
 		const s = asPlainString(routine.extra.args[i]).trim().replace(/\s+/g, ' ');
-		if (!s) continue;
+		if (!s) {continue;}
 		const parts = s.split(' ');
-		if (parts.length < 2) continue;
+		if (parts.length < 2) {continue;}
 		const name = parts[parts.length - 1];
 		const type = parts.slice(0, -1).join(' ');
 		const pointerDepth = (type.match(/\*/g) || []).length;
@@ -765,20 +765,20 @@ function ptrSizeBytes() {
 
 function simplifyPointerIndexingExpr(text, strideMap) {
 	let out = text;
-	if (!strideMap) return out;
+	if (!strideMap) {return out;}
 
 	for (var name in strideMap) {
-		if (!Object.prototype.hasOwnProperty.call(strideMap, name)) continue;
+		if (!Object.prototype.hasOwnProperty.call(strideMap, name)) {continue;}
 		const stride = strideMap[name] >>> 0;
-		if (!stride) continue;
+		if (!stride) {continue;}
 
 		// Match: * ( ( name + imm ) )   (with any whitespace, imm is dec or hex)
 		// Also handles extra parentheses like (*((name + imm))).
 		const re = new RegExp(`\\*\\s*\\(\\s*\\(\\s*${escapeRegExp(name)}\\s*\\+\\s*(0x[0-9a-fA-F]+|\\d+)\\s*\\)\\s*\\)`, 'g');
 		out = out.replace(re, (m, immStr) => {
 			const imm = immStr.startsWith('0x') ? parseInt(immStr, 16) : parseInt(immStr, 10);
-			if (!Number.isFinite(imm) || imm < 0) return m;
-			if (imm % stride !== 0) return m;
+			if (!Number.isFinite(imm) || imm < 0) {return m;}
+			if (imm % stride !== 0) {return m;}
 			const idx = (imm / stride) | 0;
 			return `${name}[${idx}]`;
 		});
@@ -791,20 +791,20 @@ function simplifyPointerIndexingExpr(text, strideMap) {
 }
 
 function simplifyPointerIndexing(session) {
-	if (!session || !session.routine || !session.instructions) return false;
+	if (!session || !session.routine || !session.instructions) {return false;}
 	const types = parseArgTypesFromRoutine(session.routine);
 	const psz = ptrSizeBytes();
-	if (!psz) return false;
+	if (!psz) {return false;}
 
 	const strideMap = Object.create(null);
 	for (var name in types) {
-		if (!Object.prototype.hasOwnProperty.call(types, name)) continue;
+		if (!Object.prototype.hasOwnProperty.call(types, name)) {continue;}
 		// `char **argv` => argv[1] from *(argv + 8)
 		if ((types[name].pointerDepth || 0) >= 2) {
 			strideMap[name] = psz;
 		}
 	}
-	if (Object.keys(strideMap).length === 0) return false;
+	if (Object.keys(strideMap).length === 0) {return false;}
 
 	let changed = false;
 	const events = collectEvents(session.instructions);
@@ -812,7 +812,7 @@ function simplifyPointerIndexing(session) {
 		const ev = events[i];
 		if (ev.type === 'stmt') {
 			const s0 = ev.getPlain();
-			if (!s0) continue;
+			if (!s0) {continue;}
 			const s1 = simplifyPointerIndexingExpr(s0, strideMap);
 			if (s1 !== s0) {
 				ev.setPlain(s1);
@@ -838,7 +838,7 @@ function simplifyPointerIndexing(session) {
 }
 
 function getAllRegisterNames() {
-	if (_regNamesCache) return _regNamesCache;
+	if (_regNamesCache) {return _regNamesCache;}
 	const names = Object.create(null);
 	try {
 		if (typeof radare2 !== 'undefined' && radare2 && radare2.command) {
@@ -853,7 +853,7 @@ function getAllRegisterNames() {
 }
 
 function isRegisterIdentifier(name) {
-	if (!name) return false;
+	if (!name) {return false;}
 	const regs = getAllRegisterNames();
 	return !!regs[name];
 }
@@ -863,7 +863,7 @@ function getArgumentAliasSeed(session) {
 		return null;
 	}
 	const argNamesArr = parseArgNamesFromRoutine(session.routine);
-	if (argNamesArr.length === 0) return null;
+	if (argNamesArr.length === 0) {return null;}
 	const argNames = Object.create(null);
 	for (let i = 0; i < argNamesArr.length; i++) {
 		argNames[argNamesArr[i]] = true;
@@ -877,15 +877,15 @@ function getArgumentAliasSeed(session) {
 		const raw = session.routine.extra.locals[i];
 		const line = asPlainString(raw).trim();
 		const m = line.match(/^([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*$/);
-		if (!m) continue;
+		if (!m) {continue;}
 		const lhs = m[1];
 		const rhs = m[2];
-		if (!isRegisterIdentifier(lhs) || !argNames[rhs]) continue;
+		if (!isRegisterIdentifier(lhs) || !argNames[rhs]) {continue;}
 		seedEnv[lhs] = rhs;
 		aliasLines[lhs] = raw;
 	}
 
-	if (Object.keys(seedEnv).length === 0) return null;
+	if (Object.keys(seedEnv).length === 0) {return null;}
 	return { seedEnv, aliasLines };
 }
 
@@ -894,7 +894,7 @@ function pruneArgumentAliasLocals(session, aliasLines) {
 		return false;
 	}
 	const usage = Object.create(null);
-	for (var reg in aliasLines) {
+	for (const reg in aliasLines) {
 		if (Object.prototype.hasOwnProperty.call(aliasLines, reg)) {
 			usage[reg] = 0;
 		}
@@ -905,15 +905,15 @@ function pruneArgumentAliasLocals(session, aliasLines) {
 		const ev = events[i];
 		if (ev.type === 'stmt') {
 			const s = ev.getPlain();
-			if (!s) continue;
-			for (var reg in usage) {
-				if (!Object.prototype.hasOwnProperty.call(usage, reg)) continue;
+			if (!s) {continue;}
+			for (const reg in usage) {
+				if (!Object.prototype.hasOwnProperty.call(usage, reg)) {continue;}
 				usage[reg] += identifierReadCountInPlainStatement(s, reg);
 			}
 		} else if (ev.type === 'cond') {
 			const s = getConditionReads(ev.instr);
-			for (var reg in usage) {
-				if (!Object.prototype.hasOwnProperty.call(usage, reg)) continue;
+			for (const reg in usage) {
+				if (!Object.prototype.hasOwnProperty.call(usage, reg)) {continue;}
 				usage[reg] += identifierReadCountInPlainStatement(s, reg);
 			}
 		}
@@ -968,6 +968,6 @@ export default function optimize(instructions, maxPasses, bpRegs) {
 		if (session && session.routine && argAlias) {
 			changed = pruneArgumentAliasLocals(session, argAlias.aliasLines) || changed;
 		}
-		if (!changed) break;
+		if (!changed) {break;}
 	}
 }
