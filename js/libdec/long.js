@@ -24,6 +24,8 @@ function toNum(num, unsigned) {
 		return BigInt.asIntN(64, num);
 	} else if (Long.isLong(num)) {
 		return num.value;
+	} else if (itype === 'string') {
+		return Long.from(num);
 	}
 	throw new Error("Unexpected type: " + (typeof num));
 }
