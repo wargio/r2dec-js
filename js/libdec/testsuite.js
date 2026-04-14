@@ -17,6 +17,7 @@ function _new_evars(issue) {
         paddr: false,
         pseudo: false,
         xrefs: false,
+        vars: true,
     };
     evars.extra = {
         allfuncs: false,

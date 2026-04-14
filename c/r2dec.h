@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 Giovanni Dante Grazioli <deroad@libero.it>
+// SPDX-FileCopyrightText: 2023-2026 Giovanni Dante Grazioli <deroad@kumo.xn--q9jyb4c>
 // SPDX-License-Identifier: BSD-3-Clause
 
 #ifndef R2DEC_H

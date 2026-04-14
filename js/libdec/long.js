@@ -24,6 +24,8 @@ function toNum(num, unsigned) {
 		return BigInt.asIntN(64, num);
 	} else if (Long.isLong(num)) {
 		return num.value;
+	} else if (itype === 'string') {
+		return Long.from(num);
 	}
 	throw new Error("Unexpected type: " + (typeof num));
 }
@@ -80,11 +82,15 @@ Long.from = function(input, isUnsigned, base) {
 		if (base == 16 && !input.startsWith('0x')) {
 			input = "0x" + input;
 		}
-		let value = BigInt(input);
-		if (isNeg) {
-			value = 0n - value;
+		try {
+			let value = BigInt(input);
+			if (isNeg) {
+				value = 0n - value;
+			}
+			return new Long(value, isUnsigned);
+		} catch (e) {
+			throw new Error(e.message + ': ' + input);
 		}
-		return new Long(value, isUnsigned);
 	} else if (Long.isLong(input)) {
 		return input;
 	}
