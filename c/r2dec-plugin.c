@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2018-2025 Giovanni Dante Grazioli <deroad@libero.it>
+// SPDX-FileCopyrightText: 2018-2026 Giovanni Dante Grazioli <deroad@kumo.xn--q9jyb4c>
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include <stdlib.h>
@@ -34,22 +34,14 @@ static JSValue js_command(JSContext *ctx, JSValueConst jsThis, int argc, JSValue
 
 	ExecContext *ectx = (ExecContext *)JS_GetContextOpaque(ctx);
 	RCore *core = ectx->core;
-#if R2_VERSION_NUMBER >= 50909
 	r_cons_sleep_end(core->cons, ectx->bed);
-#else
-	r_cons_sleep_end(ectx->bed);
-#endif
 
 	char *output = r_core_cmd_str(core, command);
 	JS_FreeCString(ctx, command);
 	JSValue result = JS_NewString(ctx, output ? output : "");
 	free(output);
 
-#if R2_VERSION_NUMBER >= 50909
 	ectx->bed = r_cons_sleep_begin(core->cons);
-#else
-	ectx->bed = r_cons_sleep_begin();
-#endif
 	return result;
 }
 
@@ -58,28 +50,16 @@ static JSValue js_console_log(JSContext *ctx, JSValueConst jsThis, int argc, JSV
 	RCore *core = ectx->core;
 	for (int i = 0; i < argc; ++i) {
 		if (i != 0) {
-#if R2_VERSION_NUMBER >= 50909
 			r_cons_print(core->cons, " ");
-#else
-			r_cons_print(" ");
-#endif
 		}
 		const char *str = JS_ToCString(ctx, argv[i]);
 		if (!str) {
 			return JS_EXCEPTION;
 		}
-#if R2_VERSION_NUMBER >= 50909
 		r_cons_print(core->cons, str);
-#else
-		r_cons_print(str);
-#endif
 		JS_FreeCString(ctx, str);
 	}
-#if R2_VERSION_NUMBER >= 50909
 	r_cons_newline(core->cons);
-#else
-	r_cons_newline();
-#endif
 	return JS_UNDEFINED;
 }
 
@@ -138,15 +118,9 @@ static bool r2dec_main(RCore *core, const char *arg) {
 		return false;
 	}
 
-#if R2_VERSION_NUMBER >= 50909
 	ectx.bed = r_cons_sleep_begin(core->cons);
 	bool ret = r2dec_run(dec);
 	r_cons_sleep_end(core->cons, ectx.bed);
-#else
-	ectx.bed = r_cons_sleep_begin();
-	bool ret = r2dec_run(dec);
-	r_cons_sleep_end(ectx.bed);
-#endif
 
 	r2dec_destroy(dec, &ectx);
 	return ret;
@@ -169,11 +143,7 @@ static void usage(const RCore* const core) {
 		NULL
 	};
 
-#if R2_VERSION_NUMBER >= 50909
 	r_cons_cmd_help(core->cons, help, core->print->flags & R_PRINT_FLAGS_COLOR);
-#else
-	r_cons_cmd_help(help, core->print->flags & R_PRINT_FLAGS_COLOR);
-#endif
 }
 
 static void _cmd_pdd(RCore *core, const char *input) {
@@ -227,7 +197,6 @@ static void _cmd_pdd(RCore *core, const char *input) {
 	}
 }
 
-#if R2_VERSION_NUMBER >= 50909
 static bool r_cmd_pdd(RCorePluginSession *cps, const char *input) {
 	if (r_str_startswith (input, "pdd")) {
 		RCore *core = cps->core;
@@ -238,20 +207,7 @@ static bool r_cmd_pdd(RCorePluginSession *cps, const char *input) {
 	}
 	return false;
 }
-#else
-static int r_cmd_pdd(void *user, const char *input) {
-	RCore *core = (RCore *) user;
-	if (r_str_startswith (input, "pdd")) {
-		const ut64 addr = core->offset;
-		_cmd_pdd (core, input + 3);
-		r_core_seek (core, addr, true);
-		return 1;
-	}
-	return 0;
-}
-#endif
 
-#if R2_VERSION_NUMBER >= 50909
 static bool r_cmd_pdd_init(RCorePluginSession *cps) {
 	RConfig *cfg = cps->core->config;
 	r_config_lock (cfg, false);
@@ -277,50 +233,13 @@ static bool r_cmd_pdd_init(RCorePluginSession *cps) {
 	}
 	return true;
 }
-#else
-static int r_cmd_pdd_init(void *user, const char *cmd) {
-	RCmd *rcmd = (RCmd*) user;
-	RCore *core = (RCore *) rcmd->data;
-	RConfig *cfg = core->config;
-	r_config_lock (cfg, false);
-	SETPREF("r2dec.asm", "false", "if true, shows pseudo next to the assembly.");
-	SETPREF("r2dec.blocks", "false", "if true, shows only scopes blocks.");
-	SETPREF("r2dec.casts", "false", "if false, hides all casts in the pseudo code.");
-	SETPREF("r2dec.debug", "false", "do not catch exceptions in r2dec.");
-	SETPREF("r2dec.highlight", "default", "highlights the current address.");
-	SETPREF("r2dec.paddr", "false", "if true, all xrefs uses physical addresses compare.");
-	SETPREF("r2dec.slow", "false", "load all the data before to avoid multirequests to r2.");
-	SETPREF("r2dec.vars", "true", "if true, shows local variable definitions.");
-	SETPREF("r2dec.xrefs", "false", "if true, shows all xrefs in the pseudo code.");
-	r_config_lock (cfg, true);
-
-	// autocomplete here..
-	r_core_autocomplete_add (core->autocomplete, "pdd", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (core->autocomplete, "pdd?", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (core->autocomplete, "pdd*", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (core->autocomplete, "pdda", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (core->autocomplete, "pddb", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (core->autocomplete, "pddc", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (core->autocomplete, "pddf", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (core->autocomplete, "pddi", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (core->autocomplete, "pdds", R_CORE_AUTOCMPLT_DFLT, true);
-	r_core_autocomplete_add (core->autocomplete, "pddu", R_CORE_AUTOCMPLT_DFLT, true);
-	return true;
-}
-#endif
 
 RCorePlugin core_plugin_r2dec = {
-#if R2_VERSION_NUMBER > 50808
 	.meta = {
 		.name = "r2dec",
 		.desc = "Pseudo-code decompiler for radare2",
 		.license = "BSD-3",
 	},
-#else
-	.name = "r2dec",
-	.desc = "Pseudo-code decompiler for radare2",
-	.license = "BSD-3",
-#endif
 	.call = r_cmd_pdd,
 	.init = r_cmd_pdd_init
 };
@@ -335,12 +254,8 @@ RCorePlugin core_plugin_r2dec = {
 _R_API RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_CORE,
 	.data = &core_plugin_r2dec,
-	.version = R2_VERSION
-#if R2_VERSION_MAJOR >= 4 &&  R2_VERSION_MINOR >= 2
-	, .pkgname = "r2dec"
-#endif
-#if R2_VERSION_NUMBER >= 50909
-	, .abiversion = R2_ABIVERSION
-#endif
+	.version = R2_VERSION,
+	.pkgname = "r2dec",
+	.abiversion = R2_ABIVERSION
 };
 #endif
