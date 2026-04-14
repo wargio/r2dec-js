@@ -80,11 +80,15 @@ Long.from = function(input, isUnsigned, base) {
 		if (base == 16 && !input.startsWith('0x')) {
 			input = "0x" + input;
 		}
-		let value = BigInt(input);
-		if (isNeg) {
-			value = 0n - value;
+		try {
+			let value = BigInt(input);
+			if (isNeg) {
+				value = 0n - value;
+			}
+			return new Long(value, isUnsigned);
+		} catch (e) {
+			throw new Error(e.message + ': ' + input);
 		}
-		return new Long(value, isUnsigned);
 	} else if (Long.isLong(input)) {
 		return input;
 	}
