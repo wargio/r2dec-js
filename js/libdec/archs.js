@@ -13,6 +13,7 @@ import ppc from './arch/ppc.js';
 import riscv from './arch/riscv.js';
 import sh from './arch/sh.js';
 import sparc from './arch/sparc.js';
+import stm8 from './arch/stm8.js';
 import v850 from './arch/v850.js';
 import wasm from './arch/wasm.js';
 import x86 from './arch/x86.js';
@@ -31,6 +32,7 @@ export default {
 	riscv: riscv,
 	sh: sh,
 	sparc: sparc,
+	stm8: stm8,
 	v850: v850,
 	wasm: wasm,
 	x86: x86,
