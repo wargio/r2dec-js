@@ -66,9 +66,10 @@ function main(args) {
 					if (x.name.startsWith('sym.imp.') || x.name.startsWith('loc.imp.')) {
 						return;
 					}
-					r2pipe.string('s 0x' + x.offset.toString(16));
-					Shared.context.printLine("", x.offset);
-					Shared.context.printLine(Shared.printer.theme.comment('/* name: ' + x.name + ' @ 0x' + x.offset.toString(16) + ' */'), x.offset);
+					var fcn_addr = x.offset || x.addr;
+					r2pipe.string('s 0x' + fcn_addr.toString(16));
+					Shared.context.printLine("", fcn_addr);
+					Shared.context.printLine(Shared.printer.theme.comment('/* name: ' + x.name + ' @ 0x' + fcn_addr.toString(16) + ' */'), fcn_addr);
 					decompile_offset(architecture, x.name);
 				});
 				r2pipe.string('s 0x' + current.toString(16));
