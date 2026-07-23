@@ -142,8 +142,11 @@ static void usage(const RCore* const core) {
 		"pddi", "",                   "generate issue data",
 		NULL
 	};
-
+#if R2_ABIVERSION >= 125
+	r_cons_cmd_help(core->cons, help);
+#else
 	r_cons_cmd_help(core->cons, help, core->print->flags & R_PRINT_FLAGS_COLOR);
+#endif
 }
 
 static void _cmd_pdd(RCore *core, const char *input) {
