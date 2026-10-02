@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  R2V: 6.2.0
+  R2V: 6.2.2
 
 jobs:
   sources:
@@ -73,6 +73,92 @@ jobs:
       with:
         name: r2dec_${{env.R2V}}_linux_amd64.zip
         path: r2dec_${{env.R2V}}_linux_amd64.zip
+
+  bindist:
+    name: Build r2pm binary (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
+      with:
+        python-version: "3.12"
+    - name: install meson and ninja
+      run: pip3 install meson ninja
+    - name: install r2
+      uses: radareorg/github-actions@v3
+      with:
+        version: ${{env.R2V}}
+    - name: build plugin
+      run: |
+        meson setup build
+        ninja -C build
+    - name: package r2pm binary
+      run: |
+        # triplet: r2pm -H needs a recent r2pm; older ones exit 0 with empty
+        OS=$(r2pm -H R2PM_OS 2>/dev/null)
+        ARCH=$(r2pm -H R2PM_ARCH 2>/dev/null)
+        BITS=$(r2pm -H R2PM_BITS 2>/dev/null)
+        if [ -z "$OS" ]; then
+          case "$(uname -s)" in
+            Darwin) OS=darwin ;;
+            Linux) OS=linux ;;
+            *) OS=$(uname -s | tr '[:upper:]' '[:lower:]') ;;
+          esac
+        fi
+        if [ -z "$ARCH" ]; then ARCH=$(uname -m); fi
+        case "$ARCH" in
+          x86_64|amd64) ARCH=x86 ;;
+          aarch64|arm64) ARCH=arm ;;
+        esac
+        if [ -z "$BITS" ]; then BITS=$(getconf LONG_BIT); fi
+        LIBEXT=so
+        if [ "$(uname)" = Darwin ]; then LIBEXT=dylib; fi
+        echo "bindist triplet: ${OS}-${ARCH}-${BITS} (libext=${LIBEXT})"
+        mkdir -p bindist/plugins
+        cp "build/libcore_pdd.$LIBEXT" bindist/plugins/
+        cd bindist && zip -qr "../r2dec-${R2V}-${OS}-${ARCH}-${BITS}.zip" plugins
+    - uses: actions/upload-artifact@v7
+      with:
+        name: bindist-${{matrix.os}}
+        path: r2dec-*.zip
+        if-no-files-found: error
+
+  release:
+    name: Publish release
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    needs:
+      - linux
+      - w64
+      - bindist
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - name: Download artifacts
+      uses: actions/download-artifact@v8
+      with:
+        path: release-assets
+        merge-multiple: true
+    - name: Create GitHub release
+      uses: softprops/action-gh-release@v3.0.0
+      with:
+        name: ${{ github.ref_name }}
+        tag_name: ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        fail_on_unmatched_files: true
+        files: |
+          release-assets/r2dec-6.2.2-*.zip
+          release-assets/r2dec_*_linux_amd64.zip
+          release-assets/r2dec-*-w64.zip
+          release-assets/r2dec-*-src-with-deps.zip
 #    - name: packaging
 #      run: make -C p/dist/debian
 #    - name: test deb
@@ -155,10 +241,19 @@ jobs:
         copy build\*.dll "%PLUGINDIR%" || exit /b 666
         cd %BINDIR%
         radare2.exe -qc "pdd? ; af ; pdd" radare2.exe
+    - name: package r2pm binary
+      shell: cmd
+      run: |
+        mkdir bindist\plugins
+        copy build\libcore_pdd.dll bindist\plugins\
+        cd bindist
+        tar -a -c -f ..\r2dec-%R2V%-windows-x86-64.zip plugins
     - uses: actions/upload-artifact@v7
       with:
         name: r2dec-${{env.R2V}}-w64.zip
-        path: r2dec-plugin
+        path: |
+          r2dec-plugin
+          r2dec-%R2V%-windows-x86-64.zip
   w32:
     runs-on: windows-latest
     steps:
